@@ -1,0 +1,314 @@
+Align/Trace Registration Refactor Plan
+=====================================
+
+Objective
+---------
+Replace the current single-anchor alignment workflow with a dedicated registration workflow in Align mode and a passive map-following workflow in Trace mode.
+
+This is not an incremental feature patch. It is a controlled architectural shift:
+
+- pins become stored reference correspondences
+- solved transform becomes derived state from pins
+- align gestures manipulate overlay placement, not the final fitted transform
+- trace rendering uses the solved transform when available
+
+
+Product Behavior
+----------------
+Align mode:
+
+- wheel over overlay scales the overlay only
+- drag over overlay moves the overlay only
+- shift+drag moves overlay and underlying iD map together, preserving their relative placement
+- double-click on overlay adds a pin:
+  - image pixel under cursor
+  - map coordinate currently underneath
+- pins are visibly rendered on top of the overlay
+- double-click on an existing pin removes it
+- panel provides an explicit "Compute transform" action
+
+Trace mode:
+
+- overlay is fully passive
+- iD owns interaction everywhere
+- panning/zooming iD always moves the overlay with the map
+- if a solved transform exists, render from it
+- otherwise render from the simpler unfitted align placement model
+
+
+Core Design Constraints
+-----------------------
+Single source of truth:
+
+- one persistent registration state model
+- one overlay render model
+- one pin collection model
+- one solved transform model
+- one interaction state machine
+
+No mixed ownership:
+
+- core modules do geometry and state only
+- content modules do DOM and page integration only
+- page adapter is the only module that knows about iD DOM/map viewport details
+
+No hidden derived state:
+
+- pins are persisted state
+- solved transform is recomputed from pins or absent
+- overlay rendering never keeps its own geometry state separate from store state
+
+
+State Model Revision
+--------------------
+Replace the current fit state with an explicit registration model.
+
+Target store shape:
+
+{
+  mode,
+  opacity,
+  image,
+  placement: {
+    centerMapLatLon,
+    scale,
+    rotationRad
+  },
+  registration: {
+    pins: [
+      {
+        id,
+        imagePx: { x, y },
+        mapLatLon: { lat, lon }
+      }
+    ],
+    solvedTransform: null | {
+      type,
+      params
+    },
+    dirty: boolean
+  }
+}
+
+Notes:
+
+- placement is the simple manual overlay pose used during align
+- solvedTransform is derived from pins and invalidated when pins change
+- dirty indicates that pins changed after the last solve
+- current single-anchor fit fields should be removed rather than adapted in place
+
+
+Transform Strategy
+------------------
+Phase 1 transform support:
+
+- continue to support the existing manual similarity placement model for align rendering
+- add a separate solver path from pin correspondences
+- minimum solve requirement:
+  - 2 pins for similarity transform
+
+Recommended initial solve target:
+
+- similarity transform from 2+ pins
+  - translation
+  - uniform scale
+  - rotation
+
+This keeps v1 of the refactor mathematically aligned with the current interaction model.
+
+Future extension:
+
+- affine from 3 pins
+- projective from 4 pins
+
+Do not build those now.
+
+
+Module Refactor Plan
+--------------------
+1. State
+
+Revise `src/core/state.js`:
+
+- remove single-anchor fit shape
+- add `placement`
+- add `registration.pins`
+- add `registration.solvedTransform`
+- add targeted transitions:
+  - `loadImageSession`
+  - `setPlacement`
+  - `patchPlacement`
+  - `addPin`
+  - `removePin`
+  - `clearPins`
+  - `setSolvedTransform`
+  - `invalidateSolvedTransform`
+
+2. Transform
+
+Revise `src/core/transform.js`:
+
+- keep pure placement math
+- add pure pin/solve helpers
+- add pin hit-testing helpers
+- add render helpers for:
+  - placement-only render
+  - solved-transform render
+
+Do not let DOM code do geometry math inline.
+
+3. Interactions
+
+Rewrite `src/core/interactions.js` around explicit modes:
+
+Align mode responsibilities:
+
+- wheel -> placement scale
+- drag -> placement translation
+- shift+drag -> "shared pan" gesture signal
+- double-click -> add/remove pin request
+- compute transform request
+
+Trace mode responsibilities:
+
+- no overlay pointer ownership
+- no placement mutation
+
+Interaction outputs should be typed events, not UI callbacks.
+
+4. Overlay
+
+Rewrite `src/content/overlay.js`:
+
+- render overlay image from state
+- render pin markers from registration pins
+- resolve double-clicks to:
+  - remove pin if hit existing pin
+  - add pin otherwise
+- support align gesture wiring
+- in trace mode, disable interaction completely
+
+5. Page adapter
+
+Extend `src/content/page-adapter.js` carefully:
+
+- keep viewport/screen/map conversion as the only iD-aware layer
+- add explicit support for shared pan during shift+drag
+
+That may initially be implemented as a best-effort drag synthesis or delegated "do nothing for v1" if robust map-drag forwarding is not yet clean.
+
+If shift+drag is not robust enough immediately, leave it behind a clearly named adapter capability gate rather than partially faking it.
+
+6. Panel
+
+Revise `src/content/panel.js`:
+
+- replace current pin-centric copy with registration-centric copy
+- add:
+  - pin count
+  - transform status
+  - compute transform button
+  - clear pins button
+
+Do not make panel code decide geometry or solve validity itself. It should consume derived capability state only.
+
+7. Status
+
+Revise `src/content/status-controller.js`:
+
+- align copy should describe registration workflow
+- trace copy should describe passive overlay behavior
+- add messages for:
+  - pin added
+  - pin removed
+  - transform computed
+  - insufficient pins
+  - dirty solved transform
+
+
+Migration / Cleanup Sequence
+----------------------------
+Do this in order:
+
+1. Remove stale single-anchor naming from state and transform modules.
+2. Introduce new registration state shape with compatibility-breaking tests updated first.
+3. Keep placement rendering working before introducing solve logic.
+4. Add pin rendering and pin collection.
+5. Add compute-transform action and solved-transform render path.
+6. Switch trace mode to prefer solved transform when present.
+7. Remove any remaining transitional helpers from the old anchor-based workflow.
+
+Principle:
+
+- do not keep parallel "old fit" and "new registration" models longer than necessary
+- prefer one hard cut with updated tests over a long compatibility layer
+
+
+Test Plan
+---------
+Add and update tests before and with behavior changes.
+
+Unit tests:
+
+- `state`
+  - pin add/remove/clear
+  - solved transform invalidation on pin mutation
+  - placement mutation remains isolated from registration state
+- `transform`
+  - similarity solve from 2 pins
+  - placement render vs solved render selection
+  - pin hit testing
+- `interactions`
+  - double-click add pin
+  - double-click remove pin
+  - wheel/drag mutate placement in align only
+  - trace mode ignores overlay gestures
+  - compute-transform request fails with insufficient pins
+
+Integration tests:
+
+- bootstrap still injects one panel and one overlay
+- pins are visibly rendered
+- double-click adds then removes a pin
+- compute transform updates status and render path
+- trace mode disables overlay pointer ownership
+
+Contract/build tests:
+
+- keep manifest/resource coverage unchanged
+- no new broad permissions
+
+
+Implementation Milestones
+-------------------------
+Milestone 1:
+
+- new store model
+- placement-only overlay still working
+- stale anchor terminology removed
+
+Milestone 2:
+
+- visible pins
+- add/remove pin on double-click
+- registration-oriented panel/status
+
+Milestone 3:
+
+- compute transform button
+- solved transform storage/invalidation
+- trace mode prefers solved transform
+
+Milestone 4:
+
+- shift+drag shared-pan support, only if it is robust enough
+
+
+Definition of Done
+------------------
+- Align mode is clearly a registration workflow
+- Trace mode is clearly passive
+- pins are visible and persistent
+- transform computation is explicit and test-covered
+- overlay render path is derived from one state model
+- no remaining stale single-anchor API surface remains in active use

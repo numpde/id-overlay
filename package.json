@@ -1,0 +1,16 @@
+{
+  "name": "id-overlay",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build:chrome": "node ./scripts/build-chrome.mjs",
+    "test:unit": "node --test test/unit/*.test.js",
+    "test:integration": "node --test test/integration/*.test.js",
+    "test:contracts": "node --test test/contracts/*.test.js",
+    "test:build": "npm run build:chrome && node --test test/build/*.test.js",
+    "test": "npm run test:unit && npm run test:integration && npm run test:contracts && npm run test:build"
+  },
+  "devDependencies": {
+    "jsdom": "^29.1.0"
+  }
+}

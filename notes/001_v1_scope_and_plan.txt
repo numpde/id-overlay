@@ -1,0 +1,70 @@
+This note defines the v1 plan for `id-overlay`.
+
+The project is a minimal browser extension for the OpenStreetMap iD editor on `openstreetmap.org/edit`.
+Its job is only to provide a pasted screenshot as a visual reference on top of the existing map editor.
+It is not a second editor, not an OSM uploader, and not a tracing engine.
+
+Core goal:
+- let a mapper paste a screenshot
+- place it visually over the iD map
+- align it by drag, scale, and rotation
+- optionally re-pin one reference point
+- switch out of the way so the mapper can trace directly in iD
+
+Minimal product shape:
+- runs as a browser extension content script on the OSM iD editor page
+- injects a small floating panel
+- draws a screenshot overlay above the map
+- has two modes:
+  - `trace`: overlay visible, but inert
+  - `align`: overlay interactive for positioning
+
+Single source of truth for geometry:
+- image source
+- opacity
+- anchor image pixel
+- anchor map coordinate
+- scale
+- rotation
+
+This means the overlay transform is modeled as one anchored similarity transform.
+We do not maintain separate drag offsets, independent CSS transforms, or multiple competing geometry states.
+
+Expected v1 controls:
+- `Paste`
+- `Align / Trace`
+- `Pin here`
+- `Opacity`
+- `Clear`
+
+Expected v1 interactions:
+- drag in `align` mode
+- wheel to scale
+- `Shift + wheel` to rotate
+- temporary pass-through to iD while aligning
+- `Esc` to return to `trace`
+
+Recommended initial file layout:
+- `manifest.json`
+- `content.js`
+- `overlay.js`
+- `state.js`
+- `content.css`
+
+Implementation order:
+1. Inject the floating panel on the iD page.
+2. Paste an image and render it as an overlay.
+3. Support opacity and show/hide.
+4. Support drag in `align` mode.
+5. Support scale and rotation around the anchor.
+6. Add `Pin here` to reset the anchor.
+7. Add `trace` mode with `pointer-events: none`.
+
+Acceptance criteria for v1:
+- the user can paste a screenshot
+- the user can align it well enough for local tracing
+- the overlay does not interfere with normal iD editing once switched to `trace`
+- the implementation remains small and comprehensible
+
+This note is here to keep the project narrow.
+If future ideas do not directly support "visual reference overlay for iD", they should be treated as out of scope unless deliberately promoted into a later version.

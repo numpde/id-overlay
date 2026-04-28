@@ -1,0 +1,202 @@
+This note defines the next implementation milestone for `id-overlay`.
+
+The goal of this milestone is to make the extension genuinely usable for the first time while preserving strict separation of concerns, single sources of truth, and low duplication.
+
+
+Milestone outcome:
+
+The user can:
+- load the extension in Chromium
+- paste a screenshot
+- see it over the iD editor map
+- switch between `align` and `trace`
+- drag the overlay
+- scale and rotate it
+- re-pin the anchor
+- reload the page without losing the current alignment session
+
+
+Architectural principles for this milestone:
+
+1. One source of truth for extension state.
+All user-visible behavior must derive from the store state.
+No feature may depend on hidden DOM state, ad hoc mutable module variables, or parallel geometry representations.
+
+2. One source of truth for overlay geometry.
+The overlay’s rendered position, size, and rotation must always come from the anchored transform model.
+Never maintain separate concepts for:
+- overlay CSS position
+- drag offset
+- anchor translation
+- viewport-relative position
+
+3. One page integration boundary.
+All assumptions about the iD page structure must live in the page adapter.
+No other module should query the host page directly.
+
+4. One interaction state machine.
+Drag, scale, rotate, pin, and temporary pass-through must be coordinated through one interaction controller.
+Do not create separate independent handlers that each modify state differently.
+
+5. One persistence boundary.
+Only the storage module talks to extension storage.
+Other modules work with plain state objects.
+
+6. Rendering is downstream of state.
+Rendering modules should not contain product decisions about mode or geometry.
+They should interpret state, not invent it.
+
+
+Strict module responsibilities for the next milestone:
+
+`src/content/page-adapter.js`
+- own all host-page knowledge
+- discover the actual iD viewport
+- expose viewport rect updates
+- expose any map-motion signals needed later
+- expose a minimal stable interface only
+
+This module must not:
+- own overlay transform state
+- own extension UI state
+- perform rendering
+
+
+`src/core/state.js`
+- remain the source of truth for:
+  - mode
+  - image
+  - opacity
+  - anchor image pixel
+  - anchor map coordinate
+  - scale
+  - rotation
+- grow only through explicit state transitions
+
+This module must not:
+- query the DOM
+- know anything about the iD page
+- perform rendering
+
+
+`src/core/transform.js`
+- own the overlay math
+- define how the anchored transform becomes render geometry
+- define how drag, scale, rotate, and repin change transform state
+
+This module must be:
+- pure
+- deterministic
+- heavily unit tested
+
+
+`src/core/interactions.js`
+- own the interaction state machine
+- define:
+  - current interaction mode
+  - whether pointer input belongs to the extension or passes through
+  - drag lifecycle
+  - wheel gesture interpretation
+  - pin command interpretation
+
+This module must not:
+- manipulate DOM directly
+- persist state directly
+- contain page-specific DOM queries
+
+
+`src/content/overlay.js`
+- render the screenshot from current state and viewport data
+- apply CSS based on a render model
+- remain dumb about policy
+
+This module must not:
+- compute product rules for interactions
+- mutate the core transform directly
+
+
+`src/content/panel.js`
+- provide the control surface only
+- emit intent:
+  - paste image
+  - switch mode
+  - change opacity
+  - clear
+  - pin
+
+This module must not:
+- contain transform math
+- query the host page
+
+
+`src/core/storage.js`
+- load and save state snapshots only
+
+This module must not:
+- transform state
+- decide what should be persisted
+
+
+Recommended implementation order:
+
+1. Strengthen the transform model.
+Before adding visible interaction features, define the pure transform update functions needed for:
+- drag
+- wheel scale
+- wheel rotate
+- repin
+
+These functions should accept plain inputs and return next-state values.
+
+2. Expand unit coverage first.
+Add transform tests before wiring DOM handlers.
+The interaction math should be proven in isolation before any content-script behavior depends on it.
+
+3. Upgrade the page adapter.
+Make viewport discovery more deliberate and stable.
+If necessary, introduce a small adapter contract that can be mocked in tests.
+
+4. Introduce the interaction controller.
+Wire one interaction module between UI events and store updates.
+The panel and overlay should both talk to it through a narrow interface.
+
+5. Make overlay rendering consume the real transform model.
+Remove any placeholder centering assumptions once drag/scale/rotate are wired.
+
+6. Add persistence once behavior is stable.
+Persist only the stable state shape, not ephemeral gesture state.
+
+
+Testing requirements for this milestone:
+
+Unit tests:
+- drag updates anchor/map placement correctly
+- scale changes geometry around the anchor
+- rotate changes geometry around the anchor
+- repin changes the anchor without corrupting transform state
+
+Integration tests:
+- align/trace mode switch updates the rendered overlay and panel state
+- bootstrap with stored image/transform restores the overlay
+- reinjection still results in one panel and one overlay
+
+Contract tests:
+- any new module imported by the content bootstrap is declared correctly for Chromium MV3 loading
+- permissions remain unchanged unless there is a concrete need
+
+
+Anti-patterns to avoid during this milestone:
+
+- updating DOM styles directly in event handlers without passing through state
+- keeping gesture-specific geometry in overlay.js
+- allowing page-adapter logic to leak into panel or overlay modules
+- using duplicated “current mode” logic in multiple places
+- introducing a framework or bundler to solve simple module-structure problems
+
+
+Definition of done:
+
+- the next vertical slice is usable by hand in Chromium
+- the architecture remains small and explainable
+- new behavior is added through pure transform/state logic first, then UI wiring
+- the tests grow with the feature set instead of trailing far behind it

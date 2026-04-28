@@ -1,0 +1,266 @@
+This note defines the initial scaffold plan for `id-overlay`, based on current Chromium extension guidance and a later path to multi-browser support.
+
+Best-practice conclusions from research:
+
+1. Start with Manifest V3 for Chromium.
+Chromium extensions should use Manifest V3. This is the current Chrome extension platform and the required target for new Chrome Web Store submissions.
+
+2. Keep permissions narrow.
+The extension should ask only for what it actually needs. For v1, that likely means:
+- host access for `https://www.openstreetmap.org/*`
+- `storage`
+
+Avoid adding background capabilities, network permissions, or optional APIs until a real feature requires them.
+
+3. Avoid a background/service-worker context unless it is needed.
+Manifest V3 supports extension service workers, but v1 does not need one if the product is only a content-script overlay running inside the iD page.
+That keeps the scaffold smaller and easier to reason about.
+
+4. Do not rely on Chromium-only API style in core code.
+Even though Chromium is the first target, the code structure should stay WebExtensions-friendly:
+- browser-facing code should be isolated
+- core logic should not depend on `chrome.*` being available everywhere
+- if/when extension API calls grow, we should use a thin wrapper or `webextension-polyfill`
+
+5. Keep extension code packaged and local.
+Manifest V3 does not allow remotely hosted executable code. The scaffold should assume all runtime code, assets, and styles are shipped with the extension package.
+
+6. Keep the content-script UI isolated from the host page.
+Because this extension runs inside the OSM iD editor page, the scaffold should isolate UI and styles as much as possible. The intended default is:
+- one injected root element
+- one Shadow DOM boundary for extension UI
+- extension CSS kept inside that boundary
+
+7. Prefer a small number of stable modules.
+For v1, the scaffold should stay deliberately small. We should not introduce a build system or framework until plain modules stop being enough.
+
+8. Separate product logic from browser wiring.
+The transform math, interaction state, and overlay rendering rules should live in browser-agnostic modules. Browser and page integration should stay in thin adapter modules.
+
+9. Plan for testing from the start.
+Even if v1 begins with light testing, the scaffold should make it easy to add:
+- pure-unit tests for transform/state logic
+- manual test checklist for iD page behavior
+- later end-to-end browser automation
+
+
+Scaffold goals:
+
+- Chromium-first
+- MV3
+- content-script based
+- no service worker in v1
+- no framework in v1
+- plain JavaScript modules
+- easy to evolve into a cross-browser extension later
+
+
+Recommended repository layout:
+
+- `manifest.chrome.json`
+- `src/`
+- `src/content/`
+- `src/core/`
+- `src/vendor/`
+- `assets/`
+- `scripts/`
+- `test/`
+- `notes/`
+
+
+Recommended file layout for the initial scaffold:
+
+- `manifest.chrome.json`
+  Chromium-first manifest for local loading in Chrome/Chromium.
+
+- `src/content/content.js`
+  Content-script entrypoint.
+  Responsibilities:
+  - detect that the page is the iD editor context we support
+  - attach the extension root
+  - bootstrap state, panel, and overlay
+
+- `src/content/content.css`
+  Minimal host-page integration CSS if any host-level rules are needed.
+  Most extension styling should remain inside the Shadow DOM instead.
+
+- `src/content/panel.js`
+  Creates the floating panel and wires user controls.
+
+- `src/content/overlay.js`
+  Creates and updates the screenshot overlay layer.
+
+- `src/content/page-adapter.js`
+  Thin integration layer for the OSM iD page.
+  Responsibilities:
+  - find the correct map viewport container
+  - read the map view needed for overlay redraw
+  - expose a minimal stable interface to the rest of the extension
+
+- `src/core/state.js`
+  Single source of truth for extension state.
+  Holds:
+  - mode
+  - image source
+  - opacity
+  - anchor image pixel
+  - anchor map coordinate
+  - scale
+  - rotation
+
+- `src/core/transform.js`
+  Pure transform math.
+  No DOM and no browser APIs.
+
+- `src/core/interactions.js`
+  Pointer and wheel interaction state machine for:
+  - drag
+  - scale
+  - rotate
+  - pin
+  - temporary pass-through
+
+- `src/core/storage.js`
+  Thin persistence layer over extension storage.
+  Chromium-first implementation can start here, while keeping the API generic.
+
+- `src/vendor/`
+  Only for small vendored compatibility utilities if needed later, such as `webextension-polyfill`.
+  Do not add this until needed, but reserve the place.
+
+- `assets/`
+  Icons and any static extension assets.
+
+- `scripts/`
+  Small local dev scripts, such as:
+  - copying `manifest.chrome.json` to a loadable `dist/manifest.json`
+  - packaging for local install
+
+- `test/`
+  Start with unit tests for pure modules when they appear.
+
+
+Single-source-of-truth design rules for the scaffold:
+
+1. One runtime state model.
+The overlay should be rendered from one state object, not from duplicated DOM state plus parallel JS state.
+
+2. One transform model.
+Do not maintain separate concepts for:
+- CSS offset
+- drag offset
+- overlay position
+- pin translation
+
+All overlay geometry must come from the anchored transform model.
+
+3. One page integration layer.
+DOM queries and assumptions about the iD page should live in `page-adapter.js`, not spread across multiple modules.
+
+4. One interaction state machine.
+Do not implement drag, scale, rotate, and pass-through as unrelated handlers. They should be modeled in one place so input ownership is predictable.
+
+
+Recommended initial manifest shape:
+
+- `manifest_version: 3`
+- `name`
+- `version`
+- `description`
+- `icons`
+- `content_scripts`
+  - match `https://www.openstreetmap.org/*`
+  - load only the content entrypoint
+- `permissions`
+  - `storage`
+- `host_permissions`
+  - `https://www.openstreetmap.org/*`
+
+Do not add:
+- background service worker
+- action popup
+- commands
+- context menus
+- broad host permissions
+unless a concrete feature needs them.
+
+
+Recommended initial development approach:
+
+Phase 1: static extension shell
+- create the manifest
+- load a content script on the iD page
+- inject a Shadow DOM root
+- render a visible panel
+
+Phase 2: image lifecycle
+- support paste image
+- keep image in state
+- render overlay image above the map
+- support opacity
+
+Phase 3: transform lifecycle
+- implement anchored transform math
+- implement drag
+- implement scale with wheel
+- implement rotate with `Shift + wheel`
+- implement `Pin here`
+
+Phase 4: mode ownership
+- implement `trace` and `align`
+- implement temporary pass-through while aligning
+- ensure iD remains usable underneath in `trace`
+
+Phase 5: persistence and hardening
+- persist current session state
+- recover state on reload
+- add basic tests for transform and state modules
+- add a manual regression checklist
+
+
+Recommended engineering constraints:
+
+- Use plain ESM JavaScript first.
+- Avoid introducing TypeScript, React, a bundler, or a framework in the first scaffold.
+- Keep the extension loadable in Chromium directly from the repo or from a tiny generated `dist/`.
+- Keep browser-specific behavior at the edges so Firefox/other-browser support can later be added with:
+  - a second manifest
+  - a small API wrapper or polyfill
+  - minimal adaptation instead of a rewrite
+
+
+Expected immediate deliverable after scaffolding:
+
+A Chromium-loadable extension that:
+- injects into the iD page
+- shows a floating extension panel
+- owns a Shadow DOM root
+- has a state container and module boundaries in place
+- is ready for screenshot paste and overlay rendering in the next implementation step
+
+
+Primary sources used for this note:
+
+- Chrome extension best practices:
+  https://developer.chrome.com/docs/webstore/best_practices
+
+- Manifest V3 overview:
+  https://developer.chrome.com/docs/extensions/develop/migrate/what-is-mv3
+
+- Extension service worker basics:
+  https://developer.chrome.com/docs/extensions/develop/concepts/service-workers/basics
+
+- Manifest structure:
+  https://developer.chrome.com/docs/extensions/mv3/manifest
+
+- Content scripts:
+  https://developer.chrome.com/docs/extensions/develop/concepts/content-scripts
+
+- MDN cross-browser extension guidance:
+  https://developer.mozilla.org/docs/Mozilla/Add-ons/WebExtensions/Build_a_cross_browser_extension
+
+- MDN browser extensions overview:
+  https://developer.mozilla.org/en-US/docs/Add-ons/WebExtensions
+
+- webextension-polyfill:
+  https://github.com/mozilla/webextension-polyfill

@@ -1,0 +1,74 @@
+This note defines the initial test framework for `id-overlay`.
+
+Goals:
+- keep the test system small
+- make regressions in the extension shell visible early
+- separate pure-logic testing from browser-integration testing
+- validate the extension package shape, not just individual functions
+
+The framework is intentionally split into four layers.
+
+1. Unit tests
+- target pure modules only
+- no DOM required
+- fast and deterministic
+- cover:
+  - state normalization and store behavior
+  - transform math
+  - tiny shared utility stores
+  - interaction mode helpers
+
+2. Integration tests
+- run in a lightweight DOM environment
+- use `jsdom`
+- exercise bootstrap behavior of the extension shell
+- cover:
+  - host injection
+  - Shadow DOM creation
+  - panel and overlay creation
+  - storage loading
+  - supported-page gating
+
+3. Contract tests
+- validate project structure and extension wiring
+- cover:
+  - manifest shape
+  - declared resources exist
+  - imported modules used by the content bootstrap are listed in web-accessible resources where required
+  - permissions remain narrow
+
+4. Build tests
+- validate the built Chromium extension output
+- cover:
+  - `dist/manifest.json` exists
+  - manifest is copied correctly
+  - required source/assets are present in `dist/`
+
+Design rules:
+- keep `node:test` as the test runner
+- add only one DOM dependency: `jsdom`
+- do not add a browser E2E framework yet
+- do not add snapshots
+- do not add a bundler just for testing
+
+Repository test layout:
+- `test/unit/`
+- `test/integration/`
+- `test/contracts/`
+- `test/build/`
+- `test/helpers/`
+
+Execution model:
+- `npm run test:unit`
+- `npm run test:integration`
+- `npm run test:contracts`
+- `npm run test:build`
+- `npm test` runs them all in order
+
+Why this is the right level:
+- unit tests protect the transform/state core
+- integration tests catch bootstrap regressions
+- contract tests catch MV3 packaging mistakes
+- build tests catch local-release mistakes
+
+This should be enough rigor for the scaffold phase without dragging the project into a heavyweight test stack too early.

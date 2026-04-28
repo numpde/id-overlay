@@ -1,0 +1,45 @@
+{
+  "manifest_version": 3,
+  "name": "id-overlay",
+  "version": "0.0.1",
+  "description": "Paste a screenshot as a visual overlay on top of the OpenStreetMap iD editor.",
+  "permissions": [
+    "storage"
+  ],
+  "host_permissions": [
+    "https://www.openstreetmap.org/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.openstreetmap.org/edit*"
+      ],
+      "js": [
+        "src/content/content.js"
+      ],
+      "run_at": "document_start"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "src/content/content.css",
+        "src/content/main.js",
+        "src/content/panel.js",
+        "src/content/overlay.js",
+        "src/content/page-adapter.js",
+        "src/content/status-controller.js",
+        "src/core/build-info.js",
+        "src/core/value-store.js",
+        "src/core/logger.js",
+        "src/core/state.js",
+        "src/core/transform.js",
+        "src/core/storage.js",
+        "src/core/interactions.js"
+      ],
+      "matches": [
+        "https://www.openstreetmap.org/*"
+      ]
+    }
+  ]
+}
