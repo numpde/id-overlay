@@ -63,10 +63,15 @@ test("bootstrap injects one host, one panel, and one overlay into supported page
     assert.equal(host.shadowRoot.querySelector(".id-overlay-panel__title").textContent, "Reference Overlay");
     assert.equal(host.shadowRoot.querySelectorAll('link[data-id-overlay-styles="true"]').length, 1);
     assert.equal(host.shadowRoot.querySelector(".id-overlay-panel__meta").textContent.includes("built"), true);
+    const statusElement = host.shadowRoot.querySelector(".id-overlay-panel__status");
+    assert.equal(statusElement.title, "");
     assert.equal(env.document.querySelectorAll(".id-overlay-viewport").length, 1);
     const image = env.document.querySelector(".id-overlay-image");
+    const frame = env.document.querySelector(".id-overlay-frame");
     assert.equal(image.style.display, "block");
+    assert.equal(frame.style.display, "block");
     assert.ok(Number.parseFloat(image.style.width) > 0);
+    assert.ok(Number.parseFloat(frame.style.width) > 0);
   } finally {
     env.cleanup();
   }

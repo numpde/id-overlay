@@ -61,6 +61,7 @@
   grid-template-columns: auto auto 1fr auto;
   align-items: center;
   gap: 8px;
+  justify-self: center;
   user-select: none;
 }
 
@@ -132,7 +133,9 @@
 
 .id-overlay-field {
   display: grid;
-  gap: 6px;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
 }
 
 .id-overlay-field__label {
@@ -141,11 +144,51 @@
 
 .id-overlay-field__slider {
   width: 100%;
+  min-width: 0;
+}
+
+.id-overlay-panel__status-wrap {
+  position: relative;
+  min-height: 1.4em;
 }
 
 .id-overlay-panel__status {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 1;
   margin: 0;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 10px;
   color: #475569;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  background: rgba(255, 255, 255, 0.96);
+  outline: none;
+  max-height: 1.4em;
+  transition:
+    max-height 120ms ease-out,
+    padding 120ms ease-out,
+    border-color 120ms ease-out,
+    background-color 120ms ease-out,
+    box-shadow 120ms ease-out;
+}
+
+.id-overlay-panel__status:hover,
+.id-overlay-panel__status:focus-visible {
+  z-index: 2;
+  max-height: 8em;
+  padding: 8px 10px;
+  border-color: rgba(15, 23, 42, 0.14);
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.12);
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  transition-duration: 220ms;
 }
 
 .id-overlay-panel__clear-button {

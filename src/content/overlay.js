@@ -33,6 +33,15 @@ const OVERLAY_STYLE_TEXT = `
   pointer-events: none;
 }
 
+.id-overlay-frame {
+  position: absolute;
+  display: none;
+  border: 1px solid rgba(15, 23, 42, 0.42);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.36) inset;
+  user-select: none;
+  pointer-events: none;
+}
+
 .id-overlay-pin-layer {
   position: absolute;
   inset: 0;
@@ -60,9 +69,17 @@ const OVERLAY_STYLE_TEXT = `
   pointer-events: auto;
 }
 
+.id-overlay-viewport--interactive .id-overlay-frame {
+  cursor: grab;
+}
+
 .id-overlay-viewport--interactive[data-pass-through="true"] .id-overlay-image {
   cursor: default;
   pointer-events: none;
+}
+
+.id-overlay-viewport--interactive[data-pass-through="true"] .id-overlay-frame {
+  cursor: default;
 }
 `;
 
@@ -79,10 +96,13 @@ export function createOverlay({ pageAdapter, store, interactions }) {
   overlayImage.alt = "";
   overlayImage.decoding = "async";
 
+  const overlayFrame = document.createElement("div");
+  overlayFrame.className = "id-overlay-frame";
+
   const pinLayer = document.createElement("div");
   pinLayer.className = "id-overlay-pin-layer";
 
-  mapLayer.append(overlayImage, pinLayer);
+  mapLayer.append(overlayImage, overlayFrame, pinLayer);
   overlayRoot.append(mapLayer);
 
   let latestSnapshot = pageAdapter.getSnapshot();
@@ -173,6 +193,7 @@ export function createOverlay({ pageAdapter, store, interactions }) {
 
     if (!hasOverlayImageSession(state)) {
       overlayImage.style.display = "none";
+      overlayFrame.style.display = "none";
       overlayImage.removeAttribute("src");
       pinLayer.replaceChildren();
       return;
@@ -190,6 +211,7 @@ export function createOverlay({ pageAdapter, store, interactions }) {
     });
 
     overlayImage.style.display = "block";
+    overlayFrame.style.display = "block";
     if (overlayImage.src !== image.src) {
       overlayImage.src = image.src;
     }
@@ -204,6 +226,12 @@ export function createOverlay({ pageAdapter, store, interactions }) {
     overlayImage.style.opacity = String(model.opacity);
     overlayImage.style.transformOrigin = "0 0";
     overlayImage.style.transform = `rotate(${model.rotationDeg}deg)`;
+    overlayFrame.style.left = `${imageTopLeft.x}px`;
+    overlayFrame.style.top = `${imageTopLeft.y}px`;
+    overlayFrame.style.width = `${model.width}px`;
+    overlayFrame.style.height = `${model.height}px`;
+    overlayFrame.style.transformOrigin = "0 0";
+    overlayFrame.style.transform = `rotate(${model.rotationDeg}deg)`;
 
     renderPins(buildPinRenderModels({
       pins: state.registration.pins,

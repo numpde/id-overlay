@@ -89,10 +89,15 @@ export function createPanel({ shadow, store, interactions, statusController }) {
   opacityInput.className = "id-overlay-field__slider";
   opacityGroup.append(opacityLabel, opacityInput);
 
+  const statusWrap = document.createElement("div");
+  statusWrap.className = "id-overlay-panel__status-wrap";
+
   const statusElement = document.createElement("p");
   statusElement.className = "id-overlay-panel__status";
+  statusElement.tabIndex = 0;
+  statusWrap.append(statusElement);
 
-  root.append(header, modeSwitch, controls, opacityGroup, clearButton, statusElement);
+  root.append(header, modeSwitch, controls, opacityGroup, clearButton, statusWrap);
   shadow.append(root);
 
   let latestState = store.getState();

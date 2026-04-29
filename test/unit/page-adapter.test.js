@@ -228,6 +228,99 @@ test("page adapter derives a more precise map view from rendered tiles when avai
   }
 });
 
+test("page adapter retains the last coherent map view while live surface motion is active", () => {
+  const env = createDomEnvironment({
+    url: "https://www.openstreetmap.org/edit?editor=id#map=16.00/-1.2284/36.8244",
+    viewportHtml: '<div class="main-map"></div><div class="supersurface"></div><img class="tile tile-center" src="https://tile.openstreetmap.org/3/4/5.png">',
+  });
+
+  try {
+    const viewport = env.document.querySelector(".main-map");
+    viewport.getBoundingClientRect = () => ({
+      left: 120,
+      top: 80,
+      width: 800,
+      height: 600,
+      right: 920,
+      bottom: 680,
+    });
+
+    const surface = env.document.querySelector(".supersurface");
+    surface.style.transform = "none";
+    surface.style.transformOrigin = "0px 0px";
+
+    const tile = env.document.querySelector(".tile-center");
+    tile.style.transform = "matrix(2, 0, 0, 2, 120, 140)";
+
+    const adapter = createPageAdapter({
+      hashTarget: env.window,
+      viewportDocument: env.document,
+    });
+
+    const coherentMapView = adapter.getMapView();
+    assert.equal(coherentMapView.zoom, 4);
+
+    tile.remove();
+    surface.style.transform = "matrix(1.2, 0, 0, 1.2, -40, -30)";
+
+    const retainedMapView = adapter.getMapView();
+    assert.deepEqual(retainedMapView, coherentMapView);
+
+    adapter.destroy();
+  } finally {
+    env.cleanup();
+  }
+});
+
+test("page adapter keeps the same viewport mount through style churn while it remains visible", () => {
+  const env = createDomEnvironment({
+    url: "https://www.openstreetmap.org/edit?editor=id#map=16/-1.22645/36.82597",
+    viewportHtml: '<div class="main-map"></div><div class="supersurface"></div>',
+  });
+
+  try {
+    const viewport = env.document.querySelector(".main-map");
+    viewport.getBoundingClientRect = () => ({
+      left: 120,
+      top: 80,
+      width: 800,
+      height: 600,
+      right: 920,
+      bottom: 680,
+    });
+
+    const surface = env.document.querySelector(".supersurface");
+    surface.getBoundingClientRect = () => ({
+      left: 100,
+      top: 60,
+      width: 900,
+      height: 700,
+      right: 1000,
+      bottom: 760,
+    });
+
+    const adapter = createPageAdapter({
+      hashTarget: env.window,
+      viewportDocument: env.document,
+    });
+
+    const initialMount = adapter.getOverlayMountElement();
+    assert.equal(initialMount.classList.contains("main-map"), true);
+    assert.equal(initialMount.classList.contains("supersurface"), false);
+
+    surface.style.transform = "matrix(1.1, 0, 0, 1.1, -12, -8)";
+    surface.dispatchEvent(new env.window.Event("transitionrun", { bubbles: true }));
+
+    const nextMount = adapter.getOverlayMountElement();
+    assert.equal(nextMount.classList.contains("main-map"), true);
+    assert.equal(nextMount.classList.contains("supersurface"), false);
+
+    adapter.destroy();
+  } finally {
+    env.cleanup();
+  }
+});
+
 test("page adapter emits subscriber updates immediately when history.replaceState changes the map hash", () => {
   const env = createDomEnvironment({
     url: "https://www.openstreetmap.org/edit?editor=id#map=16/-1.22645/36.82597",

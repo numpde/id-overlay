@@ -30,6 +30,7 @@ export function createPageAdapter({
   let observedMapWindow = null;
   let observedMutationRoot = null;
   let lastSnapshot = null;
+  let lastCoherentMapView = null;
   let activeSharedDrag = null;
   const listeners = new Set();
 
@@ -216,12 +217,14 @@ export function createPageAdapter({
     hashTarget.removeEventListener("popstate", notifyIfChanged);
     detachObservedContext();
     lastSnapshot = null;
+    lastCoherentMapView = null;
   }
 
   function destroy() {
     stopWatching();
     listeners.clear();
     viewportElement = null;
+    lastCoherentMapView = null;
   }
 
   return {
@@ -254,42 +257,46 @@ export function createPageAdapter({
     return viewportElement;
   }
 
-  function resolveViewportRect(context) {
-    const element = resolveViewportElement(context);
-    if (!element) {
-      return context.frameElement
+  function resolveViewportGeometry(context) {
+    const resolvedViewportElement = resolveViewportElement(context);
+    if (!resolvedViewportElement) {
+      const fallbackViewportRect = context.frameElement
         ? rectFromDomRect(context.frameElement.getBoundingClientRect())
         : createWindowViewportRect(hashTarget);
-    }
-    const rect = element.getBoundingClientRect();
-    return context.frameElement
-      ? translateRectByFrame(rect, context.frameElement)
-      : rectFromDomRect(rect);
-  }
-
-  function resolveLocalViewportRect(context) {
-    const viewportElement = resolveViewportElement(context);
-    if (!viewportElement) {
-      return createWindowViewportRect(context.mapWindow);
-    }
-    const viewportRect = rectFromDomRect(viewportElement.getBoundingClientRect());
-    const mountElement = resolveOverlayMountElement(context);
-    if (!mountElement || mountElement === viewportElement) {
       return {
-        left: 0,
-        top: 0,
-        width: viewportRect.width,
-        height: viewportRect.height,
+        viewportElement: null,
+        mountElement: context.viewportDocument.body
+          ?? context.viewportDocument.documentElement
+          ?? null,
+        viewportRect: fallbackViewportRect,
+        localViewportRect: createWindowViewportRect(context.mapWindow),
       };
     }
 
-    const mountRect = rectFromDomRect(mountElement.getBoundingClientRect());
+    const rawViewportRect = rectFromDomRect(resolvedViewportElement.getBoundingClientRect());
+    const viewportRect = context.frameElement
+      ? translateRectByFrame(rawViewportRect, context.frameElement)
+      : rawViewportRect;
+
     return {
-      left: viewportRect.left - mountRect.left,
-      top: viewportRect.top - mountRect.top,
-      width: viewportRect.width,
-      height: viewportRect.height,
+      viewportElement: resolvedViewportElement,
+      mountElement: resolvedViewportElement,
+      viewportRect,
+      localViewportRect: {
+        left: 0,
+        top: 0,
+        width: rawViewportRect.width,
+        height: rawViewportRect.height,
+      },
     };
+  }
+
+  function resolveViewportRect(context) {
+    return resolveViewportGeometry(context).viewportRect;
+  }
+
+  function resolveLocalViewportRect(context) {
+    return resolveViewportGeometry(context).localViewportRect;
   }
 
   function resolveSurfaceMotion(context) {
@@ -309,18 +316,35 @@ export function createPageAdapter({
     });
   }
 
-  function resolveMapView(context) {
-    const viewportRect = resolveViewportRect(context);
-    return derivePreciseMapViewFromTiles({ context, viewportRect }) ??
-      parseMapViewFromHash(getSafeLocation(context.mapWindow).hash);
+  function resolveMapView(context, { viewportRect, surfaceMotion }) {
+    const preciseMapView = derivePreciseMapViewFromTiles({ context, viewportRect });
+    if (preciseMapView) {
+      lastCoherentMapView = preciseMapView;
+      return preciseMapView;
+    }
+    if (isSurfaceMotionActive(surfaceMotion) && lastCoherentMapView) {
+      return lastCoherentMapView;
+    }
+    const hashMapView = parseMapViewFromHash(getSafeLocation(context.mapWindow).hash);
+    lastCoherentMapView = hashMapView;
+    return hashMapView;
+  }
+
+  function resolveOverlayMountElement(context) {
+    return resolveViewportGeometry(context).mountElement;
   }
 
   function resolveSnapshotState(context) {
+    const viewportGeometry = resolveViewportGeometry(context);
+    const surfaceMotion = resolveSurfaceMotion(context);
     return {
-      viewportRect: resolveViewportRect(context),
-      localViewportRect: resolveLocalViewportRect(context),
-      mapView: resolveMapView(context),
-      surfaceMotion: resolveSurfaceMotion(context),
+      viewportRect: viewportGeometry.viewportRect,
+      localViewportRect: viewportGeometry.localViewportRect,
+      mapView: resolveMapView(context, {
+        viewportRect: viewportGeometry.viewportRect,
+        surfaceMotion,
+      }),
+      surfaceMotion,
     };
   }
 
@@ -395,7 +419,9 @@ export function createPageAdapter({
   }
 
   function handleStructureMutation() {
-    viewportElement = null;
+    if (viewportElement && (!viewportElement.isConnected || !isVisible(viewportElement))) {
+      viewportElement = null;
+    }
     notifyIfChanged();
   }
 
@@ -499,6 +525,14 @@ function createSurfaceMotion({
   };
 }
 
+function isSurfaceMotionActive(surfaceMotion) {
+  return Boolean(
+    surfaceMotion &&
+    typeof surfaceMotion.transformCss === "string" &&
+    surfaceMotion.transformCss !== "none",
+  );
+}
+
 function createWindowViewportRect(hashTarget) {
   return {
     left: 0,
@@ -594,13 +628,6 @@ function resolveMutationRoot(viewportDocument) {
   return viewportDocument.body ?? viewportDocument.documentElement ?? viewportDocument;
 }
 
-function resolveOverlayMountElement(context) {
-  return findViewportElement(context.viewportDocument)
-    ?? context.viewportDocument.body
-    ?? context.viewportDocument.documentElement
-    ?? null;
-}
-
 function isOverlayOwnedElement(element) {
   return Boolean(
     element &&
@@ -633,17 +660,13 @@ function findEmbeddedIdFrame(viewportDocument) {
 }
 
 function findViewportElement(viewportDocument) {
-  const candidates = VIEWPORT_SELECTORS
-    .map((selector) => viewportDocument.querySelector(selector))
-    .filter(Boolean)
-    .filter(isVisible);
-
-  if (!candidates.length) {
-    return null;
+  for (const selector of VIEWPORT_SELECTORS) {
+    const candidate = viewportDocument.querySelector(selector);
+    if (candidate && isVisible(candidate)) {
+      return candidate;
+    }
   }
-
-  candidates.sort((left, right) => areaOf(right) - areaOf(left));
-  return candidates[0];
+  return null;
 }
 
 function findReferenceTile(viewportDocument) {
