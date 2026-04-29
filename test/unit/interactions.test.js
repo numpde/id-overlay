@@ -8,10 +8,12 @@ import {
   doesDragEditPlacement,
   doesWheelEditPlacement,
   DRAG_MODE,
+  INTERACTION_RUNTIME_ACTION,
   INTERACTION_MODE,
   isSharedDragMode,
   KEYBOARD_SHORTCUT_ACTION,
   nextMode,
+  reduceInteractionRuntime,
   resolveDragMode,
   resolveKeyboardShortcut,
   resolveWheelMode,
@@ -25,6 +27,7 @@ import { createStateStore } from "../../src/core/state.js";
 import {
   createPlacementScreenTransform,
   imagePointToScreenPoint,
+  resolveOverlayScreenTransform,
 } from "../../src/core/transform.js";
 
 test("nextMode toggles between align and trace", () => {
@@ -165,6 +168,143 @@ test("computeTransform solves from pins and clears the dirty flag", () => {
   assert.ok(store.getState().registration.solvedTransform);
 });
 
+test("interaction runtime transitions are single-source through the runtime reducer", () => {
+  const state = createStateStore({
+    mode: "align",
+    image: {
+      src: "data:image/png;base64,abc",
+      width: 800,
+      height: 400,
+    },
+  }).getState();
+  const baseRuntime = {
+    canCapturePointer: false,
+    isDragging: false,
+    isPassThroughActive: false,
+    isPointerInsideImage: false,
+    pointerScreenPx: null,
+    dragMode: null,
+  };
+
+  const synced = reduceInteractionRuntime(baseRuntime, {
+    type: INTERACTION_RUNTIME_ACTION.SYNC_FROM_STATE,
+  }, state);
+  assert.equal(synced.canCapturePointer, true);
+  assert.equal(synced.isDragging, false);
+
+  const dragging = reduceInteractionRuntime(synced, {
+    type: INTERACTION_RUNTIME_ACTION.START_DRAG,
+    pointerScreenPx: { x: 500, y: 300 },
+    isPointerInsideImage: true,
+    dragMode: DRAG_MODE.SHARED_PAN,
+  }, state);
+  assert.deepEqual(dragging.pointerScreenPx, { x: 500, y: 300 });
+  assert.equal(dragging.isDragging, true);
+  assert.equal(dragging.dragMode, DRAG_MODE.SHARED_PAN);
+  assert.equal(dragging.canCapturePointer, true);
+
+  const reset = reduceInteractionRuntime(dragging, {
+    type: INTERACTION_RUNTIME_ACTION.RESET,
+    pointerScreenPx: null,
+    isPointerInsideImage: false,
+  }, state);
+  assert.equal(reset.isDragging, false);
+  assert.equal(reset.dragMode, null);
+  assert.equal(reset.isPassThroughActive, false);
+  assert.equal(reset.pointerScreenPx, null);
+  assert.equal(reset.canCapturePointer, true);
+});
+
+test("adding a pin preserves the current rendered placement after a solved transform exists", () => {
+  const { controller, store, pageAdapter } = createHarness();
+  controller.loadImage({
+    src: "data:image/png;base64,abc",
+    width: 800,
+    height: 400,
+  });
+
+  controller.handleDoubleClick({ x: 500, y: 300 });
+  controller.handleDoubleClick({ x: 700, y: 300 });
+  controller.computeTransform();
+
+  const before = resolveOverlayScreenTransform({
+    state: store.getState(),
+    snapshot: pageAdapter.getSnapshot(),
+  });
+
+  controller.handleDoubleClick({ x: 650, y: 340 });
+
+  const after = resolveOverlayScreenTransform({
+    state: store.getState(),
+    snapshot: pageAdapter.getSnapshot(),
+  });
+
+  assert.deepEqual(after, before);
+  assert.equal(store.getState().registration.dirty, true);
+  assert.equal(store.getState().registration.pins.length, 3);
+});
+
+test("removing a pin preserves the current rendered placement after a solved transform exists", () => {
+  const { controller, store, pageAdapter } = createHarness();
+  controller.loadImage({
+    src: "data:image/png;base64,abc",
+    width: 800,
+    height: 400,
+  });
+
+  controller.handleDoubleClick({ x: 500, y: 300 });
+  controller.handleDoubleClick({ x: 700, y: 300 });
+  controller.computeTransform();
+
+  const before = resolveOverlayScreenTransform({
+    state: store.getState(),
+    snapshot: pageAdapter.getSnapshot(),
+  });
+
+  controller.handleDoubleClick({ x: 500, y: 300 });
+
+  const after = resolveOverlayScreenTransform({
+    state: store.getState(),
+    snapshot: pageAdapter.getSnapshot(),
+  });
+
+  assert.deepEqual(after, before);
+  assert.equal(store.getState().registration.dirty, true);
+  assert.equal(store.getState().registration.pins.length, 1);
+});
+
+test("clearing pins preserves the current rendered placement after a solved transform exists", () => {
+  const { controller, store, pageAdapter } = createHarness();
+  controller.loadImage({
+    src: "data:image/png;base64,abc",
+    width: 800,
+    height: 400,
+  });
+
+  controller.handleDoubleClick({ x: 500, y: 300 });
+  controller.handleDoubleClick({ x: 700, y: 300 });
+  controller.computeTransform();
+
+  const before = resolveOverlayScreenTransform({
+    state: store.getState(),
+    snapshot: pageAdapter.getSnapshot(),
+  });
+
+  controller.clearPins();
+
+  const after = resolveOverlayScreenTransform({
+    state: store.getState(),
+    snapshot: pageAdapter.getSnapshot(),
+  });
+
+  assert.deepEqual(after, before);
+  assert.deepEqual(store.getState().registration, {
+    pins: [],
+    solvedTransform: null,
+    dirty: false,
+  });
+});
+
 test("shift-wheel scales the overlay only and marks a solved transform dirty again", () => {
   const { controller, store } = createHarness();
   controller.loadImage({
@@ -291,6 +431,57 @@ test("toggleing to trace auto-computes a dirty transform when enough pins exist"
   assert.equal(store.getState().mode, "trace");
   assert.equal(store.getState().registration.dirty, false);
   assert.ok(store.getState().registration.solvedTransform);
+});
+
+test("switching mode clears pass-through and ends any active shared drag through one transition path", () => {
+  const keyTarget = createKeyTarget();
+  const { controller, adapterCalls } = createHarness({ keyTarget });
+  controller.loadImage({
+    src: "data:image/png;base64,abc",
+    width: 800,
+    height: 400,
+  });
+
+  controller.handlePointerDown({
+    button: 0,
+    screenPoint: { x: 500, y: 300 },
+    shiftKey: false,
+  });
+  controller.handlePointerMove({ x: 520, y: 310 });
+  controller.handlePointerEnter({ x: 520, y: 310 });
+  keyTarget.dispatch("keydown", createKeyEvent({ code: "Space" }));
+
+  controller.toggleMode();
+
+  assert.equal(controller.getRuntimeState().isDragging, false);
+  assert.equal(controller.getRuntimeState().dragMode, null);
+  assert.equal(controller.getRuntimeState().isPassThroughActive, false);
+  assert.deepEqual(adapterCalls.sharedDrag.ends, [{ x: 520, y: 310 }]);
+});
+
+test("clearing the image resets runtime and ends any active shared drag through one transition path", () => {
+  const { controller, adapterCalls, store } = createHarness();
+  controller.loadImage({
+    src: "data:image/png;base64,abc",
+    width: 800,
+    height: 400,
+  });
+
+  controller.handlePointerDown({
+    button: 0,
+    screenPoint: { x: 500, y: 300 },
+    shiftKey: false,
+  });
+  controller.handlePointerMove({ x: 520, y: 310 });
+  controller.clearImage();
+
+  assert.equal(store.getState().image, null);
+  assert.equal(controller.getRuntimeState().isDragging, false);
+  assert.equal(controller.getRuntimeState().dragMode, null);
+  assert.equal(controller.getRuntimeState().isPassThroughActive, false);
+  assert.equal(controller.getRuntimeState().pointerScreenPx, null);
+  assert.equal(controller.getRuntimeState().isPointerInsideImage, false);
+  assert.deepEqual(adapterCalls.sharedDrag.ends, [{ x: 520, y: 310 }]);
 });
 
 test("space activates temporary pass-through while aligning", () => {
@@ -582,54 +773,67 @@ function createHarness({
     },
     forwardedWheelCalls: [],
   };
+  const pageAdapter = createPageAdapter({
+    adapterCalls,
+    beginSharedDragReturns,
+    forwardSharedWheelReturns,
+  });
   const store = createStateStore();
   const controller = createInteractionController({
     store,
     keyTarget,
     keyboardGateway,
-    pageAdapter: {
-      getMapCenter() {
-        return { lat: -1.23, lon: 36.84 };
-      },
-      getSnapshot() {
-        return {
-          viewportRect: { left: 100, top: 100, width: 800, height: 400 },
-          mapView: { center: { lat: -1.23, lon: 36.84 }, zoom: 16 },
-        };
-      },
-      getViewportRect() {
-        return { left: 100, top: 100, width: 800, height: 400 };
-      },
-      mapToScreen(point) {
-        return {
-          x: 500 + (point.lon - 36.84) * 100,
-          y: 300 + (point.lat + 1.23) * 100,
-        };
-      },
-      screenToMap(point) {
-        return {
-          lat: -1.23 + (point.y - 300) / 100,
-          lon: 36.84 + (point.x - 500) / 100,
-        };
-      },
-      beginSharedDrag(screenPoint) {
-        adapterCalls.sharedDrag.starts.push(screenPoint);
-        return beginSharedDragReturns;
-      },
-      updateSharedDrag(screenPoint, screenDelta) {
-        adapterCalls.sharedDrag.moves.push({ screenPoint, screenDelta });
-      },
-      endSharedDrag(screenPoint) {
-        adapterCalls.sharedDrag.ends.push(screenPoint);
-      },
-      forwardSharedWheel(payload) {
-        adapterCalls.forwardedWheelCalls.push(payload);
-        return forwardSharedWheelReturns;
-      },
-    },
+    pageAdapter,
   });
 
-  return { controller, store, keyTarget, adapterCalls };
+  return { controller, store, keyTarget, adapterCalls, pageAdapter };
+}
+
+function createPageAdapter({
+  adapterCalls,
+  beginSharedDragReturns,
+  forwardSharedWheelReturns,
+}) {
+  return {
+    getMapCenter() {
+      return { lat: -1.23, lon: 36.84 };
+    },
+    getSnapshot() {
+      return {
+        viewportRect: { left: 100, top: 100, width: 800, height: 400 },
+        mapView: { center: { lat: -1.23, lon: 36.84 }, zoom: 16 },
+      };
+    },
+    getViewportRect() {
+      return { left: 100, top: 100, width: 800, height: 400 };
+    },
+    mapToScreen(point) {
+      return {
+        x: 500 + (point.lon - 36.84) * 100,
+        y: 300 + (point.lat + 1.23) * 100,
+      };
+    },
+    screenToMap(point) {
+      return {
+        lat: -1.23 + (point.y - 300) / 100,
+        lon: 36.84 + (point.x - 500) / 100,
+      };
+    },
+    beginSharedDrag(screenPoint) {
+      adapterCalls.sharedDrag.starts.push(screenPoint);
+      return beginSharedDragReturns;
+    },
+    updateSharedDrag(screenPoint, screenDelta) {
+      adapterCalls.sharedDrag.moves.push({ screenPoint, screenDelta });
+    },
+    endSharedDrag(screenPoint) {
+      adapterCalls.sharedDrag.ends.push(screenPoint);
+    },
+    forwardSharedWheel(payload) {
+      adapterCalls.forwardedWheelCalls.push(payload);
+      return forwardSharedWheelReturns;
+    },
+  };
 }
 
 function createKeyboardGatewayHarness() {

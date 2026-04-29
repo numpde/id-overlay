@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  STATE_ACTION,
   canSolveRegistration,
   createDefaultState,
   createStateStore,
@@ -9,7 +10,7 @@ import {
   hasCleanSolvedTransform,
   needsSolveRecompute,
   normalizeState,
-  resolveRegistrationSolvePresentation,
+  reduceState,
   resolveRegistrationSolveState,
 } from "../../src/core/state.js";
 import { createPlacementTransform } from "../../src/core/transform.js";
@@ -149,6 +150,31 @@ test("state subscribers can opt out of immediate emission", () => {
   assert.equal(calls, 1);
 });
 
+test("normalized no-op transitions stay inside the reducer and do not notify", () => {
+  const store = createStateStore();
+  let calls = 0;
+  store.subscribe(() => {
+    calls += 1;
+  }, { emitCurrent: false });
+
+  const baseState = store.getState();
+  const sameOpacity = reduceState(baseState, {
+    type: STATE_ACTION.SET_OPACITY,
+    opacity: "0.6",
+  });
+  const sameMode = reduceState(baseState, {
+    type: STATE_ACTION.SET_MODE,
+    mode: "trace",
+  });
+
+  assert.equal(sameOpacity, baseState);
+  assert.equal(sameMode, baseState);
+
+  store.setOpacity("0.6");
+  store.setMode("trace");
+  assert.equal(calls, 0);
+});
+
 test("adding and removing pins invalidates solved transforms", () => {
   const store = createStateStore();
   const firstPin = store.addPin({
@@ -210,24 +236,6 @@ test("clearPins resets the registration session", () => {
   });
 });
 
-test("patchPlacement updates only targeted placement fields", () => {
-  const store = createStateStore({
-    placement: {
-      type: "similarity",
-      a: 1,
-      b: 0,
-      tx: 10,
-      ty: 20,
-    },
-  });
-  store.patchPlacement({
-    tx: 30,
-  });
-
-  assert.equal(store.getState().placement.tx, 30);
-  assert.equal(store.getState().placement.ty, 20);
-});
-
 test("manual placement edits preserve pins but mark an existing solved transform dirty", () => {
   const store = createStateStore({
     placement: {
@@ -261,11 +269,56 @@ test("manual placement edits preserve pins but mark an existing solved transform
     },
   });
 
-  store.patchPlacement({
+  store.setPlacement({
+    ...store.getState().placement,
     a: 0.6,
   });
 
   assert.equal(store.getState().registration.dirty, true);
+  assert.equal(store.getState().registration.solvedTransform?.type, "similarity");
+  assert.equal(store.getState().registration.pins.length, 2);
+});
+
+test("syncPlacement preserves registration while updating the manual placement baseline", () => {
+  const store = createStateStore({
+    placement: {
+      type: "similarity",
+      a: 0.5,
+      b: 0,
+      tx: 10,
+      ty: 20,
+    },
+    registration: {
+      pins: [
+        {
+          id: 1,
+          imagePx: { x: 10, y: 20 },
+          mapLatLon: { lat: -1.2, lon: 36.8 },
+        },
+        {
+          id: 2,
+          imagePx: { x: 30, y: 40 },
+          mapLatLon: { lat: -1.21, lon: 36.81 },
+        },
+      ],
+      solvedTransform: {
+        type: "similarity",
+        a: 1,
+        b: 0,
+        tx: 10,
+        ty: 20,
+      },
+      dirty: false,
+    },
+  });
+
+  store.syncPlacement({
+    ...store.getState().placement,
+    tx: 30,
+  });
+
+  assert.equal(store.getState().placement.tx, 30);
+  assert.equal(store.getState().registration.dirty, false);
   assert.equal(store.getState().registration.solvedTransform?.type, "similarity");
   assert.equal(store.getState().registration.pins.length, 2);
 });
@@ -299,76 +352,59 @@ test("registration state helpers are the single source of truth for solve readin
   assert.equal(needsSolveRecompute(pending), true);
   assert.equal(needsSolveRecompute(ready), false);
   assert.equal(needsSolveRecompute(solved), false);
-  assert.deepEqual(resolveRegistrationSolveState(empty), { kind: "empty", pinCount: 0 });
-  assert.deepEqual(resolveRegistrationSolveState(pending), { kind: "dirty", pinCount: 2 });
-  assert.deepEqual(resolveRegistrationSolveState(ready), { kind: "ready", pinCount: 2 });
-  assert.deepEqual(resolveRegistrationSolveState(solved), { kind: "solved", pinCount: 2 });
+  assert.deepEqual(resolveRegistrationSolveState(empty), { kind: "empty", pinCount: 0, solvedPinCount: 0, canCompute: false });
+  assert.deepEqual(resolveRegistrationSolveState(pending), { kind: "dirty", pinCount: 2, solvedPinCount: 2, canCompute: true });
+  assert.deepEqual(resolveRegistrationSolveState(ready), { kind: "ready", pinCount: 2, solvedPinCount: 2, canCompute: true });
+  assert.deepEqual(resolveRegistrationSolveState(solved), { kind: "solved", pinCount: 2, solvedPinCount: 2, canCompute: true });
   assert.deepEqual(
     resolveRegistrationSolveState({
       pins: [{ id: 1 }],
       solvedTransform: null,
       dirty: true,
     }),
-    { kind: "insufficient-pins", pinCount: 1 },
+    { kind: "insufficient-pins", pinCount: 1, solvedPinCount: 1, canCompute: false },
   );
 });
 
-test("registration solve presentation is centralized from solve state", () => {
-  const empty = { pins: [], solvedTransform: null, dirty: false };
-  const insufficient = {
-    pins: [{ id: 1 }],
-    solvedTransform: null,
-    dirty: true,
-  };
-  const dirty = {
-    pins: [{ id: 1 }, { id: 2 }],
-    solvedTransform: null,
-    dirty: true,
-  };
-  const ready = {
-    pins: [{ id: 1 }, { id: 2 }],
-    solvedTransform: null,
-    dirty: false,
-  };
-  const solved = {
-    pins: [{ id: 1 }, { id: 2 }],
-    solvedTransform: { type: "similarity", a: 1, b: 0, tx: 0, ty: 0, pinCount: 3 },
-    dirty: false,
-  };
+test("reduceState is the single source of truth for store transitions", () => {
+  const baseState = createDefaultState();
 
-  assert.deepEqual(resolveRegistrationSolvePresentation(empty), {
-    kind: "empty",
-    pinCount: 0,
-    canCompute: false,
-    summaryLabel: "No pins yet",
-    statusMessage: null,
+  const loaded = reduceState(baseState, {
+    type: STATE_ACTION.LOAD_IMAGE_SESSION,
+    image: { src: "x", width: 100, height: 50 },
+    placement: {
+      type: "similarity",
+      a: 1,
+      b: 0,
+      tx: 10,
+      ty: 20,
+    },
   });
-  assert.deepEqual(resolveRegistrationSolvePresentation(insufficient), {
-    kind: "insufficient-pins",
-    pinCount: 1,
-    canCompute: false,
-    summaryLabel: "Collect at least 2 pins",
-    statusMessage: null,
+  assert.equal(loaded.mode, "align");
+  assert.equal(loaded.image.src, "x");
+  assert.deepEqual(loaded.registration, {
+    pins: [],
+    solvedTransform: null,
+    dirty: false,
   });
-  assert.deepEqual(resolveRegistrationSolvePresentation(dirty), {
-    kind: "dirty",
-    pinCount: 2,
-    canCompute: true,
-    summaryLabel: "Pins changed; recompute needed",
-    statusMessage: "Align mode: pins changed. Compute the transform or switch to Trace to auto-apply it.",
+
+  const withPin = reduceState(loaded, {
+    type: STATE_ACTION.ADD_PIN,
+    imagePx: { x: 10, y: 20 },
+    mapLatLon: { lat: -1.2, lon: 36.8 },
   });
-  assert.deepEqual(resolveRegistrationSolvePresentation(ready), {
-    kind: "ready",
-    pinCount: 2,
-    canCompute: true,
-    summaryLabel: "Ready to compute",
-    statusMessage: null,
+  assert.equal(withPin.registration.pins.length, 1);
+  assert.equal(withPin.registration.dirty, true);
+
+  const cleared = reduceState(withPin, {
+    type: STATE_ACTION.CLEAR_IMAGE,
   });
-  assert.deepEqual(resolveRegistrationSolvePresentation(solved), {
-    kind: "solved",
-    pinCount: 2,
-    canCompute: true,
-    summaryLabel: "Solved from 3 pin(s)",
-    statusMessage: null,
+  assert.equal(cleared.mode, "trace");
+  assert.equal(cleared.image, null);
+  assert.equal(cleared.placement, null);
+  assert.deepEqual(cleared.registration, {
+    pins: [],
+    solvedTransform: null,
+    dirty: false,
   });
 });

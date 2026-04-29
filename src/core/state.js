@@ -13,6 +13,20 @@ const DEFAULT_STATE = Object.freeze({
 const DEFAULT_PLACEMENT = DEFAULT_STATE.placement;
 const DEFAULT_REGISTRATION = Object.freeze({ ...DEFAULT_STATE.registration });
 
+export const STATE_ACTION = Object.freeze({
+  SET_MODE: "set-mode",
+  SET_OPACITY: "set-opacity",
+  LOAD_IMAGE_SESSION: "load-image-session",
+  SET_PLACEMENT: "set-placement",
+  SYNC_PLACEMENT: "sync-placement",
+  ADD_PIN: "add-pin",
+  REMOVE_PIN: "remove-pin",
+  CLEAR_PINS: "clear-pins",
+  SET_SOLVED_TRANSFORM: "set-solved-transform",
+  INVALIDATE_SOLVED_TRANSFORM: "invalidate-solved-transform",
+  CLEAR_IMAGE: "clear-image",
+});
+
 export function createStateStore(initialState = {}) {
   let state = normalizeState(initialState);
   const listeners = new Set();
@@ -30,117 +44,99 @@ export function createStateStore(initialState = {}) {
   }
 
   function setMode(mode) {
-    replaceState({
-      ...state,
+    return dispatch({
+      type: STATE_ACTION.SET_MODE,
       mode,
     });
   }
 
   function setOpacity(opacity) {
-    replaceState({
-      ...state,
+    return dispatch({
+      type: STATE_ACTION.SET_OPACITY,
       opacity,
     });
   }
 
   function loadImageSession(image, placement) {
-    replaceState({
-      ...state,
-      mode: "align",
+    return dispatch({
+      type: STATE_ACTION.LOAD_IMAGE_SESSION,
       image,
-      placement: normalizePlacement(placement),
-      registration: createDefaultRegistration(),
+      placement,
     });
   }
 
   function setPlacement(nextPlacement) {
-    return commitPlacement(nextPlacement);
+    return dispatch({
+      type: STATE_ACTION.SET_PLACEMENT,
+      placement: nextPlacement,
+    });
   }
 
-  function patchPlacement(partialPlacement) {
-    return commitPlacement({
-      ...state.placement,
-      ...partialPlacement,
+  function syncPlacement(nextPlacement) {
+    return dispatch({
+      type: STATE_ACTION.SYNC_PLACEMENT,
+      placement: nextPlacement,
     });
   }
 
   function addPin({ imagePx, mapLatLon }) {
-    const pin = normalizePin({
-      id: getNextPinId(state.registration.pins),
+    const previousPinCount = state.registration.pins.length;
+    const nextState = dispatch({
+      type: STATE_ACTION.ADD_PIN,
       imagePx,
       mapLatLon,
     });
-    if (!pin) {
+    if (nextState.registration.pins.length === previousPinCount) {
       return null;
     }
-
-    commitRegistration(createInvalidatedRegistration({
-      pins: [...state.registration.pins, pin],
-    }));
-    return pin;
+    return nextState.registration.pins.at(-1) ?? null;
   }
 
   function removePin(pinId) {
-    const nextPins = state.registration.pins.filter((pin) => pin.id !== pinId);
-    if (nextPins.length === state.registration.pins.length) {
-      return false;
-    }
-
-    commitRegistration(createInvalidatedRegistration({
-      pins: nextPins,
-    }));
-    return true;
+    const previousPinCount = state.registration.pins.length;
+    const nextState = dispatch({
+      type: STATE_ACTION.REMOVE_PIN,
+      pinId,
+    });
+    return nextState.registration.pins.length !== previousPinCount;
   }
 
   function clearPins() {
-    commitRegistration(createDefaultRegistration());
+    return dispatch({
+      type: STATE_ACTION.CLEAR_PINS,
+    });
   }
 
   function setSolvedTransform(solvedTransform) {
-    commitRegistration({
-      ...state.registration,
+    return dispatch({
+      type: STATE_ACTION.SET_SOLVED_TRANSFORM,
       solvedTransform,
-      dirty: false,
     });
   }
 
   function invalidateSolvedTransform() {
-    commitRegistration(createInvalidatedRegistration(state.registration));
+    return dispatch({
+      type: STATE_ACTION.INVALIDATE_SOLVED_TRANSFORM,
+    });
   }
 
   function clearImage() {
-    replaceState({
-      ...state,
-      mode: "trace",
-      image: null,
-      placement: DEFAULT_PLACEMENT,
-      registration: createDefaultRegistration(),
+    return dispatch({
+      type: STATE_ACTION.CLEAR_IMAGE,
     });
+  }
+
+  function dispatch(action) {
+    return replaceState(reduceState(state, action));
   }
 
   function replaceState(nextState) {
-    state = normalizeState(nextState);
-    notify();
-    return state;
-  }
-
-  function commitPlacement(nextPlacement) {
-    const normalizedPlacement = normalizePlacement(nextPlacement);
-    if (placementsEqual(normalizedPlacement, state.placement)) {
+    if (nextState === state) {
       return state;
     }
-    return replaceState({
-      ...state,
-      placement: normalizedPlacement,
-      registration: createPlacementEditedRegistration(state.registration),
-    });
-  }
-
-  function commitRegistration(nextRegistration) {
-    return replaceState({
-      ...state,
-      registration: normalizeRegistration(nextRegistration),
-    });
+    state = nextState;
+    notify();
+    return state;
   }
 
   function notify() {
@@ -156,7 +152,7 @@ export function createStateStore(initialState = {}) {
     setOpacity,
     loadImageSession,
     setPlacement,
-    patchPlacement,
+    syncPlacement,
     addPin,
     removePin,
     clearPins,
@@ -166,15 +162,147 @@ export function createStateStore(initialState = {}) {
   };
 }
 
+export function reduceState(state, action) {
+  switch (action?.type) {
+    case STATE_ACTION.SET_MODE:
+      return commitModeState(state, action.mode);
+    case STATE_ACTION.SET_OPACITY:
+      return commitOpacityState(state, action.opacity);
+    case STATE_ACTION.LOAD_IMAGE_SESSION:
+      return commitImageSessionState(state, {
+        image: action.image,
+        placement: action.placement,
+      });
+    case STATE_ACTION.SET_PLACEMENT:
+      return commitPlacementState(state, action.placement, {
+        preserveRegistration: false,
+      });
+    case STATE_ACTION.SYNC_PLACEMENT:
+      return commitPlacementState(state, action.placement, {
+        preserveRegistration: true,
+      });
+    case STATE_ACTION.ADD_PIN:
+      return commitAddPinState(state, {
+        imagePx: action.imagePx,
+        mapLatLon: action.mapLatLon,
+      });
+    case STATE_ACTION.REMOVE_PIN:
+      return commitRemovePinState(state, action.pinId);
+    case STATE_ACTION.CLEAR_PINS:
+      return commitRegistrationState(state, createDefaultRegistration());
+    case STATE_ACTION.SET_SOLVED_TRANSFORM:
+      return commitRegistrationState(state, {
+        ...state.registration,
+        solvedTransform: action.solvedTransform,
+        dirty: false,
+      });
+    case STATE_ACTION.INVALIDATE_SOLVED_TRANSFORM:
+      return commitRegistrationState(state, createInvalidatedRegistration(state.registration));
+    case STATE_ACTION.CLEAR_IMAGE:
+      return commitClearedImageState(state);
+    default:
+      return state;
+  }
+}
+
 export function normalizeState(candidate = {}) {
   const legacyFit = candidate.fit ?? null;
   const placementCandidate = candidate.placement ?? createLegacyPlacement(legacyFit);
   return {
-    mode: candidate.mode === "align" ? "align" : "trace",
+    mode: normalizeMode(candidate.mode),
     opacity: normalizeOpacity(candidate.opacity),
     image: normalizeImage(candidate.image),
     placement: normalizePlacement(placementCandidate),
     registration: normalizeRegistration(candidate.registration),
+  };
+}
+
+function commitModeState(state, mode) {
+  const normalizedMode = normalizeMode(mode);
+  if (state.mode === normalizedMode) {
+    return state;
+  }
+  return {
+    ...state,
+    mode: normalizedMode,
+  };
+}
+
+function commitOpacityState(state, opacity) {
+  const normalizedOpacity = normalizeOpacity(opacity);
+  if (state.opacity === normalizedOpacity) {
+    return state;
+  }
+  return {
+    ...state,
+    opacity: normalizedOpacity,
+  };
+}
+
+function commitImageSessionState(state, { image, placement }) {
+  const normalizedImage = normalizeImage(image);
+  const normalizedPlacement = normalizePlacement(placement);
+  return {
+    ...state,
+    mode: "align",
+    image: normalizedImage,
+    placement: normalizedPlacement,
+    registration: createDefaultRegistration(),
+  };
+}
+
+function commitPlacementState(state, nextPlacement, { preserveRegistration }) {
+  const normalizedPlacement = normalizePlacement(nextPlacement);
+  if (placementsEqual(normalizedPlacement, state.placement)) {
+    return state;
+  }
+  return {
+    ...state,
+    placement: normalizedPlacement,
+    registration: preserveRegistration
+      ? normalizeRegistration(state.registration)
+      : createPlacementEditedRegistration(state.registration),
+  };
+}
+
+function commitRegistrationState(state, nextRegistration) {
+  return {
+    ...state,
+    registration: normalizeRegistration(nextRegistration),
+  };
+}
+
+function commitAddPinState(state, { imagePx, mapLatLon }) {
+  const pin = normalizePin({
+    id: getNextPinId(state.registration.pins),
+    imagePx,
+    mapLatLon,
+  });
+  if (!pin) {
+    return state;
+  }
+  return commitRegistrationState(state, createInvalidatedRegistration({
+    pins: [...state.registration.pins, pin],
+  }));
+}
+
+function commitRemovePinState(state, pinId) {
+  const nextPins = state.registration.pins.filter((pin) => pin.id !== pinId);
+  if (nextPins.length === state.registration.pins.length) {
+    return state;
+  }
+  return commitRegistrationState(state, createInvalidatedRegistration({
+    pins: nextPins,
+  }));
+}
+
+function commitClearedImageState(state) {
+  return {
+    ...state,
+    mode: "trace",
+    image: null,
+    placement: DEFAULT_PLACEMENT,
+    registration: createDefaultRegistration(),
   };
 }
 
@@ -201,7 +329,7 @@ export function normalizeRegistration(registration) {
 }
 
 export function hasCleanSolvedTransform(registration) {
-  return Boolean(registration?.solvedTransform) && !registration?.dirty;
+  return resolveRegistrationSolveState(registration).kind === "solved";
 }
 
 export function getRegistrationPinCount(registration) {
@@ -209,84 +337,57 @@ export function getRegistrationPinCount(registration) {
 }
 
 export function canSolveRegistration(registration) {
-  return getRegistrationPinCount(registration) >= 2;
+  return resolveRegistrationSolveState(registration).canCompute;
 }
 
 export function needsSolveRecompute(registration) {
-  return canSolveRegistration(registration) && Boolean(registration?.dirty);
+  return resolveRegistrationSolveState(registration).kind === "dirty";
 }
 
 export function resolveRegistrationSolveState(registration) {
   const pinCount = getRegistrationPinCount(registration);
-  if (hasCleanSolvedTransform(registration)) {
+  const hasSolvedTransform = Boolean(registration?.solvedTransform);
+  const isDirty = Boolean(registration?.dirty);
+  const solvedPinCount = Number.isFinite(registration?.solvedTransform?.pinCount)
+    ? registration.solvedTransform.pinCount
+    : pinCount;
+  if (hasSolvedTransform && !isDirty) {
     return {
       kind: "solved",
       pinCount,
+      solvedPinCount,
+      canCompute: true,
     };
   }
-  if (needsSolveRecompute(registration)) {
+  if (pinCount >= 2 && isDirty) {
     return {
       kind: "dirty",
       pinCount,
+      solvedPinCount,
+      canCompute: true,
     };
   }
-  if (canSolveRegistration(registration)) {
+  if (pinCount >= 2) {
     return {
       kind: "ready",
       pinCount,
+      solvedPinCount,
+      canCompute: true,
     };
   }
   if (pinCount > 0) {
     return {
       kind: "insufficient-pins",
       pinCount,
+      solvedPinCount,
+      canCompute: false,
     };
   }
   return {
     kind: "empty",
     pinCount: 0,
-  };
-}
-
-export function resolveRegistrationSolvePresentation(registration) {
-  const solveState = resolveRegistrationSolveState(registration);
-  if (solveState.kind === "solved") {
-    return {
-      ...solveState,
-      canCompute: true,
-      summaryLabel: `Solved from ${registration?.solvedTransform?.pinCount ?? solveState.pinCount} pin(s)`,
-      statusMessage: null,
-    };
-  }
-  if (solveState.kind === "dirty") {
-    return {
-      ...solveState,
-      canCompute: true,
-      summaryLabel: "Pins changed; recompute needed",
-      statusMessage: "Align mode: pins changed. Compute the transform or switch to Trace to auto-apply it.",
-    };
-  }
-  if (solveState.kind === "ready") {
-    return {
-      ...solveState,
-      canCompute: true,
-      summaryLabel: "Ready to compute",
-      statusMessage: null,
-    };
-  }
-  if (solveState.kind === "insufficient-pins") {
-    return {
-      ...solveState,
-      canCompute: false,
-      summaryLabel: "Collect at least 2 pins",
-      statusMessage: null,
-    };
-  }
-  return {
-    ...solveState,
+    solvedPinCount: 0,
     canCompute: false,
-    summaryLabel: "No pins yet",
-    statusMessage: null,
   };
 }
 
@@ -296,6 +397,10 @@ function normalizeOpacity(opacity) {
     return DEFAULT_STATE.opacity;
   }
   return Math.min(1, Math.max(0, number));
+}
+
+function normalizeMode(mode) {
+  return mode === "align" ? "align" : "trace";
 }
 
 function normalizeImage(image) {

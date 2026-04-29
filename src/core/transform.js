@@ -122,67 +122,46 @@ export function createSolvedScreenTransform({ snapshot, solvedTransform }) {
   });
 }
 
-export function resolveOverlayScreenTransform({ state, snapshot, mapToScreen }) {
+export function resolveOverlayRenderState(state) {
   if (!state.image) {
+    return {
+      source: "none",
+      similarityTransform: null,
+    };
+  }
+  if (hasCleanSolvedTransform(state.registration)) {
+    return {
+      source: "solved",
+      similarityTransform: state.registration.solvedTransform,
+    };
+  }
+  return {
+    source: "placement",
+    similarityTransform: state.placement,
+  };
+}
+
+export function resolveOverlayScreenTransform({ state, snapshot }) {
+  const renderState = resolveOverlayRenderState(state);
+  if (!renderState.similarityTransform) {
     return null;
   }
 
-  if (resolveOverlayRenderSource(state) === "solved") {
+  if (renderState.source === "solved") {
     return createSolvedScreenTransform({
       snapshot,
-      solvedTransform: state.registration.solvedTransform,
+      solvedTransform: renderState.similarityTransform,
     });
   }
 
   return createPlacementScreenTransform({
-    placement: state.placement,
+    placement: renderState.similarityTransform,
     snapshot,
   });
 }
 
 export function resolveOverlayRenderSource(state) {
-  if (!state.image) {
-    return "none";
-  }
-  if (hasCleanSolvedTransform(state.registration)) {
-    return "solved";
-  }
-  return "placement";
-}
-
-export function resolveOverlayRenderState(state) {
-  const source = resolveOverlayRenderSource(state);
-  if (source === "none") {
-    return {
-      source,
-      label: "No image",
-      message: "Paste a screenshot to begin.",
-    };
-  }
-  if (source === "solved") {
-    return state.mode === "trace"
-      ? {
-          source,
-          label: "Solved transform active",
-          message: "Trace mode: the overlay follows the map using the solved transform.",
-        }
-      : {
-          source,
-          label: "Solved transform preview active",
-          message: "Align mode: solved transform preview active. Switch to Trace to verify map-following, or adjust placement to refine and recompute.",
-        };
-  }
-  return state.mode === "trace"
-    ? {
-        source,
-        label: "Manual placement active",
-        message: "Trace mode: the overlay follows the map using the current manual placement.",
-      }
-    : {
-        source,
-        label: "Manual placement active",
-        message: null,
-      };
+  return resolveOverlayRenderState(state).source;
 }
 
 export function buildOverlayRenderModel({ image, transform, opacity }) {

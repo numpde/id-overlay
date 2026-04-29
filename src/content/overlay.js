@@ -124,7 +124,6 @@ export function createOverlay({ shadow, pageAdapter, store, interactions }) {
     const transform = resolveOverlayScreenTransform({
       state,
       snapshot: latestSnapshot,
-      mapToScreen: pageAdapter.mapToScreen,
     });
     const model = buildOverlayRenderModel({
       image: state.image,

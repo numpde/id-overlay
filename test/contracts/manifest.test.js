@@ -36,6 +36,16 @@ test("all recursively imported content modules are listed as web accessible", as
   }
 });
 
+test("content stylesheet clips the overlay to the resolved map viewport", async () => {
+  const stylesheet = await fs.readFile(repoPath("src/content/content.css"), "utf8");
+
+  assert.match(
+    stylesheet,
+    /\.id-overlay-map-layer\s*\{[^}]*overflow:\s*hidden;/s,
+    "the overlay map layer should clip image rendering to the map viewport"
+  );
+});
+
 async function collectModuleGraph(entryPath, seen = new Set()) {
   if (seen.has(entryPath)) {
     return seen;

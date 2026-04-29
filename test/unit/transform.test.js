@@ -105,9 +105,6 @@ test("resolveOverlayScreenTransform uses solved transforms whenever a clean solv
       viewportRect: { left: 0, top: 0, width: 800, height: 400 },
       mapView: { center: { lat: 0, lon: 0 }, zoom: 0 },
     },
-    mapToScreen() {
-      throw new Error("placement path should not run");
-    },
   });
 
   assert.deepEqual(transform, createSolvedScreenTransform({
@@ -151,37 +148,35 @@ test("resolveOverlayRenderSource exposes whether rendering uses solved or manual
   }), "placement");
 });
 
-test("resolveOverlayRenderState is the single source of truth for render labels and messages", () => {
-  assert.deepEqual(
-    resolveOverlayRenderState({
-      image: null,
-      mode: "trace",
-      registration: { solvedTransform: null, dirty: false },
-    }),
-    {
-      source: "none",
-      label: "No image",
-      message: "Paste a screenshot to begin.",
-    },
-  );
+test("resolveOverlayRenderState centralizes the active render source and transform", () => {
+  assert.deepEqual(resolveOverlayRenderState({
+    image: null,
+    placement: { type: "similarity", a: 1, b: 0, tx: 0, ty: 0 },
+    registration: { solvedTransform: { type: "similarity", a: 2, b: 0, tx: 3, ty: 4 }, dirty: false },
+  }), {
+    source: "none",
+    similarityTransform: null,
+  });
 
-  assert.equal(
-    resolveOverlayRenderState({
-      image: { width: 1, height: 1 },
-      mode: "align",
-      registration: { solvedTransform: null, dirty: false },
-    }).label,
-    "Manual placement active",
-  );
+  const placement = { type: "similarity", a: 1, b: 0, tx: 5, ty: 6 };
+  assert.deepEqual(resolveOverlayRenderState({
+    image: { width: 1, height: 1 },
+    placement,
+    registration: { solvedTransform: { type: "similarity", a: 2, b: 0, tx: 3, ty: 4 }, dirty: true },
+  }), {
+    source: "placement",
+    similarityTransform: placement,
+  });
 
-  assert.equal(
-    resolveOverlayRenderState({
-      image: { width: 1, height: 1 },
-      mode: "trace",
-      registration: { solvedTransform: { type: "similarity", a: 1, b: 0, tx: 0, ty: 0 }, dirty: false },
-    }).message,
-    "Trace mode: the overlay follows the map using the solved transform.",
-  );
+  const solvedTransform = { type: "similarity", a: 2, b: 0, tx: 3, ty: 4 };
+  assert.deepEqual(resolveOverlayRenderState({
+    image: { width: 1, height: 1 },
+    placement,
+    registration: { solvedTransform, dirty: false },
+  }), {
+    source: "solved",
+    similarityTransform: solvedTransform,
+  });
 });
 
 test("buildOverlayRenderModel derives CSS-compatible placement from a similarity transform", () => {

@@ -2,13 +2,21 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  CLEAR_IMAGE_CONFIRMATION_MESSAGE,
+  describePanelActionPresentation,
+  MANUAL_PASTE_PROMPT,
   describeInteractionEventPresentation,
   describePinResultPresentation,
   describeSolveResultPresentation,
+  resolvePanelActionPresentation,
+  resolveClearImagePresentation,
   resolveDefaultStatusMessage,
+  resolveOverlayRenderPresentation,
   resolvePanelPresentation,
+  resolveRegistrationSolvePresentation,
   resolveOverlaySessionPresentation,
 } from "../../src/core/presentation.js";
+import { PANEL_ACTION_KIND } from "../../src/core/panel-state.js";
 
 test("resolveOverlaySessionPresentation centralizes session labels and enablement", () => {
   const empty = resolveOverlaySessionPresentation({
@@ -56,6 +64,90 @@ test("resolveOverlaySessionPresentation centralizes session labels and enablemen
   assert.equal(solved.canClearPins, true);
   assert.equal(solved.solve.summaryLabel, "Solved from 2 pin(s)");
   assert.equal(solved.render.label, "Solved transform active");
+});
+
+test("presentation centralizes solve and render copy from semantic state", () => {
+  assert.deepEqual(resolveRegistrationSolvePresentation({
+    pins: [],
+    solvedTransform: null,
+    dirty: false,
+  }), {
+    kind: "empty",
+    pinCount: 0,
+    solvedPinCount: 0,
+    pinCountLabel: "0",
+    canCompute: false,
+    canClearPins: false,
+    summaryLabel: "No pins yet",
+    statusMessage: null,
+  });
+
+  assert.deepEqual(resolveRegistrationSolvePresentation({
+    pins: [{ id: 1 }],
+    solvedTransform: null,
+    dirty: true,
+  }), {
+    kind: "insufficient-pins",
+    pinCount: 1,
+    solvedPinCount: 1,
+    pinCountLabel: "1",
+    canCompute: false,
+    canClearPins: true,
+    summaryLabel: "Collect at least 2 pins",
+    statusMessage: null,
+  });
+
+  assert.deepEqual(resolveRegistrationSolvePresentation({
+    pins: [{ id: 1 }, { id: 2 }],
+    solvedTransform: null,
+    dirty: true,
+  }), {
+    kind: "dirty",
+    pinCount: 2,
+    solvedPinCount: 2,
+    pinCountLabel: "2",
+    canCompute: true,
+    canClearPins: true,
+    summaryLabel: "Pins changed; recompute needed",
+    statusMessage: "Align mode: pins changed. Compute the transform or switch to Trace to auto-apply it.",
+  });
+
+  assert.deepEqual(resolveRegistrationSolvePresentation({
+    pins: [{ id: 1 }, { id: 2 }],
+    solvedTransform: { type: "similarity", a: 1, b: 0, tx: 0, ty: 0, pinCount: 3 },
+    dirty: false,
+  }), {
+    kind: "solved",
+    pinCount: 2,
+    solvedPinCount: 3,
+    pinCountLabel: "2",
+    canCompute: true,
+    canClearPins: true,
+    summaryLabel: "Solved from 3 pin(s)",
+    statusMessage: null,
+  });
+
+  assert.deepEqual(resolveOverlayRenderPresentation({
+    image: null,
+    mode: "trace",
+    registration: { solvedTransform: null, dirty: false },
+  }), {
+    hasImage: false,
+    source: "none",
+    label: "No image",
+    message: "Paste a screenshot to begin.",
+  });
+
+  assert.deepEqual(resolveOverlayRenderPresentation({
+    image: { width: 1, height: 1 },
+    mode: "trace",
+    registration: { solvedTransform: { type: "similarity", a: 1, b: 0, tx: 0, ty: 0 }, dirty: false },
+  }), {
+    hasImage: true,
+    source: "solved",
+    label: "Solved transform active",
+    message: "Trace mode: the overlay follows the map using the solved transform.",
+  });
 });
 
 test("resolveDefaultStatusMessage centralizes runtime-aware status copy", () => {
@@ -110,8 +202,10 @@ test("resolvePanelPresentation centralizes panel labels and enablement", () => {
       },
     },
     statusMessage: "Ready.",
-    isPasteArmed: true,
-    manualPastePrompt: "Paste now.",
+    panelActionState: {
+      kind: PANEL_ACTION_KIND.PASTE_ARMED,
+      sessionId: 1,
+    },
   });
 
   assert.deepEqual(presentation, {
@@ -121,11 +215,119 @@ test("resolvePanelPresentation centralizes panel labels and enablement", () => {
     hasImage: true,
     canComputeTransform: true,
     canClearPins: true,
+    clearButtonLabel: "Clear",
+    clearButtonVariant: "neutral",
+    clearButtonDisabled: false,
     pinCountLabel: "2",
     solveLabel: "Ready to compute",
     renderLabel: "Manual placement active",
-    statusMessage: "Paste now.",
+    statusMessage: MANUAL_PASTE_PROMPT,
   });
+});
+
+test("resolvePanelPresentation gives clear-confirmation copy priority over steady status", () => {
+  const presentation = resolvePanelPresentation({
+    state: {
+      image: { src: "x", width: 1, height: 1 },
+      mode: "align",
+      opacity: 0.6,
+      registration: {
+        pins: [],
+        solvedTransform: null,
+        dirty: false,
+      },
+    },
+    statusMessage: "Ready.",
+    panelActionState: {
+      kind: PANEL_ACTION_KIND.CLEAR_CONFIRM,
+      sessionId: 0,
+    },
+  });
+
+  assert.equal(presentation.clearButtonLabel, "Clear?");
+  assert.equal(presentation.clearButtonVariant, "confirm");
+  assert.equal(presentation.statusMessage, CLEAR_IMAGE_CONFIRMATION_MESSAGE);
+});
+
+test("resolvePanelActionPresentation centralizes panel-local action state", () => {
+  assert.deepEqual(
+    resolvePanelActionPresentation({
+      actionState: {
+        kind: PANEL_ACTION_KIND.IDLE,
+        sessionId: 0,
+      },
+      hasImage: true,
+    }),
+    {
+      pasteLabel: "Paste",
+      clearButtonLabel: "Clear",
+      clearButtonVariant: "neutral",
+      clearButtonDisabled: false,
+      statusMessage: null,
+    },
+  );
+
+  assert.deepEqual(
+    resolvePanelActionPresentation({
+      actionState: {
+        kind: PANEL_ACTION_KIND.PASTE_ARMED,
+        sessionId: 1,
+      },
+      hasImage: true,
+    }),
+    {
+      pasteLabel: "Paste…",
+      clearButtonLabel: "Clear",
+      clearButtonVariant: "neutral",
+      clearButtonDisabled: false,
+      statusMessage: MANUAL_PASTE_PROMPT,
+    },
+  );
+
+  assert.deepEqual(
+    resolvePanelActionPresentation({
+      actionState: {
+        kind: PANEL_ACTION_KIND.CLEAR_CONFIRM,
+        sessionId: 0,
+      },
+      hasImage: true,
+    }),
+    {
+      pasteLabel: "Paste",
+      clearButtonLabel: "Clear?",
+      clearButtonVariant: "confirm",
+      clearButtonDisabled: false,
+      statusMessage: CLEAR_IMAGE_CONFIRMATION_MESSAGE,
+    },
+  );
+});
+
+test("resolveClearImagePresentation centralizes destructive-clear confirmation state", () => {
+  assert.deepEqual(
+    resolveClearImagePresentation({
+      hasImage: false,
+      isConfirming: false,
+    }),
+    {
+      label: "Clear",
+      variant: "neutral",
+      disabled: true,
+      statusMessage: null,
+    },
+  );
+
+  assert.deepEqual(
+    resolveClearImagePresentation({
+      hasImage: true,
+      isConfirming: true,
+    }),
+    {
+      label: "Clear?",
+      variant: "confirm",
+      disabled: false,
+      statusMessage: CLEAR_IMAGE_CONFIRMATION_MESSAGE,
+    },
+  );
 });
 
 test("presentation helpers centralize pin and solve feedback copy", () => {
@@ -148,5 +350,35 @@ test("presentation helpers centralize pin and solve feedback copy", () => {
   assert.equal(
     describeInteractionEventPresentation({ type: "pins-cleared" }),
     "Cleared all registration pins.",
+  );
+});
+
+test("presentation centralizes panel action feedback copy", () => {
+  assert.equal(
+    describePanelActionPresentation("paste-cancelled"),
+    "Paste cancelled.",
+  );
+  assert.equal(
+    describePanelActionPresentation("clear-image"),
+    "Cleared the current screenshot.",
+  );
+  assert.equal(
+    describePanelActionPresentation("clipboard-missing-image"),
+    "Clipboard does not contain an image.",
+  );
+  assert.equal(
+    describePanelActionPresentation("clipboard-image-unreadable"),
+    "Clipboard image could not be read.",
+  );
+  assert.equal(
+    describePanelActionPresentation("clipboard-missing-image-with-prompt"),
+    `Clipboard does not contain an image. ${MANUAL_PASTE_PROMPT}`,
+  );
+  assert.equal(
+    describePanelActionPresentation("clipboard-image-loaded", {
+      width: 640,
+      height: 320,
+    }),
+    "Loaded screenshot 640×320.",
   );
 });
