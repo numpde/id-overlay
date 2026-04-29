@@ -16,10 +16,14 @@ import {
   KEYBOARD_SHORTCUT_ACTION,
   nextMode,
   reduceInteractionRuntime,
+  resolveOverlayPointerInterception,
+  resolveOverlayWheelInterception,
   resolveDragMode,
   resolveKeyboardShortcut,
   resolveWheelMode,
+  shouldStartOverlayPlacementDrag,
   shouldReleasePassThrough,
+  WHEEL_MODE,
 } from "../../src/core/interactions.js";
 import {
   describeActiveAlignDrag,
@@ -787,6 +791,113 @@ test("wheel capability is single-source across modes and modifiers", () => {
       wheelMode: "adjust-opacity",
     }),
     true,
+  );
+});
+
+test("overlay wheel interception policy is single-source", () => {
+  const state = { mode: "align", image: { src: "x" }, opacity: 0.6 };
+  const runtime = { isPassThroughActive: false, canCapturePointer: true };
+
+  assert.deepEqual(
+    resolveOverlayWheelInterception({
+      state,
+      runtime,
+      shiftKey: false,
+      altKey: false,
+      ctrlKey: false,
+    }),
+    {
+      wheelMode: WHEEL_MODE.ZOOM_BOTH,
+      shouldIntercept: false,
+    },
+  );
+
+  assert.deepEqual(
+    resolveOverlayWheelInterception({
+      state,
+      runtime,
+      shiftKey: false,
+      altKey: true,
+      ctrlKey: false,
+    }),
+    {
+      wheelMode: WHEEL_MODE.ADJUST_OPACITY,
+      shouldIntercept: true,
+    },
+  );
+});
+
+test("overlay placement drag start policy is single-source", () => {
+  const state = { mode: "align", image: { src: "x" } };
+  const runtime = { canCapturePointer: true };
+
+  assert.equal(
+    shouldStartOverlayPlacementDrag({
+      state,
+      runtime,
+      button: 0,
+      shiftKey: true,
+    }),
+    true,
+  );
+  assert.equal(
+    shouldStartOverlayPlacementDrag({
+      state,
+      runtime,
+      button: 0,
+      shiftKey: false,
+    }),
+    false,
+  );
+});
+
+test("overlay pointer interception policy is single-source", () => {
+  const state = { mode: "align", image: { src: "x" } };
+  const runtime = { canCapturePointer: true, isPassThroughActive: false };
+
+  assert.deepEqual(
+    resolveOverlayPointerInterception({
+      state,
+      runtime,
+      isPointerOverOverlay: false,
+      button: 0,
+      shiftKey: true,
+    }),
+    {
+      shouldTrackPointer: false,
+      shouldStartPlacementDrag: false,
+      shouldTogglePin: false,
+    },
+  );
+
+  assert.deepEqual(
+    resolveOverlayPointerInterception({
+      state,
+      runtime,
+      isPointerOverOverlay: true,
+      button: 0,
+      shiftKey: false,
+    }),
+    {
+      shouldTrackPointer: true,
+      shouldStartPlacementDrag: false,
+      shouldTogglePin: true,
+    },
+  );
+
+  assert.deepEqual(
+    resolveOverlayPointerInterception({
+      state,
+      runtime,
+      isPointerOverOverlay: true,
+      button: 0,
+      shiftKey: true,
+    }),
+    {
+      shouldTrackPointer: true,
+      shouldStartPlacementDrag: true,
+      shouldTogglePin: true,
+    },
   );
 });
 

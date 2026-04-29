@@ -141,6 +141,62 @@ export function canHandleWheelGesture({ state, runtime, wheelMode }) {
   return canEditRegistration(state) && !runtime?.isPassThroughActive;
 }
 
+export function resolveOverlayWheelInterception({
+  state,
+  runtime,
+  shiftKey,
+  altKey,
+  ctrlKey,
+}) {
+  const wheelMode = resolveWheelMode({ shiftKey, altKey, ctrlKey });
+  return {
+    wheelMode,
+    shouldIntercept: (
+      wheelMode !== WHEEL_MODE.ZOOM_BOTH &&
+      canHandleWheelGesture({ state, runtime, wheelMode })
+    ),
+  };
+}
+
+export function shouldStartOverlayPlacementDrag({
+  state,
+  runtime,
+  button,
+  shiftKey,
+}) {
+  if (button !== 0 || !runtime?.canCapturePointer || !hasOverlayImageSession(state)) {
+    return false;
+  }
+  return resolveDragMode({ shiftKey }) === DRAG_MODE.MOVE_OVERLAY;
+}
+
+export function resolveOverlayPointerInterception({
+  state,
+  runtime,
+  isPointerOverOverlay,
+  button = 0,
+  shiftKey = false,
+}) {
+  if (!isPointerOverOverlay || !hasOverlayImageSession(state)) {
+    return {
+      shouldTrackPointer: false,
+      shouldStartPlacementDrag: false,
+      shouldTogglePin: false,
+    };
+  }
+
+  return {
+    shouldTrackPointer: true,
+    shouldStartPlacementDrag: shouldStartOverlayPlacementDrag({
+      state,
+      runtime,
+      button,
+      shiftKey,
+    }),
+    shouldTogglePin: canEditRegistration(state),
+  };
+}
+
 export function reduceInteractionRuntime(previousRuntime, action, state) {
   const previous = previousRuntime ?? DEFAULT_RUNTIME;
   let next = previous;

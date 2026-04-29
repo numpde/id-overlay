@@ -12,6 +12,7 @@ test("overlay double-click toggles pins through the shared interaction path", as
 
   try {
     const { createOverlay } = await import(`${repoFileUrl("src/content/overlay.js")}?o=${Date.now()}`);
+    const map = env.document.getElementById("map") ?? env.document.body;
 
     const store = createStateStore({
       mode: "align",
@@ -66,28 +67,8 @@ test("overlay double-click toggles pins through the shared interaction path", as
         subscribe(listener) {
           return runtimeStore.subscribe(listener);
         },
-        handlePointerEnter(point) {
-          callLog.push(["enter", point]);
-        },
-        handlePointerLeave() {
-          callLog.push(["leave"]);
-        },
         handlePointerMove(point) {
           callLog.push(["move", point]);
-        },
-        handlePointerDown() {
-          callLog.push(["down"]);
-          return false;
-        },
-        handlePointerUp(point) {
-          callLog.push(["up", point]);
-        },
-        handlePointerCancel() {
-          callLog.push(["cancel"]);
-        },
-        handleWheel() {
-          callLog.push(["wheel"]);
-          return false;
         },
         handleDoubleClick(point) {
           callLog.push(["double-click", point]);
@@ -96,14 +77,13 @@ test("overlay double-click toggles pins through the shared interaction path", as
       },
     });
 
-    const image = env.document.querySelector(".id-overlay-image");
     const event = new env.window.MouseEvent("dblclick", {
       bubbles: true,
       cancelable: true,
       clientX: 412,
       clientY: 88,
     });
-    image.dispatchEvent(event);
+    map.dispatchEvent(event);
 
     assert.deepEqual(callLog, [["double-click", { x: 512, y: 288 }]]);
 
@@ -194,7 +174,6 @@ test("handled overlay wheel gestures do not bubble into the underlying map", asy
       },
     });
 
-    const image = env.document.querySelector(".id-overlay-image");
     const event = new env.window.WheelEvent("wheel", {
       bubbles: true,
       cancelable: true,
@@ -203,10 +182,111 @@ test("handled overlay wheel gestures do not bubble into the underlying map", asy
       deltaY: -100,
       shiftKey: true,
     });
-    image.dispatchEvent(event);
+    map.dispatchEvent(event);
 
     assert.equal(event.defaultPrevented, true);
     assert.equal(mapWheelCount, 0);
+
+    overlay.destroy();
+  } finally {
+    env.cleanup();
+  }
+});
+
+test("plain wheel over the overlay in align mode stays native to the map", async () => {
+  const env = createDomEnvironment({
+    viewportHtml: '<div id="map"></div>',
+  });
+
+  try {
+    const { createOverlay } = await import(`${repoFileUrl("src/content/overlay.js")}?own=${Date.now()}`);
+    const map = env.document.getElementById("map");
+    const store = createStateStore({
+      mode: "align",
+      opacity: 0.6,
+      image: {
+        src: "data:image/png;base64,abc",
+        width: 800,
+        height: 400,
+      },
+      placement: createPlacementTransform({
+        image: { width: 800, height: 400 },
+        centerMapLatLon: { lat: 0, lon: 0 },
+        scale: 1,
+        rotationRad: 0,
+        zoom: 16,
+      }),
+    });
+    const runtimeStore = createValueStore({
+      canCapturePointer: true,
+      isDragging: false,
+      isPointerInsideImage: true,
+      isPassThroughActive: false,
+      pointerScreenPx: null,
+      dragMode: null,
+    });
+
+    let mapWheelCount = 0;
+    let handledWheelCount = 0;
+    map.addEventListener("wheel", () => {
+      mapWheelCount += 1;
+    });
+
+    const overlay = createOverlay({
+      pageAdapter: {
+        getSnapshot() {
+          return {
+            viewportRect: { left: 100, top: 200, width: 800, height: 400 },
+            localViewportRect: { left: 0, top: 0, width: 800, height: 400 },
+            mapView: { center: { lat: 0, lon: 0 }, zoom: 16 },
+            surfaceMotion: { transformCss: "none", transformOriginCss: "0px 0px" },
+          };
+        },
+        subscribe(listener) {
+          listener(this.getSnapshot());
+          return () => {};
+        },
+        getOverlayMountElement() {
+          return map;
+        },
+      },
+      store,
+      interactions: {
+        getRuntimeState() {
+          return runtimeStore.get();
+        },
+        subscribe(listener) {
+          return runtimeStore.subscribe(listener);
+        },
+        handlePointerMove() {},
+        handlePointerLeave() {},
+        handlePointerDown() {
+          return false;
+        },
+        handlePointerUp() {},
+        handlePointerCancel() {},
+        handleWheel() {
+          handledWheelCount += 1;
+          return true;
+        },
+        handleDoubleClick() {
+          return { ok: false };
+        },
+      },
+    });
+
+    const event = new env.window.WheelEvent("wheel", {
+      bubbles: true,
+      cancelable: true,
+      clientX: 412,
+      clientY: 88,
+      deltaY: -100,
+    });
+    map.dispatchEvent(event);
+
+    assert.equal(handledWheelCount, 0);
+    assert.equal(event.defaultPrevented, false);
+    assert.equal(mapWheelCount, 1);
 
     overlay.destroy();
   } finally {
@@ -404,15 +484,15 @@ test("handled overlay pointerdown gestures do not bubble into the underlying map
       },
     });
 
-    const image = env.document.querySelector(".id-overlay-image");
     const event = new env.window.MouseEvent("pointerdown", {
       bubbles: true,
       cancelable: true,
       clientX: 412,
       clientY: 88,
       button: 0,
+      shiftKey: true,
     });
-    image.dispatchEvent(event);
+    map.dispatchEvent(event);
 
     assert.equal(event.defaultPrevented, true);
     assert.equal(mapPointerDownCount, 0);
