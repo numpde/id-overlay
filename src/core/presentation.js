@@ -22,7 +22,6 @@ export function resolveOverlaySessionPresentation(state) {
   return {
     hasImage: renderPresentation.hasImage,
     pinCount: solvePresentation.pinCount,
-    pinCountLabel: solvePresentation.pinCountLabel,
     canComputeTransform: solvePresentation.canCompute,
     canClearPins: solvePresentation.canClearPins,
     solve: solvePresentation,
@@ -48,14 +47,22 @@ export function resolvePanelPresentation({
     hasImage: sessionPresentation.hasImage,
     canComputeTransform: sessionPresentation.canComputeTransform,
     canClearPins: sessionPresentation.canClearPins,
+    clearPinsLabel: resolveClearPinsLabel(sessionPresentation.pinCount),
     clearButtonLabel: panelActionPresentation.clearButtonLabel,
     clearButtonVariant: panelActionPresentation.clearButtonVariant,
     clearButtonDisabled: panelActionPresentation.clearButtonDisabled,
-    pinCountLabel: sessionPresentation.pinCountLabel,
-    solveLabel: sessionPresentation.solve.summaryLabel,
-    renderLabel: sessionPresentation.render.label,
     statusMessage: panelActionPresentation.statusMessage ?? statusMessage,
   };
+}
+
+export function resolveClearPinsLabel(pinCount) {
+  if (pinCount === 1) {
+    return "Clear 1 pin";
+  }
+  if (pinCount > 1) {
+    return `Clear ${pinCount} pins`;
+  }
+  return "Clear pins";
 }
 
 export function resolveClearImagePresentation({ hasImage, isConfirming }) {
@@ -88,7 +95,6 @@ export function resolveRegistrationSolvePresentation(registration) {
   const solveState = resolveRegistrationSolveState(registration);
   const common = {
     ...solveState,
-    pinCountLabel: String(solveState.pinCount),
     canClearPins: solveState.pinCount > 0,
   };
   if (solveState.kind === "solved") {

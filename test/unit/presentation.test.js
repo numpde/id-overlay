@@ -8,6 +8,7 @@ import {
   describeInteractionEventPresentation,
   describePinResultPresentation,
   describeSolveResultPresentation,
+  resolveClearPinsLabel,
   resolvePanelActionPresentation,
   resolveClearImagePresentation,
   resolveDefaultStatusMessage,
@@ -31,7 +32,6 @@ test("resolveOverlaySessionPresentation centralizes session labels and enablemen
 
   assert.equal(empty.hasImage, false);
   assert.equal(empty.pinCount, 0);
-  assert.equal(empty.pinCountLabel, "0");
   assert.equal(empty.canComputeTransform, false);
   assert.equal(empty.canClearPins, false);
   assert.equal(empty.solve.summaryLabel, "No pins yet");
@@ -59,7 +59,6 @@ test("resolveOverlaySessionPresentation centralizes session labels and enablemen
 
   assert.equal(solved.hasImage, true);
   assert.equal(solved.pinCount, 2);
-  assert.equal(solved.pinCountLabel, "2");
   assert.equal(solved.canComputeTransform, true);
   assert.equal(solved.canClearPins, true);
   assert.equal(solved.solve.summaryLabel, "Solved from 2 pin(s)");
@@ -75,7 +74,6 @@ test("presentation centralizes solve and render copy from semantic state", () =>
     kind: "empty",
     pinCount: 0,
     solvedPinCount: 0,
-    pinCountLabel: "0",
     canCompute: false,
     canClearPins: false,
     summaryLabel: "No pins yet",
@@ -90,7 +88,6 @@ test("presentation centralizes solve and render copy from semantic state", () =>
     kind: "insufficient-pins",
     pinCount: 1,
     solvedPinCount: 1,
-    pinCountLabel: "1",
     canCompute: false,
     canClearPins: true,
     summaryLabel: "Collect at least 2 pins",
@@ -105,7 +102,6 @@ test("presentation centralizes solve and render copy from semantic state", () =>
     kind: "dirty",
     pinCount: 2,
     solvedPinCount: 2,
-    pinCountLabel: "2",
     canCompute: true,
     canClearPins: true,
     summaryLabel: "Pins changed; recompute needed",
@@ -120,7 +116,6 @@ test("presentation centralizes solve and render copy from semantic state", () =>
     kind: "solved",
     pinCount: 2,
     solvedPinCount: 3,
-    pinCountLabel: "2",
     canCompute: true,
     canClearPins: true,
     summaryLabel: "Solved from 3 pin(s)",
@@ -219,14 +214,18 @@ test("resolvePanelPresentation centralizes panel labels and enablement", () => {
     hasImage: true,
     canComputeTransform: true,
     canClearPins: true,
+    clearPinsLabel: "Clear 2 pins",
     clearButtonLabel: "Clear",
     clearButtonVariant: "neutral",
     clearButtonDisabled: false,
-    pinCountLabel: "2",
-    solveLabel: "Ready to compute",
-    renderLabel: "Manual placement active",
     statusMessage: MANUAL_PASTE_PROMPT,
   });
+});
+
+test("resolveClearPinsLabel centralizes the pin-count button copy", () => {
+  assert.equal(resolveClearPinsLabel(0), "Clear pins");
+  assert.equal(resolveClearPinsLabel(1), "Clear 1 pin");
+  assert.equal(resolveClearPinsLabel(3), "Clear 3 pins");
 });
 
 test("resolvePanelPresentation gives clear-confirmation copy priority over steady status", () => {

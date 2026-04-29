@@ -89,34 +89,10 @@ export function createPanel({ shadow, store, interactions, statusController }) {
   opacityInput.className = "id-overlay-field__slider";
   opacityGroup.append(opacityLabel, opacityInput);
 
-  const summary = document.createElement("dl");
-  summary.className = "id-overlay-summary";
-
-  const pinsLabel = document.createElement("dt");
-  pinsLabel.textContent = "Pins";
-  const pinsValue = document.createElement("dd");
-
-  const transformLabel = document.createElement("dt");
-  transformLabel.textContent = "Solve";
-  const solveValue = document.createElement("dd");
-
-  const renderLabel = document.createElement("dt");
-  renderLabel.textContent = "Render";
-  const renderValue = document.createElement("dd");
-
-  summary.append(
-    pinsLabel,
-    pinsValue,
-    transformLabel,
-    solveValue,
-    renderLabel,
-    renderValue,
-  );
-
   const statusElement = document.createElement("p");
   statusElement.className = "id-overlay-panel__status";
 
-  root.append(header, modeSwitch, controls, opacityGroup, summary, clearButton, statusElement);
+  root.append(header, modeSwitch, controls, opacityGroup, clearButton, statusElement);
   shadow.append(root);
 
   let latestState = store.getState();
@@ -226,9 +202,7 @@ export function createPanel({ shadow, store, interactions, statusController }) {
     opacityInput.disabled = !presentation.hasImage;
     computeButton.disabled = !presentation.canComputeTransform;
     clearPinsButton.disabled = !presentation.canClearPins;
-    pinsValue.textContent = presentation.pinCountLabel;
-    solveValue.textContent = presentation.solveLabel;
-    renderValue.textContent = presentation.renderLabel;
+    clearPinsButton.textContent = presentation.clearPinsLabel;
     statusElement.textContent = presentation.statusMessage;
   }
 
