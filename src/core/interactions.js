@@ -1,6 +1,7 @@
 import { createValueStore } from "./value-store.js";
 import { createLogger } from "./logger.js";
 import {
+  getOverlayImage,
   hasCleanSolvedTransform,
   hasOverlayImageSession,
   needsSolveRecompute,
@@ -470,6 +471,7 @@ export function createInteractionController({
       };
     } else {
       const interactionState = syncPlacementBaselineToCurrentRenderTransform(state);
+      const image = getOverlayImage(interactionState);
       const snapshot = pageAdapter.getSnapshot();
       const screenTransform = resolveOverlayScreenTransform({
         state: interactionState,
@@ -477,8 +479,8 @@ export function createInteractionController({
       });
       const centerScreenPx = imagePointToScreenPoint({
         imagePoint: {
-          x: interactionState.image.width / 2,
-          y: interactionState.image.height / 2,
+          x: image.width / 2,
+          y: image.height / 2,
         },
         transform: screenTransform,
       });
@@ -829,13 +831,14 @@ function createRetunedPlacementTransform({
   screenScale = null,
   rotationRad = null,
 }) {
+  const image = getOverlayImage(state);
   const screenTransform = resolveOverlayScreenTransform({
     state,
     snapshot,
   });
   const imageCenter = {
-    x: state.image.width / 2,
-    y: state.image.height / 2,
+    x: image.width / 2,
+    y: image.height / 2,
   };
   const resolvedCenterScreenPx = centerScreenPx ?? imagePointToScreenPoint({
     imagePoint: imageCenter,
@@ -920,7 +923,7 @@ export function shouldReleasePassThrough({ event, state, runtime }) {
 export function resolvePinContext({ state, runtime, pageAdapter }) {
   if (!canEditRegistration(state)) {
     return createPinFailureResult(
-      state?.image ? PIN_RESULT_REASON.NOT_ALIGN_MODE : PIN_RESULT_REASON.NO_IMAGE,
+      hasOverlayImageSession(state) ? PIN_RESULT_REASON.NOT_ALIGN_MODE : PIN_RESULT_REASON.NO_IMAGE,
     );
   }
   const pointerScreenPx = runtime.pointerScreenPx;
@@ -938,7 +941,8 @@ export function resolvePinContext({ state, runtime, pageAdapter }) {
     screenPoint: pointerScreenPx,
     transform: currentTransform,
   });
-  if (!isImagePointWithinBounds(imagePx, state.image)) {
+  const image = getOverlayImage(state);
+  if (!isImagePointWithinBounds(imagePx, image)) {
     return createPinFailureResult(PIN_RESULT_REASON.POINTER_OUTSIDE_IMAGE, {
       pointerScreenPx,
       imagePx,

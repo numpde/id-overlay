@@ -359,6 +359,10 @@ export function hasOverlayImageSession(state) {
   return Boolean(state?.image);
 }
 
+export function getOverlayImage(state) {
+  return hasOverlayImageSession(state) ? state.image : null;
+}
+
 export function getRegistrationPinCount(registration) {
   return getRegistrationPins(registration).length;
 }

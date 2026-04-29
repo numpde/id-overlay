@@ -7,6 +7,7 @@ import {
   createDefaultState,
   createStateStore,
   didRegistrationChange,
+  getOverlayImage,
   getRegistrationPinCount,
   hasOverlayImageSession,
   hasCleanSolvedTransform,
@@ -34,6 +35,7 @@ test("createDefaultState returns the expected registration defaults", () => {
 
 test("overlay image session presence is single-source", () => {
   assert.equal(hasOverlayImageSession(createDefaultState()), false);
+  assert.equal(getOverlayImage(createDefaultState()), null);
   assert.equal(
     hasOverlayImageSession(normalizeState({
       image: {
@@ -43,6 +45,30 @@ test("overlay image session presence is single-source", () => {
       },
     })),
     true,
+  );
+  assert.deepEqual(
+    getOverlayImage(normalizeState({
+      image: {
+        src: "data:image/png;base64,abc",
+        width: 1200,
+        height: 800,
+      },
+    })),
+    {
+      src: "data:image/png;base64,abc",
+      width: 1200,
+      height: 800,
+      original: {
+        width: 1200,
+        height: 800,
+      },
+      working: {
+        src: "data:image/png;base64,abc",
+        width: 1200,
+        height: 800,
+        scaleFromOriginal: 1,
+      },
+    },
   );
 });
 

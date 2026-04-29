@@ -5,7 +5,7 @@ import {
   resolveOverlayScreenTransform,
   screenPointToImagePoint,
 } from "../core/transform.js";
-import { hasOverlayImageSession } from "../core/state.js";
+import { getOverlayImage, hasOverlayImageSession } from "../core/state.js";
 
 const OVERLAY_STYLE_ID = "id-overlay-map-styles";
 const OVERLAY_STYLE_TEXT = `
@@ -177,20 +177,21 @@ export function createOverlay({ pageAdapter, store, interactions }) {
       pinLayer.replaceChildren();
       return;
     }
+    const image = getOverlayImage(state);
 
     const transform = resolveOverlayScreenTransform({
       state,
       snapshot: latestSnapshot,
     });
     const model = buildOverlayRenderModel({
-      image: state.image,
+      image,
       transform,
       opacity: state.opacity,
     });
 
     overlayImage.style.display = "block";
-    if (overlayImage.src !== state.image.src) {
-      overlayImage.src = state.image.src;
+    if (overlayImage.src !== image.src) {
+      overlayImage.src = image.src;
     }
     const imageTopLeft = {
       x: model.left - viewportRect.left,
@@ -302,6 +303,7 @@ export function createOverlay({ pageAdapter, store, interactions }) {
     if (!hasOverlayImageSession(state)) {
       return false;
     }
+    const image = getOverlayImage(state);
     const transform = resolveOverlayScreenTransform({
       state,
       snapshot: latestSnapshot,
@@ -313,7 +315,7 @@ export function createOverlay({ pageAdapter, store, interactions }) {
       screenPoint,
       transform,
     });
-    return isImagePointWithinBounds(imagePoint, state.image);
+    return isImagePointWithinBounds(imagePoint, image);
   }
 }
 
