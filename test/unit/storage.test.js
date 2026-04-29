@@ -37,3 +37,32 @@ test("storage wrapper loads and saves with callback-style chrome storage", async
   }
 });
 
+test("storage wrapper loads and saves with promise-style browser storage", async () => {
+  const previousBrowser = globalThis.browser;
+  const records = {};
+  globalThis.browser = {
+    storage: {
+      local: {
+        async get(key) {
+          return { [key]: records[key] ?? null };
+        },
+        async set(record) {
+          Object.assign(records, record);
+        },
+      },
+    },
+  };
+
+  try {
+    const storage = createExtensionStorage();
+    assert.equal(await storage.load(), null);
+    await storage.save({ mode: "align" });
+    assert.deepEqual(await storage.load(), { mode: "align" });
+  } finally {
+    if (previousBrowser === undefined) {
+      delete globalThis.browser;
+    } else {
+      globalThis.browser = previousBrowser;
+    }
+  }
+});

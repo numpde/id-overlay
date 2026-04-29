@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { createDomEnvironment } from "../helpers/dom-env.js";
 import { repoFileUrl } from "../helpers/paths.js";
 import { createStateStore } from "../../src/core/state.js";
+import { createPlacementTransform } from "../../src/core/transform.js";
 import { createValueStore } from "../../src/core/value-store.js";
 
 test("overlay double-click toggles pins through the shared interaction path", async () => {
@@ -23,16 +24,17 @@ test("overlay double-click toggles pins through the shared interaction path", as
         width: 800,
         height: 400,
       },
-      placement: {
+      placement: createPlacementTransform({
+        image: { width: 800, height: 400 },
         centerMapLatLon: { lat: 0, lon: 0 },
         scale: 1,
         rotationRad: 0,
-      },
+        zoom: 16,
+      }),
     });
 
     const runtimeStore = createValueStore({
       canCapturePointer: true,
-      canComputeTransform: false,
       isDragging: false,
       isPointerInsideImage: true,
       isPassThroughActive: false,
@@ -140,11 +142,13 @@ test("trace-mode solved transform follows map view changes from the page adapter
         width: 100,
         height: 50,
       },
-      placement: {
+      placement: createPlacementTransform({
+        image: { width: 100, height: 50 },
         centerMapLatLon: { lat: 99, lon: 99 },
         scale: 9,
         rotationRad: 1,
-      },
+        zoom: 0,
+      }),
       registration: {
         pins: [],
         solvedTransform: {
@@ -161,7 +165,6 @@ test("trace-mode solved transform follows map view changes from the page adapter
 
     const runtimeStore = createValueStore({
       canCapturePointer: false,
-      canComputeTransform: false,
       isDragging: false,
       isPointerInsideImage: false,
       isPassThroughActive: false,
@@ -263,11 +266,13 @@ test("trace-mode overlay applies live surface motion from the page adapter", asy
         width: 100,
         height: 50,
       },
-      placement: {
+      placement: createPlacementTransform({
+        image: { width: 100, height: 50 },
         centerMapLatLon: { lat: 0, lon: 0 },
         scale: 1,
         rotationRad: 0,
-      },
+        zoom: 0,
+      }),
       registration: {
         pins: [],
         solvedTransform: {
@@ -284,7 +289,6 @@ test("trace-mode overlay applies live surface motion from the page adapter", asy
 
     const runtimeStore = createValueStore({
       canCapturePointer: false,
-      canComputeTransform: false,
       isDragging: false,
       isPointerInsideImage: false,
       isPassThroughActive: false,

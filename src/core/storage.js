@@ -13,11 +13,11 @@ export function createExtensionStorage() {
 
   return {
     async load() {
-      const record = await getFromStorage(extensionApi, STORAGE_KEY);
+      const record = await callStorageLocalMethod(extensionApi, "get", STORAGE_KEY);
       return record?.[STORAGE_KEY] ?? null;
     },
     async save(state) {
-      await setInStorage(extensionApi, {
+      await callStorageLocalMethod(extensionApi, "set", {
         [STORAGE_KEY]: state
       });
     }
@@ -34,12 +34,13 @@ function resolveExtensionApi() {
   return null;
 }
 
-function getFromStorage(extensionApi, key) {
-  if (typeof extensionApi.storage.local.get === "function" && extensionApi.storage.local.get.length <= 1) {
-    return extensionApi.storage.local.get(key);
+function callStorageLocalMethod(extensionApi, methodName, argument) {
+  const method = extensionApi.storage.local[methodName];
+  if (typeof method === "function" && method.length <= 1) {
+    return method.call(extensionApi.storage.local, argument);
   }
   return new Promise((resolve, reject) => {
-    extensionApi.storage.local.get(key, (value) => {
+    method.call(extensionApi.storage.local, argument, (value) => {
       const error = globalThis.chrome?.runtime?.lastError;
       if (error) {
         reject(error);
@@ -49,20 +50,3 @@ function getFromStorage(extensionApi, key) {
     });
   });
 }
-
-function setInStorage(extensionApi, record) {
-  if (typeof extensionApi.storage.local.set === "function" && extensionApi.storage.local.set.length <= 1) {
-    return extensionApi.storage.local.set(record);
-  }
-  return new Promise((resolve, reject) => {
-    extensionApi.storage.local.set(record, () => {
-      const error = globalThis.chrome?.runtime?.lastError;
-      if (error) {
-        reject(error);
-        return;
-      }
-      resolve();
-    });
-  });
-}
-

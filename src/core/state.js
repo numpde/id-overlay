@@ -2,11 +2,7 @@ const DEFAULT_STATE = Object.freeze({
   mode: "trace",
   opacity: 0.6,
   image: null,
-  placement: {
-    centerMapLatLon: null,
-    scale: 1,
-    rotationRad: 0,
-  },
+  placement: null,
   registration: {
     pins: [],
     solvedTransform: null,
@@ -14,7 +10,7 @@ const DEFAULT_STATE = Object.freeze({
   },
 });
 
-const DEFAULT_PLACEMENT = Object.freeze({ ...DEFAULT_STATE.placement });
+const DEFAULT_PLACEMENT = DEFAULT_STATE.placement;
 const DEFAULT_REGISTRATION = Object.freeze({ ...DEFAULT_STATE.registration });
 
 export function createStateStore(initialState = {}) {
@@ -47,43 +43,24 @@ export function createStateStore(initialState = {}) {
     });
   }
 
-  function loadImageSession(image, centerMapLatLon) {
+  function loadImageSession(image, placement) {
     replaceState({
       ...state,
       mode: "align",
       image,
-      placement: createImagePlacement({
-        image,
-        centerMapLatLon: centerMapLatLon ?? null,
-      }),
+      placement: normalizePlacement(placement),
       registration: createDefaultRegistration(),
     });
   }
 
   function setPlacement(nextPlacement) {
-    const normalizedPlacement = normalizePlacement(nextPlacement);
-    if (placementsEqual(normalizedPlacement, state.placement)) {
-      return state;
-    }
-    replaceState({
-      ...state,
-      placement: normalizedPlacement,
-      registration: createPlacementEditedRegistration(state.registration),
-    });
+    return commitPlacement(nextPlacement);
   }
 
   function patchPlacement(partialPlacement) {
-    const normalizedPlacement = normalizePlacement({
+    return commitPlacement({
       ...state.placement,
       ...partialPlacement,
-    });
-    if (placementsEqual(normalizedPlacement, state.placement)) {
-      return state;
-    }
-    replaceState({
-      ...state,
-      placement: normalizedPlacement,
-      registration: createPlacementEditedRegistration(state.registration),
     });
   }
 
@@ -97,12 +74,9 @@ export function createStateStore(initialState = {}) {
       return null;
     }
 
-    replaceState({
-      ...state,
-      registration: createInvalidatedRegistration({
-        pins: [...state.registration.pins, pin],
-      }),
-    });
+    commitRegistration(createInvalidatedRegistration({
+      pins: [...state.registration.pins, pin],
+    }));
     return pin;
   }
 
@@ -112,38 +86,26 @@ export function createStateStore(initialState = {}) {
       return false;
     }
 
-    replaceState({
-      ...state,
-      registration: createInvalidatedRegistration({
-        pins: nextPins,
-      }),
-    });
+    commitRegistration(createInvalidatedRegistration({
+      pins: nextPins,
+    }));
     return true;
   }
 
   function clearPins() {
-    replaceState({
-      ...state,
-      registration: createDefaultRegistration(),
-    });
+    commitRegistration(createDefaultRegistration());
   }
 
   function setSolvedTransform(solvedTransform) {
-    replaceState({
-      ...state,
-      registration: normalizeRegistration({
-        ...state.registration,
-        solvedTransform,
-        dirty: false,
-      }),
+    commitRegistration({
+      ...state.registration,
+      solvedTransform,
+      dirty: false,
     });
   }
 
   function invalidateSolvedTransform() {
-    replaceState({
-      ...state,
-      registration: createInvalidatedRegistration(state.registration),
-    });
+    commitRegistration(createInvalidatedRegistration(state.registration));
   }
 
   function clearImage() {
@@ -151,7 +113,7 @@ export function createStateStore(initialState = {}) {
       ...state,
       mode: "trace",
       image: null,
-      placement: { ...DEFAULT_PLACEMENT },
+      placement: DEFAULT_PLACEMENT,
       registration: createDefaultRegistration(),
     });
   }
@@ -160,6 +122,25 @@ export function createStateStore(initialState = {}) {
     state = normalizeState(nextState);
     notify();
     return state;
+  }
+
+  function commitPlacement(nextPlacement) {
+    const normalizedPlacement = normalizePlacement(nextPlacement);
+    if (placementsEqual(normalizedPlacement, state.placement)) {
+      return state;
+    }
+    return replaceState({
+      ...state,
+      placement: normalizedPlacement,
+      registration: createPlacementEditedRegistration(state.registration),
+    });
+  }
+
+  function commitRegistration(nextRegistration) {
+    return replaceState({
+      ...state,
+      registration: normalizeRegistration(nextRegistration),
+    });
   }
 
   function notify() {
@@ -206,12 +187,7 @@ export function createDefaultRegistration() {
 }
 
 export function normalizePlacement(placement) {
-  const candidate = placement ?? {};
-  return {
-    centerMapLatLon: normalizeLatLon(candidate.centerMapLatLon),
-    scale: normalizeScale(candidate.scale),
-    rotationRad: normalizeRotation(candidate.rotationRad),
-  };
+  return normalizeSolvedTransform(placement);
 }
 
 export function normalizeRegistration(registration) {
@@ -254,6 +230,12 @@ export function resolveRegistrationSolveState(registration) {
       pinCount,
     };
   }
+  if (canSolveRegistration(registration)) {
+    return {
+      kind: "ready",
+      pinCount,
+    };
+  }
   if (pinCount > 0) {
     return {
       kind: "insufficient-pins",
@@ -263,6 +245,48 @@ export function resolveRegistrationSolveState(registration) {
   return {
     kind: "empty",
     pinCount: 0,
+  };
+}
+
+export function resolveRegistrationSolvePresentation(registration) {
+  const solveState = resolveRegistrationSolveState(registration);
+  if (solveState.kind === "solved") {
+    return {
+      ...solveState,
+      canCompute: true,
+      summaryLabel: `Solved from ${registration?.solvedTransform?.pinCount ?? solveState.pinCount} pin(s)`,
+      statusMessage: null,
+    };
+  }
+  if (solveState.kind === "dirty") {
+    return {
+      ...solveState,
+      canCompute: true,
+      summaryLabel: "Pins changed; recompute needed",
+      statusMessage: "Align mode: pins changed. Compute the transform or switch to Trace to auto-apply it.",
+    };
+  }
+  if (solveState.kind === "ready") {
+    return {
+      ...solveState,
+      canCompute: true,
+      summaryLabel: "Ready to compute",
+      statusMessage: null,
+    };
+  }
+  if (solveState.kind === "insufficient-pins") {
+    return {
+      ...solveState,
+      canCompute: false,
+      summaryLabel: "Collect at least 2 pins",
+      statusMessage: null,
+    };
+  }
+  return {
+    ...solveState,
+    canCompute: false,
+    summaryLabel: "No pins yet",
+    statusMessage: null,
   };
 }
 
@@ -314,29 +338,14 @@ function normalizePoint(point) {
   return { x, y };
 }
 
-function normalizeScale(scale) {
-  const value = Number(scale);
-  if (!Number.isFinite(value) || value <= 0) {
-    return DEFAULT_PLACEMENT.scale;
-  }
-  return value;
-}
-
 function placementsEqual(left, right) {
   return (
-    left.centerMapLatLon?.lat === right.centerMapLatLon?.lat &&
-    left.centerMapLatLon?.lon === right.centerMapLatLon?.lon &&
-    left.scale === right.scale &&
-    left.rotationRad === right.rotationRad
+    left?.type === right?.type &&
+    left?.a === right?.a &&
+    left?.b === right?.b &&
+    left?.tx === right?.tx &&
+    left?.ty === right?.ty
   );
-}
-
-function normalizeRotation(rotationRad) {
-  const value = Number(rotationRad);
-  if (!Number.isFinite(value)) {
-    return DEFAULT_PLACEMENT.rotationRad;
-  }
-  return value;
 }
 
 function normalizePins(candidatePins) {
@@ -392,7 +401,7 @@ function normalizeSolvedTransform(candidate) {
     rotationRad: Number.isFinite(candidate.rotationRad)
       ? Number(candidate.rotationRad)
       : Math.atan2(b, a),
-    pinCount: Number.isInteger(candidate.pinCount) ? candidate.pinCount : null,
+    ...(Number.isInteger(candidate.pinCount) ? { pinCount: candidate.pinCount } : {}),
   };
 }
 
@@ -403,22 +412,11 @@ function normalizeDirty(dirty, pins) {
   return Boolean(dirty);
 }
 
-function createImagePlacement({ image, centerMapLatLon }) {
-  return {
-    ...DEFAULT_PLACEMENT,
-    centerMapLatLon: normalizeLatLon(centerMapLatLon),
-  };
-}
-
 function createLegacyPlacement(legacyFit) {
-  if (!legacyFit) {
+  if (!legacyFit || legacyFit.type !== "similarity") {
     return null;
   }
-  return {
-    centerMapLatLon: legacyFit.anchorMapLatLon ?? null,
-    scale: legacyFit.scale,
-    rotationRad: legacyFit.rotationRad,
-  };
+  return normalizeSolvedTransform(legacyFit);
 }
 
 function createInvalidatedRegistration(registration) {

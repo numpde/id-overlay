@@ -8,11 +8,13 @@ import {
 } from "./state.js";
 import {
   buildPinRenderModels,
+  createPlacementTransform,
+  createSimilarityTransformFromAnchor,
   derivePlacementFromScreenTransform,
   hitTestPin,
+  imagePointToScreenPoint,
   isImagePointWithinBounds,
   resolveOverlayScreenTransform,
-  resolvePlacementCenterMapLatLon,
   rotationFromWheelDelta,
   scaleFromWheelDelta,
   screenPointToImagePoint,
@@ -30,14 +32,25 @@ export const KEYBOARD_SHORTCUT_ACTION = Object.freeze({
   ENABLE_PASS_THROUGH: "enable-pass-through",
 });
 
-const DRAG_MODE = Object.freeze({
+export const INTERACTION_EVENT = Object.freeze({
+  PIN_RESULT: "pin-result",
+  SOLVE_RESULT: "solve-result",
+  PINS_CLEARED: "pins-cleared",
+});
+
+export const DRAG_MODE = Object.freeze({
   MOVE_OVERLAY: "move-overlay",
   SHARED_PAN: "shared-pan",
 });
 
+export const WHEEL_MODE = Object.freeze({
+  ZOOM_BOTH: "zoom-both",
+  ZOOM_OVERLAY: "zoom-overlay",
+  ROTATE_OVERLAY: "rotate-overlay",
+});
+
 const DEFAULT_RUNTIME = Object.freeze({
   canCapturePointer: false,
-  canComputeTransform: false,
   isDragging: false,
   isPassThroughActive: false,
   isPointerInsideImage: false,
@@ -47,6 +60,30 @@ const DEFAULT_RUNTIME = Object.freeze({
 
 export function nextMode(mode) {
   return mode === INTERACTION_MODE.ALIGN ? INTERACTION_MODE.TRACE : INTERACTION_MODE.ALIGN;
+}
+
+export function isAlignMode(mode) {
+  return mode === INTERACTION_MODE.ALIGN;
+}
+
+export function canEditRegistration(state) {
+  return Boolean(state?.image) && isAlignMode(state?.mode);
+}
+
+export function canCaptureOverlayPointer({ state, runtime }) {
+  return canEditRegistration(state) && !runtime?.isPassThroughActive;
+}
+
+export function isSharedDragMode(dragMode) {
+  return dragMode === DRAG_MODE.SHARED_PAN;
+}
+
+export function doesDragEditPlacement(dragMode) {
+  return dragMode === DRAG_MODE.MOVE_OVERLAY;
+}
+
+export function doesWheelEditPlacement(wheelMode) {
+  return wheelMode !== WHEEL_MODE.ZOOM_BOTH;
 }
 
 export function createInteractionController({
@@ -106,12 +143,19 @@ export function createInteractionController({
   }
 
   function loadImage(image) {
-    const mapCenter = pageAdapter.getMapCenter();
-    store.loadImageSession(image, mapCenter);
+    const snapshot = pageAdapter.getSnapshot();
+    const placement = createPlacementTransform({
+      image,
+      centerMapLatLon: snapshot.mapView.center,
+      scale: 1,
+      rotationRad: 0,
+      zoom: snapshot.mapView.zoom,
+    });
+    store.loadImageSession(image, placement);
     logger.info("Loaded image session", {
       width: image.width,
       height: image.height,
-      centerMapLatLon: mapCenter,
+      centerMapLatLon: snapshot.mapView.center,
     });
     syncRuntime();
   }
@@ -147,7 +191,7 @@ export function createInteractionController({
         pinCount,
       };
       emitEvent({
-        type: "solve-result",
+        type: INTERACTION_EVENT.SOLVE_RESULT,
         result,
       });
       logger.warn("Solve requested without enough pins", result);
@@ -162,7 +206,7 @@ export function createInteractionController({
         pinCount,
       };
       emitEvent({
-        type: "solve-result",
+        type: INTERACTION_EVENT.SOLVE_RESULT,
         result,
       });
       logger.warn("Solve requested but transform computation failed", result);
@@ -176,7 +220,7 @@ export function createInteractionController({
       pinCount,
     };
     emitEvent({
-      type: "solve-result",
+      type: INTERACTION_EVENT.SOLVE_RESULT,
       result,
     });
     logger.info("Computed registration transform", {
@@ -191,7 +235,7 @@ export function createInteractionController({
   function requestTogglePinAtCurrentPointer() {
     const result = togglePinAtCurrentPointer();
     emitEvent({
-      type: "pin-result",
+      type: INTERACTION_EVENT.PIN_RESULT,
       result,
     });
     return result;
@@ -250,7 +294,7 @@ export function createInteractionController({
     store.clearPins();
     logger.info("Cleared registration pins");
     emitEvent({
-      type: "pins-cleared",
+      type: INTERACTION_EVENT.PINS_CLEARED,
     });
     syncRuntime();
   }
@@ -290,25 +334,42 @@ export function createInteractionController({
       return false;
     }
 
-    const interactionState = syncPlacementToCurrentRenderTransform(state);
-    const snapshot = pageAdapter.getSnapshot();
-    const centerScreenPx = pageAdapter.mapToScreen(
-      resolvePlacementCenterMapLatLon(snapshot, interactionState.placement),
-    );
-    dragState = shiftKey && typeof pageAdapter.panMapByScreenDelta === "function"
-      ? {
-          mode: DRAG_MODE.SHARED_PAN,
-          lastPointerScreenPx: screenPoint,
-        }
-      : {
-          mode: DRAG_MODE.MOVE_OVERLAY,
-          startPointerScreenPx: screenPoint,
-          startCenterScreenPx: centerScreenPx,
-        };
+    const dragMode = resolveDragMode({ shiftKey });
+    if (isSharedDragMode(dragMode)) {
+      const beganSharedDrag = pageAdapter.beginSharedDrag?.(screenPoint) === true;
+      if (!beganSharedDrag) {
+        logger.warn("Shared drag requested, but the page adapter could not start it");
+        return false;
+      }
+      dragState = {
+        mode: DRAG_MODE.SHARED_PAN,
+        lastPointerScreenPx: screenPoint,
+      };
+    } else {
+      const interactionState = syncPlacementToCurrentRenderTransform(state);
+      const snapshot = pageAdapter.getSnapshot();
+      const screenTransform = resolveOverlayScreenTransform({
+        state: interactionState,
+        snapshot,
+        mapToScreen: pageAdapter.mapToScreen,
+      });
+      const centerScreenPx = imagePointToScreenPoint({
+        imagePoint: {
+          x: interactionState.image.width / 2,
+          y: interactionState.image.height / 2,
+        },
+        transform: screenTransform,
+      });
+      dragState = {
+        mode: DRAG_MODE.MOVE_OVERLAY,
+        startPointerScreenPx: screenPoint,
+        startCenterScreenPx: centerScreenPx,
+      };
+    }
     updatePointer(screenPoint, {
       isPointerInsideImage: true,
       isDragging: true,
-      dragMode: dragState.mode,
+      dragMode,
     });
     return true;
   }
@@ -318,6 +379,9 @@ export function createInteractionController({
       return;
     }
     dragTo(screenPoint);
+    if (isSharedDragMode(dragState.mode)) {
+      pageAdapter.endSharedDrag?.(screenPoint);
+    }
     dragState = null;
     updatePointer(screenPoint, {
       isPointerInsideImage: true,
@@ -327,6 +391,9 @@ export function createInteractionController({
   }
 
   function handlePointerCancel() {
+    if (isSharedDragMode(dragState?.mode)) {
+      pageAdapter.endSharedDrag?.(runtimeStore.get().pointerScreenPx);
+    }
     dragState = null;
     syncRuntime({
       isDragging: false,
@@ -334,7 +401,7 @@ export function createInteractionController({
     });
   }
 
-  function handleWheel({ deltaY, shiftKey, screenPoint }) {
+  function handleWheel({ deltaY, shiftKey, altKey, screenPoint }) {
     if (!runtimeStore.get().canCapturePointer) {
       return false;
     }
@@ -342,19 +409,52 @@ export function createInteractionController({
       return false;
     }
 
+    const wheelMode = resolveWheelMode({ shiftKey, altKey });
+    if (wheelMode === WHEEL_MODE.ZOOM_BOTH) {
+      const state = store.getState();
+      const scaleFactor = scaleFromWheelDelta(1, deltaY);
+      const forwarded = pageAdapter.forwardSharedWheel({
+        screenPoint,
+        deltaY,
+      });
+      if (!forwarded) {
+        logger.warn("Shared wheel requested, but the page adapter could not forward it");
+        return false;
+      }
+      logger.info(
+        "Forwarded native wheel to map; overlay follows through shared render state",
+        {
+          forwarded,
+          scaleFactor,
+          deltaY,
+          renderSource: hasCleanSolvedTransform(state.registration) ? "solved" : "placement",
+        },
+      );
+      updatePointer(screenPoint, { isPointerInsideImage: true });
+      return true;
+    }
+
     const state = syncPlacementToCurrentRenderTransform(store.getState());
-    if (shiftKey) {
-      const rotationRad = rotationFromWheelDelta(state.placement.rotationRad, deltaY);
-      store.patchPlacement({
-        rotationRad,
+    const snapshot = pageAdapter.getSnapshot();
+    if (wheelMode === WHEEL_MODE.ROTATE_OVERLAY) {
+      const nextRotationRad = rotationFromWheelDelta(state.placement.rotationRad, deltaY);
+      const nextPlacement = createRetunedPlacementTransform({
+        state,
+        snapshot,
+        rotationRad: nextRotationRad,
       });
-      logger.info("Rotated overlay placement", { rotationRad, deltaY });
+      store.setPlacement(nextPlacement);
+      logger.info("Rotated overlay placement", { rotationRad: nextRotationRad, deltaY });
     } else {
-      const scale = scaleFromWheelDelta(state.placement.scale, deltaY);
-      store.patchPlacement({
-        scale,
+      const screenScale = Math.hypot(state.placement.a, state.placement.b) * (2 ** snapshot.mapView.zoom);
+      const nextScale = scaleFromWheelDelta(screenScale, deltaY);
+      const nextPlacement = createRetunedPlacementTransform({
+        state,
+        snapshot,
+        screenScale: nextScale,
       });
-      logger.info("Scaled overlay placement", { scale, deltaY });
+      store.setPlacement(nextPlacement);
+      logger.info("Scaled overlay placement", { scale: nextScale, deltaY });
     }
     updatePointer(screenPoint, { isPointerInsideImage: true });
     return true;
@@ -432,6 +532,9 @@ export function createInteractionController({
   }
 
   function handleWindowBlur() {
+    if (isSharedDragMode(dragState?.mode)) {
+      pageAdapter.endSharedDrag?.(runtimeStore.get().pointerScreenPx);
+    }
     syncRuntime({
       isPassThroughActive: false,
       isDragging: false,
@@ -445,13 +548,13 @@ export function createInteractionController({
       return;
     }
 
-    if (dragState.mode === DRAG_MODE.SHARED_PAN) {
+    if (isSharedDragMode(dragState.mode)) {
       const delta = {
         x: screenPoint.x - dragState.lastPointerScreenPx.x,
         y: screenPoint.y - dragState.lastPointerScreenPx.y,
       };
       dragState.lastPointerScreenPx = screenPoint;
-      pageAdapter.panMapByScreenDelta?.(delta);
+      pageAdapter.updateSharedDrag(screenPoint, delta);
       return;
     }
 
@@ -459,9 +562,14 @@ export function createInteractionController({
       x: dragState.startCenterScreenPx.x + (screenPoint.x - dragState.startPointerScreenPx.x),
       y: dragState.startCenterScreenPx.y + (screenPoint.y - dragState.startPointerScreenPx.y),
     };
-    store.patchPlacement({
-      centerMapLatLon: pageAdapter.screenToMap(nextCenterScreenPx),
+    const state = syncPlacementToCurrentRenderTransform(store.getState());
+    const snapshot = pageAdapter.getSnapshot();
+    const nextPlacement = createRetunedPlacementTransform({
+      state,
+      snapshot,
+      centerScreenPx: nextCenterScreenPx,
     });
+    store.setPlacement(nextPlacement);
   }
 
   function syncPlacementToCurrentRenderTransform(state) {
@@ -476,9 +584,8 @@ export function createInteractionController({
       mapToScreen: pageAdapter.mapToScreen,
     });
     store.setPlacement(derivePlacementFromScreenTransform({
-      image: state.image,
+      snapshot,
       transform,
-      screenToMap: pageAdapter.screenToMap,
     }));
     return store.getState();
   }
@@ -497,11 +604,10 @@ export function createInteractionController({
       ...previous,
       ...partialRuntime,
     };
-    next.canCapturePointer =
-      Boolean(state.image) &&
-      state.mode === INTERACTION_MODE.ALIGN &&
-      !next.isPassThroughActive;
-    next.canComputeTransform = canSolveRegistration(state.registration);
+    next.canCapturePointer = canCaptureOverlayPointer({
+      state,
+      runtime: next,
+    });
     runtimeStore.set(next);
   }
 
@@ -544,6 +650,58 @@ export function createInteractionController({
   };
 }
 
+function createRetunedPlacementTransform({
+  state,
+  snapshot,
+  centerScreenPx = null,
+  screenScale = null,
+  rotationRad = null,
+}) {
+  const screenTransform = resolveOverlayScreenTransform({
+    state,
+    snapshot,
+    mapToScreen: () => {
+      throw new Error("retuned placement should not resolve placement via mapToScreen");
+    },
+  });
+  const imageCenter = {
+    x: state.image.width / 2,
+    y: state.image.height / 2,
+  };
+  const resolvedCenterScreenPx = centerScreenPx ?? imagePointToScreenPoint({
+    imagePoint: imageCenter,
+    transform: screenTransform,
+  });
+  const resolvedScreenScale = screenScale ?? Math.hypot(screenTransform.a, screenTransform.b);
+  const resolvedRotationRad = rotationRad ?? Math.atan2(screenTransform.b, screenTransform.a);
+  return derivePlacementFromScreenTransform({
+    snapshot,
+    transform: createSimilarityTransformFromAnchor({
+      anchorImagePx: imageCenter,
+      anchorTargetPx: resolvedCenterScreenPx,
+      scale: resolvedScreenScale,
+      rotationRad: resolvedRotationRad,
+    }),
+  });
+}
+
+export function resolveDragMode({ shiftKey }) {
+  if (shiftKey) {
+    return DRAG_MODE.MOVE_OVERLAY;
+  }
+  return DRAG_MODE.SHARED_PAN;
+}
+
+export function resolveWheelMode({ shiftKey, altKey }) {
+  if (altKey) {
+    return WHEEL_MODE.ROTATE_OVERLAY;
+  }
+  if (shiftKey) {
+    return WHEEL_MODE.ZOOM_OVERLAY;
+  }
+  return WHEEL_MODE.ZOOM_BOTH;
+}
+
 function consumeEvent(event) {
   event.preventDefault?.();
   event.stopPropagation?.();
@@ -565,7 +723,7 @@ export function resolveKeyboardShortcut({ event, state }) {
   if (shouldIgnoreKeyboardShortcut(event)) {
     return null;
   }
-  if (state.mode !== INTERACTION_MODE.ALIGN) {
+  if (!canEditRegistration(state)) {
     return null;
   }
   if (event.code === "KeyP") {
@@ -583,16 +741,16 @@ export function resolveKeyboardShortcut({ event, state }) {
 export function shouldReleasePassThrough({ event, state, runtime }) {
   return (
     event.code === "Space" &&
-    (state.mode === INTERACTION_MODE.ALIGN || runtime.isPassThroughActive)
+    (isAlignMode(state.mode) || runtime.isPassThroughActive)
   );
 }
 
 export function resolvePinContext({ state, runtime, pageAdapter }) {
-  if (state.mode !== INTERACTION_MODE.ALIGN) {
-    return { ok: false, reason: "not-align-mode" };
-  }
-  if (!state.image) {
-    return { ok: false, reason: "no-image" };
+  if (!canEditRegistration(state)) {
+    return {
+      ok: false,
+      reason: state?.image ? "not-align-mode" : "no-image",
+    };
   }
   const pointerScreenPx = runtime.pointerScreenPx;
   if (!pointerScreenPx) {

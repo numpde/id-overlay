@@ -1,10 +1,10 @@
 import { hasCleanSolvedTransform } from "./state.js";
 
 const DEFAULT_OPACITY = 0.6;
-const DEFAULT_SCALE = 1;
+const DEFAULT_SCREEN_SCALE = 1;
 const DEFAULT_ROTATION_RAD = 0;
-const MIN_SCALE = 0.1;
-const MAX_SCALE = 12;
+const MIN_SCREEN_SCALE = 0.1;
+const MAX_SCREEN_SCALE = 12;
 const WHEEL_SCALE_STEP = 1 / 400;
 const WHEEL_ROTATION_STEP = 1 / 800;
 const TILE_SIZE = 256;
@@ -18,9 +18,9 @@ export function clampOpacity(value) {
 
 export function clampScale(value) {
   if (!Number.isFinite(value)) {
-    return DEFAULT_SCALE;
+    return DEFAULT_SCREEN_SCALE;
   }
-  return Math.min(MAX_SCALE, Math.max(MIN_SCALE, value));
+  return Math.min(MAX_SCREEN_SCALE, Math.max(MIN_SCREEN_SCALE, value));
 }
 
 export function getViewportCenter(viewportRect) {
@@ -77,52 +77,48 @@ export function rotateVector(vector, rotationRad) {
   };
 }
 
-export function resolvePlacementCenterMapLatLon(snapshot, placement) {
-  return placement?.centerMapLatLon ?? snapshot.mapView.center;
+export function createPlacementTransform({
+  image,
+  centerMapLatLon,
+  scale = DEFAULT_SCREEN_SCALE,
+  rotationRad = DEFAULT_ROTATION_RAD,
+  zoom,
+}) {
+  return createWorldSimilarityTransformFromPlacement({
+    image,
+    centerMapLatLon,
+    scale,
+    rotationRad,
+    zoom,
+  });
 }
 
-export function createPlacementScreenTransform({ image, placement, snapshot, mapToScreen }) {
-  const centerScreenPx = mapToScreen(resolvePlacementCenterMapLatLon(snapshot, placement));
-  return createSimilarityTransformFromCenter({
-    image,
-    centerScreenPx,
-    scale: placement?.scale,
-    rotationRad: placement?.rotationRad,
+export function createPlacementScreenTransform({ snapshot, placement }) {
+  return createWorldSimilarityScreenTransform({
+    snapshot,
+    similarityTransform: placement,
   });
 }
 
 export function derivePlacementFromScreenTransform({
-  image,
+  snapshot,
   transform,
-  screenToMap,
 }) {
-  const imageCenter = {
-    x: image.width / 2,
-    y: image.height / 2,
-  };
-  const centerScreenPx = imagePointToScreenPoint({
-    imagePoint: imageCenter,
-    transform,
-  });
-  return {
-    centerMapLatLon: screenToMap(centerScreenPx),
-    scale: Math.hypot(transform.a, transform.b),
-    rotationRad: Math.atan2(transform.b, transform.a),
-  };
-}
-
-export function createSolvedScreenTransform({ snapshot, solvedTransform }) {
-  if (!solvedTransform || solvedTransform.type !== "similarity") {
-    return null;
-  }
   const viewportCenter = getViewportCenter(snapshot.viewportRect);
   const centerWorld = projectLatLonToWorld(snapshot.mapView.center);
   const zoomScale = 2 ** snapshot.mapView.zoom;
   return createSimilarityTransform({
-    a: solvedTransform.a * zoomScale,
-    b: solvedTransform.b * zoomScale,
-    tx: viewportCenter.x + (solvedTransform.tx - centerWorld.x) * zoomScale,
-    ty: viewportCenter.y + (solvedTransform.ty - centerWorld.y) * zoomScale,
+    a: transform.a / zoomScale,
+    b: transform.b / zoomScale,
+    tx: centerWorld.x + (transform.tx - viewportCenter.x) / zoomScale,
+    ty: centerWorld.y + (transform.ty - viewportCenter.y) / zoomScale,
+  });
+}
+
+export function createSolvedScreenTransform({ snapshot, solvedTransform }) {
+  return createWorldSimilarityScreenTransform({
+    snapshot,
+    similarityTransform: solvedTransform,
   });
 }
 
@@ -139,10 +135,8 @@ export function resolveOverlayScreenTransform({ state, snapshot, mapToScreen }) 
   }
 
   return createPlacementScreenTransform({
-    image: state.image,
     placement: state.placement,
     snapshot,
-    mapToScreen,
   });
 }
 
@@ -154,6 +148,41 @@ export function resolveOverlayRenderSource(state) {
     return "solved";
   }
   return "placement";
+}
+
+export function resolveOverlayRenderState(state) {
+  const source = resolveOverlayRenderSource(state);
+  if (source === "none") {
+    return {
+      source,
+      label: "No image",
+      message: "Paste a screenshot to begin.",
+    };
+  }
+  if (source === "solved") {
+    return state.mode === "trace"
+      ? {
+          source,
+          label: "Solved transform active",
+          message: "Trace mode: the overlay follows the map using the solved transform.",
+        }
+      : {
+          source,
+          label: "Solved transform preview active",
+          message: "Align mode: solved transform preview active. Switch to Trace to verify map-following, or adjust placement to refine and recompute.",
+        };
+  }
+  return state.mode === "trace"
+    ? {
+        source,
+        label: "Manual placement active",
+        message: "Trace mode: the overlay follows the map using the current manual placement.",
+      }
+    : {
+        source,
+        label: "Manual placement active",
+        message: null,
+      };
 }
 
 export function buildOverlayRenderModel({ image, transform, opacity }) {
@@ -275,7 +304,7 @@ function createSimilarityTransformFromCenter({ image, centerScreenPx, scale, rot
   };
   return createSimilarityTransformFromAnchor({
     anchorImagePx: imageCenter,
-    anchorScreenPx: centerScreenPx,
+    anchorTargetPx: centerScreenPx,
     scale: nextScale,
     rotationRad: nextRotationRad,
   });
@@ -283,7 +312,7 @@ function createSimilarityTransformFromCenter({ image, centerScreenPx, scale, rot
 
 export function createSimilarityTransformFromAnchor({
   anchorImagePx,
-  anchorScreenPx,
+  anchorTargetPx,
   scale,
   rotationRad,
 }) {
@@ -294,13 +323,21 @@ export function createSimilarityTransformFromAnchor({
   return createSimilarityTransform({
     a,
     b,
-    tx: anchorScreenPx.x - a * anchorImagePx.x + b * anchorImagePx.y,
-    ty: anchorScreenPx.y - b * anchorImagePx.x - a * anchorImagePx.y,
+    tx: anchorTargetPx.x - a * anchorImagePx.x + b * anchorImagePx.y,
+    ty: anchorTargetPx.y - b * anchorImagePx.x - a * anchorImagePx.y,
   });
 }
 
 function createSimilarityTransform({ a, b, tx, ty }) {
-  return { a, b, tx, ty };
+  return {
+    type: "similarity",
+    a,
+    b,
+    tx,
+    ty,
+    scale: Math.hypot(a, b),
+    rotationRad: Math.atan2(b, a),
+  };
 }
 
 function applySimilarityToPoint(point, transform) {
@@ -330,4 +367,56 @@ function subtractPoints(left, right) {
     x: left.x - right.x,
     y: left.y - right.y,
   };
+}
+
+function createWorldSimilarityTransformFromPlacement({
+  image,
+  centerMapLatLon,
+  scale,
+  rotationRad,
+  zoom,
+}) {
+  const centerWorld = projectLatLonToWorld(centerMapLatLon);
+  const worldScale = clampScale(scale) / (2 ** zoom);
+  return createWorldSimilarityTransformFromAnchor({
+    anchorImagePx: {
+      x: image.width / 2,
+      y: image.height / 2,
+    },
+    anchorWorldPoint: centerWorld,
+    scale: worldScale,
+    rotationRad,
+  });
+}
+
+function createWorldSimilarityTransformFromAnchor({
+  anchorImagePx,
+  anchorWorldPoint,
+  scale,
+  rotationRad,
+}) {
+  const nextRotationRad = Number.isFinite(rotationRad) ? rotationRad : DEFAULT_ROTATION_RAD;
+  const a = scale * Math.cos(nextRotationRad);
+  const b = scale * Math.sin(nextRotationRad);
+  return createSimilarityTransform({
+    a,
+    b,
+    tx: anchorWorldPoint.x - a * anchorImagePx.x + b * anchorImagePx.y,
+    ty: anchorWorldPoint.y - b * anchorImagePx.x - a * anchorImagePx.y,
+  });
+}
+
+function createWorldSimilarityScreenTransform({ snapshot, similarityTransform }) {
+  if (!similarityTransform || similarityTransform.type !== "similarity") {
+    return null;
+  }
+  const viewportCenter = getViewportCenter(snapshot.viewportRect);
+  const centerWorld = projectLatLonToWorld(snapshot.mapView.center);
+  const zoomScale = 2 ** snapshot.mapView.zoom;
+  return createSimilarityTransform({
+    a: similarityTransform.a * zoomScale,
+    b: similarityTransform.b * zoomScale,
+    tx: viewportCenter.x + (similarityTransform.tx - centerWorld.x) * zoomScale,
+    ty: viewportCenter.y + (similarityTransform.ty - centerWorld.y) * zoomScale,
+  });
 }

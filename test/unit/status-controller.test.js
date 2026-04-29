@@ -1,19 +1,21 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
+import { createStatusController } from "../../src/content/status-controller.js";
+import { INTERACTION_EVENT } from "../../src/core/interactions.js";
 import {
-  createStatusController,
-  describePinResult,
-  describeSolveResult,
-  deriveDefaultStatusMessage,
   getModeButtonActionLabel,
-} from "../../src/content/status-controller.js";
+  describeInteractionEventPresentation,
+  describePinResultPresentation,
+  describeSolveResultPresentation,
+  resolveDefaultStatusMessage,
+} from "../../src/core/presentation.js";
 import { createStateStore } from "../../src/core/state.js";
 import { createValueStore } from "../../src/core/value-store.js";
 
-test("deriveDefaultStatusMessage explains the current registration workflow", () => {
+test("resolveDefaultStatusMessage explains the current registration workflow", () => {
   assert.equal(
-    deriveDefaultStatusMessage({
+    resolveDefaultStatusMessage({
       state: { image: null, mode: "trace" },
       runtime: {},
     }),
@@ -21,7 +23,7 @@ test("deriveDefaultStatusMessage explains the current registration workflow", ()
   );
 
   assert.equal(
-    deriveDefaultStatusMessage({
+    resolveDefaultStatusMessage({
       state: {
         image: { src: "x", width: 1, height: 1 },
         mode: "trace",
@@ -33,7 +35,7 @@ test("deriveDefaultStatusMessage explains the current registration workflow", ()
   );
 
   assert.equal(
-    deriveDefaultStatusMessage({
+    resolveDefaultStatusMessage({
       state: {
         image: { src: "x", width: 1, height: 1 },
         mode: "align",
@@ -48,7 +50,7 @@ test("deriveDefaultStatusMessage explains the current registration workflow", ()
   );
 
   assert.equal(
-    deriveDefaultStatusMessage({
+    resolveDefaultStatusMessage({
       state: {
         image: { src: "x", width: 1, height: 1 },
         mode: "trace",
@@ -63,34 +65,82 @@ test("deriveDefaultStatusMessage explains the current registration workflow", ()
   );
 });
 
+test("resolveDefaultStatusMessage prioritizes live interaction state over static render copy", () => {
+  const solvedState = {
+    image: { src: "x", width: 1, height: 1 },
+    mode: "align",
+    registration: {
+      solvedTransform: { type: "similarity", a: 1, b: 0, tx: 0, ty: 0 },
+      dirty: false,
+    },
+  };
+
+  assert.equal(
+    resolveDefaultStatusMessage({
+      state: solvedState,
+      runtime: { isPassThroughActive: true, isDragging: false, dragMode: null },
+    }),
+    "Pass-through active: pan or zoom iD underneath, then release Space to continue registering.",
+  );
+
+  assert.equal(
+    resolveDefaultStatusMessage({
+      state: solvedState,
+      runtime: { isPassThroughActive: false, isDragging: true, dragMode: "shared-pan" },
+    }),
+    "Shared drag: moving the map and overlay together.",
+  );
+});
+
 test("getModeButtonActionLabel describes the next action, not the current state", () => {
   assert.equal(getModeButtonActionLabel("trace"), "Align");
   assert.equal(getModeButtonActionLabel("align"), "Trace");
 });
 
-test("describePinResult is the single source of truth for pin feedback", () => {
+test("describePinResultPresentation is the single source of truth for pin feedback", () => {
   assert.equal(
-    describePinResult({ ok: true, action: "added", pin: { id: 3 } }),
+    describePinResultPresentation({ ok: true, action: "added", pin: { id: 3 } }),
     "Added pin 3.",
   );
   assert.equal(
-    describePinResult({ ok: true, action: "removed", pin: { id: 3 } }),
+    describePinResultPresentation({ ok: true, action: "removed", pin: { id: 3 } }),
     "Removed pin 3.",
   );
   assert.equal(
-    describePinResult({ ok: false, reason: "pointer-outside-image" }),
+    describePinResultPresentation({ ok: false, reason: "pointer-outside-image" }),
     "Move the pointer over the screenshot before adding a pin.",
   );
 });
 
-test("describeSolveResult is the single source of truth for solve feedback", () => {
+test("describeSolveResultPresentation is the single source of truth for solve feedback", () => {
   assert.equal(
-    describeSolveResult({ ok: true, pinCount: 3 }),
+    describeSolveResultPresentation({ ok: true, pinCount: 3 }),
     "Computed transform from 3 pin(s).",
   );
   assert.equal(
-    describeSolveResult({ ok: false, reason: "insufficient-pins", pinCount: 1 }),
+    describeSolveResultPresentation({ ok: false, reason: "insufficient-pins", pinCount: 1 }),
     "Need at least 2 pins to compute a transform. Current pins: 1.",
+  );
+});
+
+test("describeInteractionEventPresentation centralizes interaction event feedback", () => {
+  assert.equal(
+    describeInteractionEventPresentation({
+      type: INTERACTION_EVENT.PIN_RESULT,
+      result: { ok: true, action: "added", pin: { id: 3 } },
+    }),
+    "Added pin 3.",
+  );
+  assert.equal(
+    describeInteractionEventPresentation({
+      type: INTERACTION_EVENT.SOLVE_RESULT,
+      result: { ok: false, reason: "insufficient-pins", pinCount: 1 },
+    }),
+    "Need at least 2 pins to compute a transform. Current pins: 1.",
+  );
+  assert.equal(
+    describeInteractionEventPresentation({ type: INTERACTION_EVENT.PINS_CLEARED }),
+    "Cleared all registration pins.",
   );
 });
 
@@ -154,7 +204,7 @@ test("status controller reacts to pin and solve events", () => {
   const controller = createStatusController({ store, interactions });
   for (const listener of eventListeners) {
     listener({
-      type: "pin-result",
+      type: INTERACTION_EVENT.PIN_RESULT,
       result: { ok: true, action: "added", pin: { id: 1 } },
     });
   }
@@ -162,7 +212,7 @@ test("status controller reacts to pin and solve events", () => {
 
   for (const listener of eventListeners) {
     listener({
-      type: "solve-result",
+      type: INTERACTION_EVENT.SOLVE_RESULT,
       result: { ok: false, reason: "insufficient-pins", pinCount: 1 },
     });
   }
@@ -170,6 +220,11 @@ test("status controller reacts to pin and solve events", () => {
     controller.getMessage(),
     "Need at least 2 pins to compute a transform. Current pins: 1.",
   );
+
+  for (const listener of eventListeners) {
+    listener({ type: INTERACTION_EVENT.PINS_CLEARED });
+  }
+  assert.equal(controller.getMessage(), "Cleared all registration pins.");
 
   controller.destroy();
 });

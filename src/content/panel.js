@@ -1,9 +1,7 @@
-import { clampOpacity, resolveOverlayRenderSource } from "../core/transform.js";
+import { clampOpacity } from "../core/transform.js";
 import {
-  getRegistrationPinCount,
-  resolveRegistrationSolveState,
-} from "../core/state.js";
-import { getModeButtonActionLabel } from "./status-controller.js";
+  resolvePanelPresentation,
+} from "../core/presentation.js";
 import { formatBuildLabel, createLogger } from "../core/logger.js";
 
 const MANUAL_PASTE_PROMPT = "Press Ctrl/Cmd+V to paste an image from your clipboard.";
@@ -77,7 +75,7 @@ export function createPanel({ shadow, store, interactions, statusController }) {
   shadow.append(root);
 
   let latestState = store.getState();
-  let latestRuntime = interactions.getRuntimeState();
+  let latestStatusMessage = statusController.getMessage();
   let isPasteArmed = false;
   let isPasteListenerAttached = false;
 
@@ -117,11 +115,8 @@ export function createPanel({ shadow, store, interactions, statusController }) {
     latestState = state;
     renderControls();
   });
-  const unsubscribeInteractions = interactions.subscribe((runtime) => {
-    latestRuntime = runtime;
-    renderControls();
-  });
-  const unsubscribeStatus = statusController.subscribe(() => {
+  const unsubscribeStatus = statusController.subscribe((message) => {
+    latestStatusMessage = message;
     renderControls();
   });
 
@@ -131,24 +126,29 @@ export function createPanel({ shadow, store, interactions, statusController }) {
     destroy() {
       detachPasteListener();
       unsubscribeStore();
-      unsubscribeInteractions();
       unsubscribeStatus();
       root.remove();
     },
   };
 
   function renderControls() {
-    pasteButton.textContent = isPasteArmed ? "Paste…" : "Paste";
-    opacityInput.value = String(latestState.opacity);
-    modeButton.textContent = getModeButtonActionLabel(latestState.mode);
-    clearButton.disabled = !latestState.image;
-    opacityInput.disabled = !latestState.image;
-    computeButton.disabled = !latestRuntime.canComputeTransform;
-    clearPinsButton.disabled = getRegistrationPinCount(latestState.registration) === 0;
-    pinsValue.textContent = String(getRegistrationPinCount(latestState.registration));
-    solveValue.textContent = describeSolveState(latestState.registration);
-    renderValue.textContent = describeRenderState(latestState);
-    statusElement.textContent = getDisplayedStatusMessage();
+    const presentation = resolvePanelPresentation({
+      state: latestState,
+      statusMessage: latestStatusMessage,
+      isPasteArmed,
+      manualPastePrompt: MANUAL_PASTE_PROMPT,
+    });
+    pasteButton.textContent = presentation.pasteLabel;
+    opacityInput.value = presentation.opacityValue;
+    modeButton.textContent = presentation.modeButtonLabel;
+    clearButton.disabled = !presentation.hasImage;
+    opacityInput.disabled = !presentation.hasImage;
+    computeButton.disabled = !presentation.canComputeTransform;
+    clearPinsButton.disabled = !presentation.canClearPins;
+    pinsValue.textContent = presentation.pinCountLabel;
+    solveValue.textContent = presentation.solveLabel;
+    renderValue.textContent = presentation.renderLabel;
+    statusElement.textContent = presentation.statusMessage;
   }
 
   async function handleWindowPaste(event) {
@@ -232,13 +232,6 @@ export function createPanel({ shadow, store, interactions, statusController }) {
     isPasteListenerAttached = false;
   }
 
-  function getDisplayedStatusMessage() {
-    if (isPasteArmed) {
-      return MANUAL_PASTE_PROMPT;
-    }
-    return statusController.getMessage();
-  }
-
   async function loadClipboardImage(source, sourceLabel) {
     const image = await readImageFromClipboard(source);
     interactions.loadImage(image);
@@ -258,33 +251,6 @@ function createButton(label) {
   button.className = "id-overlay-button";
   button.textContent = label;
   return button;
-}
-
-function describeSolveState(registration) {
-  const solveState = resolveRegistrationSolveState(registration);
-  if (solveState.kind === "solved") {
-    return `Solved from ${registration.solvedTransform.pinCount ?? solveState.pinCount} pin(s)`;
-  }
-  if (solveState.kind === "dirty") {
-    return "Pins changed; recompute needed";
-  }
-  if (solveState.kind === "insufficient-pins") {
-    return "Collect at least 2 pins";
-  }
-  return "No pins yet";
-}
-
-function describeRenderState(state) {
-  const renderSource = resolveOverlayRenderSource(state);
-  if (renderSource === "solved") {
-    return state.mode === "trace"
-      ? "Solved transform active"
-      : "Solved transform preview active";
-  }
-  if (renderSource === "placement") {
-    return "Manual placement active";
-  }
-  return "No image";
 }
 
 async function readImageFromClipboard(file) {

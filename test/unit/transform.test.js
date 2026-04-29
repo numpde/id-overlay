@@ -5,8 +5,10 @@ import {
   buildOverlayRenderModel,
   buildPinRenderModels,
   clampOpacity,
+  createPlacementTransform,
   derivePlacementFromScreenTransform,
   createPlacementScreenTransform,
+  resolveOverlayRenderState,
   createSolvedScreenTransform,
   hitTestPin,
   imagePointToScreenPoint,
@@ -26,51 +28,52 @@ test("clampOpacity keeps opacity in range", () => {
 });
 
 test("createPlacementScreenTransform maps the image center to the placement center", () => {
+  const snapshot = {
+    viewportRect: { left: 10, top: 20, width: 300, height: 200 },
+    mapView: { center: { lat: 1, lon: 2 }, zoom: 16 },
+  };
   const transform = createPlacementScreenTransform({
-    image: { width: 400, height: 200 },
-    placement: {
+    placement: createPlacementTransform({
+      image: { width: 400, height: 200 },
       centerMapLatLon: { lat: 1, lon: 2 },
       scale: 2,
       rotationRad: Math.PI / 2,
-    },
-    snapshot: {
-      viewportRect: { left: 10, top: 20, width: 300, height: 200 },
-      mapView: { center: { lat: 0, lon: 0 }, zoom: 16 },
-    },
-    mapToScreen(point) {
-      return { x: point.lon * 10, y: point.lat * 10 };
-    },
+      zoom: snapshot.mapView.zoom,
+    }),
+    snapshot,
   });
 
-  assert.deepEqual(
-    imagePointToScreenPoint({
-      imagePoint: { x: 200, y: 100 },
-      transform,
-    }),
-    { x: 20, y: 10 },
-  );
+  const centerScreenPoint = imagePointToScreenPoint({
+    imagePoint: { x: 200, y: 100 },
+    transform,
+  });
+  assert.ok(Math.abs(centerScreenPoint.x - 160) < 1e-9);
+  assert.ok(Math.abs(centerScreenPoint.y - 120) < 1e-9);
 });
 
-test("derivePlacementFromScreenTransform recovers placement fields from a rendered transform", () => {
+test("derivePlacementFromScreenTransform recovers a world-space placement transform from a rendered transform", () => {
+  const snapshot = {
+    viewportRect: { left: 10, top: 20, width: 300, height: 200 },
+    mapView: { center: { lat: 0, lon: 0 }, zoom: 4 },
+  };
   const placement = derivePlacementFromScreenTransform({
-    image: { width: 400, height: 200 },
+    snapshot,
     transform: {
       a: 0,
       b: 2,
       tx: 220,
       ty: 10,
     },
-    screenToMap(screenPoint) {
-      return {
-        lat: screenPoint.y / 10,
-        lon: screenPoint.x / 10,
-      };
-    },
   });
 
-  assert.deepEqual(placement.centerMapLatLon, { lat: 41, lon: 2 });
-  assert.equal(placement.scale, 2);
-  assert.equal(placement.rotationRad, Math.PI / 2);
+  const screenTransform = createPlacementScreenTransform({
+    snapshot,
+    placement,
+  });
+  assert.equal(screenTransform.a, 0);
+  assert.equal(screenTransform.b, 2);
+  assert.equal(screenTransform.tx, 220);
+  assert.equal(screenTransform.ty, 10);
 });
 
 test("resolveOverlayScreenTransform uses solved transforms whenever a clean solve is available", () => {
@@ -78,11 +81,13 @@ test("resolveOverlayScreenTransform uses solved transforms whenever a clean solv
     mode: "align",
     image: { width: 100, height: 50 },
     opacity: 0.6,
-    placement: {
+    placement: createPlacementTransform({
+      image: { width: 100, height: 50 },
       centerMapLatLon: { lat: 0, lon: 0 },
       scale: 1,
       rotationRad: 0,
-    },
+      zoom: 0,
+    }),
     registration: {
       dirty: false,
       solvedTransform: {
@@ -144,6 +149,39 @@ test("resolveOverlayRenderSource exposes whether rendering uses solved or manual
     mode: "trace",
     registration: { solvedTransform: { type: "similarity", a: 1, b: 0, tx: 0, ty: 0 }, dirty: true },
   }), "placement");
+});
+
+test("resolveOverlayRenderState is the single source of truth for render labels and messages", () => {
+  assert.deepEqual(
+    resolveOverlayRenderState({
+      image: null,
+      mode: "trace",
+      registration: { solvedTransform: null, dirty: false },
+    }),
+    {
+      source: "none",
+      label: "No image",
+      message: "Paste a screenshot to begin.",
+    },
+  );
+
+  assert.equal(
+    resolveOverlayRenderState({
+      image: { width: 1, height: 1 },
+      mode: "align",
+      registration: { solvedTransform: null, dirty: false },
+    }).label,
+    "Manual placement active",
+  );
+
+  assert.equal(
+    resolveOverlayRenderState({
+      image: { width: 1, height: 1 },
+      mode: "trace",
+      registration: { solvedTransform: { type: "similarity", a: 1, b: 0, tx: 0, ty: 0 }, dirty: false },
+    }).message,
+    "Trace mode: the overlay follows the map using the solved transform.",
+  );
 });
 
 test("buildOverlayRenderModel derives CSS-compatible placement from a similarity transform", () => {

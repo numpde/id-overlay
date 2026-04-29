@@ -30,6 +30,7 @@ export function createPageAdapter({
   let observedMapWindow = null;
   let observedMutationRoot = null;
   let lastSnapshot = null;
+  let activeSharedDrag = null;
   const listeners = new Set();
 
   function isSupported() {
@@ -78,19 +79,79 @@ export function createPageAdapter({
     }, projection.mapView.zoom);
   }
 
-  function panMapByScreenDelta(screenDelta) {
-    const snapshot = getSnapshot();
-    const centerWorld = projectLatLon(snapshot.mapView.center, snapshot.mapView.zoom);
-    const nextCenter = unprojectWorld({
-      x: centerWorld.x - screenDelta.x,
-      y: centerWorld.y - screenDelta.y,
-    }, snapshot.mapView.zoom);
+  function beginSharedDrag(screenPoint) {
+    const context = getActiveMapContext();
+    const clientPoint = toContextClientPoint(screenPoint, context);
+    const target = resolveSharedDragTarget(context, clientPoint);
+    if (!target) {
+      activeSharedDrag = null;
+      return false;
+    }
 
-    writeMapView({
-      center: nextCenter,
-      zoom: snapshot.mapView.zoom,
-    }, getActiveMapContext().mapWindow);
-    notifyIfChanged();
+    activeSharedDrag = {
+      context,
+      target,
+    };
+    dispatchSharedDragMouseSequence({
+      context,
+      target,
+      type: "down",
+      clientPoint,
+    });
+    return true;
+  }
+
+  function updateSharedDrag(screenPoint, screenDelta) {
+    if (!activeSharedDrag) {
+      return false;
+    }
+
+    const clientPoint = toContextClientPoint(screenPoint, activeSharedDrag.context);
+    dispatchSharedDragMouseSequence({
+      context: activeSharedDrag.context,
+      target: activeSharedDrag.context.viewportDocument,
+      type: "move",
+      clientPoint,
+    });
+    return true;
+  }
+
+  function endSharedDrag(screenPoint) {
+    if (!activeSharedDrag) {
+      return;
+    }
+
+    const clientPoint = toContextClientPoint(screenPoint, activeSharedDrag.context);
+    dispatchSharedDragMouseSequence({
+      context: activeSharedDrag.context,
+      target: activeSharedDrag.context.viewportDocument,
+      type: "up",
+      clientPoint,
+    });
+    activeSharedDrag = null;
+  }
+
+  function forwardSharedWheel({ screenPoint, deltaX = 0, deltaY = 0, deltaMode = 0 }) {
+    const context = getActiveMapContext();
+    const clientPoint = toContextClientPoint(screenPoint, context);
+    const target = resolveSharedDragTarget(context, clientPoint);
+    if (!target || typeof context.mapWindow.WheelEvent !== "function") {
+      return false;
+    }
+
+    target.dispatchEvent(new context.mapWindow.WheelEvent("wheel", {
+      bubbles: true,
+      cancelable: true,
+      clientX: clientPoint.x,
+      clientY: clientPoint.y,
+      screenX: clientPoint.x,
+      screenY: clientPoint.y,
+      deltaX,
+      deltaY,
+      deltaMode,
+      view: context.mapWindow,
+    }));
+    return true;
   }
 
   function subscribe(listener) {
@@ -163,7 +224,10 @@ export function createPageAdapter({
     getMapCenter,
     mapToScreen,
     screenToMap,
-    panMapByScreenDelta,
+    beginSharedDrag,
+    updateSharedDrag,
+    endSharedDrag,
+    forwardSharedWheel,
     subscribe,
     destroy,
   };
@@ -225,13 +289,7 @@ export function createPageAdapter({
   }
 
   function getProjectionContext() {
-    const snapshot = getSnapshot();
-    return {
-      viewportRect: snapshot.viewportRect,
-      mapView: snapshot.mapView,
-      viewportCenter: getViewportCenter(snapshot.viewportRect),
-      centerWorld: projectLatLon(snapshot.mapView.center, snapshot.mapView.zoom),
-    };
+    return createProjectionContext(getSnapshot());
   }
 
   function getActiveMapContext() {
@@ -377,29 +435,20 @@ function patchHistoryMethods({ hashTarget, onHistoryMutation }) {
   };
 }
 
-function writeMapView({ center, zoom }, hashTarget = globalThis.window) {
-  const location = getSafeLocation(hashTarget);
-  if (!location?.href || !hashTarget.history?.replaceState) {
-    return;
-  }
-
-  const url = new URL(location.href);
-  const nextMapToken = `map=${formatZoom(zoom)}/${formatCoordinate(center.lat)}/${formatCoordinate(center.lon)}`;
-  const currentHash = url.hash.replace(/^#/, "");
-  const nextHash = currentHash.includes("map=")
-    ? currentHash.replace(/map=[^&]+/, nextMapToken)
-    : [currentHash, nextMapToken].filter(Boolean).join("&");
-
-  url.hash = nextHash;
-  hashTarget.history.replaceState(null, "", url.toString());
-  hashTarget.dispatchEvent(createHashChangeEvent(hashTarget));
-}
-
 function createSnapshot({ viewportRect, mapView, surfaceMotion }) {
   return {
     viewportRect,
     mapView,
     surfaceMotion,
+  };
+}
+
+function createProjectionContext(snapshot) {
+  return {
+    viewportRect: snapshot.viewportRect,
+    mapView: snapshot.mapView,
+    viewportCenter: getViewportCenter(snapshot.viewportRect),
+    centerWorld: projectLatLon(snapshot.mapView.center, snapshot.mapView.zoom),
   };
 }
 
@@ -420,6 +469,52 @@ function createWindowViewportRect(hashTarget) {
     width: hashTarget.innerWidth,
     height: hashTarget.innerHeight,
   };
+}
+
+function resolveSharedDragTarget(context, clientPoint) {
+  const target = context.viewportDocument.elementFromPoint?.(clientPoint.x, clientPoint.y);
+  return target ?? findViewportElement(context.viewportDocument) ?? context.viewportDocument.body;
+}
+
+function toContextClientPoint(screenPoint, context) {
+  if (!context.frameElement) {
+    return {
+      x: screenPoint.x,
+      y: screenPoint.y,
+    };
+  }
+  const frameRect = context.frameElement.getBoundingClientRect();
+  return {
+    x: screenPoint.x - frameRect.left,
+    y: screenPoint.y - frameRect.top,
+  };
+}
+
+function dispatchSharedDragMouseSequence({ context, target, type, clientPoint }) {
+  const eventInit = {
+    bubbles: true,
+    cancelable: true,
+    clientX: clientPoint.x,
+    clientY: clientPoint.y,
+    screenX: clientPoint.x,
+    screenY: clientPoint.y,
+    button: 0,
+    buttons: type === "up" ? 0 : 1,
+    view: context.mapWindow,
+  };
+
+  if (typeof context.mapWindow.PointerEvent === "function") {
+    const pointerType = type === "down" ? "pointerdown" : type === "move" ? "pointermove" : "pointerup";
+    target.dispatchEvent(new context.mapWindow.PointerEvent(pointerType, {
+      ...eventInit,
+      pointerId: 1,
+      pointerType: "mouse",
+      isPrimary: true,
+    }));
+  }
+
+  const mouseType = type === "down" ? "mousedown" : type === "move" ? "mousemove" : "mouseup";
+  target.dispatchEvent(new context.mapWindow.MouseEvent(mouseType, eventInit));
 }
 
 function rectFromDomRect(rect) {
@@ -658,13 +753,6 @@ function getSafeLocation(hashTarget) {
       hash: "",
     };
   }
-}
-
-function createHashChangeEvent(hashTarget) {
-  if (typeof hashTarget.HashChangeEvent === "function") {
-    return new hashTarget.HashChangeEvent("hashchange");
-  }
-  return new hashTarget.Event("hashchange");
 }
 
 function projectLatLon({ lat, lon }, zoom) {

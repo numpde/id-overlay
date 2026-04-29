@@ -214,40 +214,6 @@ test("page adapter derives a more precise map view from rendered tiles when avai
   }
 });
 
-test("page adapter can pan the map by screen delta through the hash-backed map view", () => {
-  const env = createDomEnvironment({
-    url: "https://www.openstreetmap.org/edit?editor=id#map=16/-1.22645/36.82597",
-    viewportHtml: '<div id="map"></div>',
-  });
-
-  try {
-    const viewport = env.document.getElementById("map");
-    viewport.getBoundingClientRect = () => ({
-      left: 120,
-      top: 80,
-      width: 900,
-      height: 600,
-      right: 1020,
-      bottom: 680,
-    });
-
-    const adapter = createPageAdapter({
-      hashTarget: env.window,
-      viewportDocument: env.document,
-    });
-    const before = adapter.getMapCenter();
-    adapter.panMapByScreenDelta({ x: 40, y: -20 });
-    const after = adapter.getMapCenter();
-
-    assert.notDeepEqual(after, before);
-    assert.match(env.window.location.hash, /map=16\/-1\./);
-
-    adapter.destroy();
-  } finally {
-    env.cleanup();
-  }
-});
-
 test("page adapter emits subscriber updates immediately when history.replaceState changes the map hash", () => {
   const env = createDomEnvironment({
     url: "https://www.openstreetmap.org/edit?editor=id#map=16/-1.22645/36.82597",
@@ -287,6 +253,105 @@ test("page adapter emits subscriber updates immediately when history.replaceStat
     });
 
     unsubscribe();
+    adapter.destroy();
+  } finally {
+    env.cleanup();
+  }
+});
+
+test("page adapter can forward a shared drag gesture into the active map document", () => {
+  const env = createDomEnvironment({
+    url: "https://www.openstreetmap.org/edit?editor=id#map=16/-1.22645/36.82597",
+    viewportHtml: '<div id="map"></div>',
+  });
+
+  try {
+    const viewport = env.document.getElementById("map");
+    viewport.getBoundingClientRect = () => ({
+      left: 120,
+      top: 80,
+      width: 900,
+      height: 600,
+      right: 1020,
+      bottom: 680,
+    });
+    viewport.ownerDocument.elementFromPoint = () => viewport;
+
+    const adapter = createPageAdapter({
+      hashTarget: env.window,
+      viewportDocument: env.document,
+    });
+
+    const received = [];
+    viewport.addEventListener("mousedown", (event) => {
+      received.push({ type: event.type, x: event.clientX, y: event.clientY });
+    });
+    env.document.addEventListener("mousemove", (event) => {
+      received.push({ type: event.type, x: event.clientX, y: event.clientY });
+    });
+    env.document.addEventListener("mouseup", (event) => {
+      received.push({ type: event.type, x: event.clientX, y: event.clientY });
+    });
+
+    adapter.beginSharedDrag({ x: 200, y: 180 });
+    adapter.updateSharedDrag({ x: 240, y: 210 }, { x: 40, y: 30 });
+    adapter.endSharedDrag({ x: 240, y: 210 });
+
+    assert.deepEqual(received, [
+      { type: "mousedown", x: 200, y: 180 },
+      { type: "mousemove", x: 240, y: 210 },
+      { type: "mouseup", x: 240, y: 210 },
+    ]);
+
+    adapter.destroy();
+  } finally {
+    env.cleanup();
+  }
+});
+
+test("page adapter can forward a shared wheel gesture into the active map document", () => {
+  const env = createDomEnvironment({
+    url: "https://www.openstreetmap.org/edit?editor=id#map=16/-1.22645/36.82597",
+    viewportHtml: '<div id="map"></div>',
+  });
+
+  try {
+    const viewport = env.document.getElementById("map");
+    viewport.getBoundingClientRect = () => ({
+      left: 120,
+      top: 80,
+      width: 900,
+      height: 600,
+      right: 1020,
+      bottom: 680,
+    });
+    viewport.ownerDocument.elementFromPoint = () => viewport;
+
+    const adapter = createPageAdapter({
+      hashTarget: env.window,
+      viewportDocument: env.document,
+    });
+
+    const received = [];
+    viewport.addEventListener("wheel", (event) => {
+      received.push({
+        type: event.type,
+        x: event.clientX,
+        y: event.clientY,
+        deltaY: event.deltaY,
+      });
+    });
+
+    const forwarded = adapter.forwardSharedWheel({
+      screenPoint: { x: 240, y: 210 },
+      deltaY: -100,
+    });
+
+    assert.equal(forwarded, true);
+    assert.deepEqual(received, [
+      { type: "wheel", x: 240, y: 210, deltaY: -100 },
+    ]);
+
     adapter.destroy();
   } finally {
     env.cleanup();

@@ -4,7 +4,7 @@ import {
   resolveOverlayScreenTransform,
 } from "../core/transform.js";
 
-export function createOverlay({ shadow, pageAdapter, store, interactions, statusController }) {
+export function createOverlay({ shadow, pageAdapter, store, interactions }) {
   const overlayRoot = document.createElement("div");
   overlayRoot.className = "id-overlay-viewport";
   overlayRoot.dataset.idOverlayOwned = "true";
@@ -20,11 +20,8 @@ export function createOverlay({ shadow, pageAdapter, store, interactions, status
   const pinLayer = document.createElement("div");
   pinLayer.className = "id-overlay-pin-layer";
 
-  const statusElement = document.createElement("div");
-  statusElement.className = "id-overlay-status";
-
   mapLayer.append(overlayImage, pinLayer);
-  overlayRoot.append(mapLayer, statusElement);
+  overlayRoot.append(mapLayer);
   shadow.append(overlayRoot);
 
   let latestSnapshot = pageAdapter.getSnapshot();
@@ -62,6 +59,7 @@ export function createOverlay({ shadow, pageAdapter, store, interactions, status
     if (!interactions.handleWheel({
       deltaY: event.deltaY,
       shiftKey: event.shiftKey,
+      altKey: event.altKey,
       screenPoint: toScreenPoint(event),
     })) {
       return;
@@ -87,10 +85,6 @@ export function createOverlay({ shadow, pageAdapter, store, interactions, status
     latestRuntime = runtime;
     scheduleRender();
   });
-  const unsubscribeStatus = statusController.subscribe((message) => {
-    statusElement.textContent = message;
-  });
-
   scheduleRender();
 
   function scheduleRender() {
@@ -193,7 +187,6 @@ export function createOverlay({ shadow, pageAdapter, store, interactions, status
       unsubscribeStore();
       unsubscribeViewport();
       unsubscribeInteractions();
-      unsubscribeStatus();
       overlayRoot.remove();
     },
   };

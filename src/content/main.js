@@ -7,6 +7,7 @@ import { createPanel } from "./panel.js";
 import { createOverlay } from "./overlay.js";
 import { BUILD_INFO } from "../core/build-info.js";
 import { createLogger } from "../core/logger.js";
+import { createPlacementTransform } from "../core/transform.js";
 
 const HOST_ID = "id-overlay-root";
 const OWNED_NODE_SELECTOR = "[data-id-overlay-owned='true']";
@@ -31,7 +32,7 @@ export async function bootstrapIdOverlay({ keyboardGateway = null } = {}) {
   destroyExistingSession(host);
   const storage = createExtensionStorage();
   const persistedState = await storage.load();
-  const store = createStateStore(persistedState ?? {});
+  const store = createStateStore(migratePersistedStateForCurrentMap(persistedState, pageAdapter.getSnapshot()));
   const interactions = createInteractionController({
     store,
     pageAdapter,
@@ -50,7 +51,6 @@ export async function bootstrapIdOverlay({ keyboardGateway = null } = {}) {
     pageAdapter,
     store,
     interactions,
-    statusController: status,
   });
 
   const panel = createPanel({
@@ -79,6 +79,36 @@ export async function bootstrapIdOverlay({ keyboardGateway = null } = {}) {
   window.addEventListener("beforeunload", session.handleBeforeUnload);
 
   logger.info("Bootstrap complete");
+}
+
+function migratePersistedStateForCurrentMap(persistedState, snapshot) {
+  if (!persistedState?.image) {
+    return persistedState ?? {};
+  }
+
+  const placement = persistedState.placement;
+  if (placement?.type === "similarity") {
+    return persistedState;
+  }
+
+  if (
+    placement?.centerMapLatLon &&
+    Number.isFinite(placement?.scale) &&
+    Number.isFinite(placement?.rotationRad)
+  ) {
+    return {
+      ...persistedState,
+      placement: createPlacementTransform({
+        image: persistedState.image,
+        centerMapLatLon: placement.centerMapLatLon,
+        scale: placement.scale,
+        rotationRad: placement.rotationRad,
+        zoom: snapshot.mapView.zoom,
+      }),
+    };
+  }
+
+  return persistedState;
 }
 
 export function queueBootstrapIdOverlay({ keyboardGateway = null } = {}) {

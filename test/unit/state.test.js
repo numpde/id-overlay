@@ -9,19 +9,17 @@ import {
   hasCleanSolvedTransform,
   needsSolveRecompute,
   normalizeState,
+  resolveRegistrationSolvePresentation,
   resolveRegistrationSolveState,
 } from "../../src/core/state.js";
+import { createPlacementTransform } from "../../src/core/transform.js";
 
 test("createDefaultState returns the expected registration defaults", () => {
   assert.deepEqual(createDefaultState(), {
     mode: "trace",
     opacity: 0.6,
     image: null,
-    placement: {
-      centerMapLatLon: null,
-      scale: 1,
-      rotationRad: 0,
-    },
+    placement: null,
     registration: {
       pins: [],
       solvedTransform: null,
@@ -30,7 +28,7 @@ test("createDefaultState returns the expected registration defaults", () => {
   });
 });
 
-test("normalizeState clamps opacity, drops invalid image, and best-effort migrates legacy fit", () => {
+test("normalizeState clamps opacity, drops invalid image, and discards unsupported legacy fit state", () => {
   const state = normalizeState({
     mode: "align",
     opacity: 99,
@@ -45,14 +43,17 @@ test("normalizeState clamps opacity, drops invalid image, and best-effort migrat
   assert.equal(state.mode, "align");
   assert.equal(state.opacity, 1);
   assert.equal(state.image, null);
-  assert.deepEqual(state.placement, {
-    centerMapLatLon: { lat: -1.23, lon: 36.84 },
-    scale: 1,
-    rotationRad: 0,
-  });
+  assert.equal(state.placement, null);
 });
 
 test("initial state can restore an existing normalized registration session", () => {
+  const placement = createPlacementTransform({
+    image: { width: 1200, height: 800 },
+    centerMapLatLon: { lat: -1.23, lon: 36.84 },
+    scale: 1.5,
+    rotationRad: 0.25,
+    zoom: 16,
+  });
   const store = createStateStore({
     mode: "trace",
     image: {
@@ -60,11 +61,7 @@ test("initial state can restore an existing normalized registration session", ()
       width: 1200,
       height: 800,
     },
-    placement: {
-      centerMapLatLon: { lat: -1.23, lon: 36.84 },
-      scale: 1.5,
-      rotationRad: 0.25,
-    },
+    placement,
     registration: {
       pins: [
         {
@@ -86,8 +83,7 @@ test("initial state can restore an existing normalized registration session", ()
 
   const state = store.getState();
   assert.equal(state.mode, "trace");
-  assert.deepEqual(state.placement.centerMapLatLon, { lat: -1.23, lon: 36.84 });
-  assert.equal(state.placement.scale, 1.5);
+  assert.deepEqual(state.placement, placement);
   assert.equal(state.registration.pins.length, 1);
   assert.equal(state.registration.solvedTransform.type, "similarity");
 });
@@ -112,19 +108,29 @@ test("loadImageSession sets align mode, centers placement, and clears registrati
       dirty: false,
     },
   });
+  const placement = createPlacementTransform({
+    image: {
+      src: "data:image/png;base64,abc",
+      width: 1200,
+      height: 800,
+    },
+    centerMapLatLon: {
+      lat: -1.23,
+      lon: 36.84,
+    },
+    scale: 1,
+    rotationRad: 0,
+    zoom: 16,
+  });
   store.loadImageSession({
     src: "data:image/png;base64,abc",
     width: 1200,
     height: 800,
-  }, {
-    lat: -1.23,
-    lon: 36.84,
-  });
+  }, placement);
 
   const state = store.getState();
   assert.equal(state.mode, "align");
-  assert.deepEqual(state.placement.centerMapLatLon, { lat: -1.23, lon: 36.84 });
-  assert.equal(state.placement.scale, 1);
+  assert.deepEqual(state.placement, placement);
   assert.deepEqual(state.registration, {
     pins: [],
     solvedTransform: null,
@@ -205,25 +211,31 @@ test("clearPins resets the registration session", () => {
 });
 
 test("patchPlacement updates only targeted placement fields", () => {
-  const store = createStateStore();
+  const store = createStateStore({
+    placement: {
+      type: "similarity",
+      a: 1,
+      b: 0,
+      tx: 10,
+      ty: 20,
+    },
+  });
   store.patchPlacement({
-    scale: 2,
-    rotationRad: 0.5,
+    tx: 30,
   });
 
-  assert.deepEqual(store.getState().placement, {
-    centerMapLatLon: null,
-    scale: 2,
-    rotationRad: 0.5,
-  });
+  assert.equal(store.getState().placement.tx, 30);
+  assert.equal(store.getState().placement.ty, 20);
 });
 
 test("manual placement edits preserve pins but mark an existing solved transform dirty", () => {
   const store = createStateStore({
     placement: {
-      centerMapLatLon: { lat: -1.23, lon: 36.84 },
-      scale: 1,
-      rotationRad: 0,
+      type: "similarity",
+      a: 0.5,
+      b: 0,
+      tx: 10,
+      ty: 20,
     },
     registration: {
       pins: [
@@ -250,7 +262,7 @@ test("manual placement edits preserve pins but mark an existing solved transform
   });
 
   store.patchPlacement({
-    scale: 1.1,
+    a: 0.6,
   });
 
   assert.equal(store.getState().registration.dirty, true);
@@ -265,6 +277,11 @@ test("registration state helpers are the single source of truth for solve readin
     solvedTransform: null,
     dirty: true,
   };
+  const ready = {
+    pins: [{ id: 1 }, { id: 2 }],
+    solvedTransform: null,
+    dirty: false,
+  };
   const solved = {
     pins: [{ id: 1 }, { id: 2 }],
     solvedTransform: { type: "similarity", a: 1, b: 0, tx: 0, ty: 0 },
@@ -273,15 +290,18 @@ test("registration state helpers are the single source of truth for solve readin
 
   assert.equal(canSolveRegistration(empty), false);
   assert.equal(canSolveRegistration(pending), true);
+  assert.equal(canSolveRegistration(ready), true);
   assert.equal(getRegistrationPinCount(empty), 0);
   assert.equal(getRegistrationPinCount(pending), 2);
   assert.equal(hasCleanSolvedTransform(empty), false);
   assert.equal(hasCleanSolvedTransform(solved), true);
   assert.equal(needsSolveRecompute(empty), false);
   assert.equal(needsSolveRecompute(pending), true);
+  assert.equal(needsSolveRecompute(ready), false);
   assert.equal(needsSolveRecompute(solved), false);
   assert.deepEqual(resolveRegistrationSolveState(empty), { kind: "empty", pinCount: 0 });
   assert.deepEqual(resolveRegistrationSolveState(pending), { kind: "dirty", pinCount: 2 });
+  assert.deepEqual(resolveRegistrationSolveState(ready), { kind: "ready", pinCount: 2 });
   assert.deepEqual(resolveRegistrationSolveState(solved), { kind: "solved", pinCount: 2 });
   assert.deepEqual(
     resolveRegistrationSolveState({
@@ -291,4 +311,64 @@ test("registration state helpers are the single source of truth for solve readin
     }),
     { kind: "insufficient-pins", pinCount: 1 },
   );
+});
+
+test("registration solve presentation is centralized from solve state", () => {
+  const empty = { pins: [], solvedTransform: null, dirty: false };
+  const insufficient = {
+    pins: [{ id: 1 }],
+    solvedTransform: null,
+    dirty: true,
+  };
+  const dirty = {
+    pins: [{ id: 1 }, { id: 2 }],
+    solvedTransform: null,
+    dirty: true,
+  };
+  const ready = {
+    pins: [{ id: 1 }, { id: 2 }],
+    solvedTransform: null,
+    dirty: false,
+  };
+  const solved = {
+    pins: [{ id: 1 }, { id: 2 }],
+    solvedTransform: { type: "similarity", a: 1, b: 0, tx: 0, ty: 0, pinCount: 3 },
+    dirty: false,
+  };
+
+  assert.deepEqual(resolveRegistrationSolvePresentation(empty), {
+    kind: "empty",
+    pinCount: 0,
+    canCompute: false,
+    summaryLabel: "No pins yet",
+    statusMessage: null,
+  });
+  assert.deepEqual(resolveRegistrationSolvePresentation(insufficient), {
+    kind: "insufficient-pins",
+    pinCount: 1,
+    canCompute: false,
+    summaryLabel: "Collect at least 2 pins",
+    statusMessage: null,
+  });
+  assert.deepEqual(resolveRegistrationSolvePresentation(dirty), {
+    kind: "dirty",
+    pinCount: 2,
+    canCompute: true,
+    summaryLabel: "Pins changed; recompute needed",
+    statusMessage: "Align mode: pins changed. Compute the transform or switch to Trace to auto-apply it.",
+  });
+  assert.deepEqual(resolveRegistrationSolvePresentation(ready), {
+    kind: "ready",
+    pinCount: 2,
+    canCompute: true,
+    summaryLabel: "Ready to compute",
+    statusMessage: null,
+  });
+  assert.deepEqual(resolveRegistrationSolvePresentation(solved), {
+    kind: "solved",
+    pinCount: 2,
+    canCompute: true,
+    summaryLabel: "Solved from 3 pin(s)",
+    statusMessage: null,
+  });
 });
