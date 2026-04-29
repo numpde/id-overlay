@@ -14,6 +14,14 @@ import { resolvePanelActionSemantics } from "./panel-state.js";
 export const PANEL_TITLE = "Reference Overlay";
 export const MANUAL_PASTE_PROMPT = "Press Ctrl/Cmd+V to paste an image from your clipboard.";
 export const CLEAR_IMAGE_CONFIRMATION_MESSAGE = "Click Clear? again to remove the current screenshot, placement, and pins.";
+export const PANEL_FEEDBACK_ACTION = Object.freeze({
+  PASTE_CANCELLED: "paste-cancelled",
+  CLEAR_IMAGE: "clear-image",
+  CLIPBOARD_MISSING_IMAGE: "clipboard-missing-image",
+  CLIPBOARD_IMAGE_UNREADABLE: "clipboard-image-unreadable",
+  CLIPBOARD_MISSING_IMAGE_WITH_PROMPT: "clipboard-missing-image-with-prompt",
+  CLIPBOARD_IMAGE_LOADED: "clipboard-image-loaded",
+});
 
 export function resolveOverlaySessionPresentation(state) {
   const solvePresentation = resolveRegistrationSolvePresentation(state.registration);
@@ -239,17 +247,17 @@ export function describeInteractionEventPresentation(event) {
 
 export function describePanelActionPresentation(action, payload = {}) {
   switch (action) {
-    case "paste-cancelled":
+    case PANEL_FEEDBACK_ACTION.PASTE_CANCELLED:
       return "Paste cancelled.";
-    case "clear-image":
+    case PANEL_FEEDBACK_ACTION.CLEAR_IMAGE:
       return "Cleared the current screenshot.";
-    case "clipboard-missing-image":
+    case PANEL_FEEDBACK_ACTION.CLIPBOARD_MISSING_IMAGE:
       return "Clipboard does not contain an image.";
-    case "clipboard-image-unreadable":
+    case PANEL_FEEDBACK_ACTION.CLIPBOARD_IMAGE_UNREADABLE:
       return "Clipboard image could not be read.";
-    case "clipboard-missing-image-with-prompt":
+    case PANEL_FEEDBACK_ACTION.CLIPBOARD_MISSING_IMAGE_WITH_PROMPT:
       return `Clipboard does not contain an image. ${MANUAL_PASTE_PROMPT}`;
-    case "clipboard-image-loaded":
+    case PANEL_FEEDBACK_ACTION.CLIPBOARD_IMAGE_LOADED:
       return describeLoadedImagePresentation(payload);
     default:
       return null;

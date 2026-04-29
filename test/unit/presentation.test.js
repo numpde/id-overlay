@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import {
   CLEAR_IMAGE_CONFIRMATION_MESSAGE,
+  PANEL_FEEDBACK_ACTION,
   describePanelActionPresentation,
   MANUAL_PASTE_PROMPT,
   describeInteractionEventPresentation,
@@ -358,27 +359,27 @@ test("presentation helpers centralize pin and solve feedback copy", () => {
 
 test("presentation centralizes panel action feedback copy", () => {
   assert.equal(
-    describePanelActionPresentation("paste-cancelled"),
+    describePanelActionPresentation(PANEL_FEEDBACK_ACTION.PASTE_CANCELLED),
     "Paste cancelled.",
   );
   assert.equal(
-    describePanelActionPresentation("clear-image"),
+    describePanelActionPresentation(PANEL_FEEDBACK_ACTION.CLEAR_IMAGE),
     "Cleared the current screenshot.",
   );
   assert.equal(
-    describePanelActionPresentation("clipboard-missing-image"),
+    describePanelActionPresentation(PANEL_FEEDBACK_ACTION.CLIPBOARD_MISSING_IMAGE),
     "Clipboard does not contain an image.",
   );
   assert.equal(
-    describePanelActionPresentation("clipboard-image-unreadable"),
+    describePanelActionPresentation(PANEL_FEEDBACK_ACTION.CLIPBOARD_IMAGE_UNREADABLE),
     "Clipboard image could not be read.",
   );
   assert.equal(
-    describePanelActionPresentation("clipboard-missing-image-with-prompt"),
+    describePanelActionPresentation(PANEL_FEEDBACK_ACTION.CLIPBOARD_MISSING_IMAGE_WITH_PROMPT),
     `Clipboard does not contain an image. ${MANUAL_PASTE_PROMPT}`,
   );
   assert.equal(
-    describePanelActionPresentation("clipboard-image-loaded", {
+    describePanelActionPresentation(PANEL_FEEDBACK_ACTION.CLIPBOARD_IMAGE_LOADED, {
       src: "data:image/png;base64,abc",
       width: 640,
       height: 320,
@@ -396,7 +397,7 @@ test("presentation centralizes panel action feedback copy", () => {
     "Loaded screenshot 640×320.",
   );
   assert.equal(
-    describePanelActionPresentation("clipboard-image-loaded", {
+    describePanelActionPresentation(PANEL_FEEDBACK_ACTION.CLIPBOARD_IMAGE_LOADED, {
       src: "data:image/png;base64,resized",
       width: 2048,
       height: 1024,
