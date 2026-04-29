@@ -1,0 +1,47 @@
+Image normalization plan
+
+Goal
+- Keep overlay rendering, hit-testing, pins, and transforms in one coordinate space.
+- Reduce UI/render cost for very large screenshots by downscaling once at ingest.
+
+Principles
+- One image policy:
+  - a single max working dimension constant
+- One ingest path:
+  - clipboard/file image -> decode -> size decision -> optional resize -> normalized image model
+- One coordinate space:
+  - all overlay math uses working-image coordinates only
+- One render bitmap:
+  - UI always renders the working bitmap
+  - original dimensions remain metadata only
+
+Target image model
+- Top-level fields remain the active working image for compatibility:
+  - src
+  - width
+  - height
+- Nested metadata:
+  - original.width
+  - original.height
+  - working.src
+  - working.width
+  - working.height
+  - working.scaleFromOriginal
+
+Implementation steps
+1. Add a shared image policy module with the max working dimension and constrained-size helpers.
+2. Add a shared image normalization module:
+   - normalize legacy/current image metadata
+   - normalize a pasted blob/file into the working bitmap model
+3. Switch the panel clipboard ingest path to use only that normalization module.
+4. Switch state normalization to use the shared metadata normalizer.
+5. Keep all transform/render logic on image.width/image.height, which now mean working-image dimensions only.
+6. Add unit tests for:
+   - constrained dimension policy
+   - metadata normalization
+   - blob ingest path using stubbed decode/resize deps
+
+Non-goals for this pass
+- no multi-resolution pyramid
+- no adaptive interaction/rest quality switching
+- no export path from original-image coordinates

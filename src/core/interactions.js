@@ -2,6 +2,7 @@ import { createValueStore } from "./value-store.js";
 import { createLogger } from "./logger.js";
 import {
   hasCleanSolvedTransform,
+  hasOverlayImageSession,
   needsSolveRecompute,
   resolveRegistrationSolveState,
 } from "./state.js";
@@ -13,6 +14,7 @@ import {
   hitTestPin,
   imagePointToScreenPoint,
   isImagePointWithinBounds,
+  opacityFromWheelDelta,
   resolveOverlayRenderSource,
   resolveOverlayScreenTransform,
   rotationFromWheelDelta,
@@ -20,6 +22,7 @@ import {
   screenPointToImagePoint,
   solveSimilarityTransform,
 } from "./transform.js";
+import { getOverlayImageLoadStats } from "./image-normalization.js";
 
 export const INTERACTION_MODE = Object.freeze({
   ALIGN: "align",
@@ -38,6 +41,23 @@ export const INTERACTION_EVENT = Object.freeze({
   PINS_CLEARED: "pins-cleared",
 });
 
+export const PIN_RESULT_ACTION = Object.freeze({
+  ADDED: "added",
+  REMOVED: "removed",
+});
+
+export const PIN_RESULT_REASON = Object.freeze({
+  POINTER_OUTSIDE_IMAGE: "pointer-outside-image",
+  NOT_ALIGN_MODE: "not-align-mode",
+  NO_IMAGE: "no-image",
+  NO_POINTER: "no-pointer",
+});
+
+export const SOLVE_RESULT_REASON = Object.freeze({
+  INSUFFICIENT_PINS: "insufficient-pins",
+  SOLVE_FAILED: "solve-failed",
+});
+
 export const DRAG_MODE = Object.freeze({
   MOVE_OVERLAY: "move-overlay",
   SHARED_PAN: "shared-pan",
@@ -47,6 +67,7 @@ export const WHEEL_MODE = Object.freeze({
   ZOOM_BOTH: "zoom-both",
   ZOOM_OVERLAY: "zoom-overlay",
   ROTATE_OVERLAY: "rotate-overlay",
+  ADJUST_OPACITY: "adjust-opacity",
 });
 
 const DEFAULT_RUNTIME = Object.freeze({
@@ -80,7 +101,7 @@ export function isTraceMode(mode) {
 }
 
 export function canEditRegistration(state) {
-  return Boolean(state?.image) && isAlignMode(state?.mode);
+  return hasOverlayImageSession(state) && isAlignMode(state?.mode);
 }
 
 export function canCaptureOverlayPointer({ state, runtime }) {
@@ -96,7 +117,27 @@ export function doesDragEditPlacement(dragMode) {
 }
 
 export function doesWheelEditPlacement(wheelMode) {
-  return wheelMode !== WHEEL_MODE.ZOOM_BOTH;
+  return (
+    wheelMode === WHEEL_MODE.ZOOM_OVERLAY ||
+    wheelMode === WHEEL_MODE.ROTATE_OVERLAY
+  );
+}
+
+export function doesWheelEditOpacity(wheelMode) {
+  return wheelMode === WHEEL_MODE.ADJUST_OPACITY;
+}
+
+export function canHandleWheelGesture({ state, runtime, wheelMode }) {
+  if (!hasOverlayImageSession(state) || runtime?.isPassThroughActive) {
+    return false;
+  }
+  if (wheelMode === WHEEL_MODE.ADJUST_OPACITY) {
+    return true;
+  }
+  if (wheelMode === WHEEL_MODE.ZOOM_BOTH) {
+    return canCaptureOverlayPointer({ state, runtime });
+  }
+  return canEditRegistration(state) && !runtime?.isPassThroughActive;
 }
 
 export function reduceInteractionRuntime(previousRuntime, action, state) {
@@ -230,9 +271,9 @@ export function createInteractionController({
       zoom: snapshot.mapView.zoom,
     });
     store.loadImageSession(image, placement);
+    const imageStats = getOverlayImageLoadStats(image);
     logger.info("Loaded image session", {
-      width: image.width,
-      height: image.height,
+      ...imageStats,
       centerMapLatLon: snapshot.mapView.center,
     });
     syncRuntimeFromState();
@@ -257,6 +298,10 @@ export function createInteractionController({
     applyMode(nextMode(store.getState().mode));
   }
 
+  function setMode(mode) {
+    applyMode(mode);
+  }
+
   function setOpacity(opacity) {
     store.setOpacity(opacity);
   }
@@ -265,11 +310,10 @@ export function createInteractionController({
     const state = store.getState();
     const solveState = resolveRegistrationSolveState(state.registration);
     if (!solveState.canCompute) {
-      const result = {
-        ok: false,
-        reason: "insufficient-pins",
-        pinCount: solveState.pinCount,
-      };
+      const result = createSolveFailureResult(
+        SOLVE_RESULT_REASON.INSUFFICIENT_PINS,
+        solveState.pinCount,
+      );
       emitEvent({
         type: INTERACTION_EVENT.SOLVE_RESULT,
         result,
@@ -280,11 +324,10 @@ export function createInteractionController({
 
     const solvedTransform = solveSimilarityTransform(state.registration.pins);
     if (!solvedTransform) {
-      const result = {
-        ok: false,
-        reason: "solve-failed",
-        pinCount: solveState.pinCount,
-      };
+      const result = createSolveFailureResult(
+        SOLVE_RESULT_REASON.SOLVE_FAILED,
+        solveState.pinCount,
+      );
       emitEvent({
         type: INTERACTION_EVENT.SOLVE_RESULT,
         result,
@@ -294,11 +337,7 @@ export function createInteractionController({
     }
 
     store.setSolvedTransform(solvedTransform);
-    const result = {
-      ok: true,
-      solvedTransform,
-      pinCount: solveState.pinCount,
-    };
+    const result = createSolveSuccessResult(solvedTransform, solveState.pinCount);
     emitEvent({
       type: INTERACTION_EVENT.SOLVE_RESULT,
       result,
@@ -346,9 +385,7 @@ export function createInteractionController({
           isPointerInsideImage: true,
         });
         return {
-          ok: true,
-          action: "removed",
-          pin: pinContext.existingPin,
+          ...createPinSuccessResult(PIN_RESULT_ACTION.REMOVED, pinContext.existingPin),
         };
       }
 
@@ -367,16 +404,17 @@ export function createInteractionController({
         isPointerInsideImage: true,
       });
       return {
-        ok: true,
-        action: "added",
-        pin,
+        ...createPinSuccessResult(PIN_RESULT_ACTION.ADDED, pin),
       };
     });
   }
 
   function clearPins() {
     preserveRenderedPlacementForRegistrationEdit(() => {
-      store.clearPins();
+      const changed = store.clearPins();
+      if (!changed) {
+        return;
+      }
       logger.info("Cleared registration pins");
       emitEvent({
         type: INTERACTION_EVENT.PINS_CLEARED,
@@ -415,7 +453,7 @@ export function createInteractionController({
     }
 
     const state = store.getState();
-    if (!state.image) {
+    if (!hasOverlayImageSession(state)) {
       return false;
     }
 
@@ -479,17 +517,18 @@ export function createInteractionController({
     });
   }
 
-  function handleWheel({ deltaY, shiftKey, altKey, screenPoint }) {
-    if (!runtimeStore.get().canCapturePointer) {
-      return false;
-    }
-    if (!store.getState().image) {
+  function handleWheel({ deltaY, shiftKey, altKey, ctrlKey, screenPoint }) {
+    const state = store.getState();
+    const runtime = runtimeStore.get();
+    if (!hasOverlayImageSession(state)) {
       return false;
     }
 
-    const wheelMode = resolveWheelMode({ shiftKey, altKey });
+    const wheelMode = resolveWheelMode({ shiftKey, altKey, ctrlKey });
+    if (!canHandleWheelGesture({ state, runtime, wheelMode })) {
+      return false;
+    }
     if (wheelMode === WHEEL_MODE.ZOOM_BOTH) {
-      const state = store.getState();
       const scaleFactor = scaleFromWheelDelta(1, deltaY);
       const forwarded = pageAdapter.forwardSharedWheel({
         screenPoint,
@@ -512,22 +551,30 @@ export function createInteractionController({
       return true;
     }
 
-    const state = syncPlacementBaselineToCurrentRenderTransform(store.getState());
+    if (wheelMode === WHEEL_MODE.ADJUST_OPACITY) {
+      const nextOpacity = opacityFromWheelDelta(state.opacity, deltaY);
+      store.setOpacity(nextOpacity);
+      logger.info("Adjusted overlay opacity", { opacity: nextOpacity, deltaY });
+      updatePointer(screenPoint, { isPointerInsideImage: true });
+      return true;
+    }
+
+    const placementState = syncPlacementBaselineToCurrentRenderTransform(state);
     const snapshot = pageAdapter.getSnapshot();
     if (wheelMode === WHEEL_MODE.ROTATE_OVERLAY) {
-      const nextRotationRad = rotationFromWheelDelta(state.placement.rotationRad, deltaY);
+      const nextRotationRad = rotationFromWheelDelta(placementState.placement.rotationRad, deltaY);
       const nextPlacement = createRetunedPlacementTransform({
-        state,
+        state: placementState,
         snapshot,
         rotationRad: nextRotationRad,
       });
       store.setPlacement(nextPlacement);
       logger.info("Rotated overlay placement", { rotationRad: nextRotationRad, deltaY });
-    } else {
-      const screenScale = Math.hypot(state.placement.a, state.placement.b) * (2 ** snapshot.mapView.zoom);
+    } else if (wheelMode === WHEEL_MODE.ZOOM_OVERLAY) {
+      const screenScale = Math.hypot(placementState.placement.a, placementState.placement.b) * (2 ** snapshot.mapView.zoom);
       const nextScale = scaleFromWheelDelta(screenScale, deltaY);
       const nextPlacement = createRetunedPlacementTransform({
-        state,
+        state: placementState,
         snapshot,
         screenScale: nextScale,
       });
@@ -545,7 +592,7 @@ export function createInteractionController({
 
   function handleKeyDown(event) {
     const state = store.getState();
-    if (!state.image) {
+    if (!hasOverlayImageSession(state)) {
       return;
     }
 
@@ -657,7 +704,7 @@ export function createInteractionController({
   }
 
   function derivePlacementFromCurrentRenderTransform(state) {
-    if (!state.image || !hasCleanSolvedTransform(state.registration)) {
+    if (!hasOverlayImageSession(state) || !hasCleanSolvedTransform(state.registration)) {
       return null;
     }
     const snapshot = pageAdapter.getSnapshot();
@@ -759,6 +806,7 @@ export function createInteractionController({
     loadImage,
     clearImage,
     toggleMode,
+    setMode,
     setOpacity,
     computeTransform,
     clearPins,
@@ -813,8 +861,11 @@ export function resolveDragMode({ shiftKey }) {
   return DRAG_MODE.SHARED_PAN;
 }
 
-export function resolveWheelMode({ shiftKey, altKey }) {
+export function resolveWheelMode({ shiftKey, altKey, ctrlKey }) {
   if (altKey) {
+    return WHEEL_MODE.ADJUST_OPACITY;
+  }
+  if (ctrlKey) {
     return WHEEL_MODE.ROTATE_OVERLAY;
   }
   if (shiftKey) {
@@ -868,14 +919,13 @@ export function shouldReleasePassThrough({ event, state, runtime }) {
 
 export function resolvePinContext({ state, runtime, pageAdapter }) {
   if (!canEditRegistration(state)) {
-    return {
-      ok: false,
-      reason: state?.image ? "not-align-mode" : "no-image",
-    };
+    return createPinFailureResult(
+      state?.image ? PIN_RESULT_REASON.NOT_ALIGN_MODE : PIN_RESULT_REASON.NO_IMAGE,
+    );
   }
   const pointerScreenPx = runtime.pointerScreenPx;
   if (!pointerScreenPx) {
-    return { ok: false, reason: "no-pointer" };
+    return createPinFailureResult(PIN_RESULT_REASON.NO_POINTER);
   }
 
   const snapshot = pageAdapter.getSnapshot();
@@ -889,12 +939,10 @@ export function resolvePinContext({ state, runtime, pageAdapter }) {
     transform: currentTransform,
   });
   if (!isImagePointWithinBounds(imagePx, state.image)) {
-    return {
-      ok: false,
-      reason: "pointer-outside-image",
+    return createPinFailureResult(PIN_RESULT_REASON.POINTER_OUTSIDE_IMAGE, {
       pointerScreenPx,
       imagePx,
-    };
+    });
   }
 
   const renderedPins = buildPinRenderModels({
@@ -912,6 +960,38 @@ export function resolvePinContext({ state, runtime, pageAdapter }) {
     imagePx,
     mapLatLon: pageAdapter.screenToMap(pointerScreenPx),
     existingPin,
+  };
+}
+
+function createPinSuccessResult(action, pin) {
+  return {
+    ok: true,
+    action,
+    pin,
+  };
+}
+
+function createPinFailureResult(reason, extra = {}) {
+  return {
+    ok: false,
+    reason,
+    ...extra,
+  };
+}
+
+function createSolveSuccessResult(solvedTransform, pinCount) {
+  return {
+    ok: true,
+    solvedTransform,
+    pinCount,
+  };
+}
+
+function createSolveFailureResult(reason, pinCount) {
+  return {
+    ok: false,
+    reason,
+    pinCount,
   };
 }
 

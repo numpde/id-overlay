@@ -1,4 +1,4 @@
-import { hasCleanSolvedTransform } from "./state.js";
+import { hasCleanSolvedTransform, hasOverlayImageSession } from "./state.js";
 
 const DEFAULT_OPACITY = 0.6;
 const DEFAULT_SCREEN_SCALE = 1;
@@ -14,6 +14,11 @@ export function clampOpacity(value) {
     return DEFAULT_OPACITY;
   }
   return Math.min(1, Math.max(0, value));
+}
+
+export function opacityFromWheelDelta(opacity, deltaY) {
+  const nextOpacity = Number(opacity) - deltaY / 1000;
+  return clampOpacity(nextOpacity);
 }
 
 export function clampScale(value) {
@@ -123,7 +128,7 @@ export function createSolvedScreenTransform({ snapshot, solvedTransform }) {
 }
 
 export function resolveOverlayRenderState(state) {
-  if (!state.image) {
+  if (!hasOverlayImageSession(state)) {
     return {
       source: "none",
       similarityTransform: null,

@@ -8,8 +8,8 @@ import {
   hasActivePanelAction,
   isClearConfirming,
   isPanelActionIdle,
+  isPanelActionSessionActive,
   isPasteArmed,
-  isPasteSessionActive,
   reducePanelActionState,
   resolvePanelActionSemantics,
 } from "../../src/core/panel-state.js";
@@ -32,7 +32,7 @@ test("arming and cancelling paste is a single explicit transition path", () => {
     sessionId: 1,
   });
   assert.equal(isPasteArmed(armed), true);
-  assert.equal(isPasteSessionActive(armed, 1), true);
+  assert.equal(isPanelActionSessionActive(armed, 1), true);
 
   const cancelled = reducePanelActionState(armed, PANEL_ACTION_EVENT.CANCEL_PASTE);
   assert.deepEqual(cancelled, {
@@ -40,7 +40,7 @@ test("arming and cancelling paste is a single explicit transition path", () => {
     sessionId: 2,
   });
   assert.equal(isPasteArmed(cancelled), false);
-  assert.equal(isPasteSessionActive(cancelled, 1), false);
+  assert.equal(isPanelActionSessionActive(cancelled, 1), false);
 });
 
 test("clear confirmation and reset preserve the current paste session id", () => {
@@ -72,6 +72,7 @@ test("panel action semantics are single-source for active state, paste capture, 
       hasActiveAction: false,
       pasteArmed: false,
       clearConfirming: false,
+      shouldReset: false,
       shouldAttachPasteListener: false,
       autoResetTimeoutMs: null,
     },
@@ -90,6 +91,7 @@ test("panel action semantics are single-source for active state, paste capture, 
       hasActiveAction: true,
       pasteArmed: true,
       clearConfirming: false,
+      shouldReset: false,
       shouldAttachPasteListener: true,
       autoResetTimeoutMs: null,
     },
@@ -108,9 +110,25 @@ test("panel action semantics are single-source for active state, paste capture, 
       hasActiveAction: true,
       pasteArmed: false,
       clearConfirming: true,
+      shouldReset: false,
       shouldAttachPasteListener: false,
       autoResetTimeoutMs: 1800,
     },
+  );
+});
+
+test("panel action semantics own reset-on-missing-image behavior", () => {
+  const pasteArmedState = reducePanelActionState(
+    createInitialPanelActionState(),
+    PANEL_ACTION_EVENT.ARM_PASTE,
+  );
+
+  assert.equal(
+    resolvePanelActionSemantics(pasteArmedState, {
+      hasImage: false,
+      clearConfirmationTimeoutMs: 1800,
+    }).shouldReset,
+    true,
   );
 });
 

@@ -42,6 +42,15 @@ test("bootstrap injects one host, one panel, and one overlay into supported page
   });
 
   try {
+    env.document.getElementById("map").getBoundingClientRect = () => ({
+      left: 0,
+      top: 0,
+      width: 800,
+      height: 600,
+      right: 800,
+      bottom: 600,
+    });
+
     await import(`${repoFileUrl("src/content/main.js")}?t=${Date.now()}`);
     const { bootstrapIdOverlay } = await import(`${repoFileUrl("src/content/main.js")}?b=${Date.now()}`);
     await bootstrapIdOverlay();
@@ -50,11 +59,12 @@ test("bootstrap injects one host, one panel, and one overlay into supported page
     assert.ok(host);
     assert.ok(host.shadowRoot);
     assert.equal(host.shadowRoot.querySelectorAll(".id-overlay-panel").length, 1);
-    assert.equal(host.shadowRoot.querySelectorAll(".id-overlay-viewport").length, 1);
+    assert.equal(host.shadowRoot.querySelectorAll(".id-overlay-viewport").length, 0);
     assert.equal(host.shadowRoot.querySelector(".id-overlay-panel__title").textContent, "Reference Overlay");
     assert.equal(host.shadowRoot.querySelectorAll('link[data-id-overlay-styles="true"]').length, 1);
     assert.equal(host.shadowRoot.querySelector(".id-overlay-panel__meta").textContent.includes("built"), true);
-    const image = host.shadowRoot.querySelector(".id-overlay-image");
+    assert.equal(env.document.querySelectorAll(".id-overlay-viewport").length, 1);
+    const image = env.document.querySelector(".id-overlay-image");
     assert.equal(image.style.display, "block");
     assert.ok(Number.parseFloat(image.style.width) > 0);
   } finally {
@@ -75,7 +85,7 @@ test("bootstrap clears previously owned nodes on reinjection", async () => {
 
     const host = env.document.getElementById("id-overlay-root");
     assert.equal(host.shadowRoot.querySelectorAll(".id-overlay-panel").length, 1);
-    assert.equal(host.shadowRoot.querySelectorAll(".id-overlay-viewport").length, 1);
+    assert.equal(env.document.querySelectorAll(".id-overlay-viewport").length, 1);
   } finally {
     beforeUnloadTracker.restore();
     env.cleanup();
@@ -167,9 +177,7 @@ test("stored align mode restores an interactive overlay", async () => {
     const { bootstrapIdOverlay } = await import(`${repoFileUrl("src/content/main.js")}?m=${Date.now()}`);
     await bootstrapIdOverlay();
 
-    const overlay = env.document
-      .getElementById("id-overlay-root")
-      .shadowRoot.querySelector(".id-overlay-viewport");
+    const overlay = env.document.querySelector(".id-overlay-viewport");
     assert.equal(overlay.classList.contains("id-overlay-viewport--interactive"), true);
     assert.equal(overlay.dataset.mode, "align");
   } finally {
@@ -309,7 +317,7 @@ test("paste button arms window-level image paste capture", async () => {
     env.window.dispatchEvent(pasteEvent);
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    const image = shadow.querySelector(".id-overlay-image");
+    const image = env.document.querySelector(".id-overlay-image");
     assert.equal(image.style.display, "block");
     assert.equal(image.style.width, "640px");
     assert.equal(image.style.height, "320px");
@@ -345,7 +353,7 @@ test("paste button loads directly from navigator.clipboard.read when available",
     pasteButton.click();
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    const image = shadow.querySelector(".id-overlay-image");
+    const image = env.document.querySelector(".id-overlay-image");
     assert.equal(image.style.display, "block");
     assert.equal(image.style.width, "640px");
     assert.equal(shadow.querySelector(".id-overlay-panel__status").textContent.includes("Loaded screenshot"), true);
@@ -375,7 +383,7 @@ test("clicking Paste… again cancels paste capture and ignores a later clipboar
       (button) => button.textContent === "Paste"
     );
     const status = shadow.querySelector(".id-overlay-panel__status");
-    const image = shadow.querySelector(".id-overlay-image");
+    const image = env.document.querySelector(".id-overlay-image");
 
     pasteButton.click();
     assert.equal(pasteButton.textContent, "Paste…");
@@ -445,7 +453,7 @@ test("clear button requires confirmation and resets after its timeout", async ()
       (button) => button.textContent === "Clear"
     );
     const status = shadow.querySelector(".id-overlay-panel__status");
-    const image = shadow.querySelector(".id-overlay-image");
+    const image = env.document.querySelector(".id-overlay-image");
 
     clearButton.click();
 
@@ -502,7 +510,7 @@ test("clear button only clears the image on the second click", async () => {
     const clearButton = [...shadow.querySelectorAll(".id-overlay-button")].find(
       (button) => button.textContent === "Clear"
     );
-    const image = shadow.querySelector(".id-overlay-image");
+    const image = env.document.querySelector(".id-overlay-image");
 
     clearButton.click();
     assert.equal(image.style.display, "block");

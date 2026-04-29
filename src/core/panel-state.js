@@ -11,6 +11,10 @@ export const PANEL_ACTION_EVENT = Object.freeze({
   RESET: "reset",
 });
 
+export const PANEL_ACTION_DEFAULTS = Object.freeze({
+  clearConfirmationTimeoutMs: 1800,
+});
+
 export function createInitialPanelActionState() {
   return {
     kind: PANEL_ACTION_KIND.IDLE,
@@ -61,18 +65,26 @@ export function hasActivePanelAction(state) {
   return !isPanelActionIdle(state);
 }
 
-export function isPasteSessionActive(state, sessionId) {
+export function isPanelActionSessionActive(state, sessionId) {
   return isPasteArmed(state) && state.sessionId === sessionId;
 }
 
-export function resolvePanelActionSemantics(state, { clearConfirmationTimeoutMs = null } = {}) {
+export function resolvePanelActionSemantics(
+  state,
+  {
+    hasImage = true,
+    clearConfirmationTimeoutMs = PANEL_ACTION_DEFAULTS.clearConfirmationTimeoutMs,
+  } = PANEL_ACTION_DEFAULTS,
+) {
   const pasteArmed = isPasteArmed(state);
   const clearConfirming = isClearConfirming(state);
+  const hasActiveAction = hasActivePanelAction(state);
   return {
     isIdle: isPanelActionIdle(state),
-    hasActiveAction: hasActivePanelAction(state),
+    hasActiveAction,
     pasteArmed,
     clearConfirming,
+    shouldReset: !hasImage && hasActiveAction,
     shouldAttachPasteListener: pasteArmed,
     autoResetTimeoutMs: clearConfirming ? clearConfirmationTimeoutMs : null,
   };

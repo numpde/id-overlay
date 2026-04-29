@@ -33,6 +33,8 @@
         "src/core/value-store.js",
         "src/core/logger.js",
         "src/core/panel-state.js",
+        "src/core/image-policy.js",
+        "src/core/image-normalization.js",
         "src/core/state.js",
         "src/core/presentation.js",
         "src/core/transform.js",

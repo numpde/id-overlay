@@ -47,7 +47,6 @@ export async function bootstrapIdOverlay({ keyboardGateway = null } = {}) {
   clearOwnedShadowNodes(shadow);
 
   const overlay = createOverlay({
-    shadow,
     pageAdapter,
     store,
     interactions,

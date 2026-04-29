@@ -23,3 +23,17 @@ test("value store can skip initial emission", () => {
   assert.equal(calls, 1);
 });
 
+test("value store does not notify on no-op writes", () => {
+  const store = createValueStore("a");
+  const seen = [];
+
+  store.subscribe((value) => {
+    seen.push(value);
+  }, { emitCurrent: false });
+
+  assert.equal(store.set("a"), "a");
+  assert.equal(store.set("b"), "b");
+  assert.equal(store.set("b"), "b");
+
+  assert.deepEqual(seen, ["b"]);
+});

@@ -6,11 +6,14 @@ import {
   canSolveRegistration,
   createDefaultState,
   createStateStore,
+  didRegistrationChange,
   getRegistrationPinCount,
+  hasOverlayImageSession,
   hasCleanSolvedTransform,
   needsSolveRecompute,
   normalizeState,
   reduceState,
+  resolveRegistrationPinMutation,
   resolveRegistrationSolveState,
 } from "../../src/core/state.js";
 import { createPlacementTransform } from "../../src/core/transform.js";
@@ -29,6 +32,20 @@ test("createDefaultState returns the expected registration defaults", () => {
   });
 });
 
+test("overlay image session presence is single-source", () => {
+  assert.equal(hasOverlayImageSession(createDefaultState()), false);
+  assert.equal(
+    hasOverlayImageSession(normalizeState({
+      image: {
+        src: "data:image/png;base64,abc",
+        width: 1200,
+        height: 800,
+      },
+    })),
+    true,
+  );
+});
+
 test("normalizeState clamps opacity, drops invalid image, and discards unsupported legacy fit state", () => {
   const state = normalizeState({
     mode: "align",
@@ -45,6 +62,32 @@ test("normalizeState clamps opacity, drops invalid image, and discards unsupport
   assert.equal(state.opacity, 1);
   assert.equal(state.image, null);
   assert.equal(state.placement, null);
+});
+
+test("normalizeState upgrades legacy image metadata into the canonical working-image model", () => {
+  const state = normalizeState({
+    image: {
+      src: "data:image/png;base64,abc",
+      width: 1200,
+      height: 800,
+    },
+  });
+
+  assert.deepEqual(state.image, {
+    src: "data:image/png;base64,abc",
+    width: 1200,
+    height: 800,
+    original: {
+      width: 1200,
+      height: 800,
+    },
+    working: {
+      src: "data:image/png;base64,abc",
+      width: 1200,
+      height: 800,
+      scaleFromOriginal: 1,
+    },
+  });
 });
 
 test("initial state can restore an existing normalized registration session", () => {
@@ -175,6 +218,37 @@ test("normalized no-op transitions stay inside the reducer and do not notify", (
   assert.equal(calls, 0);
 });
 
+test("registration and image-session no-op transitions do not notify", () => {
+  const image = { src: "data:image/png;base64,abc", width: 1200, height: 800 };
+  const placement = createPlacementTransform({
+    image,
+    centerMapLatLon: { lat: -1.23, lon: 36.84 },
+    scale: 1,
+    rotationRad: 0,
+    zoom: 16,
+  });
+  const store = createStateStore();
+  let calls = 0;
+  store.subscribe(() => {
+    calls += 1;
+  }, { emitCurrent: false });
+
+  store.loadImageSession(image, placement);
+  assert.equal(calls, 1);
+
+  store.loadImageSession(image, placement);
+  assert.equal(calls, 1);
+
+  store.clearPins();
+  assert.equal(calls, 1);
+
+  store.clearImage();
+  assert.equal(calls, 2);
+
+  store.clearImage();
+  assert.equal(calls, 2);
+});
+
 test("adding and removing pins invalidates solved transforms", () => {
   const store = createStateStore();
   const firstPin = store.addPin({
@@ -205,6 +279,58 @@ test("adding and removing pins invalidates solved transforms", () => {
   store.removePin(1);
   assert.equal(store.getState().registration.pins.length, 1);
   assert.equal(store.getState().registration.dirty, true);
+});
+
+test("registration pin mutation semantics are single-source", () => {
+  const previousRegistration = {
+    pins: [
+      {
+        id: 1,
+        imagePx: { x: 10, y: 20 },
+        mapLatLon: { lat: -1.2, lon: 36.8 },
+      },
+    ],
+  };
+  const nextRegistration = {
+    pins: [
+      {
+        id: 2,
+        imagePx: { x: 30, y: 40 },
+        mapLatLon: { lat: -1.21, lon: 36.81 },
+      },
+    ],
+  };
+
+  assert.deepEqual(
+    resolveRegistrationPinMutation(previousRegistration, nextRegistration),
+    {
+      addedPin: nextRegistration.pins[0],
+      removedPinIds: [1],
+    },
+  );
+});
+
+test("registration change semantics are single-source", () => {
+  const registration = {
+    pins: [],
+    solvedTransform: null,
+    dirty: false,
+  };
+  assert.equal(didRegistrationChange(registration, registration), false);
+  assert.equal(
+    didRegistrationChange(registration, {
+      pins: [
+        {
+          id: 1,
+          imagePx: { x: 10, y: 20 },
+          mapLatLon: { lat: -1.2, lon: 36.8 },
+        },
+      ],
+      solvedTransform: null,
+      dirty: true,
+    }),
+    true,
+  );
 });
 
 test("clearPins resets the registration session", () => {

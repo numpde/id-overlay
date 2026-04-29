@@ -36,14 +36,15 @@ test("all recursively imported content modules are listed as web accessible", as
   }
 });
 
-test("content stylesheet clips the overlay to the resolved map viewport", async () => {
+test("content stylesheet only styles the panel shell", async () => {
   const stylesheet = await fs.readFile(repoPath("src/content/content.css"), "utf8");
 
   assert.match(
     stylesheet,
-    /\.id-overlay-map-layer\s*\{[^}]*overflow:\s*hidden;/s,
-    "the overlay map layer should clip image rendering to the map viewport"
+    /\.id-overlay-panel\s*\{/s,
+    "the panel stylesheet should style the extension panel"
   );
+  assert.doesNotMatch(stylesheet, /\.id-overlay-map-layer\s*\{/s);
 });
 
 async function collectModuleGraph(entryPath, seen = new Set()) {

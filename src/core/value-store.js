@@ -7,10 +7,14 @@ export function createValueStore(initialValue) {
   }
 
   function set(nextValue) {
+    if (Object.is(value, nextValue)) {
+      return value;
+    }
     value = nextValue;
     for (const listener of listeners) {
       listener(value);
     }
+    return value;
   }
 
   function subscribe(listener, { emitCurrent = true } = {}) {
@@ -27,4 +31,3 @@ export function createValueStore(initialValue) {
     subscribe,
   };
 }
-

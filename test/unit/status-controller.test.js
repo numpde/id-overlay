@@ -4,11 +4,11 @@ import assert from "node:assert/strict";
 import { createStatusController } from "../../src/content/status-controller.js";
 import { INTERACTION_EVENT } from "../../src/core/interactions.js";
 import {
-  getModeButtonActionLabel,
   describeInteractionEventPresentation,
   describePinResultPresentation,
   describeSolveResultPresentation,
   resolveDefaultStatusMessage,
+  resolveModeSwitchPresentation,
 } from "../../src/core/presentation.js";
 import { createStateStore } from "../../src/core/state.js";
 import { createValueStore } from "../../src/core/value-store.js";
@@ -92,9 +92,17 @@ test("resolveDefaultStatusMessage prioritizes live interaction state over static
   );
 });
 
-test("getModeButtonActionLabel describes the next action, not the current state", () => {
-  assert.equal(getModeButtonActionLabel("trace"), "Align");
-  assert.equal(getModeButtonActionLabel("align"), "Trace");
+test("resolveModeSwitchPresentation describes the current mode state", () => {
+  assert.deepEqual(resolveModeSwitchPresentation("trace"), {
+    checked: false,
+    label: "Trace",
+    ariaLabel: "Mode: Trace",
+  });
+  assert.deepEqual(resolveModeSwitchPresentation("align"), {
+    checked: true,
+    label: "Align",
+    ariaLabel: "Mode: Align",
+  });
 });
 
 test("describePinResultPresentation is the single source of truth for pin feedback", () => {

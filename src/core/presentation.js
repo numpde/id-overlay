@@ -1,6 +1,14 @@
+import { getOverlayImageLoadStats } from "./image-normalization.js";
 import { resolveRegistrationSolveState } from "./state.js";
 import { resolveOverlayRenderState } from "./transform.js";
-import { DRAG_MODE, INTERACTION_EVENT, isTraceMode, nextMode } from "./interactions.js";
+import {
+  DRAG_MODE,
+  INTERACTION_EVENT,
+  INTERACTION_MODE,
+  PIN_RESULT_REASON,
+  SOLVE_RESULT_REASON,
+  isTraceMode,
+} from "./interactions.js";
 import { resolvePanelActionSemantics } from "./panel-state.js";
 
 export const PANEL_TITLE = "Reference Overlay";
@@ -36,7 +44,7 @@ export function resolvePanelPresentation({
   return {
     pasteLabel: panelActionPresentation.pasteLabel,
     opacityValue: String(state.opacity),
-    modeButtonLabel: getModeButtonActionLabel(state.mode),
+    modeSwitch: resolveModeSwitchPresentation(state.mode),
     hasImage: sessionPresentation.hasImage,
     canComputeTransform: sessionPresentation.canComputeTransform,
     canClearPins: sessionPresentation.canClearPins,
@@ -188,12 +196,12 @@ export function describePinResultPresentation(result) {
   }
 
   switch (result?.reason) {
-    case "pointer-outside-image":
-    case "no-pointer":
+    case PIN_RESULT_REASON.POINTER_OUTSIDE_IMAGE:
+    case PIN_RESULT_REASON.NO_POINTER:
       return "Move the pointer over the screenshot before adding a pin.";
-    case "not-align-mode":
+    case PIN_RESULT_REASON.NOT_ALIGN_MODE:
       return "Switch to Align before editing pins.";
-    case "no-image":
+    case PIN_RESULT_REASON.NO_IMAGE:
       return "Paste a screenshot before pinning.";
     default:
       return "Pinning is not available right now.";
@@ -204,7 +212,7 @@ export function describeSolveResultPresentation(result) {
   if (result?.ok) {
     return `Computed transform from ${result.pinCount} pin(s).`;
   }
-  if (result?.reason === "insufficient-pins") {
+  if (result?.reason === SOLVE_RESULT_REASON.INSUFFICIENT_PINS) {
     return `Need at least 2 pins to compute a transform. Current pins: ${result.pinCount ?? 0}.`;
   }
   return "Could not compute a transform from the current pins.";
@@ -236,18 +244,33 @@ export function describePanelActionPresentation(action, payload = {}) {
     case "clipboard-missing-image-with-prompt":
       return `Clipboard does not contain an image. ${MANUAL_PASTE_PROMPT}`;
     case "clipboard-image-loaded":
-      return `Loaded screenshot ${payload.width}×${payload.height}.`;
+      return describeLoadedImagePresentation(payload);
     default:
       return null;
   }
 }
 
-export function getModeButtonActionLabel(mode) {
-  return nextMode(mode) === "align" ? "Align" : "Trace";
+export function describeLoadedImagePresentation(image) {
+  const stats = getOverlayImageLoadStats(image);
+  if (!stats) {
+    return null;
+  }
+  if (stats.wasResized) {
+    return `Loaded screenshot ${stats.workingWidth}×${stats.workingHeight} from ${stats.originalWidth}×${stats.originalHeight}.`;
+  }
+  return `Loaded screenshot ${stats.workingWidth}×${stats.workingHeight}.`;
+}
+
+export function resolveModeSwitchPresentation(mode) {
+  return {
+    checked: mode === INTERACTION_MODE.ALIGN,
+    label: mode === INTERACTION_MODE.ALIGN ? "Align" : "Trace",
+    ariaLabel: `Mode: ${mode === INTERACTION_MODE.ALIGN ? "Align" : "Trace"}`,
+  };
 }
 
 export function describeAlignGestureContract() {
-  return "Align mode: drag to move map and overlay together, Shift+drag to move only the overlay, wheel to zoom both, Shift+wheel to zoom only the overlay, Alt+wheel to rotate the overlay, double-click to add/remove pins, then compute the transform.";
+  return "Align mode: drag to move map and overlay together, Shift+drag to move only the overlay, wheel to zoom both, Shift+wheel to scale only the overlay, Ctrl+wheel to rotate the overlay, Alt+wheel to adjust opacity, double-click to add/remove pins, then compute the transform.";
 }
 
 export function describeActiveAlignDrag(dragMode) {

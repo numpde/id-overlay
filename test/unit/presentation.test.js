@@ -211,7 +211,11 @@ test("resolvePanelPresentation centralizes panel labels and enablement", () => {
   assert.deepEqual(presentation, {
     pasteLabel: "Paste…",
     opacityValue: "0.75",
-    modeButtonLabel: "Trace",
+    modeSwitch: {
+      checked: true,
+      label: "Align",
+      ariaLabel: "Mode: Align",
+    },
     hasImage: true,
     canComputeTransform: true,
     canClearPins: true,
@@ -376,9 +380,38 @@ test("presentation centralizes panel action feedback copy", () => {
   );
   assert.equal(
     describePanelActionPresentation("clipboard-image-loaded", {
+      src: "data:image/png;base64,abc",
       width: 640,
       height: 320,
+      original: {
+        width: 640,
+        height: 320,
+      },
+      working: {
+        src: "data:image/png;base64,abc",
+        width: 640,
+        height: 320,
+        scaleFromOriginal: 1,
+      },
     }),
     "Loaded screenshot 640×320.",
+  );
+  assert.equal(
+    describePanelActionPresentation("clipboard-image-loaded", {
+      src: "data:image/png;base64,resized",
+      width: 2048,
+      height: 1024,
+      original: {
+        width: 5000,
+        height: 2500,
+      },
+      working: {
+        src: "data:image/png;base64,resized",
+        width: 2048,
+        height: 1024,
+        scaleFromOriginal: 2048 / 5000,
+      },
+    }),
+    "Loaded screenshot 2048×1024 from 5000×2500.",
   );
 });

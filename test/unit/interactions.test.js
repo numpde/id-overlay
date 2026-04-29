@@ -2,10 +2,12 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  canHandleWheelGesture,
   canCaptureOverlayPointer,
   canEditRegistration,
   createInteractionController,
   doesDragEditPlacement,
+  doesWheelEditOpacity,
   doesWheelEditPlacement,
   DRAG_MODE,
   INTERACTION_RUNTIME_ACTION,
@@ -305,7 +307,7 @@ test("clearing pins preserves the current rendered placement after a solved tran
   });
 });
 
-test("shift-wheel scales the overlay only and marks a solved transform dirty again", () => {
+test("ctrl-wheel rotates the overlay only and marks a solved transform dirty again", () => {
   const { controller, store } = createHarness();
   controller.loadImage({
     src: "data:image/png;base64,abc",
@@ -320,8 +322,9 @@ test("shift-wheel scales the overlay only and marks a solved transform dirty aga
 
   controller.handleWheel({
     deltaY: -100,
-    shiftKey: true,
+    shiftKey: false,
     altKey: false,
+    ctrlKey: true,
     screenPoint: { x: 600, y: 320 },
   });
 
@@ -342,6 +345,7 @@ test("plain wheel zooms the map only and leaves overlay placement unchanged", ()
     deltaY: -100,
     shiftKey: false,
     altKey: false,
+    ctrlKey: false,
     screenPoint: { x: 600, y: 320 },
   });
 
@@ -387,15 +391,16 @@ test("shared gestures keep a solved transform clean until overlay-only editing b
 
   controller.handleWheel({
     deltaY: -100,
-    shiftKey: true,
+    shiftKey: false,
     altKey: false,
+    ctrlKey: true,
     screenPoint: { x: 600, y: 320 },
   });
 
   assert.equal(store.getState().registration.dirty, true);
 });
 
-test("alt-wheel rotates the overlay without zooming the map", () => {
+test("ctrl-wheel rotates the overlay without zooming the map", () => {
   const { controller, store, adapterCalls } = createHarness();
   controller.loadImage({
     src: "data:image/png;base64,abc",
@@ -406,11 +411,56 @@ test("alt-wheel rotates the overlay without zooming the map", () => {
   controller.handleWheel({
     deltaY: 100,
     shiftKey: false,
-    altKey: true,
+    altKey: false,
+    ctrlKey: true,
     screenPoint: { x: 600, y: 320 },
   });
 
   assert.notEqual(store.getState().placement.rotationRad, 0);
+  assert.equal(adapterCalls.forwardedWheelCalls.length, 0);
+});
+
+test("alt-wheel adjusts the overlay opacity in align mode without zooming the map", () => {
+  const { controller, store, adapterCalls } = createHarness();
+  controller.loadImage({
+    src: "data:image/png;base64,abc",
+    width: 800,
+    height: 400,
+  });
+
+  const initialOpacity = store.getState().opacity;
+  controller.handleWheel({
+    deltaY: -100,
+    shiftKey: false,
+    altKey: true,
+    ctrlKey: false,
+    screenPoint: { x: 600, y: 320 },
+  });
+
+  assert.ok(store.getState().opacity > initialOpacity);
+  assert.equal(adapterCalls.forwardedWheelCalls.length, 0);
+});
+
+test("alt-wheel adjusts the overlay opacity in trace mode", () => {
+  const { controller, store, adapterCalls } = createHarness();
+  controller.loadImage({
+    src: "data:image/png;base64,abc",
+    width: 800,
+    height: 400,
+  });
+  controller.setMode("trace");
+
+  const initialOpacity = store.getState().opacity;
+  const handled = controller.handleWheel({
+    deltaY: 100,
+    shiftKey: false,
+    altKey: true,
+    ctrlKey: false,
+    screenPoint: { x: 600, y: 320 },
+  });
+
+  assert.equal(handled, true);
+  assert.ok(store.getState().opacity < initialOpacity);
   assert.equal(adapterCalls.forwardedWheelCalls.length, 0);
 });
 
@@ -431,6 +481,18 @@ test("toggleing to trace auto-computes a dirty transform when enough pins exist"
   assert.equal(store.getState().mode, "trace");
   assert.equal(store.getState().registration.dirty, false);
   assert.ok(store.getState().registration.solvedTransform);
+});
+
+test("clearing pins emits no event when nothing changed", () => {
+  const { controller } = createHarness();
+  const events = [];
+  controller.subscribeEvents((event) => {
+    events.push(event);
+  });
+
+  controller.clearPins();
+
+  assert.deepEqual(events, []);
 });
 
 test("switching mode clears pass-through and ends any active shared drag through one transition path", () => {
@@ -618,20 +680,24 @@ test("drag mode resolution keeps shared pan as the unmodified default", () => {
 
 test("wheel mode resolution is single-source and modifier-aware", () => {
   assert.equal(
-    resolveWheelMode({ shiftKey: false, altKey: false }),
+    resolveWheelMode({ shiftKey: false, altKey: false, ctrlKey: false }),
     "zoom-both",
   );
   assert.equal(
-    resolveWheelMode({ shiftKey: true, altKey: false }),
+    resolveWheelMode({ shiftKey: true, altKey: false, ctrlKey: false }),
     "zoom-overlay",
   );
   assert.equal(
-    resolveWheelMode({ shiftKey: false, altKey: true }),
+    resolveWheelMode({ shiftKey: false, altKey: true, ctrlKey: false }),
+    "adjust-opacity",
+  );
+  assert.equal(
+    resolveWheelMode({ shiftKey: false, altKey: false, ctrlKey: true }),
     "rotate-overlay",
   );
   assert.equal(
-    resolveWheelMode({ shiftKey: true, altKey: true }),
-    "rotate-overlay",
+    resolveWheelMode({ shiftKey: true, altKey: true, ctrlKey: true }),
+    "adjust-opacity",
   );
 });
 
@@ -650,7 +716,15 @@ test("align gesture descriptions stay sourced from the interaction contract", ()
   );
   assert.match(
     describeAlignGestureContract(),
-    /Alt\+wheel to rotate the overlay/,
+    /Shift\+wheel to scale only the overlay/,
+  );
+  assert.match(
+    describeAlignGestureContract(),
+    /Ctrl\+wheel to rotate the overlay/,
+  );
+  assert.match(
+    describeAlignGestureContract(),
+    /Alt\+wheel to adjust opacity/,
   );
 });
 
@@ -684,6 +758,36 @@ test("gesture ownership helpers are the single source of truth for shared-vs-ove
   assert.equal(doesWheelEditPlacement("zoom-overlay"), true);
   assert.equal(doesWheelEditPlacement("rotate-overlay"), true);
   assert.equal(doesWheelEditPlacement("zoom-both"), false);
+  assert.equal(doesWheelEditPlacement("adjust-opacity"), false);
+  assert.equal(doesWheelEditOpacity("adjust-opacity"), true);
+  assert.equal(doesWheelEditOpacity("zoom-both"), false);
+});
+
+test("wheel capability is single-source across modes and modifiers", () => {
+  assert.equal(
+    canHandleWheelGesture({
+      state: { mode: "align", image: { src: "x" } },
+      runtime: { isPassThroughActive: false, canCapturePointer: true },
+      wheelMode: "zoom-both",
+    }),
+    true,
+  );
+  assert.equal(
+    canHandleWheelGesture({
+      state: { mode: "trace", image: { src: "x" } },
+      runtime: { isPassThroughActive: false, canCapturePointer: false },
+      wheelMode: "zoom-both",
+    }),
+    false,
+  );
+  assert.equal(
+    canHandleWheelGesture({
+      state: { mode: "trace", image: { src: "x" } },
+      runtime: { isPassThroughActive: false, canCapturePointer: false },
+      wheelMode: "adjust-opacity",
+    }),
+    true,
+  );
 });
 
 test("shared drag does nothing when the page adapter cannot start it", () => {
@@ -724,6 +828,7 @@ test("shared wheel does nothing when the page adapter cannot forward it", () => 
     deltaY: -100,
     shiftKey: false,
     altKey: false,
+    ctrlKey: false,
     screenPoint: { x: 600, y: 320 },
   });
 

@@ -1,24 +1,30 @@
 import { clampOpacity } from "../core/transform.js";
 import {
+  createBrowserImageNormalizationDeps,
+  getOverlayImageLoadStats,
+  normalizeOverlayImageBlob,
+} from "../core/image-normalization.js";
+import {
   PANEL_TITLE,
   describePanelActionPresentation,
   resolvePanelPresentation,
 } from "../core/presentation.js";
 import {
+  PANEL_ACTION_DEFAULTS,
   PANEL_ACTION_EVENT,
   createInitialPanelActionState,
-  hasActivePanelAction,
-  isPasteSessionActive,
+  isPanelActionSessionActive,
   reducePanelActionState,
   resolvePanelActionSemantics,
 } from "../core/panel-state.js";
+import { hasOverlayImageSession } from "../core/state.js";
 import { formatBuildLabel, createLogger } from "../core/logger.js";
 
-const CLEAR_CONFIRMATION_TIMEOUT_MS = 1800;
 const PANEL_MARGIN_PX = 8;
 
 export function createPanel({ shadow, store, interactions, statusController }) {
   const logger = createLogger("panel");
+  const imageNormalizationDeps = createBrowserImageNormalizationDeps(window);
   const root = document.createElement("section");
   root.className = "id-overlay-panel";
   root.dataset.idOverlayOwned = "true";
@@ -40,13 +46,35 @@ export function createPanel({ shadow, store, interactions, statusController }) {
   controls.className = "id-overlay-panel__controls";
 
   const pasteButton = createButton("Paste");
-  const modeButton = createButton("Trace");
   const computeButton = createButton("Compute transform");
   const clearPinsButton = createButton("Clear pins");
   const clearButton = createButton("Clear");
   clearButton.classList.add("id-overlay-panel__clear-button");
 
-  controls.append(pasteButton, modeButton, computeButton, clearPinsButton);
+  controls.append(pasteButton, computeButton, clearPinsButton);
+
+  const modeSwitch = document.createElement("label");
+  modeSwitch.className = "id-overlay-mode-switch";
+
+  const modeAlignLabel = document.createElement("span");
+  modeAlignLabel.className = "id-overlay-mode-switch__label";
+  modeAlignLabel.textContent = "Align";
+
+  const modeInput = document.createElement("input");
+  modeInput.type = "checkbox";
+  modeInput.className = "id-overlay-mode-switch__input";
+
+  const modeTrack = document.createElement("span");
+  modeTrack.className = "id-overlay-mode-switch__track";
+  const modeThumb = document.createElement("span");
+  modeThumb.className = "id-overlay-mode-switch__thumb";
+  modeTrack.append(modeThumb);
+
+  const modeTraceLabel = document.createElement("span");
+  modeTraceLabel.className = "id-overlay-mode-switch__label";
+  modeTraceLabel.textContent = "Trace";
+
+  modeSwitch.append(modeAlignLabel, modeInput, modeTrack, modeTraceLabel);
 
   const opacityGroup = document.createElement("label");
   opacityGroup.className = "id-overlay-field";
@@ -88,7 +116,7 @@ export function createPanel({ shadow, store, interactions, statusController }) {
   const statusElement = document.createElement("p");
   statusElement.className = "id-overlay-panel__status";
 
-  root.append(header, controls, opacityGroup, summary, clearButton, statusElement);
+  root.append(header, modeSwitch, controls, opacityGroup, summary, clearButton, statusElement);
   shadow.append(root);
 
   let latestState = store.getState();
@@ -97,9 +125,6 @@ export function createPanel({ shadow, store, interactions, statusController }) {
   let panelPosition = captureInitialPanelPosition();
   let activePanelDrag = null;
   let panelActionState = createInitialPanelActionState();
-  let panelActionSemantics = resolvePanelActionSemantics(panelActionState, {
-    clearConfirmationTimeoutMs: CLEAR_CONFIRMATION_TIMEOUT_MS,
-  });
   let clearConfirmTimer = null;
   applyPanelPosition();
   window.addEventListener("resize", handleWindowResize);
@@ -107,7 +132,7 @@ export function createPanel({ shadow, store, interactions, statusController }) {
   header.addEventListener("mousedown", handlePanelDragStart);
 
   pasteButton.addEventListener("click", async () => {
-    if (panelActionSemantics.pasteArmed) {
+    if (getPanelActionSemantics().pasteArmed) {
       applyPanelAction(PANEL_ACTION_EVENT.CANCEL_PASTE);
       logger.info("Cancelled paste capture");
       statusController.showTransient(describePanelActionPresentation("paste-cancelled"));
@@ -122,8 +147,8 @@ export function createPanel({ shadow, store, interactions, statusController }) {
     }
   });
 
-  modeButton.addEventListener("click", () => {
-    interactions.toggleMode();
+  modeInput.addEventListener("change", () => {
+    interactions.setMode(modeInput.checked ? "align" : "trace");
   });
 
   computeButton.addEventListener("click", () => {
@@ -140,10 +165,10 @@ export function createPanel({ shadow, store, interactions, statusController }) {
   });
 
   clearButton.addEventListener("click", () => {
-    if (!latestState.image) {
+    if (!hasOverlayImageSession(latestState)) {
       return;
     }
-    if (!panelActionSemantics.clearConfirming) {
+    if (!getPanelActionSemantics().clearConfirming) {
       logger.info("Armed clear image confirmation");
       applyPanelAction(PANEL_ACTION_EVENT.ARM_CLEAR_CONFIRM);
       return;
@@ -156,7 +181,7 @@ export function createPanel({ shadow, store, interactions, statusController }) {
 
   const unsubscribeStore = store.subscribe((state) => {
     latestState = state;
-    if (!latestState.image && hasActivePanelAction(panelActionState)) {
+    if (getPanelActionSemantics().shouldReset) {
       applyPanelAction(PANEL_ACTION_EVENT.RESET);
       return;
     }
@@ -189,7 +214,9 @@ export function createPanel({ shadow, store, interactions, statusController }) {
     });
     pasteButton.textContent = presentation.pasteLabel;
     opacityInput.value = presentation.opacityValue;
-    modeButton.textContent = presentation.modeButtonLabel;
+    modeInput.checked = presentation.modeSwitch.checked;
+    modeInput.setAttribute("aria-label", presentation.modeSwitch.ariaLabel);
+    modeSwitch.dataset.mode = presentation.modeSwitch.label.toLowerCase();
     clearButton.textContent = presentation.clearButtonLabel;
     clearButton.disabled = presentation.clearButtonDisabled;
     clearButton.classList.toggle(
@@ -257,7 +284,7 @@ export function createPanel({ shadow, store, interactions, statusController }) {
   }
 
   async function handleWindowPaste(event) {
-    if (!panelActionSemantics.pasteArmed) {
+    if (!getPanelActionSemantics().pasteArmed) {
       return;
     }
 
@@ -290,7 +317,7 @@ export function createPanel({ shadow, store, interactions, statusController }) {
 
     try {
       const clipboardItems = await navigator.clipboard.read();
-      if (!isPasteSessionActive(panelActionState, sessionId)) {
+      if (!isPanelActionSessionActive(panelActionState, sessionId)) {
         logger.info("Ignoring clipboard API result because paste capture was cancelled");
         return false;
       }
@@ -306,7 +333,7 @@ export function createPanel({ shadow, store, interactions, statusController }) {
 
       const clipboardItem = clipboardItems.find((item) => item.types.includes(imageType));
       const blob = await clipboardItem.getType(imageType);
-      if (!isPasteSessionActive(panelActionState, sessionId)) {
+      if (!isPanelActionSessionActive(panelActionState, sessionId)) {
         logger.info("Ignoring clipboard image because paste capture was cancelled");
         return false;
       }
@@ -321,12 +348,19 @@ export function createPanel({ shadow, store, interactions, statusController }) {
   }
 
   function setPanelActionState(nextState) {
+    if (nextState === panelActionState) {
+      return;
+    }
     panelActionState = nextState;
-    panelActionSemantics = resolvePanelActionSemantics(nextState, {
-      clearConfirmationTimeoutMs: CLEAR_CONFIRMATION_TIMEOUT_MS,
-    });
-    syncPanelActionSideEffects(panelActionSemantics);
+    syncPanelActionSideEffects();
     renderControls();
+  }
+
+  function getPanelActionSemantics() {
+    return resolvePanelActionSemantics(panelActionState, {
+      ...PANEL_ACTION_DEFAULTS,
+      hasImage: hasOverlayImageSession(latestState),
+    });
   }
 
   function setPanelPosition(nextPosition) {
@@ -367,7 +401,8 @@ export function createPanel({ shadow, store, interactions, statusController }) {
     return nextState;
   }
 
-  function syncPanelActionSideEffects(semantics) {
+  function syncPanelActionSideEffects() {
+    const semantics = getPanelActionSemantics();
     syncClearConfirmTimer(semantics);
     syncPasteListener(semantics);
   }
@@ -413,18 +448,15 @@ export function createPanel({ shadow, store, interactions, statusController }) {
   }
 
   async function loadClipboardImage(source, sourceLabel) {
-    const image = await readImageFromClipboard(source);
+    const image = await normalizeOverlayImageBlob(source, imageNormalizationDeps);
+    const imageStats = getOverlayImageLoadStats(image);
     interactions.loadImage(image);
     logger.info("Loaded clipboard image", {
       source: sourceLabel,
-      width: image.width,
-      height: image.height,
+      ...imageStats,
     });
     statusController.showTransient(
-      describePanelActionPresentation("clipboard-image-loaded", {
-        width: image.width,
-        height: image.height,
-      }),
+      describePanelActionPresentation("clipboard-image-loaded", image),
     );
     return image;
   }
@@ -440,37 +472,4 @@ function createButton(label) {
   button.className = "id-overlay-button";
   button.textContent = label;
   return button;
-}
-
-async function readImageFromClipboard(file) {
-  const src = await readBlobAsDataUrl(file);
-  const { width, height } = await measureImage(src);
-  return {
-    src,
-    width,
-    height,
-  };
-}
-
-function readBlobAsDataUrl(blob) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.addEventListener("load", () => resolve(reader.result));
-    reader.addEventListener("error", () => reject(reader.error));
-    reader.readAsDataURL(blob);
-  });
-}
-
-function measureImage(src) {
-  return new Promise((resolve, reject) => {
-    const image = new Image();
-    image.addEventListener("load", () => {
-      resolve({
-        width: image.naturalWidth,
-        height: image.naturalHeight,
-      });
-    });
-    image.addEventListener("error", reject);
-    image.src = src;
-  });
 }

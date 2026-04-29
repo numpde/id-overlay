@@ -1,3 +1,9 @@
+import {
+  getOverlayImageOriginalDimensions,
+  getOverlayImageWorkingDimensions,
+  normalizeOverlayImageMetadata,
+} from "./image-normalization.js";
+
 const DEFAULT_STATE = Object.freeze({
   mode: "trace",
   opacity: 0.6,
@@ -80,31 +86,30 @@ export function createStateStore(initialState = {}) {
   }
 
   function addPin({ imagePx, mapLatLon }) {
-    const previousPinCount = state.registration.pins.length;
+    const previousRegistration = state.registration;
     const nextState = dispatch({
       type: STATE_ACTION.ADD_PIN,
       imagePx,
       mapLatLon,
     });
-    if (nextState.registration.pins.length === previousPinCount) {
-      return null;
-    }
-    return nextState.registration.pins.at(-1) ?? null;
+    return resolveRegistrationPinMutation(previousRegistration, nextState.registration).addedPin;
   }
 
   function removePin(pinId) {
-    const previousPinCount = state.registration.pins.length;
+    const previousRegistration = state.registration;
     const nextState = dispatch({
       type: STATE_ACTION.REMOVE_PIN,
       pinId,
     });
-    return nextState.registration.pins.length !== previousPinCount;
+    return resolveRegistrationPinMutation(previousRegistration, nextState.registration).removedPinIds.includes(pinId);
   }
 
   function clearPins() {
-    return dispatch({
+    const previousRegistration = state.registration;
+    const nextState = dispatch({
       type: STATE_ACTION.CLEAR_PINS,
     });
+    return didRegistrationChange(previousRegistration, nextState.registration);
   }
 
   function setSolvedTransform(solvedTransform) {
@@ -208,7 +213,9 @@ export function reduceState(state, action) {
 export function normalizeState(candidate = {}) {
   const legacyFit = candidate.fit ?? null;
   const placementCandidate = candidate.placement ?? createLegacyPlacement(legacyFit);
+  const baseState = createClearedSessionState();
   return {
+    ...baseState,
     mode: normalizeMode(candidate.mode),
     opacity: normalizeOpacity(candidate.opacity),
     image: normalizeImage(candidate.image),
@@ -240,14 +247,18 @@ function commitOpacityState(state, opacity) {
 }
 
 function commitImageSessionState(state, { image, placement }) {
-  const normalizedImage = normalizeImage(image);
-  const normalizedPlacement = normalizePlacement(placement);
+  const nextSessionState = createLoadedImageSessionState({ image, placement });
+  if (
+    state.mode === nextSessionState.mode &&
+    imagesEqual(nextSessionState.image, state.image) &&
+    placementsEqual(nextSessionState.placement, state.placement) &&
+    registrationsEqual(nextSessionState.registration, state.registration)
+  ) {
+    return state;
+  }
   return {
     ...state,
-    mode: "align",
-    image: normalizedImage,
-    placement: normalizedPlacement,
-    registration: createDefaultRegistration(),
+    ...nextSessionState,
   };
 }
 
@@ -266,15 +277,20 @@ function commitPlacementState(state, nextPlacement, { preserveRegistration }) {
 }
 
 function commitRegistrationState(state, nextRegistration) {
+  const normalizedRegistration = normalizeRegistration(nextRegistration);
+  if (registrationsEqual(normalizedRegistration, state.registration)) {
+    return state;
+  }
   return {
     ...state,
-    registration: normalizeRegistration(nextRegistration),
+    registration: normalizedRegistration,
   };
 }
 
 function commitAddPinState(state, { imagePx, mapLatLon }) {
+  const currentPins = getRegistrationPins(state.registration);
   const pin = normalizePin({
-    id: getNextPinId(state.registration.pins),
+    id: getNextPinId(currentPins),
     imagePx,
     mapLatLon,
   });
@@ -282,13 +298,14 @@ function commitAddPinState(state, { imagePx, mapLatLon }) {
     return state;
   }
   return commitRegistrationState(state, createInvalidatedRegistration({
-    pins: [...state.registration.pins, pin],
+    pins: [...currentPins, pin],
   }));
 }
 
 function commitRemovePinState(state, pinId) {
-  const nextPins = state.registration.pins.filter((pin) => pin.id !== pinId);
-  if (nextPins.length === state.registration.pins.length) {
+  const currentPins = getRegistrationPins(state.registration);
+  const nextPins = currentPins.filter((pin) => pin.id !== pinId);
+  if (nextPins.length === currentPins.length) {
     return state;
   }
   return commitRegistrationState(state, createInvalidatedRegistration({
@@ -297,17 +314,23 @@ function commitRemovePinState(state, pinId) {
 }
 
 function commitClearedImageState(state) {
+  const nextSessionState = createClearedSessionState();
+  if (
+    state.mode === nextSessionState.mode &&
+    state.image === nextSessionState.image &&
+    state.placement === nextSessionState.placement &&
+    registrationsEqual(nextSessionState.registration, state.registration)
+  ) {
+    return state;
+  }
   return {
     ...state,
-    mode: "trace",
-    image: null,
-    placement: DEFAULT_PLACEMENT,
-    registration: createDefaultRegistration(),
+    ...nextSessionState,
   };
 }
 
 export function createDefaultState() {
-  return normalizeState(DEFAULT_STATE);
+  return createClearedSessionState();
 }
 
 export function createDefaultRegistration() {
@@ -332,8 +355,29 @@ export function hasCleanSolvedTransform(registration) {
   return resolveRegistrationSolveState(registration).kind === "solved";
 }
 
+export function hasOverlayImageSession(state) {
+  return Boolean(state?.image);
+}
+
 export function getRegistrationPinCount(registration) {
-  return Array.isArray(registration?.pins) ? registration.pins.length : 0;
+  return getRegistrationPins(registration).length;
+}
+
+export function getRegistrationPins(registration) {
+  return Array.isArray(registration?.pins) ? registration.pins : [];
+}
+
+export function resolveRegistrationPinMutation(previousRegistration, nextRegistration) {
+  const previousPins = getRegistrationPins(previousRegistration);
+  const nextPins = getRegistrationPins(nextRegistration);
+  const previousIds = new Set(previousPins.map((pin) => pin.id));
+  const nextIds = new Set(nextPins.map((pin) => pin.id));
+  return {
+    addedPin: nextPins.find((pin) => !previousIds.has(pin.id)) ?? null,
+    removedPinIds: previousPins
+      .filter((pin) => !nextIds.has(pin.id))
+      .map((pin) => pin.id),
+  };
 }
 
 export function canSolveRegistration(registration) {
@@ -342,6 +386,10 @@ export function canSolveRegistration(registration) {
 
 export function needsSolveRecompute(registration) {
   return resolveRegistrationSolveState(registration).kind === "dirty";
+}
+
+export function didRegistrationChange(previousRegistration, nextRegistration) {
+  return !registrationsEqual(previousRegistration, nextRegistration);
 }
 
 export function resolveRegistrationSolveState(registration) {
@@ -404,19 +452,7 @@ function normalizeMode(mode) {
 }
 
 function normalizeImage(image) {
-  if (!image || typeof image.src !== "string") {
-    return null;
-  }
-  const width = Number(image.width);
-  const height = Number(image.height);
-  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
-    return null;
-  }
-  return {
-    src: image.src,
-    width,
-    height,
-  };
+  return normalizeOverlayImageMetadata(image);
 }
 
 function normalizeLatLon(point) {
@@ -450,6 +486,46 @@ function placementsEqual(left, right) {
     left?.b === right?.b &&
     left?.tx === right?.tx &&
     left?.ty === right?.ty
+  );
+}
+
+function imagesEqual(left, right) {
+  const leftWorking = getOverlayImageWorkingDimensions(left);
+  const rightWorking = getOverlayImageWorkingDimensions(right);
+  const leftOriginal = getOverlayImageOriginalDimensions(left);
+  const rightOriginal = getOverlayImageOriginalDimensions(right);
+  return (
+    leftWorking?.src === rightWorking?.src &&
+    leftWorking?.width === rightWorking?.width &&
+    leftWorking?.height === rightWorking?.height &&
+    leftWorking?.scaleFromOriginal === rightWorking?.scaleFromOriginal &&
+    leftOriginal?.width === rightOriginal?.width &&
+    leftOriginal?.height === rightOriginal?.height
+  );
+}
+
+function registrationsEqual(left, right) {
+  if (left?.dirty !== right?.dirty) {
+    return false;
+  }
+  if (!placementsEqual(left?.solvedTransform ?? null, right?.solvedTransform ?? null)) {
+    return false;
+  }
+  const leftPins = getRegistrationPins(left);
+  const rightPins = getRegistrationPins(right);
+  if (leftPins.length !== rightPins.length) {
+    return false;
+  }
+  return leftPins.every((leftPin, index) => pinsEqual(leftPin, rightPins[index]));
+}
+
+function pinsEqual(left, right) {
+  return (
+    left?.id === right?.id &&
+    left?.imagePx?.x === right?.imagePx?.x &&
+    left?.imagePx?.y === right?.imagePx?.y &&
+    left?.mapLatLon?.lat === right?.mapLatLon?.lat &&
+    left?.mapLatLon?.lon === right?.mapLatLon?.lon
   );
 }
 
@@ -522,6 +598,25 @@ function createLegacyPlacement(legacyFit) {
     return null;
   }
   return normalizeSolvedTransform(legacyFit);
+}
+
+function createClearedSessionState() {
+  return {
+    mode: DEFAULT_STATE.mode,
+    opacity: DEFAULT_STATE.opacity,
+    image: null,
+    placement: DEFAULT_PLACEMENT,
+    registration: createDefaultRegistration(),
+  };
+}
+
+function createLoadedImageSessionState({ image, placement }) {
+  return {
+    mode: "align",
+    image: normalizeImage(image),
+    placement: normalizePlacement(placement),
+    registration: createDefaultRegistration(),
+  };
 }
 
 function createInvalidatedRegistration(registration) {

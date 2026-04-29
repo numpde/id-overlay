@@ -26,6 +26,36 @@ The current alignment workflow is:
 - click `Compute transform`
 - switch to `Trace`
 
+## Controls
+
+### Align Mode
+
+| Control | Effect |
+| --- | --- |
+| Drag | Move the map and overlay together |
+| `Shift` + drag | Move only the overlay |
+| Wheel | Zoom the map and overlay together |
+| `Shift` + wheel | Scale only the overlay |
+| `Ctrl` + wheel | Rotate only the overlay |
+| `Alt` + wheel | Adjust only the overlay opacity |
+| Double-click on overlay | Add a pin at that screenshot/map correspondence |
+| Double-click on an existing pin | Remove that pin |
+| `Compute transform` | Solve and apply the transform from the current pins |
+| Mode switch to `Trace` | Leave registration mode and keep the overlay passive |
+
+### Trace Mode
+
+| Control | Effect |
+| --- | --- |
+| Drag on map | Pan the map; overlay follows |
+| Wheel on map | Zoom the map; overlay follows |
+| `Alt` + wheel over overlay | Adjust only the overlay opacity |
+| Mode switch to `Align` | Re-enter registration mode |
+
+Notes:
+- In `Trace`, the overlay is passive. The map remains editable in iD.
+- In both modes, once a transform has been computed, the overlay prefers that solved transform.
+
 ## Load In Chromium
 
 1. Build the extension:
@@ -69,6 +99,35 @@ npm run test:integration
 npm run test:contracts
 npm run test:build
 ```
+
+## GitHub CI and Releases
+
+GitHub Actions now handles two paths:
+
+- `CI`
+  - runs on pushes to `main` and on pull requests
+  - installs dependencies and runs `npm test`
+- `Release`
+  - runs on version tags matching `v*`
+  - runs `npm test`
+  - builds [`dist`](dist)
+  - packages a Chromium zip asset
+  - creates a GitHub Release and uploads the zip
+
+Versioning is currently single-source in [`manifest.chrome.json`](manifest.chrome.json). The release flow is:
+
+1. Update `manifest.chrome.json` `version`
+2. Commit the change
+3. Create a matching tag, for example:
+
+```bash
+git tag v0.0.2
+git push origin main --tags
+```
+
+That tag triggers the release workflow and publishes:
+
+- `id-overlay-chrome-<version>.zip`
 
 ## Repo Layout
 

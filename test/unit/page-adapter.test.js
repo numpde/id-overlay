@@ -35,6 +35,13 @@ test("page adapter uses the viewport element and keeps map/screen projection con
       width: 900,
       height: 600,
     });
+    assert.equal(adapter.getOverlayMountElement(), viewport);
+    assert.deepEqual(adapter.getLocalViewportRect(), {
+      left: 0,
+      top: 0,
+      width: 900,
+      height: 600,
+    });
     assert.deepEqual(adapter.getMapCenter(), {
       lat: -1.22645,
       lon: 36.82597,
@@ -158,6 +165,13 @@ test("page adapter prefers the embedded iD iframe for viewport, map view, and su
     assert.deepEqual(adapter.getViewportRect(), {
       left: 320,
       top: 70,
+      width: 700,
+      height: 500,
+    });
+    assert.equal(adapter.getOverlayMountElement(), viewport);
+    assert.deepEqual(adapter.getLocalViewportRect(), {
+      left: 0,
+      top: 0,
       width: 700,
       height: 500,
     });
@@ -309,6 +323,49 @@ test("page adapter can forward a shared drag gesture into the active map documen
   }
 });
 
+test("page adapter shared drag skips extension-owned overlay elements and targets the underlying map", () => {
+  const env = createDomEnvironment({
+    url: "https://www.openstreetmap.org/edit?editor=id#map=16/-1.22645/36.82597",
+    viewportHtml: '<div id="map"></div><div id="overlay" data-id-overlay-owned="true"><img id="overlay-image"></div>',
+  });
+
+  try {
+    const viewport = env.document.getElementById("map");
+    const overlayImage = env.document.getElementById("overlay-image");
+    viewport.getBoundingClientRect = () => ({
+      left: 120,
+      top: 80,
+      width: 900,
+      height: 600,
+      right: 1020,
+      bottom: 680,
+    });
+    env.document.elementsFromPoint = () => [overlayImage, viewport];
+    env.document.elementFromPoint = () => overlayImage;
+
+    const adapter = createPageAdapter({
+      hashTarget: env.window,
+      viewportDocument: env.document,
+    });
+
+    const received = [];
+    viewport.addEventListener("mousedown", (event) => {
+      received.push({ type: event.type, x: event.clientX, y: event.clientY });
+    });
+
+    const started = adapter.beginSharedDrag({ x: 200, y: 180 });
+
+    assert.equal(started, true);
+    assert.deepEqual(received, [
+      { type: "mousedown", x: 200, y: 180 },
+    ]);
+
+    adapter.destroy();
+  } finally {
+    env.cleanup();
+  }
+});
+
 test("page adapter can forward a shared wheel gesture into the active map document", () => {
   const env = createDomEnvironment({
     url: "https://www.openstreetmap.org/edit?editor=id#map=16/-1.22645/36.82597",
@@ -326,6 +383,57 @@ test("page adapter can forward a shared wheel gesture into the active map docume
       bottom: 680,
     });
     viewport.ownerDocument.elementFromPoint = () => viewport;
+
+    const adapter = createPageAdapter({
+      hashTarget: env.window,
+      viewportDocument: env.document,
+    });
+
+    const received = [];
+    viewport.addEventListener("wheel", (event) => {
+      received.push({
+        type: event.type,
+        x: event.clientX,
+        y: event.clientY,
+        deltaY: event.deltaY,
+      });
+    });
+
+    const forwarded = adapter.forwardSharedWheel({
+      screenPoint: { x: 240, y: 210 },
+      deltaY: -100,
+    });
+
+    assert.equal(forwarded, true);
+    assert.deepEqual(received, [
+      { type: "wheel", x: 240, y: 210, deltaY: -100 },
+    ]);
+
+    adapter.destroy();
+  } finally {
+    env.cleanup();
+  }
+});
+
+test("page adapter shared wheel skips extension-owned overlay elements and targets the underlying map", () => {
+  const env = createDomEnvironment({
+    url: "https://www.openstreetmap.org/edit?editor=id#map=16/-1.22645/36.82597",
+    viewportHtml: '<div id="map"></div><div id="overlay" data-id-overlay-owned="true"><img id="overlay-image"></div>',
+  });
+
+  try {
+    const viewport = env.document.getElementById("map");
+    const overlayImage = env.document.getElementById("overlay-image");
+    viewport.getBoundingClientRect = () => ({
+      left: 120,
+      top: 80,
+      width: 900,
+      height: 600,
+      right: 1020,
+      bottom: 680,
+    });
+    env.document.elementsFromPoint = () => [overlayImage, viewport];
+    env.document.elementFromPoint = () => overlayImage;
 
     const adapter = createPageAdapter({
       hashTarget: env.window,

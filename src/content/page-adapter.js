@@ -48,6 +48,10 @@ export function createPageAdapter({
     return getSnapshot().viewportRect;
   }
 
+  function getLocalViewportRect() {
+    return getSnapshot().localViewportRect;
+  }
+
   function getSurfaceMotion() {
     return getSnapshot().surfaceMotion;
   }
@@ -58,6 +62,10 @@ export function createPageAdapter({
 
   function getMapCenter() {
     return getMapView().center;
+  }
+
+  function getOverlayMountElement() {
+    return resolveOverlayMountElement(getActiveMapContext());
   }
 
   function mapToScreen(point) {
@@ -220,8 +228,10 @@ export function createPageAdapter({
     isSupported,
     getSnapshot,
     getViewportRect,
+    getLocalViewportRect,
     getMapView,
     getMapCenter,
+    getOverlayMountElement,
     mapToScreen,
     screenToMap,
     beginSharedDrag,
@@ -257,6 +267,31 @@ export function createPageAdapter({
       : rectFromDomRect(rect);
   }
 
+  function resolveLocalViewportRect(context) {
+    const viewportElement = resolveViewportElement(context);
+    if (!viewportElement) {
+      return createWindowViewportRect(context.mapWindow);
+    }
+    const viewportRect = rectFromDomRect(viewportElement.getBoundingClientRect());
+    const mountElement = resolveOverlayMountElement(context);
+    if (!mountElement || mountElement === viewportElement) {
+      return {
+        left: 0,
+        top: 0,
+        width: viewportRect.width,
+        height: viewportRect.height,
+      };
+    }
+
+    const mountRect = rectFromDomRect(mountElement.getBoundingClientRect());
+    return {
+      left: viewportRect.left - mountRect.left,
+      top: viewportRect.top - mountRect.top,
+      width: viewportRect.width,
+      height: viewportRect.height,
+    };
+  }
+
   function resolveSurfaceMotion(context) {
     const surfaceElement = context.viewportDocument.querySelector(SURFACE_MOTION_SELECTOR);
     if (!surfaceElement) {
@@ -283,6 +318,7 @@ export function createPageAdapter({
   function resolveSnapshotState(context) {
     return {
       viewportRect: resolveViewportRect(context),
+      localViewportRect: resolveLocalViewportRect(context),
       mapView: resolveMapView(context),
       surfaceMotion: resolveSurfaceMotion(context),
     };
@@ -435,9 +471,10 @@ function patchHistoryMethods({ hashTarget, onHistoryMutation }) {
   };
 }
 
-function createSnapshot({ viewportRect, mapView, surfaceMotion }) {
+function createSnapshot({ viewportRect, localViewportRect, mapView, surfaceMotion }) {
   return {
     viewportRect,
+    localViewportRect,
     mapView,
     surfaceMotion,
   };
@@ -472,8 +509,25 @@ function createWindowViewportRect(hashTarget) {
 }
 
 function resolveSharedDragTarget(context, clientPoint) {
-  const target = context.viewportDocument.elementFromPoint?.(clientPoint.x, clientPoint.y);
+  const target = resolveUnderlyingMapTargetAtClientPoint(context.viewportDocument, clientPoint);
   return target ?? findViewportElement(context.viewportDocument) ?? context.viewportDocument.body;
+}
+
+function resolveUnderlyingMapTargetAtClientPoint(viewportDocument, clientPoint) {
+  const elementsAtPoint = viewportDocument.elementsFromPoint?.(clientPoint.x, clientPoint.y);
+  if (Array.isArray(elementsAtPoint) && elementsAtPoint.length) {
+    const nonOverlayTarget = elementsAtPoint.find((element) => !isOverlayOwnedElement(element));
+    if (nonOverlayTarget) {
+      return nonOverlayTarget;
+    }
+  }
+
+  const target = viewportDocument.elementFromPoint?.(clientPoint.x, clientPoint.y);
+  if (target && !isOverlayOwnedElement(target)) {
+    return target;
+  }
+
+  return null;
 }
 
 function toContextClientPoint(screenPoint, context) {
@@ -538,6 +592,21 @@ function translateRectByFrame(innerRect, frameElement) {
 
 function resolveMutationRoot(viewportDocument) {
   return viewportDocument.body ?? viewportDocument.documentElement ?? viewportDocument;
+}
+
+function resolveOverlayMountElement(context) {
+  return findViewportElement(context.viewportDocument)
+    ?? context.viewportDocument.body
+    ?? context.viewportDocument.documentElement
+    ?? null;
+}
+
+function isOverlayOwnedElement(element) {
+  return Boolean(
+    element &&
+    typeof element.closest === "function" &&
+    element.closest("[data-id-overlay-owned=\"true\"]"),
+  );
 }
 
 function findEmbeddedIdFrame(viewportDocument) {
@@ -781,6 +850,10 @@ function snapshotsEqual(left, right) {
     left.viewportRect.top === right.viewportRect.top &&
     left.viewportRect.width === right.viewportRect.width &&
     left.viewportRect.height === right.viewportRect.height &&
+    left.localViewportRect.left === right.localViewportRect.left &&
+    left.localViewportRect.top === right.localViewportRect.top &&
+    left.localViewportRect.width === right.localViewportRect.width &&
+    left.localViewportRect.height === right.localViewportRect.height &&
     left.mapView.zoom === right.mapView.zoom &&
     left.mapView.center.lat === right.mapView.center.lat &&
     left.mapView.center.lon === right.mapView.center.lon &&
