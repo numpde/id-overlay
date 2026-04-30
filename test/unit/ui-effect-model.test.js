@@ -1,0 +1,30 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+
+import {
+  UI_EFFECT_KIND,
+  UI_EFFECT_MODEL,
+} from "../../src/core/ui-effect-model.js";
+
+test("ui effect vocabulary stays minimal and semantic", () => {
+  assert.deepEqual(UI_EFFECT_KIND, {
+    REQUEST_PASTE_INPUT: "request-paste-input",
+    START_PANEL_TIMEOUT: "start-panel-timeout",
+    CANCEL_PANEL_TIMEOUT: "cancel-panel-timeout",
+  });
+});
+
+test("ui effect model exposes payload-key shapes", () => {
+  assert.deepEqual(UI_EFFECT_MODEL.REQUEST_PASTE_INPUT, {
+    kind: UI_EFFECT_KIND.REQUEST_PASTE_INPUT,
+    payloadKeys: [],
+  });
+  assert.deepEqual(UI_EFFECT_MODEL.START_PANEL_TIMEOUT, {
+    kind: UI_EFFECT_KIND.START_PANEL_TIMEOUT,
+    payloadKeys: [],
+  });
+  assert.deepEqual(UI_EFFECT_MODEL.CANCEL_PANEL_TIMEOUT, {
+    kind: UI_EFFECT_KIND.CANCEL_PANEL_TIMEOUT,
+    payloadKeys: [],
+  });
+});
