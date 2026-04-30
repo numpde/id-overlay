@@ -196,6 +196,55 @@ test("stored align mode restores an interactive overlay", async () => {
   }
 });
 
+test("trace mode hides registration pins and disables registration controls", async () => {
+  const env = createDomEnvironment({
+    storageState: {
+      "id-overlay/state": {
+        mode: "trace",
+        opacity: 0.5,
+        image: {
+          src: "data:image/png;base64,abc",
+          width: 400,
+          height: 200,
+        },
+        placement: createStoredPlacement({
+          width: 400,
+          height: 200,
+          scale: 1,
+          rotationRad: 0,
+        }),
+        registration: {
+          pins: [
+            { id: 1, imagePx: { x: 20, y: 40 }, mapLatLon: { lat: 0, lon: 0 } },
+            { id: 2, imagePx: { x: 80, y: 120 }, mapLatLon: { lat: 1, lon: 1 } },
+          ],
+          solvedTransform: null,
+          dirty: false,
+        },
+      },
+    },
+  });
+
+  try {
+    const { bootstrapIdOverlay } = await import(`${repoFileUrl("src/content/main.js")}?tracecontrols=${Date.now()}`);
+    await bootstrapIdOverlay();
+
+    const shadow = env.document.getElementById("id-overlay-root").shadowRoot;
+    const buttons = [...shadow.querySelectorAll(".id-overlay-button")];
+    const pasteButton = buttons.find((button) => button.textContent === "Paste");
+    const clearPinsButton = buttons.find((button) => button.textContent === "Clear 2 pins");
+
+    assert.ok(pasteButton);
+    assert.ok(clearPinsButton);
+    assert.equal(pasteButton.disabled, true);
+    assert.equal(clearPinsButton.disabled, true);
+    assert.equal(env.document.querySelectorAll(".id-overlay-pin").length, 0);
+    assert.equal(env.document.querySelectorAll(".id-overlay-map-pin").length, 0);
+  } finally {
+    env.cleanup();
+  }
+});
+
 test("content entrypoint bootstraps only once", async () => {
   const env = createDomEnvironment();
 
@@ -294,7 +343,20 @@ test("unsupported pages do not inject the extension UI", async () => {
 });
 
 test("paste button arms window-level image paste capture", async () => {
-  const env = createDomEnvironment();
+  const env = createDomEnvironment({
+    storageState: {
+      "id-overlay/state": {
+        mode: "align",
+        opacity: 0.6,
+        image: null,
+        registration: {
+          pins: [],
+          solvedTransform: null,
+          dirty: false,
+        },
+      },
+    },
+  });
   installImageReadStubs(env.window);
 
   try {
@@ -338,7 +400,20 @@ test("paste button arms window-level image paste capture", async () => {
 });
 
 test("paste button loads directly from navigator.clipboard.read when available", async () => {
-  const env = createDomEnvironment();
+  const env = createDomEnvironment({
+    storageState: {
+      "id-overlay/state": {
+        mode: "align",
+        opacity: 0.6,
+        image: null,
+        registration: {
+          pins: [],
+          solvedTransform: null,
+          dirty: false,
+        },
+      },
+    },
+  });
   installImageReadStubs(env.window);
   env.window.navigator.clipboard = {
     async read() {
@@ -374,7 +449,20 @@ test("paste button loads directly from navigator.clipboard.read when available",
 });
 
 test("clicking Paste… again cancels paste capture and ignores a later clipboard result", async () => {
-  const env = createDomEnvironment();
+  const env = createDomEnvironment({
+    storageState: {
+      "id-overlay/state": {
+        mode: "align",
+        opacity: 0.6,
+        image: null,
+        registration: {
+          pins: [],
+          solvedTransform: null,
+          dirty: false,
+        },
+      },
+    },
+  });
   installImageReadStubs(env.window);
   let resolveClipboardRead;
   env.window.navigator.clipboard = {

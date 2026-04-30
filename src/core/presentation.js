@@ -6,6 +6,7 @@ import {
   DRAG_MODE,
   INTERACTION_EVENT,
   PIN_RESULT_REASON,
+  resolveRegistrationUiPolicy,
   SOLVE_RESULT_REASON,
 } from "./interaction-policy.js";
 import { resolvePanelActionSemantics } from "./panel-state.js";
@@ -27,12 +28,14 @@ export const PANEL_FEEDBACK_ACTION = Object.freeze({
 export function resolveOverlaySessionPresentation(state) {
   const solvePresentation = resolveRegistrationSolvePresentation(state.registration);
   const renderPresentation = resolveOverlayRenderPresentation(state);
+  const registrationUi = resolveRegistrationUiPolicy(state);
 
   return {
     hasImage: renderPresentation.hasImage,
+    canPasteImage: registrationUi.canPasteImage,
+    canShowPins: registrationUi.canShowPins,
     pinCount: solvePresentation.pinCount,
-    canComputeTransform: solvePresentation.canCompute,
-    canClearPins: solvePresentation.canClearPins,
+    canClearPins: registrationUi.registrationModeActive && solvePresentation.canClearPins,
     solve: solvePresentation,
     render: renderPresentation,
   };
@@ -54,7 +57,7 @@ export function resolvePanelPresentation({
     opacityValue: String(state.opacity),
     modeSwitch: resolveModeSwitchPresentation(state.mode),
     hasImage: sessionPresentation.hasImage,
-    canComputeTransform: sessionPresentation.canComputeTransform,
+    canPasteImage: sessionPresentation.canPasteImage,
     canClearPins: sessionPresentation.canClearPins,
     clearPinsLabel: resolveClearPinsLabel(sessionPresentation.pinCount),
     clearButtonLabel: panelActionPresentation.clearButtonLabel,
@@ -116,14 +119,14 @@ export function resolveRegistrationSolvePresentation(registration) {
   if (solveState.kind === "dirty") {
     return {
       ...common,
-      summaryLabel: "Pins changed; recompute needed",
-      statusMessage: "Align mode: pins changed. Compute the transform or switch to Trace to auto-apply it.",
+      summaryLabel: "Pins changed; fit pending",
+      statusMessage: "Align mode: pins changed. Switch to Trace to fit the overlay from the current pins.",
     };
   }
   if (solveState.kind === "ready") {
     return {
       ...common,
-      summaryLabel: "Ready to compute",
+      summaryLabel: "Ready to fit",
       statusMessage: null,
     };
   }

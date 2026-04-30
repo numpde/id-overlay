@@ -3,12 +3,15 @@
 }
 
 .id-overlay-panel,
+.id-overlay-panel *,
 .id-overlay-viewport,
 .id-overlay-viewport * {
   box-sizing: border-box;
 }
 
 .id-overlay-panel {
+  --id-overlay-panel-status-line-height: 1.4em;
+  --id-overlay-panel-status-detail-max-height: min(10em, calc(100vh - 120px));
   position: fixed;
   left: 16px;
   bottom: 16px;
@@ -27,6 +30,10 @@
   pointer-events: auto;
 }
 
+.id-overlay-panel > * {
+  min-width: 0;
+}
+
 .id-overlay-panel__header {
   display: grid;
   gap: 4px;
@@ -39,6 +46,7 @@
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: start;
   gap: 12px;
+  min-width: 0;
 }
 
 .id-overlay-panel--dragging .id-overlay-panel__header {
@@ -47,6 +55,7 @@
 
 .id-overlay-panel__title {
   margin: 0;
+  min-width: 0;
   font-size: 15px;
   font-weight: 700;
 }
@@ -83,7 +92,7 @@
 
 .id-overlay-panel__controls {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
 }
 
@@ -180,47 +189,67 @@
 
 .id-overlay-panel__status-wrap {
   position: relative;
-  min-height: 1.4em;
+  min-height: var(--id-overlay-panel-status-line-height);
+  min-width: 0;
+  isolation: isolate;
 }
 
 .id-overlay-panel__status {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  z-index: 1;
+  display: block;
   margin: 0;
   padding: 0;
-  border: 1px solid transparent;
-  border-radius: 10px;
+  min-width: 0;
   color: #475569;
+  line-height: var(--id-overlay-panel-status-line-height);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  background: rgba(255, 255, 255, 0.96);
   outline: none;
-  max-height: 1.4em;
-  transition:
-    max-height 120ms ease-out,
-    padding 120ms ease-out,
-    border-color 120ms ease-out,
-    background-color 120ms ease-out,
-    box-shadow 120ms ease-out;
+  pointer-events: auto;
+  transition: opacity 90ms ease-out;
 }
 
-.id-overlay-panel__status:hover,
-.id-overlay-panel__status:focus-visible {
-  z-index: 2;
-  max-height: 8em;
+.id-overlay-panel__status-detail {
+  position: absolute;
+  inset: auto 0 0;
+  min-width: 0;
+  opacity: 0;
+  transform: translateY(8px);
+  transition:
+    opacity 90ms ease-out,
+    transform 90ms ease-out;
+  pointer-events: none;
+}
+
+.id-overlay-panel__status-detail-surface {
+  max-height: var(--id-overlay-panel-status-detail-max-height);
+  margin: 0;
   padding: 8px 10px;
-  border-color: rgba(15, 23, 42, 0.14);
+  min-width: 0;
+  max-width: 100%;
+  border: 1px solid rgba(15, 23, 42, 0.14);
+  border-radius: 10px;
   background: rgba(255, 255, 255, 0.98);
   box-shadow: 0 8px 20px rgba(15, 23, 42, 0.12);
+  color: #475569;
   white-space: normal;
   overflow-x: hidden;
   overflow-y: auto;
-  text-overflow: clip;
+  scrollbar-gutter: stable;
+}
+
+.id-overlay-panel__status-wrap:hover .id-overlay-panel__status,
+.id-overlay-panel__status-wrap:focus-within .id-overlay-panel__status {
+  opacity: 0;
   transition-duration: 220ms;
+}
+
+.id-overlay-panel__status-wrap:hover .id-overlay-panel__status-detail,
+.id-overlay-panel__status-wrap:focus-within .id-overlay-panel__status-detail {
+  opacity: 1;
+  transform: translateY(0);
+  transition-duration: 220ms;
+  pointer-events: auto;
 }
 
 .id-overlay-panel__clear-button {

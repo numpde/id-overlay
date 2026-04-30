@@ -6,7 +6,7 @@ It is built for one narrow workflow:
 - paste a reference screenshot over the map
 - align it roughly
 - place screenshot-to-map pin correspondences
-- compute a transform
+- switch to `Trace` to fit from the current pins
 - trace in iD while the overlay follows the map
 
 ![Reference Overlay screenshot](docs/reference-overlay-screenshot.jpg)
@@ -26,8 +26,7 @@ The current alignment workflow is:
 - paste an image
 - move/scale/rotate until it roughly matches
 - double-click to add or remove pins
-- click `Compute transform`
-- switch to `Trace`
+- switch to `Trace` to fit the overlay from the current pins
 
 ## Controls
 
@@ -43,8 +42,7 @@ The current alignment workflow is:
 | `Alt` + wheel | Adjust only the overlay opacity |
 | Double-click on overlay | Add a pin at that screenshot/map correspondence |
 | Double-click on an existing pin | Remove that pin |
-| `Compute transform` | Solve and apply the transform from the current pins |
-| Mode switch to `Trace` | Leave registration mode and keep the overlay passive |
+| Mode switch to `Trace` | Fit from the current pins, then leave registration mode and keep the overlay passive |
 
 Notes:
 - Plain drag and plain wheel stay map-native in `Align`; the overlay follows that shared map motion.
@@ -63,7 +61,7 @@ Notes:
 
 Notes:
 - In `Trace`, the overlay is passive. The map remains editable in iD.
-- In both modes, once a transform has been computed, the overlay prefers that solved transform.
+- Switching from `Align` to `Trace` computes the fitted transform when the current pins are dirty and sufficient.
 
 ## Install In Chromium
 

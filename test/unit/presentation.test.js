@@ -34,8 +34,9 @@ test("resolveOverlaySessionPresentation centralizes session labels and enablemen
   });
 
   assert.equal(empty.hasImage, false);
+  assert.equal(empty.canPasteImage, false);
+  assert.equal(empty.canShowPins, false);
   assert.equal(empty.pinCount, 0);
-  assert.equal(empty.canComputeTransform, false);
   assert.equal(empty.canClearPins, false);
   assert.equal(empty.solve.summaryLabel, "No pins yet");
   assert.equal(empty.render.label, "No image");
@@ -61,9 +62,10 @@ test("resolveOverlaySessionPresentation centralizes session labels and enablemen
   });
 
   assert.equal(solved.hasImage, true);
+  assert.equal(solved.canPasteImage, false);
+  assert.equal(solved.canShowPins, false);
   assert.equal(solved.pinCount, 2);
-  assert.equal(solved.canComputeTransform, true);
-  assert.equal(solved.canClearPins, true);
+  assert.equal(solved.canClearPins, false);
   assert.equal(solved.solve.summaryLabel, "Solved from 2 pin(s)");
   assert.equal(solved.render.label, "Solved transform active");
 });
@@ -107,8 +109,8 @@ test("presentation centralizes solve and render copy from semantic state", () =>
     solvedPinCount: 2,
     canCompute: true,
     canClearPins: true,
-    summaryLabel: "Pins changed; recompute needed",
-    statusMessage: "Align mode: pins changed. Compute the transform or switch to Trace to auto-apply it.",
+    summaryLabel: "Pins changed; fit pending",
+    statusMessage: "Align mode: pins changed. Switch to Trace to fit the overlay from the current pins.",
   });
 
   assert.deepEqual(resolveRegistrationSolvePresentation({
@@ -215,7 +217,7 @@ test("resolvePanelPresentation centralizes panel labels and enablement", () => {
       ariaLabel: "Mode: Align",
     },
     hasImage: true,
-    canComputeTransform: true,
+    canPasteImage: true,
     canClearPins: true,
     clearPinsLabel: "Clear 2 pins",
     clearButtonLabel: "Clear",
@@ -223,6 +225,32 @@ test("resolvePanelPresentation centralizes panel labels and enablement", () => {
     clearButtonDisabled: false,
     statusMessage: MANUAL_PASTE_PROMPT,
   });
+});
+
+test("resolvePanelPresentation disables registration actions outside align mode", () => {
+  const presentation = resolvePanelPresentation({
+    state: {
+      image: { src: "x", width: 1, height: 1 },
+      mode: "trace",
+      opacity: 0.6,
+      registration: {
+        pins: [
+          { id: 1, imagePx: { x: 1, y: 2 }, mapLatLon: { lat: 1, lon: 2 } },
+          { id: 2, imagePx: { x: 3, y: 4 }, mapLatLon: { lat: 3, lon: 4 } },
+        ],
+        solvedTransform: null,
+        dirty: false,
+      },
+    },
+    statusMessage: "Ready.",
+    panelActionState: {
+      kind: PANEL_ACTION_KIND.IDLE,
+      sessionId: 0,
+    },
+  });
+
+  assert.equal(presentation.canPasteImage, false);
+  assert.equal(presentation.canClearPins, false);
 });
 
 test("resolveClearPinsLabel centralizes the pin-count button copy", () => {

@@ -66,12 +66,11 @@ export function createPanel({ shadow, store, interactions, statusController }) {
   controls.className = "id-overlay-panel__controls";
 
   const pasteButton = createButton("Paste");
-  const computeButton = createButton("Compute transform");
   const clearPinsButton = createButton("Clear pins");
   const clearButton = createButton("Clear");
   clearButton.classList.add("id-overlay-panel__clear-button");
 
-  controls.append(pasteButton, computeButton, clearPinsButton);
+  controls.append(pasteButton, clearPinsButton);
 
   const modeSwitch = document.createElement("label");
   modeSwitch.className = "id-overlay-mode-switch";
@@ -115,7 +114,15 @@ export function createPanel({ shadow, store, interactions, statusController }) {
   const statusElement = document.createElement("p");
   statusElement.className = "id-overlay-panel__status";
   statusElement.tabIndex = 0;
-  statusWrap.append(statusElement);
+
+  const statusDetail = document.createElement("div");
+  statusDetail.className = "id-overlay-panel__status-detail";
+
+  const statusDetailSurface = document.createElement("div");
+  statusDetailSurface.className = "id-overlay-panel__status-detail-surface";
+  statusDetail.append(statusDetailSurface);
+
+  statusWrap.append(statusElement, statusDetail);
 
   root.append(header, modeSwitch, controls, opacityGroup, clearButton, statusWrap);
   shadow.append(root);
@@ -160,10 +167,6 @@ export function createPanel({ shadow, store, interactions, statusController }) {
       event.deltaY < 0 ? INTERACTION_MODE.ALIGN : INTERACTION_MODE.TRACE,
     );
   }, { passive: false });
-
-  computeButton.addEventListener("click", () => {
-    interactions.computeTransform();
-  });
 
   clearPinsButton.addEventListener("click", () => {
     interactions.clearPins();
@@ -232,6 +235,7 @@ export function createPanel({ shadow, store, interactions, statusController }) {
       panelActionState,
     });
     pasteButton.textContent = presentation.pasteLabel;
+    pasteButton.disabled = !presentation.canPasteImage;
     opacityInput.value = presentation.opacityValue;
     modeInput.checked = presentation.modeSwitch.checked;
     modeInput.setAttribute("aria-label", presentation.modeSwitch.ariaLabel);
@@ -243,10 +247,10 @@ export function createPanel({ shadow, store, interactions, statusController }) {
       presentation.clearButtonVariant === "confirm",
     );
     opacityInput.disabled = !presentation.hasImage;
-    computeButton.disabled = !presentation.canComputeTransform;
     clearPinsButton.disabled = !presentation.canClearPins;
     clearPinsButton.textContent = presentation.clearPinsLabel;
     statusElement.textContent = presentation.statusMessage;
+    statusDetailSurface.textContent = presentation.statusMessage;
   }
 
   function applyModeSelection(mode) {
