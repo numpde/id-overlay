@@ -957,7 +957,7 @@ export function resolvePinContext({ state, runtime, pageAdapter }) {
   const renderedPins = buildPinRenderModels({
     pins: state.registration.pins,
     transform: currentTransform,
-    projectScreenPoint: (pinImagePx) => imagePointToRenderedScreenPoint({
+    projectOverlayScreenPoint: (pinImagePx) => imagePointToRenderedScreenPoint({
       imagePoint: pinImagePx,
       transform: currentTransform,
       snapshot,

@@ -221,12 +221,6 @@ test("screenPointToImagePoint inverts imagePointToScreenPoint", () => {
 });
 
 test("buildPinRenderModels and hitTestPin share the same screen geometry", () => {
-  const transform = {
-    a: 1,
-    b: 0,
-    tx: 100,
-    ty: 50,
-  };
   const pins = buildPinRenderModels({
     pins: [
       {
@@ -235,14 +229,24 @@ test("buildPinRenderModels and hitTestPin share the same screen geometry", () =>
         mapLatLon: { lat: 0, lon: 0 },
       },
     ],
-    transform,
+    projectOverlayScreenPoint: () => ({ x: 120, y: 80 }),
+    projectMapScreenPoint: () => ({ x: 140, y: 100 }),
   });
 
-  assert.deepEqual(pins[0].screenPx, { x: 120, y: 80 });
+  assert.deepEqual(pins[0].overlayScreenPx, { x: 120, y: 80 });
+  assert.deepEqual(pins[0].mapScreenPx, { x: 140, y: 100 });
   assert.equal(
     hitTestPin({
       screenPoint: { x: 123, y: 82 },
       renderedPins: pins,
+    })?.id,
+    1,
+  );
+  assert.equal(
+    hitTestPin({
+      screenPoint: { x: 143, y: 102 },
+      renderedPins: pins,
+      resolveTargetScreenPoint: (pin) => pin.mapScreenPx,
     })?.id,
     1,
   );

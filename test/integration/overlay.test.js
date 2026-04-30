@@ -68,6 +68,12 @@ test("overlay double-click toggles pins through the interaction controller", asy
         clientPointToScreen(point) {
           return point;
         },
+        mapToScreen(point) {
+          return {
+            x: 428 + point.lon * 50,
+            y: 208 - point.lat * 50,
+          };
+        },
       },
       store,
       interactions: {
@@ -172,6 +178,12 @@ test("handled overlay wheel gestures do not bubble into the underlying map", asy
         clientPointToScreen(point) {
           return point;
         },
+        mapToScreen(point) {
+          return {
+            x: 428 + point.lon * 50,
+            y: 208 - point.lat * 50,
+          };
+        },
       },
       store,
       interactions: {
@@ -275,6 +287,12 @@ test("plain wheel over the overlay in align mode stays native to the map", async
         clientPointToScreen(point) {
           return point;
         },
+        mapToScreen(point) {
+          return {
+            x: 428 + point.lon * 50,
+            y: 208 - point.lat * 50,
+          };
+        },
       },
       store,
       interactions: {
@@ -377,6 +395,12 @@ test("alt-wheel in trace mode is captured from the map layer when the pointer is
         },
         clientPointToScreen(point) {
           return point;
+        },
+        mapToScreen(point) {
+          return {
+            x: 428 + point.lon * 50,
+            y: 208 - point.lat * 50,
+          };
         },
       },
       store,
@@ -836,6 +860,12 @@ test("trace-mode overlay applies live surface motion from the page adapter", asy
         clientPointToScreen(point) {
           return point;
         },
+        mapToScreen(point) {
+          return {
+            x: 428 + point.lon * 50,
+            y: 208 - point.lat * 50,
+          };
+        },
       },
       store,
       interactions: {
@@ -867,14 +897,22 @@ test("trace-mode overlay applies live surface motion from the page adapter", asy
     const overlayRoot = env.document.querySelector(".id-overlay-viewport");
     const mapLayer = env.document.querySelector(".id-overlay-map-layer");
     const image = env.document.querySelector(".id-overlay-image");
+    const mapPin = env.document.querySelector(".id-overlay-map-pin");
     const pin = env.document.querySelector(".id-overlay-pin");
     assert.equal(overlayRoot.style.left, "10px");
     assert.equal(overlayRoot.style.top, "20px");
     assert.equal(mapLayer.style.transform, "matrix(1, 0, 0, 1, 18, -12)");
     assert.equal(image.style.left, "372px");
     assert.equal(image.style.top, "272px");
+    assert.equal(mapPin.style.left, "400px");
+    assert.equal(mapPin.style.top, "200px");
     assert.equal(pin.style.left, "382px");
     assert.equal(pin.style.top, "287px");
+
+    store.clearPins();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    assert.equal(env.document.querySelectorAll(".id-overlay-map-pin").length, 0);
+    assert.equal(env.document.querySelectorAll(".id-overlay-pin").length, 0);
 
     overlay.destroy();
   } finally {

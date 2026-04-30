@@ -7,6 +7,7 @@ import {
   imagePointToRenderedScreenPoint,
   imagePointToScreenPoint,
   isImagePointWithinBounds,
+  removeSurfaceMotionFromScreenPoint,
   resolveOverlayScreenTransform,
   screenPointToRenderedImagePoint,
 } from "../core/transform.js";
@@ -67,6 +68,12 @@ const OVERLAY_STYLE_TEXT = `
   pointer-events: none;
 }
 
+.id-overlay-map-pin-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
 .id-overlay-pin {
   position: absolute;
   min-width: 22px;
@@ -81,6 +88,25 @@ const OVERLAY_STYLE_TEXT = `
   text-align: center;
   transform: translate(-50%, -50%);
   box-shadow: 0 0 0 2px rgba(15, 23, 42, 0.2);
+}
+
+.id-overlay-map-pin {
+  position: absolute;
+  min-width: 18px;
+  min-height: 18px;
+  padding: 0 4px;
+  border: 1px solid rgba(255, 255, 255, 0.82);
+  border-radius: 999px;
+  background: rgba(37, 99, 235, 0.52);
+  color: rgba(255, 255, 255, 0.94);
+  font: 10px/16px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-weight: 700;
+  text-align: center;
+  transform: translate(-50%, -50%);
+  box-shadow:
+    0 0 0 1px rgba(15, 23, 42, 0.12),
+    0 1px 6px rgba(15, 23, 42, 0.1);
+  opacity: 0.88;
 }
 
 `;
@@ -101,10 +127,13 @@ export function createOverlay({ pageAdapter, store, interactions }) {
   const overlayFrame = document.createElement("div");
   overlayFrame.className = "id-overlay-frame";
 
+  const mapPinLayer = document.createElement("div");
+  mapPinLayer.className = "id-overlay-map-pin-layer";
+
   const pinLayer = document.createElement("div");
   pinLayer.className = "id-overlay-pin-layer";
 
-  mapLayer.append(overlayImage, overlayFrame, pinLayer);
+  mapLayer.append(overlayImage, overlayFrame, mapPinLayer, pinLayer);
   overlayRoot.append(mapLayer);
 
   let latestSnapshot = pageAdapter.getSnapshot();
@@ -161,6 +190,7 @@ export function createOverlay({ pageAdapter, store, interactions }) {
       overlayImage.style.display = "none";
       overlayFrame.style.display = "none";
       overlayImage.removeAttribute("src");
+      mapPinLayer.replaceChildren();
       pinLayer.replaceChildren();
       return;
     }
@@ -202,24 +232,50 @@ export function createOverlay({ pageAdapter, store, interactions }) {
     renderPins(buildPinRenderModels({
       pins: state.registration.pins,
       transform,
-      projectScreenPoint: (pinImagePx) => imagePointToScreenPoint({
+      projectOverlayScreenPoint: (pinImagePx) => imagePointToScreenPoint({
         imagePoint: pinImagePx,
         transform,
       }),
+      projectMapScreenPoint: projectMapPinScreenPoint,
     }));
   }
 
   function renderPins(renderedPins) {
-    pinLayer.replaceChildren(...renderedPins.map(createPinMarker));
+    mapPinLayer.replaceChildren(
+      ...renderedPins
+        .filter((pin) => pin.mapScreenPx)
+        .map(createMapPinMarker),
+    );
+    pinLayer.replaceChildren(...renderedPins.map(createOverlayPinMarker));
   }
 
-  function createPinMarker(pin) {
+  function createOverlayPinMarker(pin) {
     const marker = mountElement?.ownerDocument?.createElement("div") ?? document.createElement("div");
     marker.className = "id-overlay-pin";
-    marker.style.left = `${pin.screenPx.x - latestSnapshot.viewportRect.left}px`;
-    marker.style.top = `${pin.screenPx.y - latestSnapshot.viewportRect.top}px`;
+    marker.style.left = `${pin.overlayScreenPx.x - latestSnapshot.viewportRect.left}px`;
+    marker.style.top = `${pin.overlayScreenPx.y - latestSnapshot.viewportRect.top}px`;
     marker.textContent = String(pin.id);
     return marker;
+  }
+
+  function createMapPinMarker(pin) {
+    const marker = mountElement?.ownerDocument?.createElement("div") ?? document.createElement("div");
+    marker.className = "id-overlay-map-pin";
+    marker.style.left = `${pin.mapScreenPx.x - latestSnapshot.viewportRect.left}px`;
+    marker.style.top = `${pin.mapScreenPx.y - latestSnapshot.viewportRect.top}px`;
+    marker.dataset.pinId = String(pin.id);
+    marker.textContent = String(pin.id);
+    return marker;
+  }
+
+  function projectMapPinScreenPoint(mapLatLon) {
+    if (typeof pageAdapter.mapToScreen !== "function") {
+      return null;
+    }
+    return removeSurfaceMotionFromScreenPoint({
+      screenPoint: pageAdapter.mapToScreen(mapLatLon),
+      snapshot: latestSnapshot,
+    });
   }
 
   function ensureOverlayMount() {
