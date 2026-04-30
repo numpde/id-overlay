@@ -54,15 +54,18 @@ test("page adapter uses the viewport element and keeps map/screen projection con
 
     const viewportCenter = { x: 570, y: 380 };
     assert.deepEqual(adapter.mapToScreen(snapshot.mapView.center), viewportCenter);
+    assert.deepEqual(adapter.mapToOverlayLayerScreen(snapshot.mapView.center), viewportCenter);
     const resolvedCenter = adapter.screenToMap(viewportCenter);
     assert.ok(Math.abs(resolvedCenter.lat - snapshot.mapView.center.lat) < 1e-9);
     assert.ok(Math.abs(resolvedCenter.lon - snapshot.mapView.center.lon) < 1e-9);
 
     const point = { lat: -1.2259, lon: 36.8271 };
     const projected = adapter.mapToScreen(point);
+    const baseProjected = adapter.mapToOverlayLayerScreen(point);
     const resolved = adapter.screenToMap(projected);
     assert.ok(Math.abs(resolved.lat - point.lat) < 1e-9);
     assert.ok(Math.abs(resolved.lon - point.lon) < 1e-9);
+    assert.deepEqual(projected, baseProjected);
     assert.deepEqual(
       adapter.screenPointToClient(adapter.clientPointToScreen({ x: 320, y: 260 })),
       { x: 320, y: 260 },
@@ -198,6 +201,14 @@ test("page adapter prefers the embedded iD iframe for viewport, map view, and su
       x: 500,
       y: 200,
     });
+    assert.deepEqual(
+      adapter.mapToOverlayLayerScreen(snapshot.mapView.center),
+      { x: 670, y: 320 },
+    );
+    assert.deepEqual(
+      adapter.mapToScreen(snapshot.mapView.center),
+      { x: 688, y: 308 },
+    );
 
     adapter.destroy();
   } finally {

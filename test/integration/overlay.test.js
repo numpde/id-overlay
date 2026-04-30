@@ -74,6 +74,9 @@ test("overlay double-click toggles pins through the interaction controller", asy
             y: 208 - point.lat * 50,
           };
         },
+        mapToOverlayLayerScreen(point) {
+          return this.mapToScreen(point);
+        },
       },
       store,
       interactions: {
@@ -184,6 +187,9 @@ test("handled overlay wheel gestures do not bubble into the underlying map", asy
             y: 208 - point.lat * 50,
           };
         },
+        mapToOverlayLayerScreen(point) {
+          return this.mapToScreen(point);
+        },
       },
       store,
       interactions: {
@@ -293,6 +299,9 @@ test("plain wheel over the overlay in align mode stays native to the map", async
             y: 208 - point.lat * 50,
           };
         },
+        mapToOverlayLayerScreen(point) {
+          return this.mapToScreen(point);
+        },
       },
       store,
       interactions: {
@@ -401,6 +410,9 @@ test("alt-wheel in trace mode is captured from the map layer when the pointer is
             x: 428 + point.lon * 50,
             y: 208 - point.lat * 50,
           };
+        },
+        mapToOverlayLayerScreen(point) {
+          return this.mapToScreen(point);
         },
       },
       store,
@@ -865,6 +877,9 @@ test("trace-mode overlay applies live surface motion from the page adapter", asy
             x: 428 + point.lon * 50,
             y: 208 - point.lat * 50,
           };
+        },
+        mapToOverlayLayerScreen(point) {
+          return this.mapToScreen(point);
         },
       },
       store,

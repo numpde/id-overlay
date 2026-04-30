@@ -70,16 +70,23 @@ export function createPageAdapter({
   function mapToScreen(point) {
     return runAdapterBoundary("map-to-screen", () => {
       const snapshot = getSnapshot();
-      const projection = createProjectionContext(snapshot);
-      const pointWorld = projectLatLon(point, projection.mapView.zoom);
-
-      const baseScreenPoint = {
-        x: projection.viewportCenter.x + (pointWorld.x - projection.centerWorld.x),
-        y: projection.viewportCenter.y + (pointWorld.y - projection.centerWorld.y),
-      };
+      const baseScreenPoint = projectMapPointToBaseScreenPoint({
+        snapshot,
+        point,
+      });
       return applySurfaceMotionToScreenPoint({
         screenPoint: baseScreenPoint,
         snapshot,
+      });
+    }, { x: 0, y: 0 });
+  }
+
+  function mapToOverlayLayerScreen(point) {
+    return runAdapterBoundary("map-to-overlay-layer-screen", () => {
+      const snapshot = getSnapshot();
+      return projectMapPointToBaseScreenPoint({
+        snapshot,
+        point,
       });
     }, { x: 0, y: 0 });
   }
@@ -88,9 +95,9 @@ export function createPageAdapter({
     return runAdapterBoundary("screen-to-map", () => {
       const snapshot = getSnapshot();
       const projection = createProjectionContext(snapshot);
-      const baseScreenPoint = removeSurfaceMotionFromScreenPoint({
-        screenPoint,
+      const baseScreenPoint = projectRenderedScreenPointToBaseScreenPoint({
         snapshot,
+        screenPoint,
       });
 
       return unprojectWorld({
@@ -276,6 +283,7 @@ export function createPageAdapter({
     clientPointToScreen,
     screenPointToClient,
     mapToScreen,
+    mapToOverlayLayerScreen,
     screenToMap,
     beginMapPan,
     updateMapPan,
@@ -520,6 +528,22 @@ export function createPageAdapter({
     snapshotLoopHandle = null;
     usingAnimationFrameLoop = false;
   }
+}
+
+function projectMapPointToBaseScreenPoint({ snapshot, point }) {
+  const projection = createProjectionContext(snapshot);
+  const pointWorld = projectLatLon(point, projection.mapView.zoom);
+  return {
+    x: projection.viewportCenter.x + (pointWorld.x - projection.centerWorld.x),
+    y: projection.viewportCenter.y + (pointWorld.y - projection.centerWorld.y),
+  };
+}
+
+function projectRenderedScreenPointToBaseScreenPoint({ snapshot, screenPoint }) {
+  return removeSurfaceMotionFromScreenPoint({
+    screenPoint,
+    snapshot,
+  });
 }
 
 function patchHistoryMethods({ hashTarget, onHistoryMutation }) {

@@ -7,7 +7,6 @@ import {
   imagePointToRenderedScreenPoint,
   imagePointToScreenPoint,
   isImagePointWithinBounds,
-  removeSurfaceMotionFromScreenPoint,
   resolveOverlayScreenTransform,
   screenPointToRenderedImagePoint,
 } from "../core/transform.js";
@@ -276,13 +275,10 @@ export function createOverlay({ pageAdapter, store, interactions }) {
   }
 
   function projectMapPinScreenPoint(mapLatLon) {
-    if (typeof pageAdapter.mapToScreen !== "function") {
+    if (typeof pageAdapter.mapToOverlayLayerScreen !== "function") {
       return null;
     }
-    return removeSurfaceMotionFromScreenPoint({
-      screenPoint: pageAdapter.mapToScreen(mapLatLon),
-      snapshot: latestSnapshot,
-    });
+    return pageAdapter.mapToOverlayLayerScreen(mapLatLon);
   }
 
   function ensureOverlayMount() {
