@@ -39,6 +39,7 @@ import {
   createPlacementScreenTransform,
   imagePointToScreenPoint,
   resolveOverlayScreenTransform,
+  screenPointToImagePoint,
 } from "../../src/core/transform.js";
 
 test("nextMode toggles between align and trace", () => {
@@ -374,6 +375,45 @@ test("ctrl-wheel rotates the overlay only and marks a solved transform dirty aga
   assert.ok(store.getState().registration.solvedTransform);
 });
 
+test("ctrl-wheel rotates around the image point under the mouse", () => {
+  const { controller, store, pageAdapter } = createHarness();
+  controller.loadImage({
+    src: "data:image/png;base64,abc",
+    width: 800,
+    height: 400,
+  });
+
+  const anchorScreenPoint = { x: 650, y: 260 };
+  const beforeTransform = resolveOverlayScreenTransform({
+    state: store.getState(),
+    snapshot: pageAdapter.getSnapshot(),
+  });
+  const anchorImagePoint = screenPointToImagePoint({
+    screenPoint: anchorScreenPoint,
+    transform: beforeTransform,
+  });
+
+  controller.handleWheel({
+    deltaY: -100,
+    shiftKey: false,
+    altKey: false,
+    ctrlKey: true,
+    screenPoint: anchorScreenPoint,
+  });
+
+  const afterTransform = resolveOverlayScreenTransform({
+    state: store.getState(),
+    snapshot: pageAdapter.getSnapshot(),
+  });
+  const afterAnchorScreenPoint = imagePointToScreenPoint({
+    imagePoint: anchorImagePoint,
+    transform: afterTransform,
+  });
+
+  assert.ok(Math.abs(afterAnchorScreenPoint.x - anchorScreenPoint.x) < 1e-9);
+  assert.ok(Math.abs(afterAnchorScreenPoint.y - anchorScreenPoint.y) < 1e-9);
+});
+
 test("plain wheel zooms the map only and leaves overlay placement unchanged", () => {
   const { controller, store, adapterCalls } = createHarness();
   controller.loadImage({
@@ -395,6 +435,45 @@ test("plain wheel zooms the map only and leaves overlay placement unchanged", ()
   assert.equal(adapterCalls.mapZoomCalls.length, 1);
   assert.deepEqual(adapterCalls.mapZoomCalls[0].screenPoint, { x: 600, y: 320 });
   assert.equal(adapterCalls.mapZoomCalls[0].deltaY, -100);
+});
+
+test("shift-wheel scales around the image point under the mouse", () => {
+  const { controller, store, pageAdapter } = createHarness();
+  controller.loadImage({
+    src: "data:image/png;base64,abc",
+    width: 800,
+    height: 400,
+  });
+
+  const anchorScreenPoint = { x: 650, y: 260 };
+  const beforeTransform = resolveOverlayScreenTransform({
+    state: store.getState(),
+    snapshot: pageAdapter.getSnapshot(),
+  });
+  const anchorImagePoint = screenPointToImagePoint({
+    screenPoint: anchorScreenPoint,
+    transform: beforeTransform,
+  });
+
+  controller.handleWheel({
+    deltaY: -100,
+    shiftKey: true,
+    altKey: false,
+    ctrlKey: false,
+    screenPoint: anchorScreenPoint,
+  });
+
+  const afterTransform = resolveOverlayScreenTransform({
+    state: store.getState(),
+    snapshot: pageAdapter.getSnapshot(),
+  });
+  const afterAnchorScreenPoint = imagePointToScreenPoint({
+    imagePoint: anchorImagePoint,
+    transform: afterTransform,
+  });
+
+  assert.ok(Math.abs(afterAnchorScreenPoint.x - anchorScreenPoint.x) < 1e-9);
+  assert.ok(Math.abs(afterAnchorScreenPoint.y - anchorScreenPoint.y) < 1e-9);
 });
 
 test("map pan/zoom gestures keep a solved transform clean until overlay-only editing begins", () => {

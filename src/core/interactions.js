@@ -49,6 +49,7 @@ import {
   imagePointToScreenPoint,
   isImagePointWithinBounds,
   opacityFromWheelDelta,
+  removeSurfaceMotionFromScreenPoint,
   resolveOverlayRenderSource,
   resolveOverlayScreenTransform,
   rotationFromWheelDelta,
@@ -573,6 +574,7 @@ export function createInteractionController({
         const nextPlacement = createRetunedPlacementTransform({
           state: placementState,
           snapshot,
+          anchorScreenPx: screenPoint,
           rotationRad: nextRotationRad,
         });
         store.setPlacement(nextPlacement);
@@ -583,6 +585,7 @@ export function createInteractionController({
         const nextPlacement = createRetunedPlacementTransform({
           state: placementState,
           snapshot,
+          anchorScreenPx: screenPoint,
           screenScale: nextScale,
         });
         store.setPlacement(nextPlacement);
@@ -890,6 +893,7 @@ function createRetunedPlacementTransform({
   state,
   snapshot,
   centerScreenPx = null,
+  anchorScreenPx = null,
   screenScale = null,
   rotationRad = null,
 }) {
@@ -902,12 +906,38 @@ function createRetunedPlacementTransform({
     x: image.width / 2,
     y: image.height / 2,
   };
+  const resolvedScreenScale = screenScale ?? Math.hypot(screenTransform.a, screenTransform.b);
+  const resolvedRotationRad = rotationRad ?? Math.atan2(screenTransform.b, screenTransform.a);
+  const anchorImagePx = anchorScreenPx
+    ? screenPointToRenderedImagePoint({
+      screenPoint: anchorScreenPx,
+      transform: screenTransform,
+      snapshot,
+    })
+    : null;
+
+  if (
+    anchorImagePx &&
+    isImagePointWithinBounds(anchorImagePx, image)
+  ) {
+    return derivePlacementFromScreenTransform({
+      snapshot,
+      transform: createSimilarityTransformFromAnchor({
+        anchorImagePx,
+        anchorTargetPx: removeSurfaceMotionFromScreenPoint({
+          screenPoint: anchorScreenPx,
+          snapshot,
+        }),
+        scale: resolvedScreenScale,
+        rotationRad: resolvedRotationRad,
+      }),
+    });
+  }
+
   const resolvedCenterScreenPx = centerScreenPx ?? imagePointToScreenPoint({
     imagePoint: imageCenter,
     transform: screenTransform,
   });
-  const resolvedScreenScale = screenScale ?? Math.hypot(screenTransform.a, screenTransform.b);
-  const resolvedRotationRad = rotationRad ?? Math.atan2(screenTransform.b, screenTransform.a);
   return derivePlacementFromScreenTransform({
     snapshot,
     transform: createSimilarityTransformFromAnchor({
