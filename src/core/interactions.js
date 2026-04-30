@@ -46,7 +46,6 @@ import {
   derivePlacementFromScreenTransform,
   hitTestPin,
   imagePointToRenderedScreenPoint,
-  imagePointToScreenPoint,
   isImagePointWithinBounds,
   opacityFromWheelDelta,
   removeSurfaceMotionFromScreenPoint,
@@ -437,12 +436,13 @@ export function createInteractionController({
           state: interactionState,
           snapshot,
         });
-        const centerScreenPx = imagePointToScreenPoint({
+        const centerScreenPx = imagePointToRenderedScreenPoint({
           imagePoint: {
             x: image.width / 2,
             y: image.height / 2,
           },
           transform: screenTransform,
+          snapshot,
         });
         dragState = {
           mode: DRAG_MODE.MOVE_OVERLAY,
@@ -944,15 +944,19 @@ function createRetunedPlacementTransform({
     });
   }
 
-  const resolvedCenterScreenPx = centerScreenPx ?? imagePointToScreenPoint({
+  const resolvedCenterScreenPx = centerScreenPx ?? imagePointToRenderedScreenPoint({
     imagePoint: imageCenter,
     transform: screenTransform,
+    snapshot,
   });
   return derivePlacementFromScreenTransform({
     snapshot,
     transform: createSimilarityTransformFromAnchor({
       anchorImagePx: imageCenter,
-      anchorTargetPx: resolvedCenterScreenPx,
+      anchorTargetPx: removeSurfaceMotionFromScreenPoint({
+        screenPoint: resolvedCenterScreenPx,
+        snapshot,
+      }),
       scale: resolvedScreenScale,
       rotationRad: resolvedRotationRad,
     }),

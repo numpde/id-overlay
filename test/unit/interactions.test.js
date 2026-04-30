@@ -38,6 +38,7 @@ import {
 import { createStateStore } from "../../src/core/state.js";
 import {
   createPlacementScreenTransform,
+  imagePointToRenderedScreenPoint,
   imagePointToScreenPoint,
   resolveOverlayScreenTransform,
   screenPointToImagePoint,
@@ -140,6 +141,60 @@ test("shift-dragging updates placement through the adapter only", () => {
     imagePoint: { x: 400, y: 200 },
     transform: nextTransform,
   }), { x: 560, y: 280 });
+});
+
+test("shift-dragging stays anchored to the visible overlay under live surface motion", () => {
+  const surfaceMotionSnapshot = {
+    viewportRect: { left: 100, top: 100, width: 800, height: 400 },
+    mapView: { center: { lat: -1.23, lon: 36.84 }, zoom: 16 },
+    surfaceMotion: {
+      transformCss: "matrix(1, 0, 0, 1, 18, -12)",
+      transformOriginCss: "0px 0px",
+    },
+  };
+  const { controller, store, pageAdapter } = createHarness({
+    snapshot: surfaceMotionSnapshot,
+  });
+  controller.loadImage({
+    src: "data:image/png;base64,abc",
+    width: 800,
+    height: 400,
+  });
+
+  const beforeTransform = resolveOverlayScreenTransform({
+    state: store.getState(),
+    snapshot: pageAdapter.getSnapshot(),
+  });
+  const startScreenPoint = imagePointToRenderedScreenPoint({
+    imagePoint: { x: 400, y: 200 },
+    transform: beforeTransform,
+    snapshot: pageAdapter.getSnapshot(),
+  });
+  const endScreenPoint = {
+    x: startScreenPoint.x + 60,
+    y: startScreenPoint.y - 20,
+  };
+
+  controller.handlePointerDown({
+    button: 0,
+    screenPoint: startScreenPoint,
+    shiftKey: true,
+  });
+  controller.handlePointerMove(endScreenPoint);
+  controller.handlePointerUp(endScreenPoint);
+
+  const afterTransform = resolveOverlayScreenTransform({
+    state: store.getState(),
+    snapshot: pageAdapter.getSnapshot(),
+  });
+  const afterCenterScreenPoint = imagePointToRenderedScreenPoint({
+    imagePoint: { x: 400, y: 200 },
+    transform: afterTransform,
+    snapshot: pageAdapter.getSnapshot(),
+  });
+
+  assert.ok(Math.abs(afterCenterScreenPoint.x - endScreenPoint.x) < 1e-9);
+  assert.ok(Math.abs(afterCenterScreenPoint.y - endScreenPoint.y) < 1e-9);
 });
 
 test("plain drag uses the map-pan adapter path and keeps placement unchanged", () => {
@@ -1236,6 +1291,7 @@ function createHarness({
   beginMapPanReturns = true,
   forwardMapZoomReturns = true,
   screenToMapThrows = null,
+  snapshot = null,
 } = {}) {
   const adapterCalls = {
     mapPan: {
@@ -1250,6 +1306,7 @@ function createHarness({
     beginMapPanReturns,
     forwardMapZoomReturns,
     screenToMapThrows,
+    snapshot,
   });
   const store = createStateStore();
   const controller = createInteractionController({
@@ -1267,13 +1324,15 @@ function createPageAdapter({
   beginMapPanReturns,
   forwardMapZoomReturns,
   screenToMapThrows,
+  snapshot = null,
 }) {
+  const resolvedSnapshot = snapshot ?? {
+    viewportRect: { left: 100, top: 100, width: 800, height: 400 },
+    mapView: { center: { lat: -1.23, lon: 36.84 }, zoom: 16 },
+  };
   return {
     getSnapshot() {
-      return {
-        viewportRect: { left: 100, top: 100, width: 800, height: 400 },
-        mapView: { center: { lat: -1.23, lon: 36.84 }, zoom: 16 },
-      };
+      return resolvedSnapshot;
     },
     mapToScreen(point) {
       return {
