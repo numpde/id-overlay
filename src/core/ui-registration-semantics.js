@@ -3,7 +3,7 @@ import {
   hasOverlayImageSession,
   resolveRegistrationSolveState,
 } from "./state.js";
-import { UI_MODE_KIND } from "./ui-state-model.js";
+import { resolveRegistrationUiPolicy } from "./interaction-policy.js";
 
 export function createClearedUiRegistration() {
   return createDefaultRegistration();
@@ -18,14 +18,15 @@ export function resolveUiRegistrationFacts(uiState) {
 }
 
 export function canPasteUiImage(uiState) {
-  return uiState.session.mode === UI_MODE_KIND.ALIGN;
+  return resolveRegistrationUiPolicy(uiState.session).canPasteImage;
 }
 
 export function canClearUiPins(uiState) {
   const { hasImage, pinCount } = resolveUiRegistrationFacts(uiState);
+  const registrationUi = resolveRegistrationUiPolicy(uiState.session);
   return (
     hasImage &&
-    canPasteUiImage(uiState) &&
+    registrationUi.canPasteImage &&
     pinCount > 0
   );
 }
