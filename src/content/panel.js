@@ -1,4 +1,4 @@
-import { clampOpacity } from "../core/transform.js";
+import { clampOpacity, opacityFromWheelDelta } from "../core/transform.js";
 import {
   createBrowserImageNormalizationDeps,
   getOverlayImageLoadStats,
@@ -19,7 +19,7 @@ import {
   reducePanelActionState,
   resolvePanelActionSemantics,
 } from "../core/panel-state.js";
-import { INTERACTION_MODE } from "../core/interaction-mode.js";
+import { INTERACTION_MODE, normalizeInteractionMode } from "../core/interaction-mode.js";
 import { hasOverlayImageSession } from "../core/state.js";
 import { formatBuildLabel, createLogger } from "../core/logger.js";
 
@@ -149,10 +149,17 @@ export function createPanel({ shadow, store, interactions, statusController }) {
   });
 
   modeInput.addEventListener("change", () => {
-    interactions.setMode(
+    applyModeSelection(
       modeInput.checked ? INTERACTION_MODE.ALIGN : INTERACTION_MODE.TRACE,
     );
   });
+  modeSwitch.addEventListener("wheel", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    applyModeSelection(
+      event.deltaY < 0 ? INTERACTION_MODE.ALIGN : INTERACTION_MODE.TRACE,
+    );
+  }, { passive: false });
 
   computeButton.addEventListener("click", () => {
     interactions.computeTransform();
@@ -166,6 +173,15 @@ export function createPanel({ shadow, store, interactions, statusController }) {
   opacityInput.addEventListener("input", () => {
     interactions.setOpacity(clampOpacity(Number(opacityInput.value)));
   });
+  opacityInput.addEventListener("wheel", (event) => {
+    if (opacityInput.disabled) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    const nextOpacity = opacityFromWheelDelta(Number(opacityInput.value), event.deltaY);
+    interactions.setOpacity(nextOpacity);
+  }, { passive: false });
 
   clearButton.addEventListener("click", () => {
     if (!hasOverlayImageSession(latestState)) {
@@ -231,6 +247,10 @@ export function createPanel({ shadow, store, interactions, statusController }) {
     clearPinsButton.disabled = !presentation.canClearPins;
     clearPinsButton.textContent = presentation.clearPinsLabel;
     statusElement.textContent = presentation.statusMessage;
+  }
+
+  function applyModeSelection(mode) {
+    interactions.setMode(normalizeInteractionMode(mode));
   }
 
   function handlePanelDragStart(event) {

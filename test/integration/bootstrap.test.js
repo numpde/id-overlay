@@ -535,6 +535,119 @@ test("clear button only clears the image on the second click", async () => {
   }
 });
 
+test("scrolling the opacity slider adjusts overlay opacity through the existing slider path", async () => {
+  const env = createDomEnvironment({
+    storageState: {
+      "id-overlay/state": {
+        mode: "align",
+        opacity: 0.6,
+        image: {
+          src: "data:image/png;base64,abc",
+          width: 400,
+          height: 200,
+        },
+        placement: createStoredPlacement({
+          width: 400,
+          height: 200,
+          scale: 1,
+          rotationRad: 0,
+        }),
+        registration: {
+          pins: [],
+          solvedTransform: null,
+          dirty: false,
+        },
+      },
+    },
+  });
+
+  try {
+    const { bootstrapIdOverlay } = await import(`${repoFileUrl("src/content/main.js")}?opacitywheel=${Date.now()}`);
+    await bootstrapIdOverlay();
+
+    const shadow = env.document.getElementById("id-overlay-root").shadowRoot;
+    const opacityInput = shadow.querySelector(".id-overlay-field__slider");
+    const image = env.document.querySelector(".id-overlay-image");
+
+    assert.equal(opacityInput.value, "0.6");
+    assert.equal(image.style.opacity, "0.6");
+
+    opacityInput.dispatchEvent(new env.window.WheelEvent("wheel", {
+      bubbles: true,
+      cancelable: true,
+      deltaY: -100,
+    }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    assert.equal(opacityInput.value, "0.7");
+    assert.equal(image.style.opacity, "0.7");
+  } finally {
+    env.cleanup();
+  }
+});
+
+test("scrolling the mode switch selects align on wheel-up and trace on wheel-down", async () => {
+  const env = createDomEnvironment({
+    storageState: {
+      "id-overlay/state": {
+        mode: "trace",
+        opacity: 0.6,
+        image: {
+          src: "data:image/png;base64,abc",
+          width: 400,
+          height: 200,
+        },
+        placement: createStoredPlacement({
+          width: 400,
+          height: 200,
+          scale: 1,
+          rotationRad: 0,
+        }),
+        registration: {
+          pins: [],
+          solvedTransform: null,
+          dirty: false,
+        },
+      },
+    },
+  });
+
+  try {
+    const { bootstrapIdOverlay } = await import(`${repoFileUrl("src/content/main.js")}?modewheel=${Date.now()}`);
+    await bootstrapIdOverlay();
+
+    const shadow = env.document.getElementById("id-overlay-root").shadowRoot;
+    const modeSwitch = shadow.querySelector(".id-overlay-mode-switch");
+    const modeInput = shadow.querySelector(".id-overlay-mode-switch__input");
+    const overlay = env.document.querySelector(".id-overlay-viewport");
+
+    assert.equal(modeInput.checked, false);
+    assert.equal(overlay.dataset.mode, "trace");
+
+    modeSwitch.dispatchEvent(new env.window.WheelEvent("wheel", {
+      bubbles: true,
+      cancelable: true,
+      deltaY: -100,
+    }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    assert.equal(modeInput.checked, true);
+    assert.equal(overlay.dataset.mode, "align");
+
+    modeSwitch.dispatchEvent(new env.window.WheelEvent("wheel", {
+      bubbles: true,
+      cancelable: true,
+      deltaY: 100,
+    }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    assert.equal(modeInput.checked, false);
+    assert.equal(overlay.dataset.mode, "trace");
+  } finally {
+    env.cleanup();
+  }
+});
+
 function installImageReadStubs(window) {
   class StubFileReader {
     constructor() {
