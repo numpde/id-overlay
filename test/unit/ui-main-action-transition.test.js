@@ -215,7 +215,10 @@ test("main action clears pins after confirmation", () => {
     dirty: false,
   });
   assert.equal(result.state.panel.intent, UI_PANEL_INTENT_KIND.IDLE);
-  assert.deepEqual(result.effects, [UI_EFFECT_KIND.CANCEL_PANEL_TIMEOUT]);
+  assert.deepEqual(result.effects, [
+    UI_EFFECT_KIND.CANCEL_PANEL_TIMEOUT,
+    UI_EFFECT_KIND.CLEAR_PINS,
+  ]);
 });
 
 test("stale clear-pins confirmation resets back to idle instead of escalating", () => {
@@ -341,7 +344,10 @@ test("main action clears image after confirmation and returns to cleared trace s
 
   assert.deepEqual(result.state.session, createInitialUiState().session);
   assert.equal(result.state.panel.intent, UI_PANEL_INTENT_KIND.IDLE);
-  assert.deepEqual(result.effects, [UI_EFFECT_KIND.CANCEL_PANEL_TIMEOUT]);
+  assert.deepEqual(result.effects, [
+    UI_EFFECT_KIND.CANCEL_PANEL_TIMEOUT,
+    UI_EFFECT_KIND.CLEAR_IMAGE,
+  ]);
 });
 
 test("panel timeout clears confirmation intent only", () => {

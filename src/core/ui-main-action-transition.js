@@ -75,14 +75,20 @@ function transitionMainActionTriggered(uiState) {
       patchRegistration(uiState, createEmptyRegistration(), {
         panelIntent: UI_PANEL_INTENT_KIND.IDLE,
       }),
-      [UI_EFFECT_KIND.CANCEL_PANEL_TIMEOUT],
+      [
+        UI_EFFECT_KIND.CANCEL_PANEL_TIMEOUT,
+        UI_EFFECT_KIND.CLEAR_PINS,
+      ],
     );
   }
 
   if (basis.intent === UI_PANEL_INTENT_KIND.CLEAR_IMAGE_CONFIRM) {
     return createUiTransitionResult(
       resetToClearedImageSession(uiState),
-      [UI_EFFECT_KIND.CANCEL_PANEL_TIMEOUT],
+      [
+        UI_EFFECT_KIND.CANCEL_PANEL_TIMEOUT,
+        UI_EFFECT_KIND.CLEAR_IMAGE,
+      ],
     );
   }
 

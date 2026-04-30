@@ -17,6 +17,7 @@ import {
   isMapPanDragMode,
   isTraceMode,
   KEYBOARD_SHORTCUT_ACTION,
+  normalizeInteractionMode,
   nextMode,
   PIN_RESULT_ACTION,
   PIN_RESULT_REASON,
@@ -75,6 +76,7 @@ export {
   isMapPanDragMode,
   isTraceMode,
   KEYBOARD_SHORTCUT_ACTION,
+  normalizeInteractionMode,
   nextMode,
   PIN_RESULT_ACTION,
   PIN_RESULT_REASON,
@@ -290,6 +292,26 @@ export function createInteractionController({
 
   function setMode(mode) {
     applyMode(mode);
+  }
+
+  function applyResolvedModeTransition({
+    nextMode,
+    requestSolve = false,
+  }) {
+    return runInteractionBoundary("apply-mode", () => {
+      const normalizedNextMode = normalizeInteractionMode(nextMode);
+      if (requestSolve) {
+        solveRegistrationFromCurrentState();
+      }
+      resetInteractionState({
+        pointerScreenPx: runtimeStore.get().pointerScreenPx,
+        isPointerInsideImage: runtimeStore.get().isPointerInsideImage,
+      });
+      store.setMode(normalizedNextMode);
+      logger.info("Switched mode", { mode: normalizedNextMode });
+      syncRuntimeFromState();
+      return true;
+    });
   }
 
   function setOpacity(opacity) {
@@ -734,23 +756,14 @@ export function createInteractionController({
   }
 
   function applyMode(mode) {
-    return runInteractionBoundary("apply-mode", () => {
-      const state = store.getState();
-      const modeSwitchPolicy = resolveModeSwitchPolicy({
-        state,
-        nextMode: mode,
-      });
-      if (modeSwitchPolicy.shouldComputeTransform) {
-        solveRegistrationFromCurrentState();
-      }
-      resetInteractionState({
-        pointerScreenPx: runtimeStore.get().pointerScreenPx,
-        isPointerInsideImage: runtimeStore.get().isPointerInsideImage,
-      });
-      store.setMode(modeSwitchPolicy.nextMode);
-      logger.info("Switched mode", { mode: modeSwitchPolicy.nextMode });
-      syncRuntimeFromState();
-      return true;
+    const state = store.getState();
+    const modeSwitchPolicy = resolveModeSwitchPolicy({
+      state,
+      nextMode: mode,
+    });
+    return applyResolvedModeTransition({
+      nextMode: modeSwitchPolicy.nextMode,
+      requestSolve: modeSwitchPolicy.shouldComputeTransform,
     });
   }
 
@@ -883,6 +896,7 @@ export function createInteractionController({
     clearImage,
     toggleMode,
     setMode,
+    applyResolvedModeTransition,
     setOpacity,
     computeTransform,
     clearPins,

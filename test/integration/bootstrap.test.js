@@ -448,6 +448,56 @@ test("paste button loads directly from navigator.clipboard.read when available",
   }
 });
 
+test("clear button drives the canonical paste flow when no image is present", async () => {
+  const env = createDomEnvironment({
+    storageState: {
+      "id-overlay/state": {
+        mode: "align",
+        opacity: 0.6,
+        image: null,
+        registration: {
+          pins: [],
+          solvedTransform: null,
+          dirty: false,
+        },
+      },
+    },
+  });
+  installImageReadStubs(env.window);
+  env.window.navigator.clipboard = {
+    async read() {
+      return [
+        {
+          types: ["image/png"],
+          async getType() {
+            return { name: "clipboard-image.png" };
+          },
+        },
+      ];
+    },
+  };
+
+  try {
+    const { bootstrapIdOverlay } = await import(`${repoFileUrl("src/content/main.js")}?mainpaste=${Date.now()}`);
+    await bootstrapIdOverlay();
+
+    const shadow = env.document.getElementById("id-overlay-root").shadowRoot;
+    const clearButton = shadow.querySelector(".id-overlay-panel__clear-button");
+    const image = env.document.querySelector(".id-overlay-image");
+
+    assert.equal(clearButton.textContent, "Paste");
+
+    clearButton.click();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    assert.equal(image.style.display, "block");
+    assert.equal(image.style.width, "640px");
+    assert.equal(clearButton.textContent, "Clear image");
+  } finally {
+    env.cleanup();
+  }
+});
+
 test("clicking Paste… again cancels paste capture and ignores a later clipboard result", async () => {
   const env = createDomEnvironment({
     storageState: {
@@ -503,6 +553,64 @@ test("clicking Paste… again cancels paste capture and ignores a later clipboar
 
     assert.equal(image.style.display, "none");
     assert.equal(pasteButton.textContent, "Paste");
+  } finally {
+    env.cleanup();
+  }
+});
+
+test("clicking clear-button Paste… again cancels canonical paste capture and ignores a later clipboard result", async () => {
+  const env = createDomEnvironment({
+    storageState: {
+      "id-overlay/state": {
+        mode: "align",
+        opacity: 0.6,
+        image: null,
+        registration: {
+          pins: [],
+          solvedTransform: null,
+          dirty: false,
+        },
+      },
+    },
+  });
+  installImageReadStubs(env.window);
+  let resolveClipboardRead;
+  env.window.navigator.clipboard = {
+    read() {
+      return new Promise((resolve) => {
+        resolveClipboardRead = resolve;
+      });
+    },
+  };
+
+  try {
+    const { bootstrapIdOverlay } = await import(`${repoFileUrl("src/content/main.js")}?mainpcancel=${Date.now()}`);
+    await bootstrapIdOverlay();
+
+    const shadow = env.document.getElementById("id-overlay-root").shadowRoot;
+    const clearButton = shadow.querySelector(".id-overlay-panel__clear-button");
+    const status = shadow.querySelector(".id-overlay-panel__status");
+    const image = env.document.querySelector(".id-overlay-image");
+
+    clearButton.click();
+    assert.equal(clearButton.textContent, "Paste…");
+
+    clearButton.click();
+    assert.equal(clearButton.textContent, "Paste");
+    assert.equal(status.textContent, "Paste cancelled.");
+
+    resolveClipboardRead([
+      {
+        types: ["image/png"],
+        async getType() {
+          return { name: "clipboard-image.png" };
+        },
+      },
+    ]);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    assert.equal(image.style.display, "none");
+    assert.equal(clearButton.textContent, "Paste");
   } finally {
     env.cleanup();
   }

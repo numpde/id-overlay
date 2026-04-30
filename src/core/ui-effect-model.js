@@ -17,6 +17,12 @@ export const UI_EFFECT_MODEL = Object.freeze({
   REQUEST_REGISTRATION_SOLVE: defineUiEffect(
     "request-registration-solve",
   ),
+  CLEAR_PINS: defineUiEffect(
+    "clear-pins",
+  ),
+  CLEAR_IMAGE: defineUiEffect(
+    "clear-image",
+  ),
   START_PANEL_TIMEOUT: defineUiEffect(
     "start-panel-timeout",
   ),

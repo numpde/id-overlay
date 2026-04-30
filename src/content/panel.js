@@ -12,11 +12,22 @@ import {
   resolvePanelViewModel,
 } from "../core/presentation.js";
 import {
-  PANEL_ACTION_EVENT,
+  PANEL_ACTION_DEFAULTS,
   createInitialPanelActionState,
   isPanelActionSessionActive,
-  reducePanelActionState,
 } from "../core/panel-state.js";
+import { UI_EVENT_KIND } from "../core/ui-event-model.js";
+import { UI_PANEL_INTENT_KIND } from "../core/ui-state-model.js";
+import {
+  runUiLiveEffects,
+} from "../core/ui-live-effect-runner.js";
+import {
+  syncPanelActionStateToUiIntent,
+} from "../core/ui-live-state.js";
+import {
+  UI_LIVE_FEEDBACK_KIND,
+  transitionLiveUi,
+} from "../core/ui-live-transition.js";
 import { INTERACTION_MODE, normalizeInteractionMode } from "../core/interaction-mode.js";
 import { formatBuildLabel, createLogger } from "../core/logger.js";
 
@@ -173,45 +184,21 @@ export function createPanel({ shadow, store, interactions, statusController }) {
   }, { passive: false });
 
   clearButton.addEventListener("click", async () => {
-    if (getPanelActionSemantics().pasteArmed) {
-      await handlePasteActionClick();
-      return;
-    }
-    const semantics = getPanelActionSemantics();
-    if (!semantics.hasImage) {
-      if (!semantics.canPasteImage) {
-        return;
-      }
-      await handlePasteActionClick();
-      return;
-    }
-    if (semantics.clearPinsConfirming) {
-      applyPanelAction(PANEL_ACTION_EVENT.RESET);
-      interactions.clearPins();
-      logger.info("Cleared pins from destructive panel action");
-      return;
-    }
-    if (semantics.clearImageConfirming) {
-      applyPanelAction(PANEL_ACTION_EVENT.RESET);
-      interactions.clearImage();
-      logger.info("Cleared image from panel action");
-      statusController.showTransient(describePanelActionPresentation(PANEL_FEEDBACK_ACTION.CLEAR_IMAGE));
-      return;
-    }
-    if (semantics.canClearPins) {
-      logger.info("Armed clear pins confirmation");
-      applyPanelAction(PANEL_ACTION_EVENT.ARM_CLEAR_PINS_CONFIRM);
-      return;
-    }
-    logger.info("Armed clear image confirmation");
-    applyPanelAction(PANEL_ACTION_EVENT.ARM_CLEAR_IMAGE_CONFIRM);
+    await dispatchCanonicalUiEvent({
+      kind: UI_EVENT_KIND.MAIN_ACTION_TRIGGERED,
+    });
   });
 
   const unsubscribeStore = store.subscribe((state) => {
     latestState = state;
     const panelViewModel = resolveCurrentPanelViewModel();
     if (panelViewModel.actionSemantics.shouldReset) {
-      applyPanelAction(PANEL_ACTION_EVENT.RESET);
+      setPanelActionState(
+        syncPanelActionStateToUiIntent({
+          previousPanelActionState: panelActionState,
+          nextIntent: UI_PANEL_INTENT_KIND.IDLE,
+        }),
+      );
       return;
     }
     applyPanelViewModel(panelViewModel);
@@ -266,7 +253,10 @@ export function createPanel({ shadow, store, interactions, statusController }) {
   }
 
   function applyModeSelection(mode) {
-    interactions.setMode(normalizeInteractionMode(mode));
+    dispatchCanonicalUiEvent({
+      kind: UI_EVENT_KIND.MODE_SELECTED,
+      mode: normalizeInteractionMode(mode),
+    });
   }
 
   function handlePanelDragStart(event) {
@@ -322,18 +312,18 @@ export function createPanel({ shadow, store, interactions, statusController }) {
 
   async function handlePasteActionClick() {
     if (getPanelActionSemantics().pasteArmed) {
-      applyPanelAction(PANEL_ACTION_EVENT.CANCEL_PASTE);
+      const cancelPromise = dispatchCanonicalUiEvent({
+        kind: UI_EVENT_KIND.PASTE_CANCELLED,
+      });
       logger.info("Cancelled paste capture");
       statusController.showTransient(describePanelActionPresentation(PANEL_FEEDBACK_ACTION.PASTE_CANCELLED));
+      await cancelPromise;
       return;
     }
 
-    logger.info("Paste requested");
-    const { sessionId } = applyPanelAction(PANEL_ACTION_EVENT.ARM_PASTE);
-    const didLoad = await tryLoadClipboardImageFromApi({ sessionId });
-    if (didLoad) {
-      applyPanelAction(PANEL_ACTION_EVENT.RESET);
-    }
+    await dispatchCanonicalUiEvent({
+      kind: UI_EVENT_KIND.MAIN_ACTION_TRIGGERED,
+    });
   }
 
   async function handleWindowPaste(event) {
@@ -341,8 +331,10 @@ export function createPanel({ shadow, store, interactions, statusController }) {
       return;
     }
 
-    applyPanelAction(PANEL_ACTION_EVENT.CANCEL_PASTE);
     event.preventDefault();
+    await dispatchCanonicalUiEvent({
+      kind: UI_EVENT_KIND.PASTE_CANCELLED,
+    });
 
     const item = [...(event.clipboardData?.items ?? [])].find((candidate) =>
       candidate.type.startsWith("image/"),
@@ -365,14 +357,14 @@ export function createPanel({ shadow, store, interactions, statusController }) {
 
   async function tryLoadClipboardImageFromApi({ sessionId }) {
     if (typeof navigator?.clipboard?.read !== "function") {
-      return false;
+      return null;
     }
 
     try {
       const clipboardItems = await navigator.clipboard.read();
       if (!isPanelActionSessionActive(panelActionState, sessionId)) {
         logger.info("Ignoring clipboard API result because paste capture was cancelled");
-        return false;
+        return null;
       }
       const imageType = clipboardItems
         .flatMap((item) => item.types)
@@ -381,22 +373,21 @@ export function createPanel({ shadow, store, interactions, statusController }) {
       if (!imageType) {
         logger.warn("Clipboard API read succeeded but no image type was present");
         statusController.showTransient(describePanelActionPresentation(PANEL_FEEDBACK_ACTION.CLIPBOARD_MISSING_IMAGE_WITH_PROMPT));
-        return false;
+        return null;
       }
 
       const clipboardItem = clipboardItems.find((item) => item.types.includes(imageType));
       const blob = await clipboardItem.getType(imageType);
       if (!isPanelActionSessionActive(panelActionState, sessionId)) {
         logger.info("Ignoring clipboard image because paste capture was cancelled");
-        return false;
+        return null;
       }
-      await loadClipboardImage(blob, "Clipboard API");
-      return true;
+      return loadClipboardImage(blob, "Clipboard API");
     } catch (error) {
       logger.warn("Clipboard API read failed; falling back to manual paste", {
         message: error?.message ?? String(error),
       });
-      return false;
+      return null;
     }
   }
 
@@ -446,27 +437,11 @@ export function createPanel({ shadow, store, interactions, statusController }) {
     };
   }
 
-  function applyPanelAction(eventType) {
-    const nextState = reducePanelActionState(panelActionState, eventType);
-    setPanelActionState(nextState);
-    return nextState;
-  }
-
   function syncPanelActionSideEffects(semantics = getPanelActionSemantics()) {
-    syncClearConfirmTimer(semantics);
-    syncPasteListener(semantics);
-  }
-
-  function syncClearConfirmTimer(semantics) {
-    clearClearConfirmTimer();
-    const { autoResetTimeoutMs } = semantics;
-    if (!autoResetTimeoutMs) {
-      return;
+    if (!semantics.clearConfirming) {
+      clearClearConfirmTimer();
     }
-    clearConfirmTimer = globalThis.setTimeout(() => {
-      clearConfirmTimer = null;
-      applyPanelAction(PANEL_ACTION_EVENT.RESET);
-    }, autoResetTimeoutMs);
+    syncPasteListener(semantics);
   }
 
   function syncPasteListener(semantics) {
@@ -509,6 +484,87 @@ export function createPanel({ shadow, store, interactions, statusController }) {
       describePanelActionPresentation(PANEL_FEEDBACK_ACTION.CLIPBOARD_IMAGE_LOADED, image),
     );
     return image;
+  }
+
+  async function dispatchCanonicalUiEvent(event) {
+    const liveTransition = transitionLiveUi({
+      state: latestState,
+      panelActionState,
+      event,
+    });
+    await applyCanonicalUiTransition({
+      event,
+      liveTransition,
+    });
+    return liveTransition.transitionResult;
+  }
+
+  async function applyCanonicalUiTransition({
+    event,
+    liveTransition,
+  }) {
+    const {
+      transitionResult,
+      nextPanelActionState,
+      modeExecution,
+      feedbackKind,
+    } = liveTransition;
+
+    setPanelActionState(nextPanelActionState);
+
+    if (modeExecution) {
+      interactions.applyResolvedModeTransition(modeExecution);
+    }
+
+    if (feedbackKind === UI_LIVE_FEEDBACK_KIND.PASTE_CANCELLED) {
+      logger.info("Cancelled paste capture");
+      statusController.showTransient(
+        describePanelActionPresentation(PANEL_FEEDBACK_ACTION.PASTE_CANCELLED),
+      );
+    }
+
+    await runCanonicalUiEffects(transitionResult.effects, nextPanelActionState);
+  }
+
+  async function runCanonicalUiEffects(effects, nextPanelActionState) {
+    await runUiLiveEffects(effects, {
+      requestPasteInput: async () => {
+        logger.info("Paste requested");
+        const image = await tryLoadClipboardImageFromApi({
+          sessionId: nextPanelActionState.sessionId,
+        });
+        if (image) {
+          await dispatchCanonicalUiEvent({
+            kind: UI_EVENT_KIND.PASTE_SUCCEEDED,
+            image,
+            placement: null,
+          });
+        }
+      },
+      clearPins: async () => {
+        logger.info("Cleared pins from canonical destructive action");
+        interactions.clearPins();
+      },
+      clearImage: async () => {
+        logger.info("Cleared image from canonical destructive action");
+        interactions.clearImage();
+        statusController.showTransient(
+          describePanelActionPresentation(PANEL_FEEDBACK_ACTION.CLEAR_IMAGE),
+        );
+      },
+      startPanelTimeout: async () => {
+        clearClearConfirmTimer();
+        clearConfirmTimer = globalThis.setTimeout(() => {
+          clearConfirmTimer = null;
+          void dispatchCanonicalUiEvent({
+            kind: UI_EVENT_KIND.PANEL_TIMEOUT_ELAPSED,
+          });
+        }, PANEL_ACTION_DEFAULTS.clearConfirmationTimeoutMs);
+      },
+      cancelPanelTimeout: async () => {
+        clearClearConfirmTimer();
+      },
+    });
   }
 }
 
