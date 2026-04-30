@@ -9,9 +9,11 @@ import {
   describeSolveResultPresentation,
   resolveDefaultStatusMessage,
 } from "../../src/core/presentation.js";
-import { resolveModeSwitchPresentation } from "../../src/core/ui-view-model.js";
+import { resolveUiViewModel } from "../../src/core/ui-view-model.js";
 import { createStateStore } from "../../src/core/state.js";
 import { createValueStore } from "../../src/core/value-store.js";
+import { projectLiveUiState } from "../../src/core/ui-live-state.js";
+import { createInitialPanelActionState } from "../../src/core/panel-state.js";
 
 test("resolveDefaultStatusMessage explains the current registration workflow", () => {
   assert.equal(
@@ -92,13 +94,28 @@ test("resolveDefaultStatusMessage prioritizes live interaction state over static
   );
 });
 
-test("resolveModeSwitchPresentation describes the current mode state", () => {
-  assert.deepEqual(resolveModeSwitchPresentation("trace"), {
+test("resolveUiViewModel describes the current mode state for the panel switch", () => {
+  const traceViewModel = resolveUiViewModel({
+    uiState: projectLiveUiState({
+      state: { image: null, mode: "trace", opacity: 0.6, registration: { pins: [], solvedTransform: null, dirty: false } },
+      panelActionState: createInitialPanelActionState(),
+    }),
+    statusMessage: "Paste a screenshot to begin.",
+  });
+  assert.deepEqual(traceViewModel.presentation.modeSwitch, {
     checked: false,
     label: "Trace",
     ariaLabel: "Mode: Trace",
   });
-  assert.deepEqual(resolveModeSwitchPresentation("align"), {
+
+  const alignViewModel = resolveUiViewModel({
+    uiState: projectLiveUiState({
+      state: { image: null, mode: "align", opacity: 0.6, registration: { pins: [], solvedTransform: null, dirty: false } },
+      panelActionState: createInitialPanelActionState(),
+    }),
+    statusMessage: "Ready.",
+  });
+  assert.deepEqual(alignViewModel.presentation.modeSwitch, {
     checked: true,
     label: "Align",
     ariaLabel: "Mode: Align",

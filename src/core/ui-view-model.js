@@ -48,7 +48,7 @@ export function resolveUiViewModel({
   };
 }
 
-export function resolveUiPanelActionSemantics(uiState) {
+function resolveUiPanelActionSemantics(uiState) {
   const registrationFacts = resolveUiRegistrationFacts(uiState);
   const canPasteImage = canPasteUiImage(uiState);
   const pasteArmed = uiState.panel.intent === UI_PANEL_INTENT_KIND.PASTE_ARMED;
@@ -73,7 +73,7 @@ export function resolveUiPanelActionSemantics(uiState) {
   };
 }
 
-export function resolveClearPinsLabel(pinCount) {
+function resolveClearPinsLabel(pinCount) {
   if (pinCount === 1) {
     return "Clear 1 pin";
   }
@@ -83,7 +83,7 @@ export function resolveClearPinsLabel(pinCount) {
   return "Clear pins";
 }
 
-export function resolveClearActionPresentation({
+function resolveClearActionPresentation({
   hasImage,
   canPasteImage,
   pasteArmed,
@@ -131,7 +131,7 @@ export function resolveClearActionPresentation({
   };
 }
 
-export function resolveClearImagePresentation({ hasImage, isConfirming }) {
+function resolveClearImagePresentation({ hasImage, isConfirming }) {
   return {
     label: isConfirming ? "Clear image?" : "Clear image",
     variant: isConfirming ? "confirm" : "neutral",
@@ -140,7 +140,7 @@ export function resolveClearImagePresentation({ hasImage, isConfirming }) {
   };
 }
 
-export function resolvePanelActionPresentation({ actionSemantics }) {
+function resolvePanelActionPresentation({ actionSemantics }) {
   const clearActionPresentation = resolveClearActionPresentation({
     hasImage: actionSemantics.hasImage,
     canPasteImage: actionSemantics.canPasteImage,
@@ -160,7 +160,7 @@ export function resolvePanelActionPresentation({ actionSemantics }) {
   };
 }
 
-export function resolveModeSwitchPresentation(mode) {
+function resolveModeSwitchPresentation(mode) {
   return {
     checked: mode === UI_MODE_KIND.ALIGN,
     label: mode === UI_MODE_KIND.ALIGN ? "Align" : "Trace",
