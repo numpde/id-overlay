@@ -13,6 +13,7 @@ import {
 } from "../core/transform.js";
 import { getOverlayImage, hasOverlayImageSession } from "../core/state.js";
 import {
+  resolveRegistrationUiPolicy,
   resolveOverlayActivationPolicy,
   resolveOverlayPointerMovePolicy,
   resolveOverlayPointerSequencePolicy,
@@ -228,6 +229,12 @@ export function createOverlay({ pageAdapter, store, interactions }) {
     overlayFrame.style.height = `${model.height}px`;
     overlayFrame.style.transformOrigin = "0 0";
     overlayFrame.style.transform = `rotate(${model.rotationDeg}deg)`;
+
+    if (!resolveRegistrationUiPolicy(state).canShowPins) {
+      mapPinLayer.replaceChildren();
+      pinLayer.replaceChildren();
+      return;
+    }
 
     renderPins(buildPinRenderModels({
       pins: state.registration.pins,

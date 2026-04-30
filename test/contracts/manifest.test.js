@@ -52,8 +52,23 @@ test("content stylesheet only styles the panel shell", async () => {
   );
   assert.match(
     stylesheet,
-    /\.id-overlay-panel__status:hover,\s*\.id-overlay-panel__status:focus-visible\s*\{[^}]*overflow-y:\s*auto;/s,
+    /\.id-overlay-panel\s*>\s*\*\s*\{[^}]*min-width:\s*0;/s,
+    "panel grid children should be allowed to shrink inside the fixed panel width",
+  );
+  assert.match(
+    stylesheet,
+    /\.id-overlay-panel__status-detail-surface\s*\{[^}]*overflow-y:\s*auto;[^}]*scrollbar-gutter:\s*stable;/s,
     "expanded status should scroll internally instead of overflowing past the panel",
+  );
+  assert.match(
+    stylesheet,
+    /\.id-overlay-panel__status-wrap\s*\{[^}]*position:\s*relative;[^}]*min-height:\s*var\(--id-overlay-panel-status-line-height\);[^}]*isolation:\s*isolate;/s,
+    "the collapsed status row should stay in normal panel flow",
+  );
+  assert.match(
+    stylesheet,
+    /\.id-overlay-panel__status-detail\s*\{[^}]*position:\s*absolute;[^}]*inset:\s*auto 0 0;/s,
+    "the expanded status should overlay upward from the in-flow status row",
   );
 });
 

@@ -897,17 +897,13 @@ test("trace-mode overlay applies live surface motion from the page adapter", asy
     const overlayRoot = env.document.querySelector(".id-overlay-viewport");
     const mapLayer = env.document.querySelector(".id-overlay-map-layer");
     const image = env.document.querySelector(".id-overlay-image");
-    const mapPin = env.document.querySelector(".id-overlay-map-pin");
-    const pin = env.document.querySelector(".id-overlay-pin");
     assert.equal(overlayRoot.style.left, "10px");
     assert.equal(overlayRoot.style.top, "20px");
     assert.equal(mapLayer.style.transform, "matrix(1, 0, 0, 1, 18, -12)");
     assert.equal(image.style.left, "372px");
     assert.equal(image.style.top, "272px");
-    assert.equal(mapPin.style.left, "400px");
-    assert.equal(mapPin.style.top, "200px");
-    assert.equal(pin.style.left, "382px");
-    assert.equal(pin.style.top, "287px");
+    assert.equal(env.document.querySelectorAll(".id-overlay-map-pin").length, 0);
+    assert.equal(env.document.querySelectorAll(".id-overlay-pin").length, 0);
 
     store.clearPins();
     await new Promise((resolve) => setTimeout(resolve, 0));
