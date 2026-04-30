@@ -44,6 +44,7 @@
         "src/core/ui-live-transition.js",
         "src/core/ui-main-action-transition.js",
         "src/core/ui-mode-transition.js",
+        "src/core/ui-view-model.js",
         "src/core/ui-transition-result.js",
         "src/core/ui-transition.js",
         "src/core/overlay-pointer-sequence.js",

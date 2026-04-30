@@ -1,5 +1,18 @@
 import { getOverlayImageLoadStats } from "./image-normalization.js";
 import { INTERACTION_MODE, isTraceMode } from "./interaction-mode.js";
+import { projectLiveUiState } from "./ui-live-state.js";
+import {
+  CLEAR_IMAGE_CONFIRMATION_MESSAGE,
+  CLEAR_PINS_CONFIRMATION_MESSAGE,
+  MANUAL_PASTE_PROMPT,
+  PANEL_REPO_URL,
+  PANEL_TITLE,
+  resolveClearImagePresentation,
+  resolveClearPinsLabel,
+  resolveModeSwitchPresentation,
+  resolvePanelActionPresentation,
+  resolveUiViewModel,
+} from "./ui-view-model.js";
 import { resolveRegistrationSolveState } from "./state.js";
 import { resolveOverlayRenderState } from "./transform.js";
 import {
@@ -9,14 +22,20 @@ import {
   resolveRegistrationUiPolicy,
   SOLVE_RESULT_REASON,
 } from "./interaction-policy.js";
-import { resolvePanelActionSemantics } from "./panel-state.js";
 import { RUNTIME_ERROR_SOURCE } from "./runtime-error.js";
 
-export const PANEL_TITLE = "Reference Overlay";
-export const PANEL_REPO_URL = "https://github.com/numpde/id-overlay";
-export const MANUAL_PASTE_PROMPT = "Press Ctrl/Cmd+V to paste an image from your clipboard.";
-export const CLEAR_PINS_CONFIRMATION_MESSAGE = "Click Clear pins? again to remove the current registration pins.";
-export const CLEAR_IMAGE_CONFIRMATION_MESSAGE = "Click Clear image? again to remove the current screenshot, placement, and pins.";
+export {
+  PANEL_TITLE,
+  PANEL_REPO_URL,
+  MANUAL_PASTE_PROMPT,
+  CLEAR_PINS_CONFIRMATION_MESSAGE,
+  CLEAR_IMAGE_CONFIRMATION_MESSAGE,
+  resolveClearPinsLabel,
+  resolveClearImagePresentation,
+  resolveModeSwitchPresentation,
+  resolvePanelActionPresentation,
+} from "./ui-view-model.js";
+
 export const PANEL_FEEDBACK_ACTION = Object.freeze({
   PASTE_CANCELLED: "paste-cancelled",
   CLEAR_IMAGE: "clear-image",
@@ -59,119 +78,13 @@ export function resolvePanelViewModel({
   statusMessage,
   panelActionState,
 }) {
-  const sessionPresentation = resolveOverlaySessionPresentation(state);
-  const panelActionSemantics = resolvePanelActionSemantics(panelActionState, {
-    hasImage: sessionPresentation.hasImage,
-    canPasteImage: sessionPresentation.canPasteImage,
-    pinCount: sessionPresentation.pinCount,
+  return resolveUiViewModel({
+    uiState: projectLiveUiState({
+      state,
+      panelActionState,
+    }),
+    statusMessage,
   });
-  const panelActionPresentation = resolvePanelActionPresentation({
-    actionSemantics: panelActionSemantics,
-  });
-
-  return {
-    actionSemantics: panelActionSemantics,
-    presentation: {
-      pasteLabel: panelActionPresentation.pasteLabel,
-      opacityValue: String(state.opacity),
-      modeSwitch: resolveModeSwitchPresentation(state.mode),
-      hasImage: sessionPresentation.hasImage,
-      canPasteImage: sessionPresentation.canPasteImage,
-      canClearPins: sessionPresentation.canClearPins,
-      clearPinsLabel: resolveClearPinsLabel(sessionPresentation.pinCount),
-      clearButtonLabel: panelActionPresentation.clearButtonLabel,
-      clearButtonVariant: panelActionPresentation.clearButtonVariant,
-      clearButtonDisabled: panelActionPresentation.clearButtonDisabled,
-      statusMessage: panelActionPresentation.statusMessage ?? statusMessage,
-    },
-  };
-}
-
-export function resolveClearPinsLabel(pinCount) {
-  if (pinCount === 1) {
-    return "Clear 1 pin";
-  }
-  if (pinCount > 1) {
-    return `Clear ${pinCount} pins`;
-  }
-  return "Clear pins";
-}
-
-export function resolveClearActionPresentation({
-  hasImage,
-  canPasteImage,
-  pasteArmed,
-  pinCount,
-  clearPinsConfirming,
-  clearImageConfirming,
-}) {
-  if (!hasImage) {
-    return {
-      label: pasteArmed ? "Paste…" : "Paste",
-      variant: "neutral",
-      disabled: !canPasteImage,
-      statusMessage: null,
-    };
-  }
-  if (clearPinsConfirming) {
-    return {
-      label: "Clear pins?",
-      variant: "confirm",
-      disabled: false,
-      statusMessage: CLEAR_PINS_CONFIRMATION_MESSAGE,
-    };
-  }
-  if (clearImageConfirming) {
-    return {
-      label: "Clear image?",
-      variant: "confirm",
-      disabled: false,
-      statusMessage: CLEAR_IMAGE_CONFIRMATION_MESSAGE,
-    };
-  }
-  if (pinCount > 0) {
-    return {
-      label: resolveClearPinsLabel(pinCount),
-      variant: "neutral",
-      disabled: false,
-      statusMessage: null,
-    };
-  }
-  return {
-    label: "Clear image",
-    variant: "neutral",
-    disabled: false,
-    statusMessage: null,
-  };
-}
-
-export function resolveClearImagePresentation({ hasImage, isConfirming }) {
-  return {
-    label: isConfirming ? "Clear image?" : "Clear image",
-    variant: isConfirming ? "confirm" : "neutral",
-    disabled: !hasImage,
-    statusMessage: isConfirming ? CLEAR_IMAGE_CONFIRMATION_MESSAGE : null,
-  };
-}
-
-export function resolvePanelActionPresentation({ actionSemantics }) {
-  const clearActionPresentation = resolveClearActionPresentation({
-    hasImage: actionSemantics.hasImage,
-    canPasteImage: actionSemantics.canPasteImage,
-    pasteArmed: actionSemantics.pasteArmed,
-    pinCount: actionSemantics.pinCount,
-    clearPinsConfirming: actionSemantics.clearPinsConfirming,
-    clearImageConfirming: actionSemantics.clearImageConfirming,
-  });
-  return {
-    pasteLabel: actionSemantics.pasteArmed ? "Paste…" : "Paste",
-    clearButtonLabel: clearActionPresentation.label,
-    clearButtonVariant: clearActionPresentation.variant,
-    clearButtonDisabled: clearActionPresentation.disabled,
-    statusMessage: actionSemantics.pasteArmed
-      ? MANUAL_PASTE_PROMPT
-      : clearActionPresentation.statusMessage,
-  };
 }
 
 export function resolveRegistrationSolvePresentation(registration) {
@@ -367,14 +280,6 @@ export function describeLoadedImagePresentation(image) {
     return `Loaded screenshot ${stats.workingWidth}×${stats.workingHeight} from ${stats.originalWidth}×${stats.originalHeight}.`;
   }
   return `Loaded screenshot ${stats.workingWidth}×${stats.workingHeight}.`;
-}
-
-export function resolveModeSwitchPresentation(mode) {
-  return {
-    checked: mode === INTERACTION_MODE.ALIGN,
-    label: mode === INTERACTION_MODE.ALIGN ? "Align" : "Trace",
-    ariaLabel: `Mode: ${mode === INTERACTION_MODE.ALIGN ? "Align" : "Trace"}`,
-  };
 }
 
 export function describeAlignGestureContract() {

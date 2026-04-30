@@ -29,6 +29,21 @@ export function resolveMainActionBasis(uiState) {
   };
 }
 
+export function shouldResetMainActionIntent({
+  intent,
+  target,
+  canPasteImage,
+}) {
+  return (
+    (intent === UI_PANEL_INTENT_KIND.PASTE_ARMED && (
+      target !== UI_MAIN_ACTION_TARGET_KIND.PASTE ||
+      !canPasteImage
+    )) ||
+    (intent === UI_PANEL_INTENT_KIND.CLEAR_PINS_CONFIRM && target !== UI_MAIN_ACTION_TARGET_KIND.CLEAR_PINS) ||
+    (intent === UI_PANEL_INTENT_KIND.CLEAR_IMAGE_CONFIRM && target !== UI_MAIN_ACTION_TARGET_KIND.CLEAR_IMAGE)
+  );
+}
+
 export function transitionMainAction(uiState, event) {
   switch (event?.kind) {
     case UI_EVENT_KIND.MAIN_ACTION_TRIGGERED:
@@ -48,7 +63,7 @@ export function transitionMainAction(uiState, event) {
 function transitionMainActionTriggered(uiState) {
   const basis = resolveMainActionBasis(uiState);
 
-  if (isStaleMainActionIntent(basis)) {
+  if (shouldResetMainActionIntent(basis)) {
     return createUiTransitionResult(
       patchPanelIntent(uiState, UI_PANEL_INTENT_KIND.IDLE),
     );
@@ -182,14 +197,6 @@ function resetToClearedImageSession(uiState) {
       intent: UI_PANEL_INTENT_KIND.IDLE,
     },
   };
-}
-
-function isStaleMainActionIntent({ intent, target }) {
-  return (
-    (intent === UI_PANEL_INTENT_KIND.PASTE_ARMED && target !== UI_MAIN_ACTION_TARGET_KIND.PASTE) ||
-    (intent === UI_PANEL_INTENT_KIND.CLEAR_PINS_CONFIRM && target !== UI_MAIN_ACTION_TARGET_KIND.CLEAR_PINS) ||
-    (intent === UI_PANEL_INTENT_KIND.CLEAR_IMAGE_CONFIRM && target !== UI_MAIN_ACTION_TARGET_KIND.CLEAR_IMAGE)
-  );
 }
 
 function hasImage(uiState) {

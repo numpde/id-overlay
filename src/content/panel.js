@@ -6,10 +6,7 @@ import {
 } from "../core/image-normalization.js";
 import {
   PANEL_FEEDBACK_ACTION,
-  PANEL_REPO_URL,
-  PANEL_TITLE,
   describePanelActionPresentation,
-  resolvePanelViewModel,
 } from "../core/presentation.js";
 import {
   PANEL_ACTION_DEFAULTS,
@@ -22,12 +19,18 @@ import {
   runUiLiveEffects,
 } from "../core/ui-live-effect-runner.js";
 import {
+  projectLiveUiState,
   syncPanelActionStateToUiIntent,
 } from "../core/ui-live-state.js";
 import {
   UI_LIVE_FEEDBACK_KIND,
   transitionLiveUi,
 } from "../core/ui-live-transition.js";
+import {
+  PANEL_REPO_URL,
+  PANEL_TITLE,
+  resolveUiViewModel,
+} from "../core/ui-view-model.js";
 import { INTERACTION_MODE, normalizeInteractionMode } from "../core/interaction-mode.js";
 import { formatBuildLabel, createLogger } from "../core/logger.js";
 
@@ -223,10 +226,12 @@ export function createPanel({ shadow, store, interactions, statusController }) {
   };
 
   function resolveCurrentPanelViewModel() {
-    return resolvePanelViewModel({
-      state: latestState,
+    return resolveUiViewModel({
+      uiState: projectLiveUiState({
+        state: latestState,
+        panelActionState,
+      }),
       statusMessage: latestStatusMessage,
-      panelActionState,
     });
   }
 

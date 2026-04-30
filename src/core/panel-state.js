@@ -68,65 +68,24 @@ export function reducePanelActionState(state, eventType) {
   }
 }
 
-export function isPasteArmed(state) {
+function isPasteArmed(state) {
   return state.kind === PANEL_ACTION_KIND.PASTE_ARMED;
 }
 
-export function isClearPinsConfirming(state) {
+function isClearPinsConfirming(state) {
   return state.kind === PANEL_ACTION_KIND.CLEAR_PINS_CONFIRM;
 }
 
-export function isClearImageConfirming(state) {
+function isClearImageConfirming(state) {
   return state.kind === PANEL_ACTION_KIND.CLEAR_IMAGE_CONFIRM;
 }
 
-export function isClearConfirming(state) {
-  return isClearPinsConfirming(state) || isClearImageConfirming(state);
-}
-
-export function isPanelActionIdle(state) {
+function isPanelActionIdle(state) {
   return state.kind === PANEL_ACTION_KIND.IDLE;
-}
-
-export function hasActivePanelAction(state) {
-  return !isPanelActionIdle(state);
 }
 
 export function isPanelActionSessionActive(state, sessionId) {
   return isPasteArmed(state) && state.sessionId === sessionId;
-}
-
-export function resolvePanelActionSemantics(
-  state,
-  {
-    hasImage = true,
-    canPasteImage = false,
-    pinCount = 0,
-    clearConfirmationTimeoutMs = PANEL_ACTION_DEFAULTS.clearConfirmationTimeoutMs,
-  } = PANEL_ACTION_DEFAULTS,
-) {
-  const pasteArmed = isPasteArmed(state);
-  const clearPinsConfirming = isClearPinsConfirming(state);
-  const clearImageConfirming = isClearImageConfirming(state);
-  const clearConfirming = clearPinsConfirming || clearImageConfirming;
-  const hasActiveAction = hasActivePanelAction(state);
-  const canClearPins = pinCount > 0;
-  const shouldResetForMissingPins = clearPinsConfirming && !canClearPins;
-  return {
-    hasImage,
-    canPasteImage,
-    pinCount,
-    isIdle: isPanelActionIdle(state),
-    hasActiveAction,
-    pasteArmed,
-    clearPinsConfirming,
-    clearImageConfirming,
-    clearConfirming,
-    canClearPins,
-    shouldReset: (!hasImage && hasActiveAction) || shouldResetForMissingPins,
-    shouldAttachPasteListener: pasteArmed,
-    autoResetTimeoutMs: clearConfirming ? clearConfirmationTimeoutMs : null,
-  };
 }
 
 function createPanelActionState(kind, sessionId) {
