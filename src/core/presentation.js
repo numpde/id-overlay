@@ -1,17 +1,7 @@
 import { getOverlayImageLoadStats } from "./image-normalization.js";
 import { INTERACTION_MODE, isTraceMode } from "./interaction-mode.js";
-import { projectLiveUiState } from "./ui-live-state.js";
 import {
-  CLEAR_IMAGE_CONFIRMATION_MESSAGE,
-  CLEAR_PINS_CONFIRMATION_MESSAGE,
   MANUAL_PASTE_PROMPT,
-  PANEL_REPO_URL,
-  PANEL_TITLE,
-  resolveClearImagePresentation,
-  resolveClearPinsLabel,
-  resolveModeSwitchPresentation,
-  resolvePanelActionPresentation,
-  resolveUiViewModel,
 } from "./ui-view-model.js";
 import { resolveRegistrationSolveState } from "./state.js";
 import { resolveOverlayRenderState } from "./transform.js";
@@ -23,18 +13,6 @@ import {
   SOLVE_RESULT_REASON,
 } from "./interaction-policy.js";
 import { RUNTIME_ERROR_SOURCE } from "./runtime-error.js";
-
-export {
-  PANEL_TITLE,
-  PANEL_REPO_URL,
-  MANUAL_PASTE_PROMPT,
-  CLEAR_PINS_CONFIRMATION_MESSAGE,
-  CLEAR_IMAGE_CONFIRMATION_MESSAGE,
-  resolveClearPinsLabel,
-  resolveClearImagePresentation,
-  resolveModeSwitchPresentation,
-  resolvePanelActionPresentation,
-} from "./ui-view-model.js";
 
 export const PANEL_FEEDBACK_ACTION = Object.freeze({
   PASTE_CANCELLED: "paste-cancelled",
@@ -59,32 +37,6 @@ export function resolveOverlaySessionPresentation(state) {
     solve: solvePresentation,
     render: renderPresentation,
   };
-}
-
-export function resolvePanelPresentation({
-  state,
-  statusMessage,
-  panelActionState,
-}) {
-  return resolvePanelViewModel({
-    state,
-    statusMessage,
-    panelActionState,
-  }).presentation;
-}
-
-export function resolvePanelViewModel({
-  state,
-  statusMessage,
-  panelActionState,
-}) {
-  return resolveUiViewModel({
-    uiState: projectLiveUiState({
-      state,
-      panelActionState,
-    }),
-    statusMessage,
-  });
 }
 
 export function resolveRegistrationSolvePresentation(registration) {

@@ -8,8 +8,8 @@ import {
   describePinResultPresentation,
   describeSolveResultPresentation,
   resolveDefaultStatusMessage,
-  resolveModeSwitchPresentation,
 } from "../../src/core/presentation.js";
+import { resolveModeSwitchPresentation } from "../../src/core/ui-view-model.js";
 import { createStateStore } from "../../src/core/state.js";
 import { createValueStore } from "../../src/core/value-store.js";
 

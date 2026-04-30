@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { createDomEnvironment } from "../helpers/dom-env.js";
 import { repoFileUrl } from "../helpers/paths.js";
 import { createPlacementTransform } from "../../src/core/transform.js";
-import { PANEL_REPO_URL } from "../../src/core/presentation.js";
+import { PANEL_REPO_URL } from "../../src/core/ui-view-model.js";
 
 function createStoredPlacement({ width, height, scale, rotationRad }) {
   return createPlacementTransform({

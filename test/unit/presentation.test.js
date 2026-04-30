@@ -2,27 +2,44 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  CLEAR_PINS_CONFIRMATION_MESSAGE,
-  CLEAR_IMAGE_CONFIRMATION_MESSAGE,
   PANEL_FEEDBACK_ACTION,
   describePanelActionPresentation,
   describeRuntimeErrorPresentation,
-  MANUAL_PASTE_PROMPT,
   describeInteractionEventPresentation,
   describePinResultPresentation,
   describeSolveResultPresentation,
-  resolveClearPinsLabel,
-  resolvePanelActionPresentation,
-  resolveClearImagePresentation,
   resolveDefaultStatusMessage,
   resolveOverlayRenderPresentation,
-  resolvePanelPresentation,
-  resolvePanelViewModel,
   resolveRegistrationSolvePresentation,
   resolveOverlaySessionPresentation,
 } from "../../src/core/presentation.js";
 import { PANEL_ACTION_KIND } from "../../src/core/panel-state.js";
 import { RUNTIME_ERROR_SOURCE } from "../../src/core/runtime-error.js";
+import { projectLiveUiState } from "../../src/core/ui-live-state.js";
+import {
+  CLEAR_PINS_CONFIRMATION_MESSAGE,
+  CLEAR_IMAGE_CONFIRMATION_MESSAGE,
+  MANUAL_PASTE_PROMPT,
+  resolveClearPinsLabel,
+  resolveClearImagePresentation,
+  resolveModeSwitchPresentation,
+  resolvePanelActionPresentation,
+  resolveUiViewModel,
+} from "../../src/core/ui-view-model.js";
+
+function resolvePanelViewModel({ state, statusMessage, panelActionState }) {
+  return resolveUiViewModel({
+    uiState: projectLiveUiState({
+      state,
+      panelActionState,
+    }),
+    statusMessage,
+  });
+}
+
+function resolvePanelPresentation(input) {
+  return resolvePanelViewModel(input).presentation;
+}
 
 test("resolveOverlaySessionPresentation centralizes session labels and enablement", () => {
   const empty = resolveOverlaySessionPresentation({
