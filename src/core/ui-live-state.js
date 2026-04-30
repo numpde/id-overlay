@@ -7,8 +7,7 @@ import {
   UI_MODE_KIND,
 } from "./ui-state-model.js";
 import {
-  PANEL_ACTION_EVENT,
-  reducePanelActionState,
+  syncPanelActionState,
 } from "./panel-state.js";
 
 export function projectLiveUiState({
@@ -32,9 +31,6 @@ export function projectLiveUiState({
     panel: {
       intent: panelActionState?.kind ?? UI_PANEL_INTENT_KIND.IDLE,
     },
-    status: {
-      messageOverride: null,
-    },
   };
 }
 
@@ -42,36 +38,7 @@ export function syncPanelActionStateToUiIntent({
   previousPanelActionState,
   nextIntent,
 }) {
-  if (previousPanelActionState?.kind === nextIntent) {
-    return previousPanelActionState;
-  }
-
-  switch (nextIntent) {
-    case UI_PANEL_INTENT_KIND.IDLE:
-      return reducePanelActionState(
-        previousPanelActionState,
-        previousPanelActionState?.kind === UI_PANEL_INTENT_KIND.PASTE_ARMED
-          ? PANEL_ACTION_EVENT.CANCEL_PASTE
-          : PANEL_ACTION_EVENT.RESET,
-      );
-    case UI_PANEL_INTENT_KIND.PASTE_ARMED:
-      return reducePanelActionState(
-        previousPanelActionState,
-        PANEL_ACTION_EVENT.ARM_PASTE,
-      );
-    case UI_PANEL_INTENT_KIND.CLEAR_PINS_CONFIRM:
-      return reducePanelActionState(
-        previousPanelActionState,
-        PANEL_ACTION_EVENT.ARM_CLEAR_PINS_CONFIRM,
-      );
-    case UI_PANEL_INTENT_KIND.CLEAR_IMAGE_CONFIRM:
-      return reducePanelActionState(
-        previousPanelActionState,
-        PANEL_ACTION_EVENT.ARM_CLEAR_IMAGE_CONFIRM,
-      );
-    default:
-      return previousPanelActionState;
-  }
+  return syncPanelActionState(previousPanelActionState, nextIntent);
 }
 
 export function resolveUiModeExecution({

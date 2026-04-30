@@ -1,17 +1,6 @@
-export const PANEL_ACTION_KIND = Object.freeze({
-  IDLE: "idle",
-  PASTE_ARMED: "paste-armed",
-  CLEAR_PINS_CONFIRM: "clear-pins-confirm",
-  CLEAR_IMAGE_CONFIRM: "clear-image-confirm",
-});
+import { UI_PANEL_INTENT_KIND } from "./ui-state-model.js";
 
-export const PANEL_ACTION_EVENT = Object.freeze({
-  ARM_PASTE: "arm-paste",
-  CANCEL_PASTE: "cancel-paste",
-  ARM_CLEAR_PINS_CONFIRM: "arm-clear-pins-confirm",
-  ARM_CLEAR_IMAGE_CONFIRM: "arm-clear-image-confirm",
-  RESET: "reset",
-});
+export const PANEL_ACTION_KIND = UI_PANEL_INTENT_KIND;
 
 export const PANEL_ACTION_DEFAULTS = Object.freeze({
   clearConfirmationTimeoutMs: 1800,
@@ -24,44 +13,31 @@ export function createInitialPanelActionState() {
   };
 }
 
-export function reducePanelActionState(state, eventType) {
-  switch (eventType) {
-    case PANEL_ACTION_EVENT.ARM_PASTE:
+export function syncPanelActionState(state, nextKind) {
+  if (state.kind === nextKind) {
+    return state;
+  }
+
+  switch (nextKind) {
+    case PANEL_ACTION_KIND.PASTE_ARMED:
       return createPanelActionState(
         PANEL_ACTION_KIND.PASTE_ARMED,
         state.sessionId + 1,
       );
-    case PANEL_ACTION_EVENT.CANCEL_PASTE:
-      if (!isPasteArmed(state)) {
-        return state;
-      }
-      return createPanelActionState(
-        PANEL_ACTION_KIND.IDLE,
-        state.sessionId + 1,
-      );
-    case PANEL_ACTION_EVENT.ARM_CLEAR_PINS_CONFIRM:
-      if (isClearPinsConfirming(state)) {
-        return state;
-      }
+    case PANEL_ACTION_KIND.CLEAR_PINS_CONFIRM:
       return createPanelActionState(
         PANEL_ACTION_KIND.CLEAR_PINS_CONFIRM,
         state.sessionId,
       );
-    case PANEL_ACTION_EVENT.ARM_CLEAR_IMAGE_CONFIRM:
-      if (isClearImageConfirming(state)) {
-        return state;
-      }
+    case PANEL_ACTION_KIND.CLEAR_IMAGE_CONFIRM:
       return createPanelActionState(
         PANEL_ACTION_KIND.CLEAR_IMAGE_CONFIRM,
         state.sessionId,
       );
-    case PANEL_ACTION_EVENT.RESET:
-      if (isPanelActionIdle(state)) {
-        return state;
-      }
+    case PANEL_ACTION_KIND.IDLE:
       return createPanelActionState(
         PANEL_ACTION_KIND.IDLE,
-        state.sessionId,
+        isPasteArmed(state) ? state.sessionId + 1 : state.sessionId,
       );
     default:
       return state;
@@ -70,18 +46,6 @@ export function reducePanelActionState(state, eventType) {
 
 function isPasteArmed(state) {
   return state.kind === PANEL_ACTION_KIND.PASTE_ARMED;
-}
-
-function isClearPinsConfirming(state) {
-  return state.kind === PANEL_ACTION_KIND.CLEAR_PINS_CONFIRM;
-}
-
-function isClearImageConfirming(state) {
-  return state.kind === PANEL_ACTION_KIND.CLEAR_IMAGE_CONFIRM;
-}
-
-function isPanelActionIdle(state) {
-  return state.kind === PANEL_ACTION_KIND.IDLE;
 }
 
 export function isPanelActionSessionActive(state, sessionId) {

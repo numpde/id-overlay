@@ -32,9 +32,6 @@ test("ui state model exposes the intended initial shape", () => {
     panel: {
       intent: UI_PANEL_INTENT_KIND.IDLE,
     },
-    status: {
-      messageOverride: null,
-    },
   });
 });
 

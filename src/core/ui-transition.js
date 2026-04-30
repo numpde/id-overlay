@@ -1,6 +1,7 @@
 import { UI_EVENT_KIND } from "./ui-event-model.js";
 import { transitionMainAction } from "./ui-main-action-transition.js";
 import { transitionMode } from "./ui-mode-transition.js";
+import { transitionRegistration } from "./ui-registration-transition.js";
 import { createUiTransitionResult } from "./ui-transition-result.js";
 
 const MAIN_ACTION_EVENT_KINDS = new Set([
@@ -17,6 +18,10 @@ const MODE_EVENT_KINDS = new Set([
   UI_EVENT_KIND.SOLVE_FAILED,
 ]);
 
+const REGISTRATION_EVENT_KINDS = new Set([
+  UI_EVENT_KIND.CLEAR_PINS_TRIGGERED,
+]);
+
 export function transitionUiState(uiState, event) {
   if (MAIN_ACTION_EVENT_KINDS.has(event?.kind)) {
     return transitionMainAction(uiState, event);
@@ -24,6 +29,10 @@ export function transitionUiState(uiState, event) {
 
   if (MODE_EVENT_KINDS.has(event?.kind)) {
     return transitionMode(uiState, event);
+  }
+
+  if (REGISTRATION_EVENT_KINDS.has(event?.kind)) {
+    return transitionRegistration(uiState, event);
   }
 
   return createUiTransitionResult(uiState);

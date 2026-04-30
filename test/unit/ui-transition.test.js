@@ -40,12 +40,42 @@ test("ui transition routes mode events to the mode family", () => {
   assert.deepEqual(result.effects, []);
 });
 
+test("ui transition routes registration events to the registration family", () => {
+  const base = createInitialUiState();
+  const state = {
+    ...base,
+    session: {
+      ...base.session,
+      mode: UI_MODE_KIND.ALIGN,
+      image: { id: "image" },
+      registration: {
+        pins: [{ id: 1 }],
+        solvedTransform: null,
+        dirty: true,
+      },
+    },
+  };
+
+  const result = transitionUiState(state, {
+    kind: UI_EVENT_KIND.CLEAR_PINS_TRIGGERED,
+  });
+
+  assert.deepEqual(result.state.session.registration, {
+    pins: [],
+    solvedTransform: null,
+    dirty: false,
+  });
+  assert.deepEqual(result.effects, [
+    UI_EFFECT_KIND.CANCEL_PANEL_TIMEOUT,
+    UI_EFFECT_KIND.CLEAR_PINS,
+  ]);
+});
+
 test("ui transition leaves unsupported events as a pure no-op", () => {
   const state = createInitialUiState();
 
   const result = transitionUiState(state, {
-    kind: UI_EVENT_KIND.STATUS_MESSAGE_OVERRIDE_SET,
-    message: "hello",
+    kind: "unsupported",
   });
 
   assert.equal(result.state, state);

@@ -168,9 +168,10 @@ export function createPanel({ shadow, store, interactions, statusController }) {
     );
   }, { passive: false });
 
-  clearPinsButton.addEventListener("click", () => {
-    interactions.clearPins();
-    logger.info("Cleared pins from panel action");
+  clearPinsButton.addEventListener("click", async () => {
+    await dispatchCanonicalUiEvent({
+      kind: UI_EVENT_KIND.CLEAR_PINS_TRIGGERED,
+    });
   });
 
   opacityInput.addEventListener("input", () => {
@@ -547,7 +548,7 @@ export function createPanel({ shadow, store, interactions, statusController }) {
         }
       },
       clearPins: async () => {
-        logger.info("Cleared pins from canonical destructive action");
+        logger.info("Cleared pins from canonical UI effect");
         interactions.clearPins();
       },
       clearImage: async () => {

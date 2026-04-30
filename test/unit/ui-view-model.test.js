@@ -36,10 +36,6 @@ function createUiState(overrides = {}) {
       ...initial.panel,
       ...overrides.panel,
     },
-    status: {
-      ...initial.status,
-      ...overrides.status,
-    },
   };
 }
 
@@ -125,15 +121,11 @@ test("resolveUiViewModel keeps trace-mode registration affordances disabled with
   assert.equal(viewModel.presentation.clearButtonDisabled, false);
 });
 
-test("resolveUiViewModel prefers canonical status overrides over fallback status text", () => {
+test("resolveUiViewModel uses the supplied fallback status text when the canonical panel state does not override it", () => {
   const viewModel = resolveUiViewModel({
-    uiState: createUiState({
-      status: {
-        messageOverride: "Pinned 2 points.",
-      },
-    }),
+    uiState: createUiState(),
     statusMessage: "Ready.",
   });
 
-  assert.equal(viewModel.presentation.statusMessage, "Pinned 2 points.");
+  assert.equal(viewModel.presentation.statusMessage, "Ready.");
 });

@@ -2,9 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  PANEL_ACTION_EVENT,
+  PANEL_ACTION_KIND,
   createInitialPanelActionState,
-  reducePanelActionState,
+  syncPanelActionState,
 } from "../../src/core/panel-state.js";
 import { UI_EFFECT_KIND } from "../../src/core/ui-effect-model.js";
 import {
@@ -30,9 +30,9 @@ test("projectLiveUiState maps current live session and panel facts into canonica
       dirty: true,
     },
   };
-  const panelActionState = reducePanelActionState(
+  const panelActionState = syncPanelActionState(
     createInitialPanelActionState(),
-    PANEL_ACTION_EVENT.ARM_CLEAR_PINS_CONFIRM,
+    PANEL_ACTION_KIND.CLEAR_PINS_CONFIRM,
   );
 
   assert.deepEqual(
@@ -51,9 +51,6 @@ test("projectLiveUiState maps current live session and panel facts into canonica
       runtime: createInitialUiState().runtime,
       panel: {
         intent: UI_PANEL_INTENT_KIND.CLEAR_PINS_CONFIRM,
-      },
-      status: {
-        messageOverride: null,
       },
     },
   );

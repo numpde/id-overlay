@@ -1,4 +1,3 @@
-import { resolveRegistrationSolveState } from "./state.js";
 import {
   UI_MODE_KIND,
   UI_PANEL_INTENT_KIND,
@@ -7,6 +6,11 @@ import {
   resolveMainActionBasis,
   shouldResetMainActionIntent,
 } from "./ui-main-action-transition.js";
+import {
+  canPasteUiImage,
+  canClearUiPins,
+  resolveUiRegistrationFacts,
+} from "./ui-registration-semantics.js";
 
 export const PANEL_TITLE = "Reference Overlay";
 export const PANEL_REPO_URL = "https://github.com/numpde/id-overlay";
@@ -38,7 +42,6 @@ export function resolveUiViewModel({
       clearButtonDisabled: panelActionPresentation.clearButtonDisabled,
       statusMessage: (
         panelActionPresentation.statusMessage ??
-        uiState.status.messageOverride ??
         statusMessage
       ),
     },
@@ -46,10 +49,8 @@ export function resolveUiViewModel({
 }
 
 export function resolveUiPanelActionSemantics(uiState) {
-  const pinCount = resolveRegistrationSolveState(uiState.session.registration).pinCount;
-  const hasImage = uiState.session.image !== null;
-  const canPasteImage = uiState.session.mode === UI_MODE_KIND.ALIGN;
-  const canClearPins = hasImage && canPasteImage && pinCount > 0;
+  const registrationFacts = resolveUiRegistrationFacts(uiState);
+  const canPasteImage = canPasteUiImage(uiState);
   const pasteArmed = uiState.panel.intent === UI_PANEL_INTENT_KIND.PASTE_ARMED;
   const clearPinsConfirming = uiState.panel.intent === UI_PANEL_INTENT_KIND.CLEAR_PINS_CONFIRM;
   const clearImageConfirming = uiState.panel.intent === UI_PANEL_INTENT_KIND.CLEAR_IMAGE_CONFIRM;
@@ -57,16 +58,16 @@ export function resolveUiPanelActionSemantics(uiState) {
   const mainActionBasis = resolveMainActionBasis(uiState);
 
   return {
-    hasImage,
+    hasImage: registrationFacts.hasImage,
     canPasteImage,
-    pinCount,
+    pinCount: registrationFacts.pinCount,
     isIdle: uiState.panel.intent === UI_PANEL_INTENT_KIND.IDLE,
     hasActiveAction: uiState.panel.intent !== UI_PANEL_INTENT_KIND.IDLE,
     pasteArmed,
     clearPinsConfirming,
     clearImageConfirming,
     clearConfirming,
-    canClearPins,
+    canClearPins: canClearUiPins(uiState),
     shouldReset: shouldResetMainActionIntent(mainActionBasis),
     shouldAttachPasteListener: pasteArmed,
   };

@@ -11,7 +11,6 @@
 // - raw durable session facts
 // - raw ephemeral interaction facts
 // - raw transient panel state
-// - raw transient status state
 //
 // Derived views such as:
 // - "can capture pointer"
@@ -21,10 +20,9 @@
 //
 // do not belong here.
 
-export const UI_MODE_KIND = Object.freeze({
-  ALIGN: "align",
-  TRACE: "trace",
-});
+import { INTERACTION_MODE } from "./interaction-mode.js";
+
+export const UI_MODE_KIND = INTERACTION_MODE;
 
 export const UI_ACTIVE_GESTURE_KIND = Object.freeze({
   MAP_PAN: "map-pan",
@@ -79,12 +77,6 @@ export function createInitialUiState() {
     // Transient panel button/confirmation state.
     panel: {
       intent: UI_PANEL_INTENT_KIND.IDLE,
-    },
-
-    // Stored status state only. The visible status text is otherwise
-    // derived from session and runtime.
-    status: {
-      messageOverride: null,
     },
   };
 }

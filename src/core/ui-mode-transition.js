@@ -2,14 +2,10 @@ import { UI_EFFECT_KIND } from "./ui-effect-model.js";
 import { UI_EVENT_KIND } from "./ui-event-model.js";
 import { UI_MODE_KIND } from "./ui-state-model.js";
 import { createUiTransitionResult } from "./ui-transition-result.js";
-
-export const UI_REGISTRATION_STATUS_KIND = Object.freeze({
-  EMPTY: "empty",
-  INSUFFICIENT_PINS: "insufficient-pins",
-  READY: "ready",
-  DIRTY: "dirty",
-  SOLVED: "solved",
-});
+import {
+  hasOverlayImageSession,
+  resolveRegistrationSolveState,
+} from "./state.js";
 
 export function resolveModeTransitionBasis(uiState, nextMode = uiState.session.mode) {
   return {
@@ -91,29 +87,12 @@ function shouldRequestSolveOnTraceSwitch({
     currentMode !== UI_MODE_KIND.TRACE &&
     nextMode === UI_MODE_KIND.TRACE &&
     hasImage &&
-    registrationStatus === UI_REGISTRATION_STATUS_KIND.DIRTY
+    registrationStatus === "dirty"
   );
 }
 
 function resolveRegistrationStatus(uiState) {
-  const registration = uiState.session.registration;
-  const pinCount = Array.isArray(registration?.pins) ? registration.pins.length : 0;
-  const isDirty = Boolean(registration?.dirty);
-  const hasSolvedTransform = Boolean(registration?.solvedTransform);
-
-  if (hasSolvedTransform && !isDirty) {
-    return UI_REGISTRATION_STATUS_KIND.SOLVED;
-  }
-  if (pinCount >= 2 && isDirty) {
-    return UI_REGISTRATION_STATUS_KIND.DIRTY;
-  }
-  if (pinCount >= 2) {
-    return UI_REGISTRATION_STATUS_KIND.READY;
-  }
-  if (pinCount > 0) {
-    return UI_REGISTRATION_STATUS_KIND.INSUFFICIENT_PINS;
-  }
-  return UI_REGISTRATION_STATUS_KIND.EMPTY;
+  return resolveRegistrationSolveState(uiState.session.registration).kind;
 }
 
 function patchMode(uiState, mode) {
@@ -127,7 +106,7 @@ function patchMode(uiState, mode) {
 }
 
 function hasImage(uiState) {
-  return uiState.session.image !== null;
+  return hasOverlayImageSession(uiState.session);
 }
 
 function isKnownMode(mode) {

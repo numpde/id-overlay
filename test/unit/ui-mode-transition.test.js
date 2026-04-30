@@ -6,7 +6,6 @@ import { UI_EVENT_KIND } from "../../src/core/ui-event-model.js";
 import {
   resolveModeTransitionBasis,
   transitionMode,
-  UI_REGISTRATION_STATUS_KIND,
 } from "../../src/core/ui-mode-transition.js";
 import {
   createInitialUiState,
@@ -34,7 +33,7 @@ test("mode transition basis captures only local mode-switch distinctions", () =>
     currentMode: UI_MODE_KIND.ALIGN,
     nextMode: UI_MODE_KIND.TRACE,
     hasImage: true,
-    registrationStatus: UI_REGISTRATION_STATUS_KIND.DIRTY,
+    registrationStatus: "dirty",
   });
 });
 

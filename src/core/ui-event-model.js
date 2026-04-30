@@ -16,7 +16,6 @@
 export const UI_EVENT_FAMILY_KIND = Object.freeze({
   INTENT: "intent",
   OUTCOME: "outcome",
-  RUNTIME: "runtime",
   SYSTEM: "system",
 });
 
@@ -54,6 +53,10 @@ export const UI_EVENT_MODEL = Object.freeze({
     UI_EVENT_FAMILY_KIND.INTENT,
     ["pinId"],
   ),
+  CLEAR_PINS_TRIGGERED: defineUiEvent(
+    "clear-pins-triggered",
+    UI_EVENT_FAMILY_KIND.INTENT,
+  ),
 
   // External outcomes that feed back into canonical UI state.
   PASTE_SUCCEEDED: defineUiEvent(
@@ -86,35 +89,9 @@ export const UI_EVENT_MODEL = Object.freeze({
     ["session"],
   ),
 
-  // Ephemeral runtime facts that still belong to canonical runtime state.
-  POINTER_MOVED: defineUiEvent(
-    "pointer-moved",
-    UI_EVENT_FAMILY_KIND.RUNTIME,
-    ["screenPx"],
-  ),
-  ACTIVE_GESTURE_CHANGED: defineUiEvent(
-    "active-gesture-changed",
-    UI_EVENT_FAMILY_KIND.RUNTIME,
-    ["activeGesture"],
-  ),
-  INPUT_OVERRIDE_CHANGED: defineUiEvent(
-    "input-override-changed",
-    UI_EVENT_FAMILY_KIND.RUNTIME,
-    ["inputOverride"],
-  ),
-
   // Timer/system-driven state updates.
   PANEL_TIMEOUT_ELAPSED: defineUiEvent(
     "panel-timeout-elapsed",
-    UI_EVENT_FAMILY_KIND.SYSTEM,
-  ),
-  STATUS_MESSAGE_OVERRIDE_SET: defineUiEvent(
-    "status-message-override-set",
-    UI_EVENT_FAMILY_KIND.SYSTEM,
-    ["message"],
-  ),
-  STATUS_MESSAGE_OVERRIDE_CLEARED: defineUiEvent(
-    "status-message-override-cleared",
     UI_EVENT_FAMILY_KIND.SYSTEM,
   ),
 });

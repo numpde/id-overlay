@@ -9,8 +9,8 @@ import {
 } from "../../src/core/ui-live-transition.js";
 import {
   createInitialPanelActionState,
-  reducePanelActionState,
-  PANEL_ACTION_EVENT,
+  syncPanelActionState,
+  PANEL_ACTION_KIND,
 } from "../../src/core/panel-state.js";
 import {
   createInitialUiState,
@@ -42,9 +42,9 @@ test("transitionLiveUi projects, routes, and syncs panel intent for main-action 
 });
 
 test("transitionLiveUi resolves paste-cancel feedback when the main action disarms paste", () => {
-  const panelActionState = reducePanelActionState(
+  const panelActionState = syncPanelActionState(
     createInitialPanelActionState(),
-    PANEL_ACTION_EVENT.ARM_PASTE,
+    PANEL_ACTION_KIND.PASTE_ARMED,
   );
   const liveState = {
     ...createInitialUiState().session,

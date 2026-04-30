@@ -6,6 +6,12 @@ import {
   UI_PANEL_INTENT_KIND,
 } from "./ui-state-model.js";
 import { createUiTransitionResult } from "./ui-transition-result.js";
+import {
+  canPasteUiImage,
+  createClearedUiRegistration,
+  resolveUiRegistrationFacts,
+} from "./ui-registration-semantics.js";
+import { transitionClearPins } from "./ui-registration-transition.js";
 
 export const UI_MAIN_ACTION_TARGET_KIND = Object.freeze({
   PASTE: "paste",
@@ -14,9 +20,10 @@ export const UI_MAIN_ACTION_TARGET_KIND = Object.freeze({
 });
 
 export function resolveMainActionTarget(uiState) {
-  return hasPins(uiState)
+  const registrationFacts = resolveUiRegistrationFacts(uiState);
+  return registrationFacts.pinCount > 0
     ? UI_MAIN_ACTION_TARGET_KIND.CLEAR_PINS
-    : hasImage(uiState)
+    : registrationFacts.hasImage
       ? UI_MAIN_ACTION_TARGET_KIND.CLEAR_IMAGE
       : UI_MAIN_ACTION_TARGET_KIND.PASTE;
 }
@@ -25,7 +32,7 @@ export function resolveMainActionBasis(uiState) {
   return {
     intent: uiState.panel.intent,
     target: resolveMainActionTarget(uiState),
-    canPasteImage: canPasteImage(uiState),
+    canPasteImage: canPasteUiImage(uiState),
   };
 }
 
@@ -86,15 +93,7 @@ function transitionMainActionTriggered(uiState) {
   }
 
   if (basis.intent === UI_PANEL_INTENT_KIND.CLEAR_PINS_CONFIRM) {
-    return createUiTransitionResult(
-      patchRegistration(uiState, createEmptyRegistration(), {
-        panelIntent: UI_PANEL_INTENT_KIND.IDLE,
-      }),
-      [
-        UI_EFFECT_KIND.CANCEL_PANEL_TIMEOUT,
-        UI_EFFECT_KIND.CLEAR_PINS,
-      ],
-    );
+    return transitionClearPins(uiState);
   }
 
   if (basis.intent === UI_PANEL_INTENT_KIND.CLEAR_IMAGE_CONFIRM) {
@@ -142,7 +141,7 @@ function transitionPasteSucceeded(uiState, event) {
       mode: UI_MODE_KIND.ALIGN,
       image: event.image ?? null,
       placement: event.placement ?? null,
-      registration: createEmptyRegistration(),
+      registration: createClearedUiRegistration(),
     },
     panel: {
       ...uiState.panel,
@@ -173,20 +172,6 @@ function patchPanelIntent(uiState, nextIntent) {
   };
 }
 
-function patchRegistration(uiState, registration, { panelIntent = uiState.panel.intent } = {}) {
-  return {
-    ...uiState,
-    session: {
-      ...uiState.session,
-      registration,
-    },
-    panel: {
-      ...uiState.panel,
-      intent: panelIntent,
-    },
-  };
-}
-
 function resetToClearedImageSession(uiState) {
   const clearedState = createInitialUiState();
   return {
@@ -196,25 +181,5 @@ function resetToClearedImageSession(uiState) {
       ...uiState.panel,
       intent: UI_PANEL_INTENT_KIND.IDLE,
     },
-  };
-}
-
-function hasImage(uiState) {
-  return uiState.session.image !== null;
-}
-
-function hasPins(uiState) {
-  return uiState.session.registration.pins.length > 0;
-}
-
-function canPasteImage(uiState) {
-  return uiState.session.mode === UI_MODE_KIND.ALIGN;
-}
-
-function createEmptyRegistration() {
-  return {
-    pins: [],
-    solvedTransform: null,
-    dirty: false,
   };
 }
