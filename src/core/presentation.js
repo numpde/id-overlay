@@ -46,24 +46,42 @@ export function resolvePanelPresentation({
   statusMessage,
   panelActionState,
 }) {
+  return resolvePanelViewModel({
+    state,
+    statusMessage,
+    panelActionState,
+  }).presentation;
+}
+
+export function resolvePanelViewModel({
+  state,
+  statusMessage,
+  panelActionState,
+}) {
   const sessionPresentation = resolveOverlaySessionPresentation(state);
+  const panelActionSemantics = resolvePanelActionSemantics(panelActionState, {
+    hasImage: sessionPresentation.hasImage,
+  });
   const panelActionPresentation = resolvePanelActionPresentation({
     actionState: panelActionState,
     hasImage: sessionPresentation.hasImage,
   });
 
   return {
-    pasteLabel: panelActionPresentation.pasteLabel,
-    opacityValue: String(state.opacity),
-    modeSwitch: resolveModeSwitchPresentation(state.mode),
-    hasImage: sessionPresentation.hasImage,
-    canPasteImage: sessionPresentation.canPasteImage,
-    canClearPins: sessionPresentation.canClearPins,
-    clearPinsLabel: resolveClearPinsLabel(sessionPresentation.pinCount),
-    clearButtonLabel: panelActionPresentation.clearButtonLabel,
-    clearButtonVariant: panelActionPresentation.clearButtonVariant,
-    clearButtonDisabled: panelActionPresentation.clearButtonDisabled,
-    statusMessage: panelActionPresentation.statusMessage ?? statusMessage,
+    actionSemantics: panelActionSemantics,
+    presentation: {
+      pasteLabel: panelActionPresentation.pasteLabel,
+      opacityValue: String(state.opacity),
+      modeSwitch: resolveModeSwitchPresentation(state.mode),
+      hasImage: sessionPresentation.hasImage,
+      canPasteImage: sessionPresentation.canPasteImage,
+      canClearPins: sessionPresentation.canClearPins,
+      clearPinsLabel: resolveClearPinsLabel(sessionPresentation.pinCount),
+      clearButtonLabel: panelActionPresentation.clearButtonLabel,
+      clearButtonVariant: panelActionPresentation.clearButtonVariant,
+      clearButtonDisabled: panelActionPresentation.clearButtonDisabled,
+      statusMessage: panelActionPresentation.statusMessage ?? statusMessage,
+    },
   };
 }
 

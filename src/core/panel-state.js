@@ -89,6 +89,7 @@ export function resolvePanelActionSemantics(
   const clearConfirming = isClearConfirming(state);
   const hasActiveAction = hasActivePanelAction(state);
   return {
+    hasImage,
     isIdle: isPanelActionIdle(state),
     hasActiveAction,
     pasteArmed,

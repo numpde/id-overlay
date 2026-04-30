@@ -9,18 +9,15 @@ import {
   PANEL_REPO_URL,
   PANEL_TITLE,
   describePanelActionPresentation,
-  resolvePanelPresentation,
+  resolvePanelViewModel,
 } from "../core/presentation.js";
 import {
-  PANEL_ACTION_DEFAULTS,
   PANEL_ACTION_EVENT,
   createInitialPanelActionState,
   isPanelActionSessionActive,
   reducePanelActionState,
-  resolvePanelActionSemantics,
 } from "../core/panel-state.js";
 import { INTERACTION_MODE, normalizeInteractionMode } from "../core/interaction-mode.js";
-import { hasOverlayImageSession } from "../core/state.js";
 import { formatBuildLabel, createLogger } from "../core/logger.js";
 
 const PANEL_MARGIN_PX = 8;
@@ -133,6 +130,7 @@ export function createPanel({ shadow, store, interactions, statusController }) {
   let panelPosition = captureInitialPanelPosition();
   let activePanelDrag = null;
   let panelActionState = createInitialPanelActionState();
+  let latestPanelViewModel = null;
   let clearConfirmTimer = null;
   applyPanelPosition();
   window.addEventListener("resize", handleWindowResize);
@@ -187,7 +185,7 @@ export function createPanel({ shadow, store, interactions, statusController }) {
   }, { passive: false });
 
   clearButton.addEventListener("click", () => {
-    if (!hasOverlayImageSession(latestState)) {
+    if (!getPanelActionSemantics().hasImage) {
       return;
     }
     if (!getPanelActionSemantics().clearConfirming) {
@@ -203,18 +201,19 @@ export function createPanel({ shadow, store, interactions, statusController }) {
 
   const unsubscribeStore = store.subscribe((state) => {
     latestState = state;
-    if (getPanelActionSemantics().shouldReset) {
+    const panelViewModel = resolveCurrentPanelViewModel();
+    if (panelViewModel.actionSemantics.shouldReset) {
       applyPanelAction(PANEL_ACTION_EVENT.RESET);
       return;
     }
-    renderControls();
+    applyPanelViewModel(panelViewModel);
   });
   const unsubscribeStatus = statusController.subscribe((message) => {
     latestStatusMessage = message;
-    renderControls();
+    applyPanelViewModel(resolveCurrentPanelViewModel());
   });
 
-  renderControls();
+  applyPanelViewModel(resolveCurrentPanelViewModel());
 
   return {
     destroy() {
@@ -228,12 +227,17 @@ export function createPanel({ shadow, store, interactions, statusController }) {
     },
   };
 
-  function renderControls() {
-    const presentation = resolvePanelPresentation({
+  function resolveCurrentPanelViewModel() {
+    return resolvePanelViewModel({
       state: latestState,
       statusMessage: latestStatusMessage,
       panelActionState,
     });
+  }
+
+  function applyPanelViewModel(panelViewModel) {
+    latestPanelViewModel = panelViewModel;
+    const { presentation } = panelViewModel;
     pasteButton.textContent = presentation.pasteLabel;
     pasteButton.disabled = !presentation.canPasteImage;
     opacityInput.value = presentation.opacityValue;
@@ -377,15 +381,13 @@ export function createPanel({ shadow, store, interactions, statusController }) {
       return;
     }
     panelActionState = nextState;
-    syncPanelActionSideEffects();
-    renderControls();
+    const panelViewModel = resolveCurrentPanelViewModel();
+    syncPanelActionSideEffects(panelViewModel.actionSemantics);
+    applyPanelViewModel(panelViewModel);
   }
 
   function getPanelActionSemantics() {
-    return resolvePanelActionSemantics(panelActionState, {
-      ...PANEL_ACTION_DEFAULTS,
-      hasImage: hasOverlayImageSession(latestState),
-    });
+    return latestPanelViewModel?.actionSemantics ?? resolveCurrentPanelViewModel().actionSemantics;
   }
 
   function setPanelPosition(nextPosition) {
@@ -426,8 +428,7 @@ export function createPanel({ shadow, store, interactions, statusController }) {
     return nextState;
   }
 
-  function syncPanelActionSideEffects() {
-    const semantics = getPanelActionSemantics();
+  function syncPanelActionSideEffects(semantics = getPanelActionSemantics()) {
     syncClearConfirmTimer(semantics);
     syncPasteListener(semantics);
   }

@@ -16,6 +16,7 @@ import {
   resolveDefaultStatusMessage,
   resolveOverlayRenderPresentation,
   resolvePanelPresentation,
+  resolvePanelViewModel,
   resolveRegistrationSolvePresentation,
   resolveOverlaySessionPresentation,
 } from "../../src/core/presentation.js";
@@ -251,6 +252,31 @@ test("resolvePanelPresentation disables registration actions outside align mode"
 
   assert.equal(presentation.canPasteImage, false);
   assert.equal(presentation.canClearPins, false);
+});
+
+test("resolvePanelViewModel keeps panel semantics and presentation on one has-image source", () => {
+  const viewModel = resolvePanelViewModel({
+    state: {
+      image: null,
+      mode: "align",
+      opacity: 0.6,
+      registration: {
+        pins: [],
+        solvedTransform: null,
+        dirty: false,
+      },
+    },
+    statusMessage: "Ready.",
+    panelActionState: {
+      kind: PANEL_ACTION_KIND.CLEAR_CONFIRM,
+      sessionId: 0,
+    },
+  });
+
+  assert.equal(viewModel.presentation.hasImage, false);
+  assert.equal(viewModel.presentation.clearButtonDisabled, true);
+  assert.equal(viewModel.actionSemantics.hasImage, false);
+  assert.equal(viewModel.actionSemantics.shouldReset, true);
 });
 
 test("resolveClearPinsLabel centralizes the pin-count button copy", () => {
