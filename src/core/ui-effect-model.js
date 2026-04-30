@@ -14,6 +14,9 @@ export const UI_EFFECT_MODEL = Object.freeze({
   REQUEST_PASTE_INPUT: defineUiEffect(
     "request-paste-input",
   ),
+  REQUEST_REGISTRATION_SOLVE: defineUiEffect(
+    "request-registration-solve",
+  ),
   START_PANEL_TIMEOUT: defineUiEffect(
     "start-panel-timeout",
   ),

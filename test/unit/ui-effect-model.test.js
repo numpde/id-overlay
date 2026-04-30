@@ -9,6 +9,7 @@ import {
 test("ui effect vocabulary stays minimal and semantic", () => {
   assert.deepEqual(UI_EFFECT_KIND, {
     REQUEST_PASTE_INPUT: "request-paste-input",
+    REQUEST_REGISTRATION_SOLVE: "request-registration-solve",
     START_PANEL_TIMEOUT: "start-panel-timeout",
     CANCEL_PANEL_TIMEOUT: "cancel-panel-timeout",
   });
@@ -17,6 +18,10 @@ test("ui effect vocabulary stays minimal and semantic", () => {
 test("ui effect model exposes payload-key shapes", () => {
   assert.deepEqual(UI_EFFECT_MODEL.REQUEST_PASTE_INPUT, {
     kind: UI_EFFECT_KIND.REQUEST_PASTE_INPUT,
+    payloadKeys: [],
+  });
+  assert.deepEqual(UI_EFFECT_MODEL.REQUEST_REGISTRATION_SOLVE, {
+    kind: UI_EFFECT_KIND.REQUEST_REGISTRATION_SOLVE,
     payloadKeys: [],
   });
   assert.deepEqual(UI_EFFECT_MODEL.START_PANEL_TIMEOUT, {

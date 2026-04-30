@@ -5,6 +5,7 @@ import {
   UI_MODE_KIND,
   UI_PANEL_INTENT_KIND,
 } from "./ui-state-model.js";
+import { createUiTransitionResult } from "./ui-transition-result.js";
 
 export const UI_MAIN_ACTION_TARGET_KIND = Object.freeze({
   PASTE: "paste",
@@ -40,7 +41,7 @@ export function transitionMainAction(uiState, event) {
     case UI_EVENT_KIND.PASTE_FAILED:
       return transitionPasteEnded(uiState);
     default:
-      return createTransitionResult(uiState);
+      return createUiTransitionResult(uiState);
   }
 }
 
@@ -48,29 +49,29 @@ function transitionMainActionTriggered(uiState) {
   const basis = resolveMainActionBasis(uiState);
 
   if (isStaleMainActionIntent(basis)) {
-    return createTransitionResult(
+    return createUiTransitionResult(
       patchPanelIntent(uiState, UI_PANEL_INTENT_KIND.IDLE),
     );
   }
 
   if (basis.intent === UI_PANEL_INTENT_KIND.PASTE_ARMED) {
-    return createTransitionResult(
+    return createUiTransitionResult(
       patchPanelIntent(uiState, UI_PANEL_INTENT_KIND.IDLE),
     );
   }
 
   if (basis.target === UI_MAIN_ACTION_TARGET_KIND.PASTE) {
     if (!basis.canPasteImage) {
-      return createTransitionResult(uiState);
+      return createUiTransitionResult(uiState);
     }
-    return createTransitionResult(
+    return createUiTransitionResult(
       patchPanelIntent(uiState, UI_PANEL_INTENT_KIND.PASTE_ARMED),
       [UI_EFFECT_KIND.REQUEST_PASTE_INPUT],
     );
   }
 
   if (basis.intent === UI_PANEL_INTENT_KIND.CLEAR_PINS_CONFIRM) {
-    return createTransitionResult(
+    return createUiTransitionResult(
       patchRegistration(uiState, createEmptyRegistration(), {
         panelIntent: UI_PANEL_INTENT_KIND.IDLE,
       }),
@@ -79,7 +80,7 @@ function transitionMainActionTriggered(uiState) {
   }
 
   if (basis.intent === UI_PANEL_INTENT_KIND.CLEAR_IMAGE_CONFIRM) {
-    return createTransitionResult(
+    return createUiTransitionResult(
       resetToClearedImageSession(uiState),
       [UI_EFFECT_KIND.CANCEL_PANEL_TIMEOUT],
     );
@@ -89,7 +90,7 @@ function transitionMainActionTriggered(uiState) {
     ? UI_PANEL_INTENT_KIND.CLEAR_PINS_CONFIRM
     : UI_PANEL_INTENT_KIND.CLEAR_IMAGE_CONFIRM;
 
-  return createTransitionResult(
+  return createUiTransitionResult(
     patchPanelIntent(uiState, nextIntent),
     [UI_EFFECT_KIND.START_PANEL_TIMEOUT],
   );
@@ -101,19 +102,19 @@ function transitionPanelTimeoutElapsed(uiState) {
     intent !== UI_PANEL_INTENT_KIND.CLEAR_PINS_CONFIRM &&
     intent !== UI_PANEL_INTENT_KIND.CLEAR_IMAGE_CONFIRM
   ) {
-    return createTransitionResult(uiState);
+    return createUiTransitionResult(uiState);
   }
-  return createTransitionResult(
+  return createUiTransitionResult(
     patchPanelIntent(uiState, UI_PANEL_INTENT_KIND.IDLE),
   );
 }
 
 function transitionPasteSucceeded(uiState, event) {
   if (uiState.panel.intent !== UI_PANEL_INTENT_KIND.PASTE_ARMED) {
-    return createTransitionResult(uiState);
+    return createUiTransitionResult(uiState);
   }
 
-  return createTransitionResult({
+  return createUiTransitionResult({
     ...uiState,
     session: {
       ...uiState.session,
@@ -131,9 +132,9 @@ function transitionPasteSucceeded(uiState, event) {
 
 function transitionPasteEnded(uiState) {
   if (uiState.panel.intent !== UI_PANEL_INTENT_KIND.PASTE_ARMED) {
-    return createTransitionResult(uiState);
+    return createUiTransitionResult(uiState);
   }
-  return createTransitionResult(
+  return createUiTransitionResult(
     patchPanelIntent(uiState, UI_PANEL_INTENT_KIND.IDLE),
   );
 }
@@ -183,13 +184,6 @@ function isStaleMainActionIntent({ intent, target }) {
     (intent === UI_PANEL_INTENT_KIND.CLEAR_PINS_CONFIRM && target !== UI_MAIN_ACTION_TARGET_KIND.CLEAR_PINS) ||
     (intent === UI_PANEL_INTENT_KIND.CLEAR_IMAGE_CONFIRM && target !== UI_MAIN_ACTION_TARGET_KIND.CLEAR_IMAGE)
   );
-}
-
-function createTransitionResult(state, effects = []) {
-  return {
-    state,
-    effects: Object.freeze([...effects]),
-  };
 }
 
 function hasImage(uiState) {
