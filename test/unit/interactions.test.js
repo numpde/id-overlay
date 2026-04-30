@@ -20,6 +20,7 @@ import {
   nextMode,
   reduceInteractionRuntime,
   resolveOverlayActivationPolicy,
+  resolveModeSwitchPolicy,
   resolveOverlayPointerMovePolicy,
   resolveOverlayPointerSequencePolicy,
   resolveOverlayWheelPolicy,
@@ -45,6 +46,46 @@ import {
 test("nextMode toggles between align and trace", () => {
   assert.equal(nextMode(INTERACTION_MODE.TRACE), INTERACTION_MODE.ALIGN);
   assert.equal(nextMode(INTERACTION_MODE.ALIGN), INTERACTION_MODE.TRACE);
+});
+
+test("mode switch policy isolates trace-entry solve triggering", () => {
+  const stateWithDirtyPins = createStateStore({
+    mode: "align",
+    image: {
+      src: "data:image/png;base64,abc",
+      width: 800,
+      height: 400,
+    },
+    registration: {
+      pins: [
+        { id: 1, imagePx: { x: 10, y: 20 }, mapLatLon: { lat: 0, lon: 0 } },
+        { id: 2, imagePx: { x: 30, y: 40 }, mapLatLon: { lat: 1, lon: 1 } },
+      ],
+      solvedTransform: null,
+      dirty: true,
+    },
+  }).getState();
+
+  assert.deepEqual(
+    resolveModeSwitchPolicy({
+      state: stateWithDirtyPins,
+      nextMode: "trace",
+    }),
+    {
+      nextMode: INTERACTION_MODE.TRACE,
+      shouldComputeTransform: true,
+    },
+  );
+  assert.deepEqual(
+    resolveModeSwitchPolicy({
+      state: stateWithDirtyPins,
+      nextMode: "align",
+    }),
+    {
+      nextMode: INTERACTION_MODE.ALIGN,
+      shouldComputeTransform: false,
+    },
+  );
 });
 
 test("loading an image seeds align mode and the current map center placement", () => {

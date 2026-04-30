@@ -21,6 +21,7 @@ import {
   PIN_RESULT_ACTION,
   PIN_RESULT_REASON,
   resolveDragMode,
+  resolveModeSwitchPolicy,
   resolveKeyboardShortcut,
   resolveOverlayActivationPolicy,
   resolveOverlayPointerMovePolicy,
@@ -36,7 +37,6 @@ import {
   getOverlayImage,
   hasCleanSolvedTransform,
   hasOverlayImageSession,
-  needsSolveRecompute,
   resolveRegistrationSolveState,
 } from "./state.js";
 import {
@@ -80,6 +80,7 @@ export {
   PIN_RESULT_ACTION,
   PIN_RESULT_REASON,
   resolveDragMode,
+  resolveModeSwitchPolicy,
   resolveKeyboardShortcut,
   resolveOverlayActivationPolicy,
   resolveOverlayPointerMovePolicy,
@@ -298,46 +299,7 @@ export function createInteractionController({
 
   function computeTransform() {
     return runInteractionBoundary("compute-transform", () => {
-      const state = store.getState();
-      const solveState = resolveRegistrationSolveState(state.registration);
-      if (!solveState.canCompute) {
-        const result = createSolveFailureResult(
-          SOLVE_RESULT_REASON.INSUFFICIENT_PINS,
-          solveState.pinCount,
-        );
-        emitEvent({
-          type: INTERACTION_EVENT.SOLVE_RESULT,
-          result,
-        });
-        logger.warn("Solve requested without enough pins", result);
-        return result;
-      }
-
-      const solvedTransform = solveSimilarityTransform(state.registration.pins);
-      if (!solvedTransform) {
-        const result = createSolveFailureResult(
-          SOLVE_RESULT_REASON.SOLVE_FAILED,
-          solveState.pinCount,
-        );
-        emitEvent({
-          type: INTERACTION_EVENT.SOLVE_RESULT,
-          result,
-        });
-        logger.warn("Solve requested but transform computation failed", result);
-        return result;
-      }
-
-      store.setSolvedTransform(solvedTransform);
-      const result = createSolveSuccessResult(solvedTransform, solveState.pinCount);
-      emitEvent({
-        type: INTERACTION_EVENT.SOLVE_RESULT,
-        result,
-      });
-      logger.info("Computed registration transform", {
-        pinCount: result.pinCount,
-        scale: solvedTransform.scale,
-        rotationRad: solvedTransform.rotationRad,
-      });
+      const result = solveRegistrationFromCurrentState();
       syncRuntimeFromState();
       return result;
     });
@@ -774,18 +736,66 @@ export function createInteractionController({
   function applyMode(mode) {
     return runInteractionBoundary("apply-mode", () => {
       const state = store.getState();
-      if (mode === INTERACTION_MODE.TRACE && needsSolveRecompute(state.registration)) {
-        computeTransform();
+      const modeSwitchPolicy = resolveModeSwitchPolicy({
+        state,
+        nextMode: mode,
+      });
+      if (modeSwitchPolicy.shouldComputeTransform) {
+        solveRegistrationFromCurrentState();
       }
       resetInteractionState({
         pointerScreenPx: runtimeStore.get().pointerScreenPx,
         isPointerInsideImage: runtimeStore.get().isPointerInsideImage,
       });
-      store.setMode(mode);
-      logger.info("Switched mode", { mode });
+      store.setMode(modeSwitchPolicy.nextMode);
+      logger.info("Switched mode", { mode: modeSwitchPolicy.nextMode });
       syncRuntimeFromState();
       return true;
     });
+  }
+
+  function solveRegistrationFromCurrentState() {
+    const state = store.getState();
+    const solveState = resolveRegistrationSolveState(state.registration);
+    if (!solveState.canCompute) {
+      const result = createSolveFailureResult(
+        SOLVE_RESULT_REASON.INSUFFICIENT_PINS,
+        solveState.pinCount,
+      );
+      emitEvent({
+        type: INTERACTION_EVENT.SOLVE_RESULT,
+        result,
+      });
+      logger.warn("Solve requested without enough pins", result);
+      return result;
+    }
+
+    const solvedTransform = solveSimilarityTransform(state.registration.pins);
+    if (!solvedTransform) {
+      const result = createSolveFailureResult(
+        SOLVE_RESULT_REASON.SOLVE_FAILED,
+        solveState.pinCount,
+      );
+      emitEvent({
+        type: INTERACTION_EVENT.SOLVE_RESULT,
+        result,
+      });
+      logger.warn("Solve requested but transform computation failed", result);
+      return result;
+    }
+
+    store.setSolvedTransform(solvedTransform);
+    const result = createSolveSuccessResult(solvedTransform, solveState.pinCount);
+    emitEvent({
+      type: INTERACTION_EVENT.SOLVE_RESULT,
+      result,
+    });
+    logger.info("Computed registration transform", {
+      pinCount: result.pinCount,
+      scale: solvedTransform.scale,
+      rotationRad: solvedTransform.rotationRad,
+    });
+    return result;
   }
 
   function resetInteractionState({

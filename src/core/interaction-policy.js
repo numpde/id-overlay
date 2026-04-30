@@ -1,7 +1,8 @@
-import { hasOverlayImageSession } from "./state.js";
+import { hasOverlayImageSession, needsSolveRecompute } from "./state.js";
 import {
   INTERACTION_MODE,
   isAlignMode,
+  normalizeInteractionMode,
   isTraceMode,
   nextMode,
 } from "./interaction-mode.js";
@@ -9,6 +10,7 @@ import {
 export {
   INTERACTION_MODE,
   isAlignMode,
+  normalizeInteractionMode,
   isTraceMode,
   nextMode,
 } from "./interaction-mode.js";
@@ -55,8 +57,30 @@ export const WHEEL_MODE = Object.freeze({
   ADJUST_OPACITY: "adjust-opacity",
 });
 
+export function resolveRegistrationUiPolicy(state) {
+  const registrationModeActive = isAlignMode(state?.mode);
+  const hasImage = hasOverlayImageSession(state);
+  return {
+    registrationModeActive,
+    canPasteImage: registrationModeActive,
+    canShowPins: registrationModeActive && hasImage,
+  };
+}
+
+export function resolveModeSwitchPolicy({ state, nextMode }) {
+  const normalizedNextMode = normalizeInteractionMode(nextMode);
+  return {
+    nextMode: normalizedNextMode,
+    shouldComputeTransform: (
+      normalizedNextMode === INTERACTION_MODE.TRACE &&
+      hasOverlayImageSession(state) &&
+      needsSolveRecompute(state.registration)
+    ),
+  };
+}
+
 export function canEditRegistration(state) {
-  return hasOverlayImageSession(state) && isAlignMode(state?.mode);
+  return resolveRegistrationUiPolicy(state).canShowPins;
 }
 
 export function canCaptureOverlayPointer({ state, runtime }) {
