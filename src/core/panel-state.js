@@ -1,13 +1,15 @@
 export const PANEL_ACTION_KIND = Object.freeze({
   IDLE: "idle",
   PASTE_ARMED: "paste-armed",
-  CLEAR_CONFIRM: "clear-confirm",
+  CLEAR_PINS_CONFIRM: "clear-pins-confirm",
+  CLEAR_IMAGE_CONFIRM: "clear-image-confirm",
 });
 
 export const PANEL_ACTION_EVENT = Object.freeze({
   ARM_PASTE: "arm-paste",
   CANCEL_PASTE: "cancel-paste",
-  ARM_CLEAR_CONFIRM: "arm-clear-confirm",
+  ARM_CLEAR_PINS_CONFIRM: "arm-clear-pins-confirm",
+  ARM_CLEAR_IMAGE_CONFIRM: "arm-clear-image-confirm",
   RESET: "reset",
 });
 
@@ -37,12 +39,20 @@ export function reducePanelActionState(state, eventType) {
         PANEL_ACTION_KIND.IDLE,
         state.sessionId + 1,
       );
-    case PANEL_ACTION_EVENT.ARM_CLEAR_CONFIRM:
-      if (isClearConfirming(state)) {
+    case PANEL_ACTION_EVENT.ARM_CLEAR_PINS_CONFIRM:
+      if (isClearPinsConfirming(state)) {
         return state;
       }
       return createPanelActionState(
-        PANEL_ACTION_KIND.CLEAR_CONFIRM,
+        PANEL_ACTION_KIND.CLEAR_PINS_CONFIRM,
+        state.sessionId,
+      );
+    case PANEL_ACTION_EVENT.ARM_CLEAR_IMAGE_CONFIRM:
+      if (isClearImageConfirming(state)) {
+        return state;
+      }
+      return createPanelActionState(
+        PANEL_ACTION_KIND.CLEAR_IMAGE_CONFIRM,
         state.sessionId,
       );
     case PANEL_ACTION_EVENT.RESET:
@@ -62,8 +72,16 @@ export function isPasteArmed(state) {
   return state.kind === PANEL_ACTION_KIND.PASTE_ARMED;
 }
 
+export function isClearPinsConfirming(state) {
+  return state.kind === PANEL_ACTION_KIND.CLEAR_PINS_CONFIRM;
+}
+
+export function isClearImageConfirming(state) {
+  return state.kind === PANEL_ACTION_KIND.CLEAR_IMAGE_CONFIRM;
+}
+
 export function isClearConfirming(state) {
-  return state.kind === PANEL_ACTION_KIND.CLEAR_CONFIRM;
+  return isClearPinsConfirming(state) || isClearImageConfirming(state);
 }
 
 export function isPanelActionIdle(state) {
@@ -82,19 +100,30 @@ export function resolvePanelActionSemantics(
   state,
   {
     hasImage = true,
+    canPasteImage = false,
+    pinCount = 0,
     clearConfirmationTimeoutMs = PANEL_ACTION_DEFAULTS.clearConfirmationTimeoutMs,
   } = PANEL_ACTION_DEFAULTS,
 ) {
   const pasteArmed = isPasteArmed(state);
-  const clearConfirming = isClearConfirming(state);
+  const clearPinsConfirming = isClearPinsConfirming(state);
+  const clearImageConfirming = isClearImageConfirming(state);
+  const clearConfirming = clearPinsConfirming || clearImageConfirming;
   const hasActiveAction = hasActivePanelAction(state);
+  const canClearPins = pinCount > 0;
+  const shouldResetForMissingPins = clearPinsConfirming && !canClearPins;
   return {
     hasImage,
+    canPasteImage,
+    pinCount,
     isIdle: isPanelActionIdle(state),
     hasActiveAction,
     pasteArmed,
+    clearPinsConfirming,
+    clearImageConfirming,
     clearConfirming,
-    shouldReset: !hasImage && hasActiveAction,
+    canClearPins,
+    shouldReset: (!hasImage && hasActiveAction) || shouldResetForMissingPins,
     shouldAttachPasteListener: pasteArmed,
     autoResetTimeoutMs: clearConfirming ? clearConfirmationTimeoutMs : null,
   };

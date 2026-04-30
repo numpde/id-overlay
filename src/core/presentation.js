@@ -15,7 +15,8 @@ import { RUNTIME_ERROR_SOURCE } from "./runtime-error.js";
 export const PANEL_TITLE = "Reference Overlay";
 export const PANEL_REPO_URL = "https://github.com/numpde/id-overlay";
 export const MANUAL_PASTE_PROMPT = "Press Ctrl/Cmd+V to paste an image from your clipboard.";
-export const CLEAR_IMAGE_CONFIRMATION_MESSAGE = "Click Clear? again to remove the current screenshot, placement, and pins.";
+export const CLEAR_PINS_CONFIRMATION_MESSAGE = "Click Clear pins? again to remove the current registration pins.";
+export const CLEAR_IMAGE_CONFIRMATION_MESSAGE = "Click Clear image? again to remove the current screenshot, placement, and pins.";
 export const PANEL_FEEDBACK_ACTION = Object.freeze({
   PASTE_CANCELLED: "paste-cancelled",
   CLEAR_IMAGE: "clear-image",
@@ -61,10 +62,11 @@ export function resolvePanelViewModel({
   const sessionPresentation = resolveOverlaySessionPresentation(state);
   const panelActionSemantics = resolvePanelActionSemantics(panelActionState, {
     hasImage: sessionPresentation.hasImage,
+    canPasteImage: sessionPresentation.canPasteImage,
+    pinCount: sessionPresentation.pinCount,
   });
   const panelActionPresentation = resolvePanelActionPresentation({
-    actionState: panelActionState,
-    hasImage: sessionPresentation.hasImage,
+    actionSemantics: panelActionSemantics,
   });
 
   return {
@@ -95,29 +97,80 @@ export function resolveClearPinsLabel(pinCount) {
   return "Clear pins";
 }
 
+export function resolveClearActionPresentation({
+  hasImage,
+  canPasteImage,
+  pasteArmed,
+  pinCount,
+  clearPinsConfirming,
+  clearImageConfirming,
+}) {
+  if (!hasImage) {
+    return {
+      label: pasteArmed ? "Paste…" : "Paste",
+      variant: "neutral",
+      disabled: !canPasteImage,
+      statusMessage: null,
+    };
+  }
+  if (clearPinsConfirming) {
+    return {
+      label: "Clear pins?",
+      variant: "confirm",
+      disabled: false,
+      statusMessage: CLEAR_PINS_CONFIRMATION_MESSAGE,
+    };
+  }
+  if (clearImageConfirming) {
+    return {
+      label: "Clear image?",
+      variant: "confirm",
+      disabled: false,
+      statusMessage: CLEAR_IMAGE_CONFIRMATION_MESSAGE,
+    };
+  }
+  if (pinCount > 0) {
+    return {
+      label: resolveClearPinsLabel(pinCount),
+      variant: "neutral",
+      disabled: false,
+      statusMessage: null,
+    };
+  }
+  return {
+    label: "Clear image",
+    variant: "neutral",
+    disabled: false,
+    statusMessage: null,
+  };
+}
+
 export function resolveClearImagePresentation({ hasImage, isConfirming }) {
   return {
-    label: isConfirming ? "Clear?" : "Clear",
+    label: isConfirming ? "Clear image?" : "Clear image",
     variant: isConfirming ? "confirm" : "neutral",
     disabled: !hasImage,
     statusMessage: isConfirming ? CLEAR_IMAGE_CONFIRMATION_MESSAGE : null,
   };
 }
 
-export function resolvePanelActionPresentation({ actionState, hasImage }) {
-  const semantics = resolvePanelActionSemantics(actionState);
-  const clearImagePresentation = resolveClearImagePresentation({
-    hasImage,
-    isConfirming: semantics.clearConfirming,
+export function resolvePanelActionPresentation({ actionSemantics }) {
+  const clearActionPresentation = resolveClearActionPresentation({
+    hasImage: actionSemantics.hasImage,
+    canPasteImage: actionSemantics.canPasteImage,
+    pasteArmed: actionSemantics.pasteArmed,
+    pinCount: actionSemantics.pinCount,
+    clearPinsConfirming: actionSemantics.clearPinsConfirming,
+    clearImageConfirming: actionSemantics.clearImageConfirming,
   });
   return {
-    pasteLabel: semantics.pasteArmed ? "Paste…" : "Paste",
-    clearButtonLabel: clearImagePresentation.label,
-    clearButtonVariant: clearImagePresentation.variant,
-    clearButtonDisabled: clearImagePresentation.disabled,
-    statusMessage: semantics.pasteArmed
+    pasteLabel: actionSemantics.pasteArmed ? "Paste…" : "Paste",
+    clearButtonLabel: clearActionPresentation.label,
+    clearButtonVariant: clearActionPresentation.variant,
+    clearButtonDisabled: clearActionPresentation.disabled,
+    statusMessage: actionSemantics.pasteArmed
       ? MANUAL_PASTE_PROMPT
-      : clearImagePresentation.statusMessage,
+      : clearActionPresentation.statusMessage,
   };
 }
 

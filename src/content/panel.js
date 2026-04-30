@@ -138,19 +138,7 @@ export function createPanel({ shadow, store, interactions, statusController }) {
   header.addEventListener("mousedown", handlePanelDragStart);
 
   pasteButton.addEventListener("click", async () => {
-    if (getPanelActionSemantics().pasteArmed) {
-      applyPanelAction(PANEL_ACTION_EVENT.CANCEL_PASTE);
-      logger.info("Cancelled paste capture");
-      statusController.showTransient(describePanelActionPresentation(PANEL_FEEDBACK_ACTION.PASTE_CANCELLED));
-      return;
-    }
-
-    logger.info("Paste requested");
-    const { sessionId } = applyPanelAction(PANEL_ACTION_EVENT.ARM_PASTE);
-    const didLoad = await tryLoadClipboardImageFromApi({ sessionId });
-    if (didLoad) {
-      applyPanelAction(PANEL_ACTION_EVENT.RESET);
-    }
+    await handlePasteActionClick();
   });
 
   modeInput.addEventListener("change", () => {
@@ -184,19 +172,39 @@ export function createPanel({ shadow, store, interactions, statusController }) {
     interactions.setOpacity(nextOpacity);
   }, { passive: false });
 
-  clearButton.addEventListener("click", () => {
-    if (!getPanelActionSemantics().hasImage) {
+  clearButton.addEventListener("click", async () => {
+    if (getPanelActionSemantics().pasteArmed) {
+      await handlePasteActionClick();
       return;
     }
-    if (!getPanelActionSemantics().clearConfirming) {
-      logger.info("Armed clear image confirmation");
-      applyPanelAction(PANEL_ACTION_EVENT.ARM_CLEAR_CONFIRM);
+    const semantics = getPanelActionSemantics();
+    if (!semantics.hasImage) {
+      if (!semantics.canPasteImage) {
+        return;
+      }
+      await handlePasteActionClick();
       return;
     }
-    applyPanelAction(PANEL_ACTION_EVENT.RESET);
-    interactions.clearImage();
-    logger.info("Cleared image from panel action");
-    statusController.showTransient(describePanelActionPresentation(PANEL_FEEDBACK_ACTION.CLEAR_IMAGE));
+    if (semantics.clearPinsConfirming) {
+      applyPanelAction(PANEL_ACTION_EVENT.RESET);
+      interactions.clearPins();
+      logger.info("Cleared pins from destructive panel action");
+      return;
+    }
+    if (semantics.clearImageConfirming) {
+      applyPanelAction(PANEL_ACTION_EVENT.RESET);
+      interactions.clearImage();
+      logger.info("Cleared image from panel action");
+      statusController.showTransient(describePanelActionPresentation(PANEL_FEEDBACK_ACTION.CLEAR_IMAGE));
+      return;
+    }
+    if (semantics.canClearPins) {
+      logger.info("Armed clear pins confirmation");
+      applyPanelAction(PANEL_ACTION_EVENT.ARM_CLEAR_PINS_CONFIRM);
+      return;
+    }
+    logger.info("Armed clear image confirmation");
+    applyPanelAction(PANEL_ACTION_EVENT.ARM_CLEAR_IMAGE_CONFIRM);
   });
 
   const unsubscribeStore = store.subscribe((state) => {
@@ -310,6 +318,22 @@ export function createPanel({ shadow, store, interactions, statusController }) {
 
   function handleWindowResize() {
     setPanelPosition(panelPosition);
+  }
+
+  async function handlePasteActionClick() {
+    if (getPanelActionSemantics().pasteArmed) {
+      applyPanelAction(PANEL_ACTION_EVENT.CANCEL_PASTE);
+      logger.info("Cancelled paste capture");
+      statusController.showTransient(describePanelActionPresentation(PANEL_FEEDBACK_ACTION.PASTE_CANCELLED));
+      return;
+    }
+
+    logger.info("Paste requested");
+    const { sessionId } = applyPanelAction(PANEL_ACTION_EVENT.ARM_PASTE);
+    const didLoad = await tryLoadClipboardImageFromApi({ sessionId });
+    if (didLoad) {
+      applyPanelAction(PANEL_ACTION_EVENT.RESET);
+    }
   }
 
   async function handleWindowPaste(event) {

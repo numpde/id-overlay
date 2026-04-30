@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  CLEAR_PINS_CONFIRMATION_MESSAGE,
   CLEAR_IMAGE_CONFIRMATION_MESSAGE,
   PANEL_FEEDBACK_ACTION,
   describePanelActionPresentation,
@@ -221,7 +222,7 @@ test("resolvePanelPresentation centralizes panel labels and enablement", () => {
     canPasteImage: true,
     canClearPins: true,
     clearPinsLabel: "Clear 2 pins",
-    clearButtonLabel: "Clear",
+    clearButtonLabel: "Clear 2 pins",
     clearButtonVariant: "neutral",
     clearButtonDisabled: false,
     statusMessage: MANUAL_PASTE_PROMPT,
@@ -268,14 +269,16 @@ test("resolvePanelViewModel keeps panel semantics and presentation on one has-im
     },
     statusMessage: "Ready.",
     panelActionState: {
-      kind: PANEL_ACTION_KIND.CLEAR_CONFIRM,
+      kind: PANEL_ACTION_KIND.CLEAR_IMAGE_CONFIRM,
       sessionId: 0,
     },
   });
 
   assert.equal(viewModel.presentation.hasImage, false);
-  assert.equal(viewModel.presentation.clearButtonDisabled, true);
+  assert.equal(viewModel.presentation.clearButtonDisabled, false);
+  assert.equal(viewModel.presentation.clearButtonLabel, "Paste");
   assert.equal(viewModel.actionSemantics.hasImage, false);
+  assert.equal(viewModel.actionSemantics.canPasteImage, true);
   assert.equal(viewModel.actionSemantics.shouldReset, true);
 });
 
@@ -286,7 +289,29 @@ test("resolveClearPinsLabel centralizes the pin-count button copy", () => {
 });
 
 test("resolvePanelPresentation gives clear-confirmation copy priority over steady status", () => {
-  const presentation = resolvePanelPresentation({
+  const pinsPresentation = resolvePanelPresentation({
+    state: {
+      image: { src: "x", width: 1, height: 1 },
+      mode: "align",
+      opacity: 0.6,
+      registration: {
+        pins: [{ id: 1 }],
+        solvedTransform: null,
+        dirty: false,
+      },
+    },
+    statusMessage: "Ready.",
+    panelActionState: {
+      kind: PANEL_ACTION_KIND.CLEAR_PINS_CONFIRM,
+      sessionId: 0,
+    },
+  });
+
+  assert.equal(pinsPresentation.clearButtonLabel, "Clear pins?");
+  assert.equal(pinsPresentation.clearButtonVariant, "confirm");
+  assert.equal(pinsPresentation.statusMessage, CLEAR_PINS_CONFIRMATION_MESSAGE);
+
+  const imagePresentation = resolvePanelPresentation({
     state: {
       image: { src: "x", width: 1, height: 1 },
       mode: "align",
@@ -299,28 +324,31 @@ test("resolvePanelPresentation gives clear-confirmation copy priority over stead
     },
     statusMessage: "Ready.",
     panelActionState: {
-      kind: PANEL_ACTION_KIND.CLEAR_CONFIRM,
+      kind: PANEL_ACTION_KIND.CLEAR_IMAGE_CONFIRM,
       sessionId: 0,
     },
   });
 
-  assert.equal(presentation.clearButtonLabel, "Clear?");
-  assert.equal(presentation.clearButtonVariant, "confirm");
-  assert.equal(presentation.statusMessage, CLEAR_IMAGE_CONFIRMATION_MESSAGE);
+  assert.equal(imagePresentation.clearButtonLabel, "Clear image?");
+  assert.equal(imagePresentation.clearButtonVariant, "confirm");
+  assert.equal(imagePresentation.statusMessage, CLEAR_IMAGE_CONFIRMATION_MESSAGE);
 });
 
 test("resolvePanelActionPresentation centralizes panel-local action state", () => {
   assert.deepEqual(
     resolvePanelActionPresentation({
-      actionState: {
-        kind: PANEL_ACTION_KIND.IDLE,
-        sessionId: 0,
+      actionSemantics: {
+        hasImage: false,
+        canPasteImage: true,
+        pinCount: 0,
+        pasteArmed: false,
+        clearPinsConfirming: false,
+        clearImageConfirming: false,
       },
-      hasImage: true,
     }),
     {
       pasteLabel: "Paste",
-      clearButtonLabel: "Clear",
+      clearButtonLabel: "Paste",
       clearButtonVariant: "neutral",
       clearButtonDisabled: false,
       statusMessage: null,
@@ -329,15 +357,18 @@ test("resolvePanelActionPresentation centralizes panel-local action state", () =
 
   assert.deepEqual(
     resolvePanelActionPresentation({
-      actionState: {
-        kind: PANEL_ACTION_KIND.PASTE_ARMED,
-        sessionId: 1,
+      actionSemantics: {
+        hasImage: false,
+        canPasteImage: true,
+        pinCount: 0,
+        pasteArmed: true,
+        clearPinsConfirming: false,
+        clearImageConfirming: false,
       },
-      hasImage: true,
     }),
     {
       pasteLabel: "Paste…",
-      clearButtonLabel: "Clear",
+      clearButtonLabel: "Paste…",
       clearButtonVariant: "neutral",
       clearButtonDisabled: false,
       statusMessage: MANUAL_PASTE_PROMPT,
@@ -346,15 +377,78 @@ test("resolvePanelActionPresentation centralizes panel-local action state", () =
 
   assert.deepEqual(
     resolvePanelActionPresentation({
-      actionState: {
-        kind: PANEL_ACTION_KIND.CLEAR_CONFIRM,
-        sessionId: 0,
+      actionSemantics: {
+        hasImage: true,
+        canPasteImage: true,
+        pinCount: 2,
+        pasteArmed: false,
+        clearPinsConfirming: false,
+        clearImageConfirming: false,
       },
-      hasImage: true,
     }),
     {
       pasteLabel: "Paste",
-      clearButtonLabel: "Clear?",
+      clearButtonLabel: "Clear 2 pins",
+      clearButtonVariant: "neutral",
+      clearButtonDisabled: false,
+      statusMessage: null,
+    },
+  );
+
+  assert.deepEqual(
+    resolvePanelActionPresentation({
+      actionSemantics: {
+        hasImage: true,
+        canPasteImage: true,
+        pinCount: 2,
+        pasteArmed: true,
+        clearPinsConfirming: false,
+        clearImageConfirming: false,
+      },
+    }),
+    {
+      pasteLabel: "Paste…",
+      clearButtonLabel: "Clear 2 pins",
+      clearButtonVariant: "neutral",
+      clearButtonDisabled: false,
+      statusMessage: MANUAL_PASTE_PROMPT,
+    },
+  );
+
+  assert.deepEqual(
+    resolvePanelActionPresentation({
+      actionSemantics: {
+        hasImage: true,
+        canPasteImage: true,
+        pinCount: 2,
+        pasteArmed: false,
+        clearPinsConfirming: true,
+        clearImageConfirming: false,
+      },
+    }),
+    {
+      pasteLabel: "Paste",
+      clearButtonLabel: "Clear pins?",
+      clearButtonVariant: "confirm",
+      clearButtonDisabled: false,
+      statusMessage: CLEAR_PINS_CONFIRMATION_MESSAGE,
+    },
+  );
+
+  assert.deepEqual(
+    resolvePanelActionPresentation({
+      actionSemantics: {
+        hasImage: true,
+        canPasteImage: true,
+        pinCount: 0,
+        pasteArmed: false,
+        clearPinsConfirming: false,
+        clearImageConfirming: true,
+      },
+    }),
+    {
+      pasteLabel: "Paste",
+      clearButtonLabel: "Clear image?",
       clearButtonVariant: "confirm",
       clearButtonDisabled: false,
       statusMessage: CLEAR_IMAGE_CONFIRMATION_MESSAGE,
@@ -369,7 +463,7 @@ test("resolveClearImagePresentation centralizes destructive-clear confirmation s
       isConfirming: false,
     }),
     {
-      label: "Clear",
+      label: "Clear image",
       variant: "neutral",
       disabled: true,
       statusMessage: null,
@@ -382,7 +476,7 @@ test("resolveClearImagePresentation centralizes destructive-clear confirmation s
       isConfirming: true,
     }),
     {
-      label: "Clear?",
+      label: "Clear image?",
       variant: "confirm",
       disabled: false,
       statusMessage: CLEAR_IMAGE_CONFIRMATION_MESSAGE,

@@ -508,7 +508,7 @@ test("clicking Paste… again cancels paste capture and ignores a later clipboar
   }
 });
 
-test("clear button requires confirmation and resets after its timeout", async () => {
+test("clear button escalates from clear-image confirmation when no pins exist and resets after its timeout", async () => {
   const env = createDomEnvironment({
     storageState: {
       "id-overlay/state": {
@@ -549,24 +549,24 @@ test("clear button requires confirmation and resets after its timeout", async ()
 
     const shadow = env.document.getElementById("id-overlay-root").shadowRoot;
     const clearButton = [...shadow.querySelectorAll(".id-overlay-button")].find(
-      (button) => button.textContent === "Clear"
+      (button) => button.textContent === "Clear image"
     );
     const status = shadow.querySelector(".id-overlay-panel__status");
     const image = env.document.querySelector(".id-overlay-image");
 
     clearButton.click();
 
-    assert.equal(clearButton.textContent, "Clear?");
+    assert.equal(clearButton.textContent, "Clear image?");
     assert.equal(clearButton.classList.contains("id-overlay-button--confirm"), true);
     assert.equal(
       status.textContent,
-      "Click Clear? again to remove the current screenshot, placement, and pins.",
+      "Click Clear image? again to remove the current screenshot, placement, and pins.",
     );
     assert.equal(image.style.display, "block");
 
     scheduledTimeout?.();
 
-    assert.equal(clearButton.textContent, "Clear");
+    assert.equal(clearButton.textContent, "Clear image");
     assert.equal(clearButton.classList.contains("id-overlay-button--confirm"), false);
   } finally {
     globalThis.setTimeout = originalSetTimeout;
@@ -575,7 +575,7 @@ test("clear button requires confirmation and resets after its timeout", async ()
   }
 });
 
-test("clear button only clears the image on the second click", async () => {
+test("clear button clears pins first, then escalates to clear image", async () => {
   const env = createDomEnvironment({
     storageState: {
       "id-overlay/state": {
@@ -593,7 +593,9 @@ test("clear button only clears the image on the second click", async () => {
           rotationRad: 0,
         }),
         registration: {
-          pins: [],
+          pins: [
+            { id: 1, imagePx: { x: 10, y: 20 }, mapLatLon: { lat: 1, lon: 2 } },
+          ],
           solvedTransform: null,
           dirty: false,
         },
@@ -606,13 +608,26 @@ test("clear button only clears the image on the second click", async () => {
     await bootstrapIdOverlay();
 
     const shadow = env.document.getElementById("id-overlay-root").shadowRoot;
-    const clearButton = [...shadow.querySelectorAll(".id-overlay-button")].find(
-      (button) => button.textContent === "Clear"
-    );
+    const clearButton = shadow.querySelector(".id-overlay-panel__clear-button");
     const image = env.document.querySelector(".id-overlay-image");
+    const clearPinsButton = [...shadow.querySelectorAll(".id-overlay-button")].find(
+      (button) => !button.classList.contains("id-overlay-panel__clear-button") &&
+        button.textContent.includes("Clear 1 pin")
+    );
 
     clearButton.click();
     assert.equal(image.style.display, "block");
+    assert.equal(clearButton.textContent, "Clear pins?");
+
+    clearButton.click();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    assert.equal(clearPinsButton.disabled, true);
+    assert.equal(clearButton.textContent, "Clear image");
+    assert.equal(image.style.display, "block");
+
+    clearButton.click();
+    assert.equal(clearButton.textContent, "Clear image?");
 
     clearButton.click();
     await new Promise((resolve) => setTimeout(resolve, 0));
