@@ -223,7 +223,7 @@ export function createOverlay({ pageAdapter, store, interactions }) {
   }
 
   function ensureOverlayMount() {
-    const nextMountElement = pageAdapter.getOverlayMountElement?.();
+    const nextMountElement = latestSnapshot.mountElement ?? pageAdapter.getOverlayMountElement?.();
     if (!nextMountElement) {
       return;
     }

@@ -38,6 +38,8 @@ test("page adapter uses the viewport element and keeps map/screen projection con
       width: 900,
       height: 600,
     });
+    assert.equal(adapter.getSnapshot().viewportElement, viewport);
+    assert.equal(adapter.getSnapshot().mountElement, viewport);
     assert.equal(adapter.getOverlayMountElement(), viewport);
     assert.deepEqual(adapter.getLocalViewportRect(), {
       left: 0,
@@ -169,6 +171,8 @@ test("page adapter prefers the embedded iD iframe for viewport, map view, and su
       lat: -1.21,
       lon: 36.83,
     });
+    assert.equal(adapter.getSnapshot().viewportElement, viewport);
+    assert.equal(adapter.getSnapshot().mountElement, viewport);
     assert.deepEqual(adapter.getViewportRect(), {
       left: 320,
       top: 70,
@@ -330,6 +334,61 @@ test("page adapter keeps the same viewport mount through style churn while it re
     assert.equal(nextMount.classList.contains("main-map"), true);
     assert.equal(nextMount.classList.contains("supersurface"), false);
 
+    adapter.destroy();
+  } finally {
+    env.cleanup();
+  }
+});
+
+test("page adapter snapshot changes when the semantic viewport host changes", async () => {
+  const env = createDomEnvironment({
+    url: "https://www.openstreetmap.org/edit?editor=id#map=16/-1.22645/36.82597",
+    viewportHtml: '<div class="main-map"></div><div class="supersurface"></div>',
+  });
+
+  try {
+    const viewport = env.document.querySelector(".main-map");
+    viewport.getBoundingClientRect = () => ({
+      left: 120,
+      top: 80,
+      width: 800,
+      height: 600,
+      right: 920,
+      bottom: 680,
+    });
+
+    const surface = env.document.querySelector(".supersurface");
+    surface.getBoundingClientRect = () => ({
+      left: 120,
+      top: 80,
+      width: 800,
+      height: 600,
+      right: 920,
+      bottom: 680,
+    });
+
+    const adapter = createPageAdapter({
+      hashTarget: env.window,
+      viewportDocument: env.document,
+    });
+
+    const snapshots = [];
+    const unsubscribe = adapter.subscribe((snapshot) => {
+      snapshots.push(snapshot);
+    });
+
+    assert.equal(snapshots.length >= 1, true);
+    assert.equal(snapshots.at(-1).mountElement, viewport);
+
+    viewport.remove();
+    surface.dispatchEvent(new env.window.Event("transitionrun", { bubbles: true }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    assert.equal(snapshots.length >= 2, true);
+    assert.equal(snapshots.at(-1).mountElement, surface);
+    assert.equal(adapter.getOverlayMountElement(), surface);
+
+    unsubscribe();
     adapter.destroy();
   } finally {
     env.cleanup();

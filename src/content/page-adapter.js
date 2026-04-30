@@ -48,10 +48,7 @@ export function createPageAdapter({
   }
 
   function getViewportElement() {
-    return runAdapterBoundary("get-viewport-element", () => {
-      const context = getActiveMapContext();
-      return resolveViewportElement(context);
-    }, null);
+    return getSnapshot().viewportElement;
   }
 
   function getViewportRect() {
@@ -75,9 +72,7 @@ export function createPageAdapter({
   }
 
   function getOverlayMountElement() {
-    return runAdapterBoundary("get-overlay-mount-element", () => {
-      return resolveOverlayMountElement(getActiveMapContext());
-    }, null);
+    return getSnapshot().mountElement;
   }
 
   function clientPointToScreen(clientPoint) {
@@ -224,14 +219,12 @@ export function createPageAdapter({
   }
 
   function getSnapshot() {
-    return runAdapterBoundary("get-snapshot", () => {
-      return createSnapshot(resolveSnapshotState(getActiveMapContext()));
-    }, createFallbackSnapshot());
+    return readSnapshot();
   }
 
   function notifyIfChanged() {
     syncObservedContext();
-    const nextSnapshot = getSnapshot();
+    const nextSnapshot = readSnapshot();
     if (lastSnapshot && snapshotsEqual(lastSnapshot, nextSnapshot)) {
       return;
     }
@@ -296,6 +289,8 @@ export function createPageAdapter({
     }
     const viewportRect = createWindowViewportRect(hashTarget);
     return createSnapshot({
+      viewportElement: null,
+      mountElement: null,
       viewportRect,
       localViewportRect: viewportRect,
       mapView: lastCoherentMapView ?? DEFAULT_MAP_VIEW,
@@ -369,14 +364,6 @@ export function createPageAdapter({
     };
   }
 
-  function resolveViewportRect(context) {
-    return resolveViewportGeometry(context).viewportRect;
-  }
-
-  function resolveLocalViewportRect(context) {
-    return resolveViewportGeometry(context).localViewportRect;
-  }
-
   function resolveSurfaceMotion(context) {
     const surfaceElement = context.viewportDocument.querySelector(SURFACE_MOTION_SELECTOR);
     if (!surfaceElement) {
@@ -406,10 +393,6 @@ export function createPageAdapter({
     const hashMapView = parseMapViewFromHash(getSafeLocation(context.mapWindow).hash);
     lastCoherentMapView = hashMapView;
     return hashMapView;
-  }
-
-  function resolveOverlayMountElement(context) {
-    return resolveViewportGeometry(context).mountElement;
   }
 
   function resolveForwardedMapGestureContext({
@@ -452,6 +435,8 @@ export function createPageAdapter({
     const viewportGeometry = resolveViewportGeometry(context);
     const surfaceMotion = resolveSurfaceMotion(context);
     return {
+      viewportElement: viewportGeometry.viewportElement,
+      mountElement: viewportGeometry.mountElement,
       viewportRect: viewportGeometry.viewportRect,
       localViewportRect: viewportGeometry.localViewportRect,
       mapView: resolveMapView(context, {
@@ -460,10 +445,6 @@ export function createPageAdapter({
       }),
       surfaceMotion,
     };
-  }
-
-  function getProjectionContext() {
-    return createProjectionContext(getSnapshot());
   }
 
   function getActiveMapContext() {
@@ -480,6 +461,12 @@ export function createPageAdapter({
       viewportDocument,
       frameElement: null,
     };
+  }
+
+  function readSnapshot() {
+    return runAdapterBoundary("get-snapshot", () => {
+      return createSnapshot(resolveSnapshotState(getActiveMapContext()));
+    }, createFallbackSnapshot());
   }
 
   function syncObservedContext() {
@@ -611,8 +598,17 @@ function patchHistoryMethods({ hashTarget, onHistoryMutation }) {
   };
 }
 
-function createSnapshot({ viewportRect, localViewportRect, mapView, surfaceMotion }) {
+function createSnapshot({
+  viewportElement = null,
+  mountElement = null,
+  viewportRect,
+  localViewportRect,
+  mapView,
+  surfaceMotion,
+}) {
   return {
+    viewportElement,
+    mountElement,
     viewportRect,
     localViewportRect,
     mapView,
@@ -997,14 +993,6 @@ function parseMatrixTransform(element) {
   return null;
 }
 
-function formatZoom(zoom) {
-  return Number(zoom).toFixed(2).replace(/\.00$/, "");
-}
-
-function formatCoordinate(value) {
-  return Number(value).toFixed(6);
-}
-
 function getSafeLocation(hashTarget) {
   try {
     return hashTarget.location ?? {
@@ -1043,6 +1031,8 @@ function unprojectWorld({ x, y }, zoom) {
 
 function snapshotsEqual(left, right) {
   return (
+    left.viewportElement === right.viewportElement &&
+    left.mountElement === right.mountElement &&
     left.viewportRect.left === right.viewportRect.left &&
     left.viewportRect.top === right.viewportRect.top &&
     left.viewportRect.width === right.viewportRect.width &&
