@@ -30,33 +30,33 @@ test("page adapter uses the viewport element and keeps map/screen projection con
       hashTarget: env.window,
       viewportDocument: env.document,
     });
+    const snapshot = adapter.getSnapshot();
 
     assert.equal(adapter.isSupported(), true);
-    assert.deepEqual(adapter.getViewportRect(), {
+    assert.deepEqual(snapshot.viewportRect, {
       left: 120,
       top: 80,
       width: 900,
       height: 600,
     });
-    assert.equal(adapter.getSnapshot().viewportElement, viewport);
-    assert.equal(adapter.getSnapshot().mountElement, viewport);
-    assert.equal(adapter.getOverlayMountElement(), viewport);
-    assert.deepEqual(adapter.getLocalViewportRect(), {
+    assert.equal(snapshot.viewportElement, viewport);
+    assert.equal(snapshot.mountElement, viewport);
+    assert.deepEqual(snapshot.localViewportRect, {
       left: 0,
       top: 0,
       width: 900,
       height: 600,
     });
-    assert.deepEqual(adapter.getMapCenter(), {
+    assert.deepEqual(snapshot.mapView.center, {
       lat: -1.22645,
       lon: 36.82597,
     });
 
     const viewportCenter = { x: 570, y: 380 };
-    assert.deepEqual(adapter.mapToScreen(adapter.getMapCenter()), viewportCenter);
+    assert.deepEqual(adapter.mapToScreen(snapshot.mapView.center), viewportCenter);
     const resolvedCenter = adapter.screenToMap(viewportCenter);
-    assert.ok(Math.abs(resolvedCenter.lat - adapter.getMapCenter().lat) < 1e-9);
-    assert.ok(Math.abs(resolvedCenter.lon - adapter.getMapCenter().lon) < 1e-9);
+    assert.ok(Math.abs(resolvedCenter.lat - snapshot.mapView.center.lat) < 1e-9);
+    assert.ok(Math.abs(resolvedCenter.lon - snapshot.mapView.center.lon) < 1e-9);
 
     const point = { lat: -1.2259, lon: 36.8271 };
     const projected = adapter.mapToScreen(point);
@@ -95,7 +95,7 @@ test("page adapter falls back to the window viewport when no map element is pres
       viewportDocument: env.document,
     });
 
-    assert.deepEqual(adapter.getViewportRect(), {
+    assert.deepEqual(adapter.getSnapshot().viewportRect, {
       left: 0,
       top: 0,
       width: 1440,
@@ -166,27 +166,27 @@ test("page adapter prefers the embedded iD iframe for viewport, map view, and su
       hashTarget: env.window,
       viewportDocument: env.document,
     });
+    const snapshot = adapter.getSnapshot();
 
-    assert.deepEqual(adapter.getMapCenter(), {
+    assert.deepEqual(snapshot.mapView.center, {
       lat: -1.21,
       lon: 36.83,
     });
-    assert.equal(adapter.getSnapshot().viewportElement, viewport);
-    assert.equal(adapter.getSnapshot().mountElement, viewport);
-    assert.deepEqual(adapter.getViewportRect(), {
+    assert.equal(snapshot.viewportElement, viewport);
+    assert.equal(snapshot.mountElement, viewport);
+    assert.deepEqual(snapshot.viewportRect, {
       left: 320,
       top: 70,
       width: 700,
       height: 500,
     });
-    assert.equal(adapter.getOverlayMountElement(), viewport);
-    assert.deepEqual(adapter.getLocalViewportRect(), {
+    assert.deepEqual(snapshot.localViewportRect, {
       left: 0,
       top: 0,
       width: 700,
       height: 500,
     });
-    assert.deepEqual(adapter.getSnapshot().surfaceMotion, {
+    assert.deepEqual(snapshot.surfaceMotion, {
       transformCss: "matrix(1, 0, 0, 1, 18, -12)",
       transformOriginCss: "0px 0px",
     });
@@ -237,9 +237,10 @@ test("page adapter derives a more precise map view from rendered tiles when avai
     };
     const preciseCenter = unprojectWorldToLatLon(preciseCenterWorld);
 
-    assert.equal(adapter.getMapView().zoom, 4);
-    assert.ok(Math.abs(adapter.getMapCenter().lat - preciseCenter.lat) < 1e-9);
-    assert.ok(Math.abs(adapter.getMapCenter().lon - preciseCenter.lon) < 1e-9);
+    const snapshot = adapter.getSnapshot();
+    assert.equal(snapshot.mapView.zoom, 4);
+    assert.ok(Math.abs(snapshot.mapView.center.lat - preciseCenter.lat) < 1e-9);
+    assert.ok(Math.abs(snapshot.mapView.center.lon - preciseCenter.lon) < 1e-9);
 
     adapter.destroy();
   } finally {
@@ -276,13 +277,13 @@ test("page adapter retains the last coherent map view while live surface motion 
       viewportDocument: env.document,
     });
 
-    const coherentMapView = adapter.getMapView();
+    const coherentMapView = adapter.getSnapshot().mapView;
     assert.equal(coherentMapView.zoom, 4);
 
     tile.remove();
     surface.style.transform = "matrix(1.2, 0, 0, 1.2, -40, -30)";
 
-    const retainedMapView = adapter.getMapView();
+    const retainedMapView = adapter.getSnapshot().mapView;
     assert.deepEqual(retainedMapView, coherentMapView);
 
     adapter.destroy();
@@ -323,14 +324,14 @@ test("page adapter keeps the same viewport mount through style churn while it re
       viewportDocument: env.document,
     });
 
-    const initialMount = adapter.getOverlayMountElement();
+    const initialMount = adapter.getSnapshot().mountElement;
     assert.equal(initialMount.classList.contains("main-map"), true);
     assert.equal(initialMount.classList.contains("supersurface"), false);
 
     surface.style.transform = "matrix(1.1, 0, 0, 1.1, -12, -8)";
     surface.dispatchEvent(new env.window.Event("transitionrun", { bubbles: true }));
 
-    const nextMount = adapter.getOverlayMountElement();
+    const nextMount = adapter.getSnapshot().mountElement;
     assert.equal(nextMount.classList.contains("main-map"), true);
     assert.equal(nextMount.classList.contains("supersurface"), false);
 
@@ -386,7 +387,7 @@ test("page adapter snapshot changes when the semantic viewport host changes", as
 
     assert.equal(snapshots.length >= 2, true);
     assert.equal(snapshots.at(-1).mountElement, surface);
-    assert.equal(adapter.getOverlayMountElement(), surface);
+    assert.equal(adapter.getSnapshot().mountElement, surface);
 
     unsubscribe();
     adapter.destroy();

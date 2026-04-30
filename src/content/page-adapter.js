@@ -47,34 +47,6 @@ export function createPageAdapter({
       location.pathname.startsWith("/edit");
   }
 
-  function getViewportElement() {
-    return getSnapshot().viewportElement;
-  }
-
-  function getViewportRect() {
-    return getSnapshot().viewportRect;
-  }
-
-  function getLocalViewportRect() {
-    return getSnapshot().localViewportRect;
-  }
-
-  function getSurfaceMotion() {
-    return getSnapshot().surfaceMotion;
-  }
-
-  function getMapView() {
-    return getSnapshot().mapView;
-  }
-
-  function getMapCenter() {
-    return getMapView().center;
-  }
-
-  function getOverlayMountElement() {
-    return getSnapshot().mountElement;
-  }
-
   function clientPointToScreen(clientPoint) {
     return runAdapterBoundary("client-point-to-screen", () => {
       const context = getActiveMapContext();
@@ -301,11 +273,6 @@ export function createPageAdapter({
   return {
     isSupported,
     getSnapshot,
-    getViewportRect,
-    getLocalViewportRect,
-    getMapView,
-    getMapCenter,
-    getOverlayMountElement,
     clientPointToScreen,
     screenPointToClient,
     mapToScreen,

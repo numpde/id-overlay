@@ -1149,17 +1149,11 @@ function createPageAdapter({
   screenToMapThrows,
 }) {
   return {
-    getMapCenter() {
-      return { lat: -1.23, lon: 36.84 };
-    },
     getSnapshot() {
       return {
         viewportRect: { left: 100, top: 100, width: 800, height: 400 },
         mapView: { center: { lat: -1.23, lon: 36.84 }, zoom: 16 },
       };
-    },
-    getViewportRect() {
-      return { left: 100, top: 100, width: 800, height: 400 };
     },
     mapToScreen(point) {
       return {

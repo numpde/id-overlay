@@ -53,6 +53,8 @@ test("overlay double-click toggles pins through the interaction controller", asy
       pageAdapter: {
         getSnapshot() {
           return {
+            viewportElement: map,
+            mountElement: map,
             viewportRect: { left: 100, top: 200, width: 800, height: 400 },
             localViewportRect: { left: 0, top: 0, width: 800, height: 400 },
             mapView: { center: { lat: 0, lon: 0 }, zoom: 16 },
@@ -62,9 +64,6 @@ test("overlay double-click toggles pins through the interaction controller", asy
         subscribe(listener) {
           listener(this.getSnapshot());
           return () => {};
-        },
-        getOverlayMountElement() {
-          return env.document.getElementById("map") ?? env.document.body;
         },
         clientPointToScreen(point) {
           return point;
@@ -158,6 +157,8 @@ test("handled overlay wheel gestures do not bubble into the underlying map", asy
       pageAdapter: {
         getSnapshot() {
           return {
+            viewportElement: map,
+            mountElement: map,
             viewportRect: { left: 100, top: 200, width: 800, height: 400 },
             localViewportRect: { left: 0, top: 0, width: 800, height: 400 },
             mapView: { center: { lat: 0, lon: 0 }, zoom: 16 },
@@ -167,9 +168,6 @@ test("handled overlay wheel gestures do not bubble into the underlying map", asy
         subscribe(listener) {
           listener(this.getSnapshot());
           return () => {};
-        },
-        getOverlayMountElement() {
-          return map;
         },
         clientPointToScreen(point) {
           return point;
@@ -262,6 +260,8 @@ test("plain wheel over the overlay in align mode stays native to the map", async
       pageAdapter: {
         getSnapshot() {
           return {
+            viewportElement: map,
+            mountElement: map,
             viewportRect: { left: 100, top: 200, width: 800, height: 400 },
             localViewportRect: { left: 0, top: 0, width: 800, height: 400 },
             mapView: { center: { lat: 0, lon: 0 }, zoom: 16 },
@@ -271,9 +271,6 @@ test("plain wheel over the overlay in align mode stays native to the map", async
         subscribe(listener) {
           listener(this.getSnapshot());
           return () => {};
-        },
-        getOverlayMountElement() {
-          return map;
         },
         clientPointToScreen(point) {
           return point;
@@ -366,6 +363,8 @@ test("alt-wheel in trace mode is captured from the map layer when the pointer is
       pageAdapter: {
         getSnapshot() {
           return {
+            viewportElement: map,
+            mountElement: map,
             viewportRect: { left: 100, top: 200, width: 800, height: 400 },
             localViewportRect: { left: 0, top: 0, width: 800, height: 400 },
             mapView: { center: { lat: 0, lon: 0 }, zoom: 16 },
@@ -375,9 +374,6 @@ test("alt-wheel in trace mode is captured from the map layer when the pointer is
         subscribe(listener) {
           listener(this.getSnapshot());
           return () => {};
-        },
-        getOverlayMountElement() {
-          return map;
         },
         clientPointToScreen(point) {
           return point;
@@ -478,6 +474,8 @@ test("align-mode overlay pointerdown owns the click sequence and does not bubble
       pageAdapter: {
         getSnapshot() {
           return {
+            viewportElement: map,
+            mountElement: map,
             viewportRect: { left: 100, top: 200, width: 800, height: 400 },
             localViewportRect: { left: 0, top: 0, width: 800, height: 400 },
             mapView: { center: { lat: 0, lon: 0 }, zoom: 16 },
@@ -487,9 +485,6 @@ test("align-mode overlay pointerdown owns the click sequence and does not bubble
         subscribe(listener) {
           listener(this.getSnapshot());
           return () => {};
-        },
-        getOverlayMountElement() {
-          return map;
         },
         clientPointToScreen(point) {
           return point;
@@ -584,6 +579,8 @@ test("plain pointerdown over the overlay in align mode owns the click sequence w
       pageAdapter: {
         getSnapshot() {
           return {
+            viewportElement: map,
+            mountElement: map,
             viewportRect: { left: 100, top: 200, width: 800, height: 400 },
             localViewportRect: { left: 0, top: 0, width: 800, height: 400 },
             mapView: { center: { lat: 0, lon: 0 }, zoom: 16 },
@@ -593,9 +590,6 @@ test("plain pointerdown over the overlay in align mode owns the click sequence w
         subscribe(listener) {
           listener(this.getSnapshot());
           return () => {};
-        },
-        getOverlayMountElement() {
-          return map;
         },
         clientPointToScreen(point) {
           return point;
@@ -693,6 +687,8 @@ test("trace-mode solved transform follows map view changes from the page adapter
     });
 
     let snapshot = {
+      viewportElement: env.document.getElementById("map") ?? env.document.body,
+      mountElement: env.document.getElementById("map") ?? env.document.body,
       viewportRect: { left: 0, top: 0, width: 800, height: 400 },
       localViewportRect: { left: 0, top: 0, width: 800, height: 400 },
       mapView: { center: { lat: 0, lon: 0 }, zoom: 0 },
@@ -711,9 +707,6 @@ test("trace-mode solved transform follows map view changes from the page adapter
           return () => {
             listener = null;
           };
-        },
-        getOverlayMountElement() {
-          return env.document.getElementById("map") ?? env.document.body;
         },
         clientPointToScreen(point) {
           return point;
@@ -750,6 +743,8 @@ test("trace-mode solved transform follows map view changes from the page adapter
     assert.equal(image.style.top, "272px");
 
     snapshot = {
+      viewportElement: env.document.getElementById("map") ?? env.document.body,
+      mountElement: env.document.getElementById("map") ?? env.document.body,
       viewportRect: { left: 0, top: 0, width: 800, height: 400 },
       localViewportRect: { left: 0, top: 0, width: 800, height: 400 },
       mapView: { center: { lat: 0, lon: 1 }, zoom: 0 },
@@ -818,6 +813,8 @@ test("trace-mode overlay applies live surface motion from the page adapter", asy
     });
 
     let snapshot = {
+      viewportElement: env.document.getElementById("map") ?? env.document.body,
+      mountElement: env.document.getElementById("map") ?? env.document.body,
       viewportRect: { left: 10, top: 20, width: 800, height: 400 },
       localViewportRect: { left: 10, top: 20, width: 800, height: 400 },
       mapView: { center: { lat: 0, lon: 0 }, zoom: 0 },
@@ -835,9 +832,6 @@ test("trace-mode overlay applies live surface motion from the page adapter", asy
         subscribe(listener) {
           listener(snapshot);
           return () => {};
-        },
-        getOverlayMountElement() {
-          return env.document.getElementById("map") ?? env.document.body;
         },
         clientPointToScreen(point) {
           return point;
