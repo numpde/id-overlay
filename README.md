@@ -1,13 +1,13 @@
 # id-overlay
 
-`id-overlay` is a Chromium-targeted browser extension that adds a movable screenshot overlay to the OpenStreetMap iD editor.
+`id-overlay` is a Chromium-targeted browser extension that adds a movable reference-image overlay to the OpenStreetMap iD editor.
 
-It is meant for one narrow workflow:
+It is built for one narrow workflow:
 - paste a reference screenshot over the map
-- align it manually
-- place pins to register screenshot pixels to map locations
+- align it roughly
+- place screenshot-to-map pin correspondences
 - compute a transform
-- trace in iD with the overlay following the map
+- trace in iD while the overlay follows the map
 
 ![Reference Overlay screenshot](docs/reference-overlay-screenshot.jpg)
 
@@ -19,7 +19,7 @@ It is meant for one narrow workflow:
 - targets `https://www.openstreetmap.org/edit?editor=id`
 - runs as a Manifest V3 content-script extension
 - supports two modes:
-  - `Align`: move/scale/rotate the overlay and edit pins
+  - `Align`: register the overlay to the map
   - `Trace`: leave the overlay passive while tracing in iD
 
 The current alignment workflow is:
@@ -38,13 +38,19 @@ The current alignment workflow is:
 | Drag | Move the map and overlay together |
 | `Shift` + drag | Move only the overlay |
 | Wheel | Zoom the map and overlay together |
-| `Shift` + wheel | Scale only the overlay |
-| `Ctrl` + wheel | Rotate only the overlay |
+| `Shift` + wheel | Scale only the overlay around the point under the cursor |
+| `Ctrl` + wheel | Rotate only the overlay around the point under the cursor |
 | `Alt` + wheel | Adjust only the overlay opacity |
 | Double-click on overlay | Add a pin at that screenshot/map correspondence |
 | Double-click on an existing pin | Remove that pin |
 | `Compute transform` | Solve and apply the transform from the current pins |
 | Mode switch to `Trace` | Leave registration mode and keep the overlay passive |
+
+Notes:
+- Plain drag and plain wheel stay map-native in `Align`; the overlay follows that shared map motion.
+- Dropped pins render in two places from the same stored pin state:
+  - a primary pin on the overlay image
+  - a subtle inert counterpart on the map
 
 ### Trace Mode
 
@@ -59,7 +65,20 @@ Notes:
 - In `Trace`, the overlay is passive. The map remains editable in iD.
 - In both modes, once a transform has been computed, the overlay prefers that solved transform.
 
-## Load In Chromium
+## Install In Chromium
+
+This extension is currently distributed as an **unpacked Chromium extension**.
+
+That means:
+- it is **not** installed from the Chrome Web Store
+- the GitHub release asset is **not** a one-click installer
+- you must **extract the zip** and then point Chromium at the extracted folder with `Load unpacked`
+
+There are two supported install paths:
+- download a release zip from GitHub and load the extracted folder
+- build locally and load [`dist`](dist)
+
+### Local build
 
 1. Build the extension:
 
@@ -75,8 +94,31 @@ npm run build:chrome
 Then open `https://www.openstreetmap.org/edit?editor=id`.
 
 Notes:
-- the supported install path today is `Load unpacked` from [`dist`](dist)
+- the supported install path today is `Load unpacked` from a folder, not direct zip installation
+- release assets are zip packages, not signed store installs or `.crx` files
 - Firefox/Safari packaging is not implemented yet
+
+### GitHub release zip
+
+1. Open the releases page:
+   - `https://github.com/numpde/id-overlay/releases`
+2. Download the latest asset named like:
+   - `id-overlay-chrome-0.0.1.zip`
+3. Extract that zip somewhere you want to keep it.
+
+Why extract it?
+- Chromium’s `Load unpacked` expects a **directory**
+- the release zip is just a convenient way to ship that directory through GitHub
+
+4. Open `chrome://extensions`
+5. Enable `Developer mode`
+6. Click `Load unpacked`
+7. Select the **extracted folder**, not the zip file itself
+8. Open `https://www.openstreetmap.org/edit?editor=id`
+
+If Chromium says the extension is missing files, you probably selected:
+- the zip itself instead of the extracted folder, or
+- the parent directory instead of the actual extracted extension directory
 
 ## Development
 
@@ -123,6 +165,9 @@ GitHub Actions now handles two paths:
 
 The current GitHub release artifact is a Chromium extension package:
 - `id-overlay-chrome-<version>.zip`
+
+Current release:
+- [`v0.0.1`](https://github.com/numpde/id-overlay/releases/tag/v0.0.1)
 
 Versioning is currently single-source in [`manifest.chrome.json`](manifest.chrome.json). The release flow is:
 
