@@ -45,6 +45,16 @@ test("content stylesheet only styles the panel shell", async () => {
     "the panel stylesheet should style the extension panel"
   );
   assert.doesNotMatch(stylesheet, /\.id-overlay-map-layer\s*\{/s);
+  assert.match(
+    stylesheet,
+    /\.id-overlay-panel\s*\{[^}]*overflow:\s*hidden;/s,
+    "the panel should clip expanding children within its bounds",
+  );
+  assert.match(
+    stylesheet,
+    /\.id-overlay-panel__status:hover,\s*\.id-overlay-panel__status:focus-visible\s*\{[^}]*overflow-y:\s*auto;/s,
+    "expanded status should scroll internally instead of overflowing past the panel",
+  );
 });
 
 async function collectModuleGraph(entryPath, seen = new Set()) {

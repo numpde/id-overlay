@@ -10,8 +10,10 @@ import {
   isTraceMode,
 } from "./interactions.js";
 import { resolvePanelActionSemantics } from "./panel-state.js";
+import { RUNTIME_ERROR_SOURCE } from "./runtime-error.js";
 
 export const PANEL_TITLE = "Reference Overlay";
+export const PANEL_REPO_URL = "https://github.com/numpde/id-overlay";
 export const MANUAL_PASTE_PROMPT = "Press Ctrl/Cmd+V to paste an image from your clipboard.";
 export const CLEAR_IMAGE_CONFIRMATION_MESSAGE = "Click Clear? again to remove the current screenshot, placement, and pins.";
 export const PANEL_FEEDBACK_ACTION = Object.freeze({
@@ -240,9 +242,28 @@ export function describeInteractionEventPresentation(event) {
       return describeSolveResultPresentation(event.result);
     case INTERACTION_EVENT.PINS_CLEARED:
       return "Cleared all registration pins.";
+    case INTERACTION_EVENT.RUNTIME_ERROR:
+      return describeRuntimeErrorPresentation(event.error);
     default:
       return null;
   }
+}
+
+export function describeRuntimeErrorPresentation(runtimeError) {
+  if (!runtimeError) {
+    return "The overlay hit an unexpected error.";
+  }
+
+  if (runtimeError.source === RUNTIME_ERROR_SOURCE.OVERLAY) {
+    return "The overlay gesture failed. Try the action again.";
+  }
+  if (runtimeError.source === RUNTIME_ERROR_SOURCE.PAGE_ADAPTER) {
+    return "The map bridge failed temporarily. Try the action again.";
+  }
+  if (runtimeError.source === RUNTIME_ERROR_SOURCE.INTERACTIONS) {
+    return "The overlay interaction failed. Try the action again.";
+  }
+  return runtimeError.message;
 }
 
 export function describePanelActionPresentation(action, payload = {}) {
@@ -288,8 +309,8 @@ export function describeAlignGestureContract() {
 }
 
 export function describeActiveAlignDrag(dragMode) {
-  if (dragMode === DRAG_MODE.SHARED_PAN) {
-    return "Shared drag: moving the map and overlay together.";
+  if (dragMode === DRAG_MODE.MAP_PAN) {
+    return "Panning the map while the overlay follows.";
   }
   if (dragMode === DRAG_MODE.MOVE_OVERLAY) {
     return "Dragging overlay only. Release to keep this placement.";

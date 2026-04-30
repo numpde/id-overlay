@@ -1,6 +1,6 @@
 # id-overlay
 
-`id-overlay` is a Chromium-first browser extension that adds a movable screenshot overlay to the OpenStreetMap iD editor.
+`id-overlay` is a Chromium-targeted browser extension that adds a movable screenshot overlay to the OpenStreetMap iD editor.
 
 It is meant for one narrow workflow:
 - paste a reference screenshot over the map
@@ -13,6 +13,9 @@ It is meant for one narrow workflow:
 
 ## Current Scope
 
+- targets Chromium Manifest V3 browsers
+  - directly targeted: `Google Chrome`, `Chromium`
+  - likely usable in other Chromium-based browsers, but not claimed or tested as a supported target yet
 - targets `https://www.openstreetmap.org/edit?editor=id`
 - runs as a Manifest V3 content-script extension
 - supports two modes:
@@ -71,6 +74,10 @@ npm run build:chrome
 
 Then open `https://www.openstreetmap.org/edit?editor=id`.
 
+Notes:
+- the supported install path today is `Load unpacked` from [`dist`](dist)
+- Firefox/Safari packaging is not implemented yet
+
 ## Development
 
 Install dependencies:
@@ -114,6 +121,9 @@ GitHub Actions now handles two paths:
   - packages a Chromium zip asset
   - creates a GitHub Release and uploads the zip
 
+The current GitHub release artifact is a Chromium extension package:
+- `id-overlay-chrome-<version>.zip`
+
 Versioning is currently single-source in [`manifest.chrome.json`](manifest.chrome.json). The release flow is:
 
 1. Update `manifest.chrome.json` `version`
@@ -140,7 +150,7 @@ That tag triggers the release workflow and publishes:
 ## Status
 
 This repo is still intentionally narrow:
-- Chromium first
-- no packaged release flow yet
+- Chromium-targeted first
+- GitHub releases publish a Chromium package only
 - no cross-browser manifest build yet
 - focused on strict state/transition ownership and test coverage before broader feature work

@@ -1,15 +1,30 @@
 import {
+  FORWARDED_MAP_GESTURE_EVENT_FLAG,
+} from "./page-adapter.js";
+import {
   buildOverlayRenderModel,
   buildPinRenderModels,
+  imagePointToRenderedScreenPoint,
+  imagePointToScreenPoint,
   isImagePointWithinBounds,
   resolveOverlayScreenTransform,
-  screenPointToImagePoint,
+  screenPointToRenderedImagePoint,
 } from "../core/transform.js";
 import { getOverlayImage, hasOverlayImageSession } from "../core/state.js";
 import {
-  resolveOverlayPointerInterception,
-  resolveOverlayWheelInterception,
+  resolveOverlayActivationPolicy,
+  resolveOverlayPointerMovePolicy,
+  resolveOverlayPointerSequencePolicy,
+  resolveOverlayWheelPolicy,
 } from "../core/interactions.js";
+import {
+  beginOverlayPointerSequence,
+  clearOverlayPointerSequence,
+  createInitialOverlayPointerSequenceState,
+  hasPendingOverlayPointerSequence,
+  resolveOverlayPointerSequenceActivation,
+} from "../core/overlay-pointer-sequence.js";
+import { RUNTIME_ERROR_SOURCE } from "../core/runtime-error.js";
 
 const OVERLAY_STYLE_ID = "id-overlay-map-styles";
 const OVERLAY_STYLE_TEXT = `
@@ -98,6 +113,7 @@ export function createOverlay({ pageAdapter, store, interactions }) {
   let mountElement = null;
   let wheelTarget = null;
   let dragEventWindow = null;
+  let pendingPointerSequence = createInitialOverlayPointerSequenceState();
 
   const unsubscribeStore = store.subscribe(scheduleRender);
   const unsubscribeViewport = pageAdapter.subscribe((nextSnapshot) => {
@@ -106,6 +122,7 @@ export function createOverlay({ pageAdapter, store, interactions }) {
   });
   const unsubscribeInteractions = interactions.subscribe((runtime) => {
     latestRuntime = runtime;
+    syncGlobalPointerListeners();
     scheduleRender();
   });
   scheduleRender();
@@ -185,6 +202,10 @@ export function createOverlay({ pageAdapter, store, interactions }) {
     renderPins(buildPinRenderModels({
       pins: state.registration.pins,
       transform,
+      projectScreenPoint: (pinImagePx) => imagePointToScreenPoint({
+        imagePoint: pinImagePx,
+        transform,
+      }),
     }));
   }
 
@@ -218,12 +239,10 @@ export function createOverlay({ pageAdapter, store, interactions }) {
   }
 
   function toGlobalScreenPoint(event) {
-    const viewportRect = latestSnapshot.viewportRect;
-    const localViewportRect = latestSnapshot.localViewportRect ?? viewportRect;
-    return {
-      x: event.clientX + (viewportRect.left - localViewportRect.left),
-      y: event.clientY + (viewportRect.top - localViewportRect.top),
-    };
+    return pageAdapter.clientPointToScreen({
+      x: event.clientX,
+      y: event.clientY,
+    });
   }
 
   return {
@@ -247,6 +266,7 @@ export function createOverlay({ pageAdapter, store, interactions }) {
     mountElement.addEventListener("pointermove", handleMountedPointerMove, true);
     mountElement.addEventListener("pointerleave", handleMountedPointerLeave, true);
     mountElement.addEventListener("pointerdown", handleMountedPointerDown, true);
+    mountElement.addEventListener("click", handleMountedClick, true);
     mountElement.addEventListener("dblclick", handleMountedDoubleClick, true);
     mountElement.addEventListener("wheel", handleMountedWheel, {
       capture: true,
@@ -262,109 +282,149 @@ export function createOverlay({ pageAdapter, store, interactions }) {
     wheelTarget.removeEventListener("pointermove", handleMountedPointerMove, true);
     wheelTarget.removeEventListener("pointerleave", handleMountedPointerLeave, true);
     wheelTarget.removeEventListener("pointerdown", handleMountedPointerDown, true);
+    wheelTarget.removeEventListener("click", handleMountedClick, true);
     wheelTarget.removeEventListener("dblclick", handleMountedDoubleClick, true);
     wheelTarget.removeEventListener("wheel", handleMountedWheel, true);
     wheelTarget = null;
   }
 
   function handleMountedPointerMove(event) {
-    const screenPoint = toGlobalScreenPoint(event);
-    if (latestRuntime.isDragging) {
-      interactions.handlePointerMove?.(screenPoint);
-      consumeOverlayEvent(event);
-      return;
-    }
-    const state = store.getState();
-    const pointerPolicy = resolveOverlayPointerInterception({
-      state,
-      runtime: latestRuntime,
-      isPointerOverOverlay: isScreenPointOverOverlay(screenPoint),
+    runOverlayBoundary("mounted-pointer-move", event, () => {
+      if (isForwardedMapGestureEvent(event)) {
+        return;
+      }
+      if (hasPendingOverlayPointerSequence(pendingPointerSequence)) {
+        return;
+      }
+      const screenPoint = toGlobalScreenPoint(event);
+      if (latestRuntime.isDragging) {
+        interactions.handlePointerMove?.(screenPoint);
+        consumeOverlayEvent(event);
+        return;
+      }
+      const state = store.getState();
+      const pointerPolicy = resolveOverlayPointerMovePolicy({
+        state,
+        runtime: latestRuntime,
+        isPointerOverOverlay: isScreenPointOverOverlay(screenPoint),
+        buttons: event.buttons,
+      });
+      if (pointerPolicy.shouldTrackPointer) {
+        interactions.handlePointerMove?.(screenPoint);
+        return;
+      }
+      if (latestRuntime.pointerScreenPx || latestRuntime.isPointerInsideImage) {
+        interactions.handlePointerLeave?.();
+      }
     });
-    if (pointerPolicy.shouldTrackPointer) {
-      interactions.handlePointerMove?.(screenPoint);
-      return;
-    }
-    interactions.handlePointerLeave?.();
   }
 
   function handleMountedPointerLeave() {
-    if (latestRuntime.isDragging) {
-      return;
-    }
-    interactions.handlePointerLeave?.();
+    runOverlayBoundary("mounted-pointer-leave", null, () => {
+      if (latestRuntime.isDragging) {
+        return;
+      }
+      interactions.handlePointerLeave?.();
+    });
   }
 
   function handleMountedPointerDown(event) {
-    const screenPoint = toGlobalScreenPoint(event);
-    const state = store.getState();
-    const pointerPolicy = resolveOverlayPointerInterception({
-      state,
-      runtime: latestRuntime,
-      isPointerOverOverlay: isScreenPointOverOverlay(screenPoint),
-      button: event.button,
-      shiftKey: event.shiftKey,
+    runOverlayBoundary("mounted-pointer-down", event, () => {
+      if (isForwardedMapGestureEvent(event)) {
+        return;
+      }
+      const screenPoint = toGlobalScreenPoint(event);
+      const state = store.getState();
+      const pointerPolicy = resolveOverlayPointerSequencePolicy({
+        state,
+        runtime: latestRuntime,
+        isPointerOverOverlay: isScreenPointOverOverlay(screenPoint),
+        button: event.button,
+        shiftKey: event.shiftKey,
+      });
+      if (!pointerPolicy.shouldOwnPointerSequence) {
+        return;
+      }
+      setPendingPointerSequence(beginOverlayPointerSequence({
+        button: event.button,
+        dragMode: pointerPolicy.dragMode,
+        startScreenPoint: screenPoint,
+      }));
+      consumeOverlayEvent(event);
     });
-    if (!pointerPolicy.shouldTrackPointer) {
-      return;
-    }
-    interactions.handlePointerMove?.(screenPoint);
-    if (!pointerPolicy.shouldStartPlacementDrag) {
-      return;
-    }
-    if (!interactions.handlePointerDown({
-      button: event.button,
-      screenPoint,
-      shiftKey: event.shiftKey,
-    })) {
-      return;
-    }
-    attachGlobalPointerListeners();
-    consumeOverlayEvent(event);
   }
 
   function handleMountedDoubleClick(event) {
-    const screenPoint = toGlobalScreenPoint(event);
-    const pointerPolicy = resolveOverlayPointerInterception({
-      state: store.getState(),
-      runtime: latestRuntime,
-      isPointerOverOverlay: isScreenPointOverOverlay(screenPoint),
+    runOverlayBoundary("mounted-double-click", event, () => {
+      if (isForwardedMapGestureEvent(event)) {
+        return;
+      }
+      const screenPoint = toGlobalScreenPoint(event);
+      const activationPolicy = resolveOverlayActivationPolicy({
+        state: store.getState(),
+        runtime: latestRuntime,
+        isPointerOverOverlay: isScreenPointOverOverlay(screenPoint),
+      });
+      if (!activationPolicy.shouldTogglePin) {
+        return;
+      }
+      const result = interactions.handleDoubleClick(screenPoint);
+      consumeOverlayEvent(event);
+      if (!result.ok) {
+        return;
+      }
     });
-    if (!pointerPolicy.shouldTogglePin) {
-      return;
-    }
-    const result = interactions.handleDoubleClick(screenPoint);
-    if (!result.ok) {
-      return;
-    }
-    consumeOverlayEvent(event);
+  }
+
+  function handleMountedClick(event) {
+    runOverlayBoundary("mounted-click", event, () => {
+      if (isForwardedMapGestureEvent(event)) {
+        return;
+      }
+      const screenPoint = toGlobalScreenPoint(event);
+      const activationPolicy = resolveOverlayActivationPolicy({
+        state: store.getState(),
+        runtime: latestRuntime,
+        isPointerOverOverlay: isScreenPointOverOverlay(screenPoint),
+      });
+      if (!activationPolicy.shouldConsumeClick) {
+        return;
+      }
+      consumeOverlayEvent(event);
+    });
   }
 
   function handleMountedWheel(event) {
-    const screenPoint = toGlobalScreenPoint(event);
-    if (!isScreenPointOverOverlay(screenPoint)) {
-      return;
-    }
-    const state = store.getState();
-    const interception = resolveOverlayWheelInterception({
-      state,
-      runtime: latestRuntime,
-      shiftKey: event.shiftKey,
-      altKey: event.altKey,
-      ctrlKey: event.ctrlKey,
+    runOverlayBoundary("mounted-wheel", event, () => {
+      if (isForwardedMapGestureEvent(event)) {
+        return;
+      }
+      const screenPoint = toGlobalScreenPoint(event);
+      if (!isScreenPointOverOverlay(screenPoint)) {
+        return;
+      }
+      const state = store.getState();
+      const wheelPolicy = resolveOverlayWheelPolicy({
+        state,
+        runtime: latestRuntime,
+        shiftKey: event.shiftKey,
+        altKey: event.altKey,
+        ctrlKey: event.ctrlKey,
+      });
+      if (!wheelPolicy.shouldIntercept) {
+        return;
+      }
+      if (!interactions.handleWheel({
+        deltaY: event.deltaY,
+        shiftKey: event.shiftKey,
+        altKey: event.altKey,
+        ctrlKey: event.ctrlKey,
+        screenPoint,
+      })) {
+        return;
+      }
+      consumeOverlayEvent(event);
     });
-    if (!interception.shouldIntercept) {
-      return;
-    }
-    if (!interactions.handleWheel({
-      deltaY: event.deltaY,
-      shiftKey: event.shiftKey,
-      altKey: event.altKey,
-      ctrlKey: event.ctrlKey,
-      screenPoint,
-    })) {
-      return;
-    }
-    consumeOverlayEvent(event);
   }
 
   function attachGlobalPointerListeners() {
@@ -389,28 +449,70 @@ export function createOverlay({ pageAdapter, store, interactions }) {
   }
 
   function handleGlobalPointerMove(event) {
-    if (!latestRuntime.isDragging) {
-      detachGlobalPointerListeners();
-      return;
-    }
-    interactions.handlePointerMove?.(toGlobalScreenPoint(event));
-    consumeOverlayEvent(event);
+    runOverlayBoundary("global-pointer-move", event, () => {
+      if (isForwardedMapGestureEvent(event)) {
+        return;
+      }
+      const screenPoint = toGlobalScreenPoint(event);
+      if (hasPendingOverlayPointerSequence(pendingPointerSequence)) {
+        const activation = resolveOverlayPointerSequenceActivation({
+          state: pendingPointerSequence,
+          screenPoint,
+        });
+        if (!activation.shouldStartDrag) {
+          consumeOverlayEvent(event);
+          return;
+        }
+        const pendingSequence = activation.sequence;
+        interactions.handlePointerMove?.(pendingSequence.startScreenPoint);
+        if (!interactions.handlePointerDown({
+          button: pendingSequence.button,
+          screenPoint: pendingSequence.startScreenPoint,
+          dragMode: pendingSequence.dragMode,
+        })) {
+          setPendingPointerSequence(clearOverlayPointerSequence());
+          consumeOverlayEvent(event);
+          return;
+        }
+        setPendingPointerSequence(clearOverlayPointerSequence());
+      }
+      if (!latestRuntime.isDragging) {
+        syncGlobalPointerListeners();
+        return;
+      }
+      interactions.handlePointerMove?.(screenPoint);
+      consumeOverlayEvent(event);
+    });
   }
 
   function handleGlobalPointerUp(event) {
-    if (!latestRuntime.isDragging) {
-      detachGlobalPointerListeners();
-      return;
-    }
-    interactions.handlePointerUp?.(toGlobalScreenPoint(event));
-    detachGlobalPointerListeners();
-    consumeOverlayEvent(event);
+    runOverlayBoundary("global-pointer-up", event, () => {
+      if (isForwardedMapGestureEvent(event)) {
+        return;
+      }
+      if (hasPendingOverlayPointerSequence(pendingPointerSequence)) {
+        setPendingPointerSequence(clearOverlayPointerSequence());
+        consumeOverlayEvent(event);
+        return;
+      }
+      if (!latestRuntime.isDragging) {
+        syncGlobalPointerListeners();
+        return;
+      }
+      interactions.handlePointerUp?.(toGlobalScreenPoint(event));
+      consumeOverlayEvent(event);
+    });
   }
 
   function handleGlobalPointerCancel(event) {
-    interactions.handlePointerCancel?.();
-    detachGlobalPointerListeners();
-    consumeOverlayEvent(event);
+    runOverlayBoundary("global-pointer-cancel", event, () => {
+      if (isForwardedMapGestureEvent(event)) {
+        return;
+      }
+      setPendingPointerSequence(clearOverlayPointerSequence());
+      interactions.handlePointerCancel?.();
+      consumeOverlayEvent(event);
+    });
   }
 
   function isScreenPointOverOverlay(screenPoint) {
@@ -426,12 +528,51 @@ export function createOverlay({ pageAdapter, store, interactions }) {
     if (!transform) {
       return false;
     }
-    const imagePoint = screenPointToImagePoint({
+    const imagePoint = screenPointToRenderedImagePoint({
       screenPoint,
       transform,
+      snapshot: latestSnapshot,
     });
     return isImagePointWithinBounds(imagePoint, image);
   }
+
+  function runOverlayBoundary(operation, event, fn) {
+    try {
+      return fn();
+    } catch (error) {
+      setPendingPointerSequence(clearOverlayPointerSequence());
+      syncGlobalPointerListeners();
+      consumeOverlayEvent(event);
+      interactions.reportRuntimeError?.({
+        source: RUNTIME_ERROR_SOURCE.OVERLAY,
+        operation,
+        error,
+        resetInteraction: true,
+      });
+      return undefined;
+    }
+  }
+
+  function setPendingPointerSequence(nextState) {
+    pendingPointerSequence = nextState;
+    syncGlobalPointerListeners();
+  }
+
+  function syncGlobalPointerListeners() {
+    const shouldListenGlobally = (
+      hasPendingOverlayPointerSequence(pendingPointerSequence) ||
+      latestRuntime.isDragging
+    );
+    if (shouldListenGlobally) {
+      attachGlobalPointerListeners();
+      return;
+    }
+    detachGlobalPointerListeners();
+  }
+}
+
+function isForwardedMapGestureEvent(event) {
+  return event?.[FORWARDED_MAP_GESTURE_EVENT_FLAG] === true;
 }
 
 function ensureOverlayStyles(targetDocument) {
@@ -445,7 +586,7 @@ function ensureOverlayStyles(targetDocument) {
 }
 
 function consumeOverlayEvent(event) {
-  event.preventDefault?.();
-  event.stopPropagation?.();
-  event.stopImmediatePropagation?.();
+  event?.preventDefault?.();
+  event?.stopPropagation?.();
+  event?.stopImmediatePropagation?.();
 }

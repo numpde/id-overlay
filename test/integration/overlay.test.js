@@ -7,7 +7,7 @@ import { createStateStore } from "../../src/core/state.js";
 import { createPlacementTransform } from "../../src/core/transform.js";
 import { createValueStore } from "../../src/core/value-store.js";
 
-test("overlay double-click toggles pins through the shared interaction path", async () => {
+test("overlay double-click toggles pins through the interaction controller", async () => {
   const env = createDomEnvironment();
 
   try {
@@ -41,6 +41,14 @@ test("overlay double-click toggles pins through the shared interaction path", as
     });
 
     const callLog = [];
+    let mapClickCount = 0;
+    let mapDoubleClickCount = 0;
+    map.addEventListener("click", () => {
+      mapClickCount += 1;
+    });
+    map.addEventListener("dblclick", () => {
+      mapDoubleClickCount += 1;
+    });
     const overlay = createOverlay({
       pageAdapter: {
         getSnapshot() {
@@ -57,6 +65,9 @@ test("overlay double-click toggles pins through the shared interaction path", as
         },
         getOverlayMountElement() {
           return env.document.getElementById("map") ?? env.document.body;
+        },
+        clientPointToScreen(point) {
+          return point;
         },
       },
       store,
@@ -80,12 +91,24 @@ test("overlay double-click toggles pins through the shared interaction path", as
     const event = new env.window.MouseEvent("dblclick", {
       bubbles: true,
       cancelable: true,
-      clientX: 412,
-      clientY: 88,
+      clientX: 512,
+      clientY: 288,
     });
     map.dispatchEvent(event);
 
     assert.deepEqual(callLog, [["double-click", { x: 512, y: 288 }]]);
+    assert.equal(event.defaultPrevented, true);
+    assert.equal(mapDoubleClickCount, 0);
+
+    const clickEvent = new env.window.MouseEvent("click", {
+      bubbles: true,
+      cancelable: true,
+      clientX: 512,
+      clientY: 288,
+    });
+    map.dispatchEvent(clickEvent);
+    assert.equal(clickEvent.defaultPrevented, true);
+    assert.equal(mapClickCount, 0);
 
     overlay.destroy();
   } finally {
@@ -148,6 +171,9 @@ test("handled overlay wheel gestures do not bubble into the underlying map", asy
         getOverlayMountElement() {
           return map;
         },
+        clientPointToScreen(point) {
+          return point;
+        },
       },
       store,
       interactions: {
@@ -177,8 +203,8 @@ test("handled overlay wheel gestures do not bubble into the underlying map", asy
     const event = new env.window.WheelEvent("wheel", {
       bubbles: true,
       cancelable: true,
-      clientX: 412,
-      clientY: 88,
+      clientX: 512,
+      clientY: 288,
       deltaY: -100,
       shiftKey: true,
     });
@@ -249,6 +275,9 @@ test("plain wheel over the overlay in align mode stays native to the map", async
         getOverlayMountElement() {
           return map;
         },
+        clientPointToScreen(point) {
+          return point;
+        },
       },
       store,
       interactions: {
@@ -278,8 +307,8 @@ test("plain wheel over the overlay in align mode stays native to the map", async
     const event = new env.window.WheelEvent("wheel", {
       bubbles: true,
       cancelable: true,
-      clientX: 412,
-      clientY: 88,
+      clientX: 512,
+      clientY: 288,
       deltaY: -100,
     });
     map.dispatchEvent(event);
@@ -350,6 +379,9 @@ test("alt-wheel in trace mode is captured from the map layer when the pointer is
         getOverlayMountElement() {
           return map;
         },
+        clientPointToScreen(point) {
+          return point;
+        },
       },
       store,
       interactions: {
@@ -380,7 +412,7 @@ test("alt-wheel in trace mode is captured from the map layer when the pointer is
     const event = new env.window.WheelEvent("wheel", {
       bubbles: true,
       cancelable: true,
-      clientX: 412,
+      clientX: 512,
       clientY: 288,
       deltaY: 100,
       altKey: true,
@@ -392,7 +424,7 @@ test("alt-wheel in trace mode is captured from the map layer when the pointer is
       shiftKey: false,
       altKey: true,
       ctrlKey: false,
-      screenPoint: { x: 512, y: 488 },
+      screenPoint: { x: 512, y: 288 },
     }]);
     assert.equal(event.defaultPrevented, true);
     assert.equal(mapWheelCount, 0);
@@ -403,7 +435,7 @@ test("alt-wheel in trace mode is captured from the map layer when the pointer is
   }
 });
 
-test("handled overlay pointerdown gestures do not bubble into the underlying map", async () => {
+test("align-mode overlay pointerdown owns the click sequence and does not bubble into the underlying map", async () => {
   const env = createDomEnvironment({
     viewportHtml: '<div id="map"></div>',
   });
@@ -437,6 +469,7 @@ test("handled overlay pointerdown gestures do not bubble into the underlying map
     });
 
     let mapPointerDownCount = 0;
+    let handledPointerDownCount = 0;
     map.addEventListener("pointerdown", () => {
       mapPointerDownCount += 1;
     });
@@ -458,6 +491,9 @@ test("handled overlay pointerdown gestures do not bubble into the underlying map
         getOverlayMountElement() {
           return map;
         },
+        clientPointToScreen(point) {
+          return point;
+        },
       },
       store,
       interactions: {
@@ -471,6 +507,7 @@ test("handled overlay pointerdown gestures do not bubble into the underlying map
         handlePointerLeave() {},
         handlePointerMove() {},
         handlePointerDown() {
+          handledPointerDownCount += 1;
           return true;
         },
         handlePointerUp() {},
@@ -487,15 +524,123 @@ test("handled overlay pointerdown gestures do not bubble into the underlying map
     const event = new env.window.MouseEvent("pointerdown", {
       bubbles: true,
       cancelable: true,
-      clientX: 412,
-      clientY: 88,
+      clientX: 512,
+      clientY: 288,
       button: 0,
-      shiftKey: true,
     });
     map.dispatchEvent(event);
 
     assert.equal(event.defaultPrevented, true);
     assert.equal(mapPointerDownCount, 0);
+    assert.equal(handledPointerDownCount, 0);
+
+    overlay.destroy();
+  } finally {
+    env.cleanup();
+  }
+});
+
+test("plain pointerdown over the overlay in align mode owns the click sequence without starting a drag", async () => {
+  const env = createDomEnvironment({
+    viewportHtml: '<div id="map"></div>',
+  });
+
+  try {
+    const { createOverlay } = await import(`${repoFileUrl("src/content/overlay.js")}?opp=${Date.now()}`);
+    const map = env.document.getElementById("map");
+    const store = createStateStore({
+      mode: "align",
+      opacity: 0.6,
+      image: {
+        src: "data:image/png;base64,abc",
+        width: 800,
+        height: 400,
+      },
+      placement: createPlacementTransform({
+        image: { width: 800, height: 400 },
+        centerMapLatLon: { lat: 0, lon: 0 },
+        scale: 1,
+        rotationRad: 0,
+        zoom: 16,
+      }),
+    });
+    const runtimeStore = createValueStore({
+      canCapturePointer: true,
+      isDragging: false,
+      isPointerInsideImage: true,
+      isPassThroughActive: false,
+      pointerScreenPx: null,
+      dragMode: null,
+    });
+
+    let mapPointerDownCount = 0;
+    let handledPointerMoveCount = 0;
+    let handledPointerDownCount = 0;
+    map.addEventListener("pointerdown", () => {
+      mapPointerDownCount += 1;
+    });
+
+    const overlay = createOverlay({
+      pageAdapter: {
+        getSnapshot() {
+          return {
+            viewportRect: { left: 100, top: 200, width: 800, height: 400 },
+            localViewportRect: { left: 0, top: 0, width: 800, height: 400 },
+            mapView: { center: { lat: 0, lon: 0 }, zoom: 16 },
+            surfaceMotion: { transformCss: "none", transformOriginCss: "0px 0px" },
+          };
+        },
+        subscribe(listener) {
+          listener(this.getSnapshot());
+          return () => {};
+        },
+        getOverlayMountElement() {
+          return map;
+        },
+        clientPointToScreen(point) {
+          return point;
+        },
+      },
+      store,
+      interactions: {
+        getRuntimeState() {
+          return runtimeStore.get();
+        },
+        subscribe(listener) {
+          return runtimeStore.subscribe(listener);
+        },
+        handlePointerLeave() {},
+        handlePointerMove() {
+          handledPointerMoveCount += 1;
+        },
+        handlePointerDown() {
+          handledPointerDownCount += 1;
+          return false;
+        },
+        handlePointerUp() {},
+        handlePointerCancel() {},
+        handleWheel() {
+          return false;
+        },
+        handleDoubleClick() {
+          return { ok: false };
+        },
+      },
+    });
+
+    const event = new env.window.MouseEvent("pointerdown", {
+      bubbles: true,
+      cancelable: true,
+      clientX: 512,
+      clientY: 288,
+      button: 0,
+    });
+    map.dispatchEvent(event);
+
+    assert.equal(event.defaultPrevented, true);
+    assert.equal(mapPointerDownCount, 0);
+    assert.equal(handledPointerMoveCount, 0);
+    assert.equal(handledPointerDownCount, 0);
 
     overlay.destroy();
   } finally {
@@ -570,6 +715,9 @@ test("trace-mode solved transform follows map view changes from the page adapter
         getOverlayMountElement() {
           return env.document.getElementById("map") ?? env.document.body;
         },
+        clientPointToScreen(point) {
+          return point;
+        },
       },
       store,
       interactions: {
@@ -641,7 +789,13 @@ test("trace-mode overlay applies live surface motion from the page adapter", asy
         zoom: 0,
       }),
       registration: {
-        pins: [],
+        pins: [
+          {
+            id: 1,
+            imagePx: { x: 10, y: 15 },
+            mapLatLon: { lat: 0, lon: 0 },
+          },
+        ],
         solvedTransform: {
           type: "similarity",
           a: 1,
@@ -685,6 +839,9 @@ test("trace-mode overlay applies live surface motion from the page adapter", asy
         getOverlayMountElement() {
           return env.document.getElementById("map") ?? env.document.body;
         },
+        clientPointToScreen(point) {
+          return point;
+        },
       },
       store,
       interactions: {
@@ -716,11 +873,14 @@ test("trace-mode overlay applies live surface motion from the page adapter", asy
     const overlayRoot = env.document.querySelector(".id-overlay-viewport");
     const mapLayer = env.document.querySelector(".id-overlay-map-layer");
     const image = env.document.querySelector(".id-overlay-image");
+    const pin = env.document.querySelector(".id-overlay-pin");
     assert.equal(overlayRoot.style.left, "10px");
     assert.equal(overlayRoot.style.top, "20px");
     assert.equal(mapLayer.style.transform, "matrix(1, 0, 0, 1, 18, -12)");
     assert.equal(image.style.left, "372px");
     assert.equal(image.style.top, "272px");
+    assert.equal(pin.style.left, "382px");
+    assert.equal(pin.style.top, "287px");
 
     overlay.destroy();
   } finally {

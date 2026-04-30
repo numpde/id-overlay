@@ -86,9 +86,9 @@ test("resolveDefaultStatusMessage prioritizes live interaction state over static
   assert.equal(
     resolveDefaultStatusMessage({
       state: solvedState,
-      runtime: { isPassThroughActive: false, isDragging: true, dragMode: "shared-pan" },
+      runtime: { isPassThroughActive: false, isDragging: true, dragMode: "map-pan" },
     }),
-    "Shared drag: moving the map and overlay together.",
+    "Panning the map while the overlay follows.",
   );
 });
 

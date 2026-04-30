@@ -53,6 +53,54 @@ export function screenPointToImagePoint({ screenPoint, transform }) {
   };
 }
 
+export function applySurfaceMotionToScreenPoint({ screenPoint, snapshot }) {
+  const matrix = parseSurfaceMotionMatrix(snapshot?.surfaceMotion);
+  if (!matrix) {
+    return screenPoint;
+  }
+  const origin = parseSurfaceMotionOrigin(snapshot?.surfaceMotion);
+  const localPoint = {
+    x: screenPoint.x - snapshot.viewportRect.left,
+    y: screenPoint.y - snapshot.viewportRect.top,
+  };
+  const transformedLocalPoint = applyMatrixToPoint(localPoint, matrix, origin);
+  return {
+    x: snapshot.viewportRect.left + transformedLocalPoint.x,
+    y: snapshot.viewportRect.top + transformedLocalPoint.y,
+  };
+}
+
+export function removeSurfaceMotionFromScreenPoint({ screenPoint, snapshot }) {
+  const matrix = parseSurfaceMotionMatrix(snapshot?.surfaceMotion);
+  if (!matrix) {
+    return screenPoint;
+  }
+  const origin = parseSurfaceMotionOrigin(snapshot?.surfaceMotion);
+  const localPoint = {
+    x: screenPoint.x - snapshot.viewportRect.left,
+    y: screenPoint.y - snapshot.viewportRect.top,
+  };
+  const transformedLocalPoint = invertMatrixPoint(localPoint, matrix, origin);
+  return {
+    x: snapshot.viewportRect.left + transformedLocalPoint.x,
+    y: snapshot.viewportRect.top + transformedLocalPoint.y,
+  };
+}
+
+export function imagePointToRenderedScreenPoint({ imagePoint, transform, snapshot }) {
+  return applySurfaceMotionToScreenPoint({
+    screenPoint: imagePointToScreenPoint({ imagePoint, transform }),
+    snapshot,
+  });
+}
+
+export function screenPointToRenderedImagePoint({ screenPoint, transform, snapshot }) {
+  return screenPointToImagePoint({
+    screenPoint: removeSurfaceMotionFromScreenPoint({ screenPoint, snapshot }),
+    transform,
+  });
+}
+
 export function isImagePointWithinBounds(imagePoint, image) {
   return (
     Number.isFinite(imagePoint?.x) &&
@@ -184,15 +232,16 @@ export function buildOverlayRenderModel({ image, transform, opacity }) {
   };
 }
 
-export function buildPinRenderModels({ pins, transform }) {
+export function buildPinRenderModels({
+  pins,
+  transform,
+  projectScreenPoint = (imagePoint) => imagePointToScreenPoint({ imagePoint, transform }),
+}) {
   return pins.map((pin) => ({
     id: pin.id,
     imagePx: pin.imagePx,
     mapLatLon: pin.mapLatLon,
-    screenPx: imagePointToScreenPoint({
-      imagePoint: pin.imagePx,
-      transform,
-    }),
+    screenPx: projectScreenPoint(pin.imagePx),
   }));
 }
 
@@ -328,6 +377,60 @@ function applySimilarityToPoint(point, transform) {
   return {
     x: transform.a * point.x - transform.b * point.y + transform.tx,
     y: transform.b * point.x + transform.a * point.y + transform.ty,
+  };
+}
+
+function applyMatrixToPoint(point, matrix, origin) {
+  const translatedX = point.x - origin.x;
+  const translatedY = point.y - origin.y;
+  return {
+    x: origin.x + matrix.a * translatedX + matrix.c * translatedY + matrix.e,
+    y: origin.y + matrix.b * translatedX + matrix.d * translatedY + matrix.f,
+  };
+}
+
+function invertMatrixPoint(point, matrix, origin) {
+  const determinant = matrix.a * matrix.d - matrix.b * matrix.c;
+  if (!Number.isFinite(determinant) || determinant === 0) {
+    return point;
+  }
+  const translatedX = point.x - origin.x - matrix.e;
+  const translatedY = point.y - origin.y - matrix.f;
+  return {
+    x: origin.x + ((matrix.d * translatedX) - (matrix.c * translatedY)) / determinant,
+    y: origin.y + ((-matrix.b * translatedX) + (matrix.a * translatedY)) / determinant,
+  };
+}
+
+function parseSurfaceMotionMatrix(surfaceMotion) {
+  const transformCss = surfaceMotion?.transformCss;
+  if (typeof transformCss !== "string" || transformCss === "none") {
+    return null;
+  }
+  const matrixMatch = /matrix\(([^)]+)\)/.exec(transformCss);
+  if (!matrixMatch) {
+    return null;
+  }
+  const values = matrixMatch[1].split(",").map((value) => Number(value.trim()));
+  if (values.length !== 6 || values.some((value) => !Number.isFinite(value))) {
+    return null;
+  }
+  const [a, b, c, d, e, f] = values;
+  return { a, b, c, d, e, f };
+}
+
+function parseSurfaceMotionOrigin(surfaceMotion) {
+  const transformOriginCss = surfaceMotion?.transformOriginCss;
+  if (typeof transformOriginCss !== "string") {
+    return { x: 0, y: 0 };
+  }
+  const values = transformOriginCss
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((value) => Number.parseFloat(value));
+  return {
+    x: Number.isFinite(values[0]) ? values[0] : 0,
+    y: Number.isFinite(values[1]) ? values[1] : 0,
   };
 }
 

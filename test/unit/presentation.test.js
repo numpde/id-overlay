@@ -5,6 +5,7 @@ import {
   CLEAR_IMAGE_CONFIRMATION_MESSAGE,
   PANEL_FEEDBACK_ACTION,
   describePanelActionPresentation,
+  describeRuntimeErrorPresentation,
   MANUAL_PASTE_PROMPT,
   describeInteractionEventPresentation,
   describePinResultPresentation,
@@ -19,6 +20,7 @@ import {
   resolveOverlaySessionPresentation,
 } from "../../src/core/presentation.js";
 import { PANEL_ACTION_KIND } from "../../src/core/panel-state.js";
+import { RUNTIME_ERROR_SOURCE } from "../../src/core/runtime-error.js";
 
 test("resolveOverlaySessionPresentation centralizes session labels and enablement", () => {
   const empty = resolveOverlaySessionPresentation({
@@ -176,9 +178,9 @@ test("resolveDefaultStatusMessage centralizes runtime-aware status copy", () => 
   assert.equal(
     resolveDefaultStatusMessage({
       state: solvedAlignState,
-      runtime: { isPassThroughActive: false, isDragging: true, dragMode: "shared-pan" },
+      runtime: { isPassThroughActive: false, isDragging: true, dragMode: "map-pan" },
     }),
-    "Shared drag: moving the map and overlay together.",
+    "Panning the map while the overlay follows.",
   );
 });
 
@@ -354,6 +356,26 @@ test("presentation helpers centralize pin and solve feedback copy", () => {
   assert.equal(
     describeInteractionEventPresentation({ type: "pins-cleared" }),
     "Cleared all registration pins.",
+  );
+});
+
+test("runtime error presentation is centralized", () => {
+  assert.equal(
+    describeRuntimeErrorPresentation({
+      source: RUNTIME_ERROR_SOURCE.OVERLAY,
+      message: "ignored",
+    }),
+    "The overlay gesture failed. Try the action again.",
+  );
+  assert.equal(
+    describeInteractionEventPresentation({
+      type: "runtime-error",
+      error: {
+        source: RUNTIME_ERROR_SOURCE.PAGE_ADAPTER,
+        message: "ignored",
+      },
+    }),
+    "The map bridge failed temporarily. Try the action again.",
   );
 });
 

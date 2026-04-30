@@ -3,7 +3,10 @@ import assert from "node:assert/strict";
 import { JSDOM } from "jsdom";
 
 import { createDomEnvironment } from "../helpers/dom-env.js";
-import { createPageAdapter } from "../../src/content/page-adapter.js";
+import {
+  createPageAdapter,
+  FORWARDED_MAP_GESTURE_EVENT_FLAG,
+} from "../../src/content/page-adapter.js";
 import { unprojectWorldToLatLon } from "../../src/core/transform.js";
 
 test("page adapter uses the viewport element and keeps map/screen projection consistent", () => {
@@ -58,6 +61,10 @@ test("page adapter uses the viewport element and keeps map/screen projection con
     const resolved = adapter.screenToMap(projected);
     assert.ok(Math.abs(resolved.lat - point.lat) < 1e-9);
     assert.ok(Math.abs(resolved.lon - point.lon) < 1e-9);
+    assert.deepEqual(
+      adapter.screenPointToClient(adapter.clientPointToScreen({ x: 320, y: 260 })),
+      { x: 320, y: 260 },
+    );
 
     adapter.destroy();
   } finally {
@@ -178,6 +185,14 @@ test("page adapter prefers the embedded iD iframe for viewport, map view, and su
     assert.deepEqual(adapter.getSnapshot().surfaceMotion, {
       transformCss: "matrix(1, 0, 0, 1, 18, -12)",
       transformOriginCss: "0px 0px",
+    });
+    assert.deepEqual(adapter.clientPointToScreen({ x: 500, y: 200 }), {
+      x: 800,
+      y: 240,
+    });
+    assert.deepEqual(adapter.screenPointToClient({ x: 800, y: 240 }), {
+      x: 500,
+      y: 200,
     });
 
     adapter.destroy();
@@ -366,7 +381,7 @@ test("page adapter emits subscriber updates immediately when history.replaceStat
   }
 });
 
-test("page adapter can forward a shared drag gesture into the active map document", () => {
+test("page adapter can begin/update/end a map pan in the active map document", () => {
   const env = createDomEnvironment({
     url: "https://www.openstreetmap.org/edit?editor=id#map=16/-1.22645/36.82597",
     viewportHtml: '<div id="map"></div>',
@@ -391,7 +406,12 @@ test("page adapter can forward a shared drag gesture into the active map documen
 
     const received = [];
     viewport.addEventListener("mousedown", (event) => {
-      received.push({ type: event.type, x: event.clientX, y: event.clientY });
+      received.push({
+        type: event.type,
+        x: event.clientX,
+        y: event.clientY,
+        forwarded: event[FORWARDED_MAP_GESTURE_EVENT_FLAG] === true,
+      });
     });
     env.document.addEventListener("mousemove", (event) => {
       received.push({ type: event.type, x: event.clientX, y: event.clientY });
@@ -400,12 +420,12 @@ test("page adapter can forward a shared drag gesture into the active map documen
       received.push({ type: event.type, x: event.clientX, y: event.clientY });
     });
 
-    adapter.beginSharedDrag({ x: 200, y: 180 });
-    adapter.updateSharedDrag({ x: 240, y: 210 }, { x: 40, y: 30 });
-    adapter.endSharedDrag({ x: 240, y: 210 });
+    adapter.beginMapPan({ x: 200, y: 180 });
+    adapter.updateMapPan({ x: 240, y: 210 });
+    adapter.endMapPan({ x: 240, y: 210 });
 
     assert.deepEqual(received, [
-      { type: "mousedown", x: 200, y: 180 },
+      { type: "mousedown", x: 200, y: 180, forwarded: true },
       { type: "mousemove", x: 240, y: 210 },
       { type: "mouseup", x: 240, y: 210 },
     ]);
@@ -416,25 +436,47 @@ test("page adapter can forward a shared drag gesture into the active map documen
   }
 });
 
-test("page adapter shared drag skips extension-owned overlay elements and targets the underlying map", () => {
+test("page adapter keeps one iframe-local pan context through begin, move, and end", () => {
   const env = createDomEnvironment({
     url: "https://www.openstreetmap.org/edit?editor=id#map=16/-1.22645/36.82597",
-    viewportHtml: '<div id="map"></div><div id="overlay" data-id-overlay-owned="true"><img id="overlay-image"></div>',
+    viewportHtml: '<iframe id="id-embed"></iframe>',
   });
+  const innerDom = new JSDOM(
+    '<!doctype html><html><body><div class="main-map"></div></body></html>',
+    {
+      url: "https://www.openstreetmap.org/id#map=17/-1.21000/36.83000&background=Bing",
+      pretendToBeVisual: true,
+    },
+  );
 
   try {
-    const viewport = env.document.getElementById("map");
-    const overlayImage = env.document.getElementById("overlay-image");
-    viewport.getBoundingClientRect = () => ({
-      left: 120,
-      top: 80,
+    const frame = env.document.getElementById("id-embed");
+    Object.defineProperty(frame, "contentWindow", {
+      configurable: true,
+      value: innerDom.window,
+    });
+    Object.defineProperty(frame, "contentDocument", {
+      configurable: true,
+      value: innerDom.window.document,
+    });
+    frame.getBoundingClientRect = () => ({
+      left: 300,
+      top: 40,
       width: 900,
       height: 600,
-      right: 1020,
-      bottom: 680,
+      right: 1200,
+      bottom: 640,
     });
-    env.document.elementsFromPoint = () => [overlayImage, viewport];
-    env.document.elementFromPoint = () => overlayImage;
+
+    const viewport = innerDom.window.document.querySelector(".main-map");
+    viewport.getBoundingClientRect = () => ({
+      left: 20,
+      top: 30,
+      width: 700,
+      height: 500,
+      right: 720,
+      bottom: 530,
+    });
 
     const adapter = createPageAdapter({
       hashTarget: env.window,
@@ -445,12 +487,80 @@ test("page adapter shared drag skips extension-owned overlay elements and target
     viewport.addEventListener("mousedown", (event) => {
       received.push({ type: event.type, x: event.clientX, y: event.clientY });
     });
+    innerDom.window.document.addEventListener("mousemove", (event) => {
+      received.push({ type: event.type, x: event.clientX, y: event.clientY });
+    });
+    innerDom.window.document.addEventListener("mouseup", (event) => {
+      received.push({ type: event.type, x: event.clientX, y: event.clientY });
+    });
 
-    const started = adapter.beginSharedDrag({ x: 200, y: 180 });
+    adapter.beginMapPan({ x: 800, y: 240 });
+    adapter.updateMapPan({ x: 820, y: 260 });
+    adapter.endMapPan({ x: 820, y: 260 });
+
+    assert.deepEqual(received, [
+      { type: "mousedown", x: 500, y: 200 },
+      { type: "mousemove", x: 520, y: 220 },
+      { type: "mouseup", x: 520, y: 220 },
+    ]);
+
+    adapter.destroy();
+  } finally {
+    innerDom.window.close();
+    env.cleanup();
+  }
+});
+
+test("page adapter map pan skips overlay hit-testing and always targets the map viewport", () => {
+  const env = createDomEnvironment({
+    url: "https://www.openstreetmap.org/edit?editor=id#map=16/-1.22645/36.82597",
+    viewportHtml: [
+      '<div id="map"></div>',
+      '<div id="feature"></div>',
+      '<div id="overlay" data-id-overlay-owned="true"><img id="overlay-image"></div>',
+    ].join(""),
+  });
+
+  try {
+    const viewport = env.document.getElementById("map");
+    const overlayImage = env.document.getElementById("overlay-image");
+    const feature = env.document.getElementById("feature");
+    viewport.getBoundingClientRect = () => ({
+      left: 120,
+      top: 80,
+      width: 900,
+      height: 600,
+      right: 1020,
+      bottom: 680,
+    });
+    env.document.elementsFromPoint = () => [overlayImage, feature, viewport];
+    env.document.elementFromPoint = () => feature;
+
+    const adapter = createPageAdapter({
+      hashTarget: env.window,
+      viewportDocument: env.document,
+    });
+
+    const received = [];
+    viewport.addEventListener("mousedown", (event) => {
+      received.push({
+        type: event.type,
+        x: event.clientX,
+        y: event.clientY,
+        forwarded: event[FORWARDED_MAP_GESTURE_EVENT_FLAG] === true,
+      });
+    });
+    feature.addEventListener("mousedown", () => {
+      received.push({
+        type: "feature-mousedown",
+      });
+    });
+
+    const started = adapter.beginMapPan({ x: 200, y: 180 });
 
     assert.equal(started, true);
     assert.deepEqual(received, [
-      { type: "mousedown", x: 200, y: 180 },
+      { type: "mousedown", x: 200, y: 180, forwarded: true },
     ]);
 
     adapter.destroy();
@@ -459,7 +569,7 @@ test("page adapter shared drag skips extension-owned overlay elements and target
   }
 });
 
-test("page adapter can forward a shared wheel gesture into the active map document", () => {
+test("page adapter can forward a map zoom gesture into the active map document", () => {
   const env = createDomEnvironment({
     url: "https://www.openstreetmap.org/edit?editor=id#map=16/-1.22645/36.82597",
     viewportHtml: '<div id="map"></div>',
@@ -489,17 +599,18 @@ test("page adapter can forward a shared wheel gesture into the active map docume
         x: event.clientX,
         y: event.clientY,
         deltaY: event.deltaY,
+        forwarded: event[FORWARDED_MAP_GESTURE_EVENT_FLAG] === true,
       });
     });
 
-    const forwarded = adapter.forwardSharedWheel({
+    const forwarded = adapter.forwardMapZoom({
       screenPoint: { x: 240, y: 210 },
       deltaY: -100,
     });
 
     assert.equal(forwarded, true);
     assert.deepEqual(received, [
-      { type: "wheel", x: 240, y: 210, deltaY: -100 },
+      { type: "wheel", x: 240, y: 210, deltaY: -100, forwarded: true },
     ]);
 
     adapter.destroy();
@@ -508,7 +619,7 @@ test("page adapter can forward a shared wheel gesture into the active map docume
   }
 });
 
-test("page adapter shared wheel skips extension-owned overlay elements and targets the underlying map", () => {
+test("page adapter map zoom skips extension-owned overlay elements and targets the underlying map", () => {
   const env = createDomEnvironment({
     url: "https://www.openstreetmap.org/edit?editor=id#map=16/-1.22645/36.82597",
     viewportHtml: '<div id="map"></div><div id="overlay" data-id-overlay-owned="true"><img id="overlay-image"></div>',
@@ -543,7 +654,7 @@ test("page adapter shared wheel skips extension-owned overlay elements and targe
       });
     });
 
-    const forwarded = adapter.forwardSharedWheel({
+    const forwarded = adapter.forwardMapZoom({
       screenPoint: { x: 240, y: 210 },
       deltaY: -100,
     });

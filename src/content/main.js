@@ -61,7 +61,7 @@ export async function bootstrapIdOverlay({ keyboardGateway = null } = {}) {
 
   const unsubscribe = store.subscribe((state) => {
     storage.save(state).catch((error) => {
-      console.error("id-overlay: failed to persist state", error);
+      logger.error("Failed to persist state", error);
     });
   }, { emitCurrent: false });
 

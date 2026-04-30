@@ -5,26 +5,31 @@ import {
   canHandleWheelGesture,
   canCaptureOverlayPointer,
   canEditRegistration,
+  canTrackOverlayPointer,
+  canToggleOverlayPin,
   createInteractionController,
   doesDragEditPlacement,
   doesWheelEditOpacity,
   doesWheelEditPlacement,
   DRAG_MODE,
   INTERACTION_RUNTIME_ACTION,
+  INTERACTION_EVENT,
   INTERACTION_MODE,
-  isSharedDragMode,
+  isMapPanDragMode,
   KEYBOARD_SHORTCUT_ACTION,
   nextMode,
   reduceInteractionRuntime,
-  resolveOverlayPointerInterception,
-  resolveOverlayWheelInterception,
+  resolveOverlayActivationPolicy,
+  resolveOverlayPointerMovePolicy,
+  resolveOverlayPointerSequencePolicy,
+  resolveOverlayWheelPolicy,
   resolveDragMode,
   resolveKeyboardShortcut,
   resolveWheelMode,
-  shouldStartOverlayPlacementDrag,
   shouldReleasePassThrough,
   WHEEL_MODE,
 } from "../../src/core/interactions.js";
+import { RUNTIME_ERROR_SOURCE } from "../../src/core/runtime-error.js";
 import {
   describeActiveAlignDrag,
   describeAlignGestureContract,
@@ -95,7 +100,7 @@ test("shift-dragging updates placement through the adapter only", () => {
   }), { x: 560, y: 280 });
 });
 
-test("plain drag uses the shared-drag adapter path and keeps placement unchanged", () => {
+test("plain drag uses the map-pan adapter path and keeps placement unchanged", () => {
   const { controller, store, adapterCalls } = createHarness();
   controller.loadImage({
     src: "data:image/png;base64,abc",
@@ -113,21 +118,19 @@ test("plain drag uses the shared-drag adapter path and keeps placement unchanged
   controller.handlePointerUp({ x: 520, y: 310 });
 
   assert.deepEqual(store.getState().placement, initialPlacement);
-  assert.deepEqual(adapterCalls.sharedDrag.starts, [{ x: 500, y: 300 }]);
-  assert.deepEqual(adapterCalls.sharedDrag.moves, [
+  assert.deepEqual(adapterCalls.mapPan.starts, [{ x: 500, y: 300 }]);
+  assert.deepEqual(adapterCalls.mapPan.moves, [
     {
       screenPoint: { x: 520, y: 310 },
-      screenDelta: { x: 20, y: 10 },
     },
     {
       screenPoint: { x: 520, y: 310 },
-      screenDelta: { x: 0, y: 0 },
     },
   ]);
-  assert.deepEqual(adapterCalls.sharedDrag.ends, [{ x: 520, y: 310 }]);
+  assert.deepEqual(adapterCalls.mapPan.ends, [{ x: 520, y: 310 }]);
 });
 
-test("double-click adds a pin at the current pointer location", () => {
+test("double-click adds a pin at the correct image and map coordinates", () => {
   const { controller, store } = createHarness();
   controller.loadImage({
     src: "data:image/png;base64,abc",
@@ -139,6 +142,34 @@ test("double-click adds a pin at the current pointer location", () => {
   assert.equal(result.ok, true);
   assert.equal(result.action, "added");
   assert.equal(store.getState().registration.pins.length, 1);
+  assert.deepEqual(store.getState().registration.pins[0], {
+    id: 1,
+    imagePx: { x: 500, y: 220 },
+    mapLatLon: { lat: -1.03, lon: 37.84 },
+  });
+});
+
+test("interaction boundaries emit a runtime error event instead of throwing raw adapter failures", () => {
+  const { controller } = createHarness({
+    screenToMapThrows: new Error("adapter exploded"),
+  });
+  const events = [];
+  controller.subscribeEvents((event) => {
+    events.push(event);
+  });
+  controller.loadImage({
+    src: "data:image/png;base64,abc",
+    width: 800,
+    height: 400,
+  });
+
+  const result = controller.handleDoubleClick({ x: 600, y: 320 });
+
+  assert.equal(result.ok, false);
+  assert.equal(events.length, 1);
+  assert.equal(events[0].type, INTERACTION_EVENT.RUNTIME_ERROR);
+  assert.equal(events[0].error.source, RUNTIME_ERROR_SOURCE.INTERACTIONS);
+  assert.equal(events[0].error.operation, "handle-double-click");
 });
 
 test("double-click on an existing pin removes it", () => {
@@ -202,11 +233,11 @@ test("interaction runtime transitions are single-source through the runtime redu
     type: INTERACTION_RUNTIME_ACTION.START_DRAG,
     pointerScreenPx: { x: 500, y: 300 },
     isPointerInsideImage: true,
-    dragMode: DRAG_MODE.SHARED_PAN,
+    dragMode: DRAG_MODE.MAP_PAN,
   }, state);
   assert.deepEqual(dragging.pointerScreenPx, { x: 500, y: 300 });
   assert.equal(dragging.isDragging, true);
-  assert.equal(dragging.dragMode, DRAG_MODE.SHARED_PAN);
+  assert.equal(dragging.dragMode, DRAG_MODE.MAP_PAN);
   assert.equal(dragging.canCapturePointer, true);
 
   const reset = reduceInteractionRuntime(dragging, {
@@ -219,6 +250,13 @@ test("interaction runtime transitions are single-source through the runtime redu
   assert.equal(reset.isPassThroughActive, false);
   assert.equal(reset.pointerScreenPx, null);
   assert.equal(reset.canCapturePointer, true);
+
+  const unchanged = reduceInteractionRuntime(reset, {
+    type: INTERACTION_RUNTIME_ACTION.UPDATE_POINTER,
+    pointerScreenPx: null,
+    isPointerInsideImage: false,
+  }, state);
+  assert.equal(unchanged, reset);
 });
 
 test("adding a pin preserves the current rendered placement after a solved transform exists", () => {
@@ -354,12 +392,12 @@ test("plain wheel zooms the map only and leaves overlay placement unchanged", ()
   });
 
   assert.deepEqual(store.getState().placement, initialPlacement);
-  assert.equal(adapterCalls.forwardedWheelCalls.length, 1);
-  assert.deepEqual(adapterCalls.forwardedWheelCalls[0].screenPoint, { x: 600, y: 320 });
-  assert.equal(adapterCalls.forwardedWheelCalls[0].deltaY, -100);
+  assert.equal(adapterCalls.mapZoomCalls.length, 1);
+  assert.deepEqual(adapterCalls.mapZoomCalls[0].screenPoint, { x: 600, y: 320 });
+  assert.equal(adapterCalls.mapZoomCalls[0].deltaY, -100);
 });
 
-test("shared gestures keep a solved transform clean until overlay-only editing begins", () => {
+test("map pan/zoom gestures keep a solved transform clean until overlay-only editing begins", () => {
   const { controller, store, adapterCalls } = createHarness();
   controller.loadImage({
     src: "data:image/png;base64,abc",
@@ -390,8 +428,8 @@ test("shared gestures keep a solved transform clean until overlay-only editing b
 
   assert.deepEqual(store.getState().placement, solvedPlacement);
   assert.equal(store.getState().registration.dirty, false);
-  assert.equal(adapterCalls.sharedDrag.starts.length, 1);
-  assert.equal(adapterCalls.forwardedWheelCalls.length, 1);
+  assert.equal(adapterCalls.mapPan.starts.length, 1);
+  assert.equal(adapterCalls.mapZoomCalls.length, 1);
 
   controller.handleWheel({
     deltaY: -100,
@@ -421,7 +459,7 @@ test("ctrl-wheel rotates the overlay without zooming the map", () => {
   });
 
   assert.notEqual(store.getState().placement.rotationRad, 0);
-  assert.equal(adapterCalls.forwardedWheelCalls.length, 0);
+  assert.equal(adapterCalls.mapZoomCalls.length, 0);
 });
 
 test("alt-wheel adjusts the overlay opacity in align mode without zooming the map", () => {
@@ -442,7 +480,7 @@ test("alt-wheel adjusts the overlay opacity in align mode without zooming the ma
   });
 
   assert.ok(store.getState().opacity > initialOpacity);
-  assert.equal(adapterCalls.forwardedWheelCalls.length, 0);
+  assert.equal(adapterCalls.mapZoomCalls.length, 0);
 });
 
 test("alt-wheel adjusts the overlay opacity in trace mode", () => {
@@ -465,7 +503,7 @@ test("alt-wheel adjusts the overlay opacity in trace mode", () => {
 
   assert.equal(handled, true);
   assert.ok(store.getState().opacity < initialOpacity);
-  assert.equal(adapterCalls.forwardedWheelCalls.length, 0);
+  assert.equal(adapterCalls.mapZoomCalls.length, 0);
 });
 
 test("toggleing to trace auto-computes a dirty transform when enough pins exist", () => {
@@ -499,7 +537,7 @@ test("clearing pins emits no event when nothing changed", () => {
   assert.deepEqual(events, []);
 });
 
-test("switching mode clears pass-through and ends any active shared drag through one transition path", () => {
+test("switching mode clears pass-through and ends any active map pan through one transition path", () => {
   const keyTarget = createKeyTarget();
   const { controller, adapterCalls } = createHarness({ keyTarget });
   controller.loadImage({
@@ -522,10 +560,10 @@ test("switching mode clears pass-through and ends any active shared drag through
   assert.equal(controller.getRuntimeState().isDragging, false);
   assert.equal(controller.getRuntimeState().dragMode, null);
   assert.equal(controller.getRuntimeState().isPassThroughActive, false);
-  assert.deepEqual(adapterCalls.sharedDrag.ends, [{ x: 520, y: 310 }]);
+  assert.deepEqual(adapterCalls.mapPan.ends, [{ x: 520, y: 310 }]);
 });
 
-test("clearing the image resets runtime and ends any active shared drag through one transition path", () => {
+test("clearing the image resets runtime and ends any active map pan through one transition path", () => {
   const { controller, adapterCalls, store } = createHarness();
   controller.loadImage({
     src: "data:image/png;base64,abc",
@@ -547,7 +585,7 @@ test("clearing the image resets runtime and ends any active shared drag through 
   assert.equal(controller.getRuntimeState().isPassThroughActive, false);
   assert.equal(controller.getRuntimeState().pointerScreenPx, null);
   assert.equal(controller.getRuntimeState().isPointerInsideImage, false);
-  assert.deepEqual(adapterCalls.sharedDrag.ends, [{ x: 520, y: 310 }]);
+  assert.deepEqual(adapterCalls.mapPan.ends, [{ x: 520, y: 310 }]);
 });
 
 test("space activates temporary pass-through while aligning", () => {
@@ -671,10 +709,10 @@ test("keyboard shortcut resolution is single-source and mode-aware", () => {
   );
 });
 
-test("drag mode resolution keeps shared pan as the unmodified default", () => {
+test("drag mode resolution keeps map pan as the unmodified default", () => {
   assert.equal(
     resolveDragMode({ shiftKey: false }),
-    "shared-pan",
+    "map-pan",
   );
   assert.equal(
     resolveDragMode({ shiftKey: true }),
@@ -685,7 +723,7 @@ test("drag mode resolution keeps shared pan as the unmodified default", () => {
 test("wheel mode resolution is single-source and modifier-aware", () => {
   assert.equal(
     resolveWheelMode({ shiftKey: false, altKey: false, ctrlKey: false }),
-    "zoom-both",
+    "map-zoom",
   );
   assert.equal(
     resolveWheelMode({ shiftKey: true, altKey: false, ctrlKey: false }),
@@ -707,8 +745,8 @@ test("wheel mode resolution is single-source and modifier-aware", () => {
 
 test("align gesture descriptions stay sourced from the interaction contract", () => {
   assert.equal(
-    describeActiveAlignDrag(DRAG_MODE.SHARED_PAN),
-    "Shared drag: moving the map and overlay together.",
+    describeActiveAlignDrag(DRAG_MODE.MAP_PAN),
+    "Panning the map while the overlay follows.",
   );
   assert.equal(
     describeActiveAlignDrag(DRAG_MODE.MOVE_OVERLAY),
@@ -750,21 +788,42 @@ test("align capability helpers are the single source of truth for editability", 
     }),
     false,
   );
+  assert.equal(
+    canTrackOverlayPointer({
+      state: { mode: "align", image: { src: "x" } },
+      runtime: { isPassThroughActive: false },
+    }),
+    true,
+  );
+  assert.equal(
+    canTrackOverlayPointer({
+      state: { mode: "align", image: { src: "x" } },
+      runtime: { isPassThroughActive: true },
+    }),
+    false,
+  );
+  assert.equal(
+    canTrackOverlayPointer({
+      state: { mode: "trace", image: { src: "x" } },
+      runtime: { isPassThroughActive: false },
+    }),
+    false,
+  );
 });
 
-test("gesture ownership helpers are the single source of truth for shared-vs-overlay ownership", () => {
-  assert.equal(isSharedDragMode(DRAG_MODE.SHARED_PAN), true);
-  assert.equal(isSharedDragMode(DRAG_MODE.MOVE_OVERLAY), false);
+test("gesture ownership helpers are the single source of truth for map-vs-overlay ownership", () => {
+  assert.equal(isMapPanDragMode(DRAG_MODE.MAP_PAN), true);
+  assert.equal(isMapPanDragMode(DRAG_MODE.MOVE_OVERLAY), false);
 
   assert.equal(doesDragEditPlacement(DRAG_MODE.MOVE_OVERLAY), true);
-  assert.equal(doesDragEditPlacement(DRAG_MODE.SHARED_PAN), false);
+  assert.equal(doesDragEditPlacement(DRAG_MODE.MAP_PAN), false);
 
   assert.equal(doesWheelEditPlacement("zoom-overlay"), true);
   assert.equal(doesWheelEditPlacement("rotate-overlay"), true);
-  assert.equal(doesWheelEditPlacement("zoom-both"), false);
+  assert.equal(doesWheelEditPlacement("map-zoom"), false);
   assert.equal(doesWheelEditPlacement("adjust-opacity"), false);
   assert.equal(doesWheelEditOpacity("adjust-opacity"), true);
-  assert.equal(doesWheelEditOpacity("zoom-both"), false);
+  assert.equal(doesWheelEditOpacity("map-zoom"), false);
 });
 
 test("wheel capability is single-source across modes and modifiers", () => {
@@ -772,7 +831,7 @@ test("wheel capability is single-source across modes and modifiers", () => {
     canHandleWheelGesture({
       state: { mode: "align", image: { src: "x" } },
       runtime: { isPassThroughActive: false, canCapturePointer: true },
-      wheelMode: "zoom-both",
+      wheelMode: "map-zoom",
     }),
     true,
   );
@@ -780,7 +839,7 @@ test("wheel capability is single-source across modes and modifiers", () => {
     canHandleWheelGesture({
       state: { mode: "trace", image: { src: "x" } },
       runtime: { isPassThroughActive: false, canCapturePointer: false },
-      wheelMode: "zoom-both",
+      wheelMode: "map-zoom",
     }),
     false,
   );
@@ -794,12 +853,12 @@ test("wheel capability is single-source across modes and modifiers", () => {
   );
 });
 
-test("overlay wheel interception policy is single-source", () => {
+test("overlay wheel policy is single-source", () => {
   const state = { mode: "align", image: { src: "x" }, opacity: 0.6 };
   const runtime = { isPassThroughActive: false, canCapturePointer: true };
 
   assert.deepEqual(
-    resolveOverlayWheelInterception({
+    resolveOverlayWheelPolicy({
       state,
       runtime,
       shiftKey: false,
@@ -807,13 +866,13 @@ test("overlay wheel interception policy is single-source", () => {
       ctrlKey: false,
     }),
     {
-      wheelMode: WHEEL_MODE.ZOOM_BOTH,
+      wheelMode: WHEEL_MODE.MAP_ZOOM,
       shouldIntercept: false,
     },
   );
 
   assert.deepEqual(
-    resolveOverlayWheelInterception({
+    resolveOverlayWheelPolicy({
       state,
       runtime,
       shiftKey: false,
@@ -827,83 +886,159 @@ test("overlay wheel interception policy is single-source", () => {
   );
 });
 
-test("overlay placement drag start policy is single-source", () => {
-  const state = { mode: "align", image: { src: "x" } };
-  const runtime = { canCapturePointer: true };
-
-  assert.equal(
-    shouldStartOverlayPlacementDrag({
-      state,
-      runtime,
-      button: 0,
-      shiftKey: true,
-    }),
-    true,
-  );
-  assert.equal(
-    shouldStartOverlayPlacementDrag({
-      state,
-      runtime,
-      button: 0,
-      shiftKey: false,
-    }),
-    false,
-  );
-});
-
-test("overlay pointer interception policy is single-source", () => {
+test("overlay pointer move policy is single-source", () => {
   const state = { mode: "align", image: { src: "x" } };
   const runtime = { canCapturePointer: true, isPassThroughActive: false };
 
   assert.deepEqual(
-    resolveOverlayPointerInterception({
+    resolveOverlayPointerMovePolicy({
+      state,
+      runtime,
+      isPointerOverOverlay: false,
+    }),
+    {
+      shouldTrackPointer: false,
+    },
+  );
+
+  assert.deepEqual(
+    resolveOverlayPointerMovePolicy({
+      state,
+      runtime,
+      isPointerOverOverlay: true,
+    }),
+    {
+      shouldTrackPointer: true,
+    },
+  );
+
+  assert.deepEqual(
+    resolveOverlayPointerMovePolicy({
+      state,
+      runtime,
+      isPointerOverOverlay: true,
+      buttons: 1,
+    }),
+    {
+      shouldTrackPointer: false,
+    },
+  );
+});
+
+test("overlay pointer sequence policy is single-source", () => {
+  const state = { mode: "align", image: { src: "x" } };
+  const runtime = { canCapturePointer: true, isPassThroughActive: false };
+
+  assert.deepEqual(
+    resolveOverlayPointerSequencePolicy({
       state,
       runtime,
       isPointerOverOverlay: false,
       button: 0,
+      shiftKey: false,
+    }),
+    {
+      shouldOwnPointerSequence: false,
+      dragMode: null,
+    },
+  );
+
+  assert.deepEqual(
+    resolveOverlayPointerSequencePolicy({
+      state,
+      runtime,
+      isPointerOverOverlay: true,
+      button: 0,
+      shiftKey: false,
+    }),
+    {
+      shouldOwnPointerSequence: true,
+      dragMode: DRAG_MODE.MAP_PAN,
+    },
+  );
+
+  assert.deepEqual(
+    resolveOverlayPointerSequencePolicy({
+      state,
+      runtime,
+      isPointerOverOverlay: true,
+      button: 0,
       shiftKey: true,
     }),
     {
-      shouldTrackPointer: false,
-      shouldStartPlacementDrag: false,
+      shouldOwnPointerSequence: true,
+      dragMode: DRAG_MODE.MOVE_OVERLAY,
+    },
+  );
+
+  assert.deepEqual(
+    resolveOverlayPointerSequencePolicy({
+      state,
+      runtime,
+      isPointerOverOverlay: true,
+      button: 1,
+      shiftKey: true,
+    }),
+    {
+      shouldOwnPointerSequence: false,
+      dragMode: null,
+    },
+  );
+});
+
+test("overlay activation policy is single-source", () => {
+  const state = { mode: "align", image: { src: "x" } };
+  const runtime = { canCapturePointer: true, isPassThroughActive: false };
+
+  assert.deepEqual(
+    resolveOverlayActivationPolicy({
+      state,
+      runtime,
+      isPointerOverOverlay: false,
+    }),
+    {
+      shouldConsumeClick: false,
       shouldTogglePin: false,
     },
   );
 
   assert.deepEqual(
-    resolveOverlayPointerInterception({
+    resolveOverlayActivationPolicy({
       state,
       runtime,
       isPointerOverOverlay: true,
-      button: 0,
-      shiftKey: false,
     }),
     {
-      shouldTrackPointer: true,
-      shouldStartPlacementDrag: false,
+      shouldConsumeClick: true,
       shouldTogglePin: true,
     },
   );
 
   assert.deepEqual(
-    resolveOverlayPointerInterception({
+    resolveOverlayActivationPolicy({
+      state: { mode: "trace", image: { src: "x" } },
+      runtime,
+      isPointerOverOverlay: true,
+    }),
+    {
+      shouldConsumeClick: false,
+      shouldTogglePin: false,
+    },
+  );
+
+  assert.equal(
+    canToggleOverlayPin({
       state,
       runtime,
       isPointerOverOverlay: true,
-      button: 0,
-      shiftKey: true,
     }),
-    {
-      shouldTrackPointer: true,
-      shouldStartPlacementDrag: true,
-      shouldTogglePin: true,
-    },
+    true,
   );
 });
 
-test("shared drag does nothing when the page adapter cannot start it", () => {
+test("map pan does nothing when the page adapter cannot start it", () => {
   const { controller, store, adapterCalls } = createHarness({
-    beginSharedDragReturns: false,
+    beginMapPanReturns: false,
   });
   controller.loadImage({
     src: "data:image/png;base64,abc",
@@ -921,12 +1056,12 @@ test("shared drag does nothing when the page adapter cannot start it", () => {
   assert.equal(handled, false);
   assert.deepEqual(store.getState().placement, initialPlacement);
   assert.equal(controller.getRuntimeState().isDragging, false);
-  assert.deepEqual(adapterCalls.sharedDrag.starts, [{ x: 500, y: 300 }]);
+  assert.deepEqual(adapterCalls.mapPan.starts, [{ x: 500, y: 300 }]);
 });
 
-test("shared wheel does nothing when the page adapter cannot forward it", () => {
+test("map zoom does nothing when the page adapter cannot forward it", () => {
   const { controller, store, adapterCalls } = createHarness({
-    forwardSharedWheelReturns: false,
+    forwardMapZoomReturns: false,
   });
   controller.loadImage({
     src: "data:image/png;base64,abc",
@@ -945,7 +1080,7 @@ test("shared wheel does nothing when the page adapter cannot forward it", () => 
 
   assert.equal(handled, false);
   assert.deepEqual(store.getState().placement, initialPlacement);
-  assert.equal(adapterCalls.forwardedWheelCalls.length, 1);
+  assert.equal(adapterCalls.mapZoomCalls.length, 1);
 });
 
 test("pass-through release stays active until the runtime says it can be released", () => {
@@ -978,21 +1113,23 @@ test("pass-through release stays active until the runtime says it can be release
 function createHarness({
   keyTarget = createKeyTarget(),
   keyboardGateway = null,
-  beginSharedDragReturns = true,
-  forwardSharedWheelReturns = true,
+  beginMapPanReturns = true,
+  forwardMapZoomReturns = true,
+  screenToMapThrows = null,
 } = {}) {
   const adapterCalls = {
-    sharedDrag: {
+    mapPan: {
       starts: [],
       moves: [],
       ends: [],
     },
-    forwardedWheelCalls: [],
+    mapZoomCalls: [],
   };
   const pageAdapter = createPageAdapter({
     adapterCalls,
-    beginSharedDragReturns,
-    forwardSharedWheelReturns,
+    beginMapPanReturns,
+    forwardMapZoomReturns,
+    screenToMapThrows,
   });
   const store = createStateStore();
   const controller = createInteractionController({
@@ -1007,8 +1144,9 @@ function createHarness({
 
 function createPageAdapter({
   adapterCalls,
-  beginSharedDragReturns,
-  forwardSharedWheelReturns,
+  beginMapPanReturns,
+  forwardMapZoomReturns,
+  screenToMapThrows,
 }) {
   return {
     getMapCenter() {
@@ -1030,24 +1168,27 @@ function createPageAdapter({
       };
     },
     screenToMap(point) {
+      if (screenToMapThrows) {
+        throw screenToMapThrows;
+      }
       return {
         lat: -1.23 + (point.y - 300) / 100,
         lon: 36.84 + (point.x - 500) / 100,
       };
     },
-    beginSharedDrag(screenPoint) {
-      adapterCalls.sharedDrag.starts.push(screenPoint);
-      return beginSharedDragReturns;
+    beginMapPan(screenPoint) {
+      adapterCalls.mapPan.starts.push(screenPoint);
+      return beginMapPanReturns;
     },
-    updateSharedDrag(screenPoint, screenDelta) {
-      adapterCalls.sharedDrag.moves.push({ screenPoint, screenDelta });
+    updateMapPan(screenPoint) {
+      adapterCalls.mapPan.moves.push({ screenPoint });
     },
-    endSharedDrag(screenPoint) {
-      adapterCalls.sharedDrag.ends.push(screenPoint);
+    endMapPan(screenPoint) {
+      adapterCalls.mapPan.ends.push(screenPoint);
     },
-    forwardSharedWheel(payload) {
-      adapterCalls.forwardedWheelCalls.push(payload);
-      return forwardSharedWheelReturns;
+    forwardMapZoom(payload) {
+      adapterCalls.mapZoomCalls.push(payload);
+      return forwardMapZoomReturns;
     },
   };
 }

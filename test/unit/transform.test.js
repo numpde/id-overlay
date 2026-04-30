@@ -2,22 +2,26 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  applySurfaceMotionToScreenPoint,
   buildOverlayRenderModel,
   buildPinRenderModels,
   clampOpacity,
   createPlacementTransform,
   derivePlacementFromScreenTransform,
   createPlacementScreenTransform,
+  imagePointToRenderedScreenPoint,
   resolveOverlayRenderState,
   createSolvedScreenTransform,
   hitTestPin,
   imagePointToScreenPoint,
   projectLatLonToWorld,
+  removeSurfaceMotionFromScreenPoint,
   resolveOverlayRenderSource,
   resolveOverlayScreenTransform,
   rotationFromWheelDelta,
   scaleFromWheelDelta,
   screenPointToImagePoint,
+  screenPointToRenderedImagePoint,
   solveSimilarityTransform,
 } from "../../src/core/transform.js";
 
@@ -242,6 +246,56 @@ test("buildPinRenderModels and hitTestPin share the same screen geometry", () =>
     })?.id,
     1,
   );
+});
+
+test("surface motion helpers are inverse on screen points", () => {
+  const snapshot = {
+    viewportRect: { left: 100, top: 200, width: 800, height: 400 },
+    surfaceMotion: {
+      transformCss: "matrix(1, 0, 0, 1, 18, -12)",
+      transformOriginCss: "0px 0px",
+    },
+  };
+  const screenPoint = { x: 420, y: 310 };
+  const transformed = applySurfaceMotionToScreenPoint({
+    screenPoint,
+    snapshot,
+  });
+  assert.deepEqual(transformed, { x: 438, y: 298 });
+  const restored = removeSurfaceMotionFromScreenPoint({
+    screenPoint: transformed,
+    snapshot,
+  });
+  assert.deepEqual(restored, screenPoint);
+});
+
+test("rendered image-point conversion stays aligned with live surface motion", () => {
+  const transform = {
+    a: 1,
+    b: 0,
+    tx: 100,
+    ty: 50,
+  };
+  const snapshot = {
+    viewportRect: { left: 10, top: 20, width: 300, height: 200 },
+    surfaceMotion: {
+      transformCss: "matrix(1, 0, 0, 1, 18, -12)",
+      transformOriginCss: "0px 0px",
+    },
+  };
+  const imagePoint = { x: 20, y: 30 };
+  const renderedScreenPoint = imagePointToRenderedScreenPoint({
+    imagePoint,
+    transform,
+    snapshot,
+  });
+  assert.deepEqual(renderedScreenPoint, { x: 138, y: 68 });
+  const restoredImagePoint = screenPointToRenderedImagePoint({
+    screenPoint: renderedScreenPoint,
+    transform,
+    snapshot,
+  });
+  assert.deepEqual(restoredImagePoint, imagePoint);
 });
 
 test("solveSimilarityTransform recovers a clean two-pin similarity fit", () => {

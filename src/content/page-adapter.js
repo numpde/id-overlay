@@ -1,4 +1,9 @@
-import { getViewportCenter } from "../core/transform.js";
+import {
+  applySurfaceMotionToScreenPoint,
+  getViewportCenter,
+  removeSurfaceMotionFromScreenPoint,
+} from "../core/transform.js";
+import { createLogger } from "../core/logger.js";
 
 const ID_EMBED_SELECTOR = "#id-embed";
 const SURFACE_MOTION_SELECTOR = ".supersurface";
@@ -17,11 +22,13 @@ const DEFAULT_MAP_VIEW = Object.freeze({
 });
 
 const TILE_SIZE = 256;
+export const FORWARDED_MAP_GESTURE_EVENT_FLAG = "idOverlayForwardedMapGesture";
 
 export function createPageAdapter({
   hashTarget = globalThis.window,
   viewportDocument = globalThis.document,
 } = {}) {
+  const logger = createLogger("page-adapter");
   let viewportElement = null;
   let mutationObserver = null;
   let snapshotLoopHandle = null;
@@ -31,7 +38,7 @@ export function createPageAdapter({
   let observedMutationRoot = null;
   let lastSnapshot = null;
   let lastCoherentMapView = null;
-  let activeSharedDrag = null;
+  let activeMapPan = null;
   const listeners = new Set();
 
   function isSupported() {
@@ -41,8 +48,10 @@ export function createPageAdapter({
   }
 
   function getViewportElement() {
-    const context = getActiveMapContext();
-    return resolveViewportElement(context);
+    return runAdapterBoundary("get-viewport-element", () => {
+      const context = getActiveMapContext();
+      return resolveViewportElement(context);
+    }, null);
   }
 
   function getViewportRect() {
@@ -66,107 +75,146 @@ export function createPageAdapter({
   }
 
   function getOverlayMountElement() {
-    return resolveOverlayMountElement(getActiveMapContext());
+    return runAdapterBoundary("get-overlay-mount-element", () => {
+      return resolveOverlayMountElement(getActiveMapContext());
+    }, null);
+  }
+
+  function clientPointToScreen(clientPoint) {
+    return runAdapterBoundary("client-point-to-screen", () => {
+      const context = getActiveMapContext();
+      return contextClientPointToScreenPoint(clientPoint, context);
+    }, {
+      x: clientPoint?.x ?? 0,
+      y: clientPoint?.y ?? 0,
+    });
+  }
+
+  function screenPointToClient(screenPoint) {
+    return runAdapterBoundary("screen-point-to-client", () => {
+      const context = getActiveMapContext();
+      return screenPointToContextClientPoint(screenPoint, context);
+    }, {
+      x: screenPoint?.x ?? 0,
+      y: screenPoint?.y ?? 0,
+    });
   }
 
   function mapToScreen(point) {
-    const projection = getProjectionContext();
-    const pointWorld = projectLatLon(point, projection.mapView.zoom);
+    return runAdapterBoundary("map-to-screen", () => {
+      const snapshot = getSnapshot();
+      const projection = createProjectionContext(snapshot);
+      const pointWorld = projectLatLon(point, projection.mapView.zoom);
 
-    return {
-      x: projection.viewportCenter.x + (pointWorld.x - projection.centerWorld.x),
-      y: projection.viewportCenter.y + (pointWorld.y - projection.centerWorld.y),
-    };
+      const baseScreenPoint = {
+        x: projection.viewportCenter.x + (pointWorld.x - projection.centerWorld.x),
+        y: projection.viewportCenter.y + (pointWorld.y - projection.centerWorld.y),
+      };
+      return applySurfaceMotionToScreenPoint({
+        screenPoint: baseScreenPoint,
+        snapshot,
+      });
+    }, { x: 0, y: 0 });
   }
 
   function screenToMap(screenPoint) {
-    const projection = getProjectionContext();
+    return runAdapterBoundary("screen-to-map", () => {
+      const snapshot = getSnapshot();
+      const projection = createProjectionContext(snapshot);
+      const baseScreenPoint = removeSurfaceMotionFromScreenPoint({
+        screenPoint,
+        snapshot,
+      });
 
-    return unprojectWorld({
-      x: projection.centerWorld.x + (screenPoint.x - projection.viewportCenter.x),
-      y: projection.centerWorld.y + (screenPoint.y - projection.viewportCenter.y),
-    }, projection.mapView.zoom);
+      return unprojectWorld({
+        x: projection.centerWorld.x + (baseScreenPoint.x - projection.viewportCenter.x),
+        y: projection.centerWorld.y + (baseScreenPoint.y - projection.viewportCenter.y),
+      }, projection.mapView.zoom);
+    }, lastCoherentMapView?.center ?? DEFAULT_MAP_VIEW.center);
   }
 
-  function beginSharedDrag(screenPoint) {
-    const context = getActiveMapContext();
-    const clientPoint = toContextClientPoint(screenPoint, context);
-    const target = resolveSharedDragTarget(context, clientPoint);
-    if (!target) {
-      activeSharedDrag = null;
-      return false;
-    }
+  function beginMapPan(screenPoint) {
+    return runAdapterBoundary("begin-map-pan", () => {
+      const mapPanSession = resolveMapPanSession(screenPoint);
+      if (!mapPanSession) {
+        activeMapPan = null;
+        return false;
+      }
 
-    activeSharedDrag = {
-      context,
-      target,
-    };
-    dispatchSharedDragMouseSequence({
-      context,
-      target,
-      type: "down",
-      clientPoint,
+      activeMapPan = mapPanSession;
+      dispatchForwardedMapPointerPhase({
+        context: mapPanSession.context,
+        target: mapPanSession.target,
+        type: "down",
+        clientPoint: mapPanSession.clientPoint,
+      });
+      return true;
+    }, false);
+  }
+
+  function updateMapPan(screenPoint) {
+    return runAdapterBoundary("update-map-pan", () => {
+      const gestureContext = resolveActiveMapPanGesture(screenPoint);
+      if (!gestureContext) {
+        return false;
+      }
+
+      dispatchForwardedMapPointerPhase({
+        context: gestureContext.context,
+        target: gestureContext.target,
+        type: "move",
+        clientPoint: gestureContext.clientPoint,
+      });
+      return true;
+    }, false);
+  }
+
+  function endMapPan(screenPoint) {
+    runAdapterBoundary("end-map-pan", () => {
+      const gestureContext = resolveActiveMapPanGesture(screenPoint);
+      if (!gestureContext) {
+        activeMapPan = null;
+        return;
+      }
+
+      dispatchForwardedMapPointerPhase({
+        context: gestureContext.context,
+        target: gestureContext.target,
+        type: "up",
+        clientPoint: gestureContext.clientPoint,
+      });
+      activeMapPan = null;
     });
-    return true;
   }
 
-  function updateSharedDrag(screenPoint, screenDelta) {
-    if (!activeSharedDrag) {
-      return false;
-    }
+  function forwardMapZoom({ screenPoint, deltaX = 0, deltaY = 0, deltaMode = 0 }) {
+    return runAdapterBoundary("forward-map-zoom", () => {
+      const gestureContext = resolveForwardedMapGestureContext({
+        screenPoint,
+        targetResolver: resolveMapZoomTarget,
+      });
+      if (!gestureContext || typeof gestureContext.context.mapWindow.WheelEvent !== "function") {
+        return false;
+      }
 
-    const clientPoint = toContextClientPoint(screenPoint, activeSharedDrag.context);
-    dispatchSharedDragMouseSequence({
-      context: activeSharedDrag.context,
-      target: activeSharedDrag.context.viewportDocument,
-      type: "move",
-      clientPoint,
-    });
-    return true;
-  }
-
-  function endSharedDrag(screenPoint) {
-    if (!activeSharedDrag) {
-      return;
-    }
-
-    const clientPoint = toContextClientPoint(screenPoint, activeSharedDrag.context);
-    dispatchSharedDragMouseSequence({
-      context: activeSharedDrag.context,
-      target: activeSharedDrag.context.viewportDocument,
-      type: "up",
-      clientPoint,
-    });
-    activeSharedDrag = null;
-  }
-
-  function forwardSharedWheel({ screenPoint, deltaX = 0, deltaY = 0, deltaMode = 0 }) {
-    const context = getActiveMapContext();
-    const clientPoint = toContextClientPoint(screenPoint, context);
-    const target = resolveSharedDragTarget(context, clientPoint);
-    if (!target || typeof context.mapWindow.WheelEvent !== "function") {
-      return false;
-    }
-
-    target.dispatchEvent(new context.mapWindow.WheelEvent("wheel", {
-      bubbles: true,
-      cancelable: true,
-      clientX: clientPoint.x,
-      clientY: clientPoint.y,
-      screenX: clientPoint.x,
-      screenY: clientPoint.y,
-      deltaX,
-      deltaY,
-      deltaMode,
-      view: context.mapWindow,
-    }));
-    return true;
+      dispatchForwardedMapWheel({
+        context: gestureContext.context,
+        target: gestureContext.target,
+        clientPoint: gestureContext.clientPoint,
+        deltaX,
+        deltaY,
+        deltaMode,
+      });
+      return true;
+    }, false);
   }
 
   function subscribe(listener) {
     listeners.add(listener);
     startWatching();
-    listener(getSnapshot());
+    runAdapterBoundary("subscribe-listener", () => {
+      listener(getSnapshot());
+    });
     return () => {
       listeners.delete(listener);
       if (!listeners.size) {
@@ -176,7 +224,9 @@ export function createPageAdapter({
   }
 
   function getSnapshot() {
-    return createSnapshot(resolveSnapshotState(getActiveMapContext()));
+    return runAdapterBoundary("get-snapshot", () => {
+      return createSnapshot(resolveSnapshotState(getActiveMapContext()));
+    }, createFallbackSnapshot());
   }
 
   function notifyIfChanged() {
@@ -187,7 +237,9 @@ export function createPageAdapter({
     }
     lastSnapshot = nextSnapshot;
     for (const listener of listeners) {
-      listener(nextSnapshot);
+      runAdapterBoundary("notify-listener", () => {
+        listener(nextSnapshot);
+      });
     }
   }
 
@@ -227,6 +279,30 @@ export function createPageAdapter({
     lastCoherentMapView = null;
   }
 
+  function runAdapterBoundary(operation, fn, fallbackValue = undefined) {
+    try {
+      return fn();
+    } catch (error) {
+      logger.error("Page adapter boundary failed", {
+        operation,
+      }, error);
+      return typeof fallbackValue === "function" ? fallbackValue(error) : fallbackValue;
+    }
+  }
+
+  function createFallbackSnapshot() {
+    if (lastSnapshot) {
+      return lastSnapshot;
+    }
+    const viewportRect = createWindowViewportRect(hashTarget);
+    return createSnapshot({
+      viewportRect,
+      localViewportRect: viewportRect,
+      mapView: lastCoherentMapView ?? DEFAULT_MAP_VIEW,
+      surfaceMotion: createSurfaceMotion(),
+    });
+  }
+
   return {
     isSupported,
     getSnapshot,
@@ -235,12 +311,14 @@ export function createPageAdapter({
     getMapView,
     getMapCenter,
     getOverlayMountElement,
+    clientPointToScreen,
+    screenPointToClient,
     mapToScreen,
     screenToMap,
-    beginSharedDrag,
-    updateSharedDrag,
-    endSharedDrag,
-    forwardSharedWheel,
+    beginMapPan,
+    updateMapPan,
+    endMapPan,
+    forwardMapZoom,
     subscribe,
     destroy,
   };
@@ -332,6 +410,42 @@ export function createPageAdapter({
 
   function resolveOverlayMountElement(context) {
     return resolveViewportGeometry(context).mountElement;
+  }
+
+  function resolveForwardedMapGestureContext({
+    screenPoint,
+    context = getActiveMapContext(),
+    target = null,
+    targetResolver = null,
+  }) {
+    const clientPoint = screenPointToContextClientPoint(screenPoint, context);
+    const resolvedTarget = target ?? targetResolver?.(context, clientPoint) ?? null;
+    if (!resolvedTarget) {
+      return null;
+    }
+    return {
+      context,
+      clientPoint,
+      target: resolvedTarget,
+    };
+  }
+
+  function resolveMapPanSession(screenPoint) {
+    return resolveForwardedMapGestureContext({
+      screenPoint,
+      targetResolver: resolveMapPanTarget,
+    });
+  }
+
+  function resolveActiveMapPanGesture(screenPoint) {
+    if (!activeMapPan) {
+      return null;
+    }
+    return resolveForwardedMapGestureContext({
+      screenPoint,
+      context: activeMapPan.context,
+      target: activeMapPan.context.viewportDocument,
+    });
   }
 
   function resolveSnapshotState(context) {
@@ -542,9 +656,16 @@ function createWindowViewportRect(hashTarget) {
   };
 }
 
-function resolveSharedDragTarget(context, clientPoint) {
+function resolveMapZoomTarget(context, clientPoint) {
   const target = resolveUnderlyingMapTargetAtClientPoint(context.viewportDocument, clientPoint);
   return target ?? findViewportElement(context.viewportDocument) ?? context.viewportDocument.body;
+}
+
+function resolveMapPanTarget(context) {
+  return findViewportElement(context.viewportDocument)
+    ?? context.viewportDocument.body
+    ?? context.viewportDocument.documentElement
+    ?? null;
 }
 
 function resolveUnderlyingMapTargetAtClientPoint(viewportDocument, clientPoint) {
@@ -564,7 +685,7 @@ function resolveUnderlyingMapTargetAtClientPoint(viewportDocument, clientPoint) 
   return null;
 }
 
-function toContextClientPoint(screenPoint, context) {
+function screenPointToContextClientPoint(screenPoint, context) {
   if (!context.frameElement) {
     return {
       x: screenPoint.x,
@@ -578,7 +699,22 @@ function toContextClientPoint(screenPoint, context) {
   };
 }
 
-function dispatchSharedDragMouseSequence({ context, target, type, clientPoint }) {
+function contextClientPointToScreenPoint(clientPoint, context) {
+  if (!context.frameElement) {
+    return {
+      x: clientPoint.x,
+      y: clientPoint.y,
+    };
+  }
+
+  const frameRect = context.frameElement.getBoundingClientRect();
+  return {
+    x: frameRect.left + clientPoint.x,
+    y: frameRect.top + clientPoint.y,
+  };
+}
+
+function dispatchForwardedMapPointerPhase({ context, target, type, clientPoint }) {
   const eventInit = {
     bubbles: true,
     cancelable: true,
@@ -593,16 +729,54 @@ function dispatchSharedDragMouseSequence({ context, target, type, clientPoint })
 
   if (typeof context.mapWindow.PointerEvent === "function") {
     const pointerType = type === "down" ? "pointerdown" : type === "move" ? "pointermove" : "pointerup";
-    target.dispatchEvent(new context.mapWindow.PointerEvent(pointerType, {
+    const pointerEvent = new context.mapWindow.PointerEvent(pointerType, {
       ...eventInit,
       pointerId: 1,
       pointerType: "mouse",
       isPrimary: true,
-    }));
+    });
+    dispatchForwardedMapEvent(pointerEvent, target);
   }
 
   const mouseType = type === "down" ? "mousedown" : type === "move" ? "mousemove" : "mouseup";
-  target.dispatchEvent(new context.mapWindow.MouseEvent(mouseType, eventInit));
+  const mouseEvent = new context.mapWindow.MouseEvent(mouseType, eventInit);
+  dispatchForwardedMapEvent(mouseEvent, target);
+}
+
+function dispatchForwardedMapWheel({
+  context,
+  target,
+  clientPoint,
+  deltaX = 0,
+  deltaY = 0,
+  deltaMode = 0,
+}) {
+  const event = new context.mapWindow.WheelEvent("wheel", {
+    bubbles: true,
+    cancelable: true,
+    clientX: clientPoint.x,
+    clientY: clientPoint.y,
+    screenX: clientPoint.x,
+    screenY: clientPoint.y,
+    deltaX,
+    deltaY,
+    deltaMode,
+    view: context.mapWindow,
+  });
+  dispatchForwardedMapEvent(event, target);
+}
+
+function dispatchForwardedMapEvent(event, target) {
+  markForwardedMapGestureEvent(event);
+  target.dispatchEvent(event);
+}
+
+function markForwardedMapGestureEvent(event) {
+  Object.defineProperty(event, FORWARDED_MAP_GESTURE_EVENT_FLAG, {
+    configurable: true,
+    enumerable: false,
+    value: true,
+  });
 }
 
 function rectFromDomRect(rect) {

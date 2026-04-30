@@ -1,0 +1,304 @@
+Align Native Input Refactor Plan
+================================
+
+Objective
+---------
+Remove the recurring class of `Align`-mode input bugs by making the interaction model explicit:
+
+- `Trace` stays native-first and passive
+- `Align` keeps overlay-only editing affordances
+- map pan/zoom semantics are not re-derived from arbitrary DOM hit targets
+- coordinate conversion is owned by one boundary layer only
+
+This is not another symptom patch. It is a boundary refactor around how input ownership, semantic intent, and page integration are modeled.
+
+
+Observed Problem Cluster
+------------------------
+The following regressions all point to the same architectural fault line:
+
+- double-click pin offset when the iD side panel is open
+- pins drifting during live pan and snapping back later
+- recursive shared-drag replay causing stack overflow
+- dragging map features through the overlay in `Align`
+- plain wheel/drag feeling different in `Align` vs `Trace`
+
+These are not independent bugs. They come from the same issue:
+
+- one layer decides the semantic gesture (`pan map`, `zoom map`, `place pin`)
+- another layer re-decides part of that gesture from low-level DOM details
+
+That is a single-source-of-truth failure at the interaction boundary.
+
+
+Root Design Issue
+-----------------
+`Trace` and `Align` are still using different input models:
+
+- `Trace`
+  - real browser events go to iD natively
+  - overlay follows render state only
+
+- `Align`
+  - overlay captures pointer/wheel input
+  - interactions decides semantic meaning
+  - page adapter replays synthetic DOM events back into iD
+
+That replay model is inherently fragile unless:
+
+- gesture ownership is single-source
+- coordinate conversion is single-source
+- semantic map targets are single-source
+- rendered geometry and hit-testing share one basis
+
+Right now only some of those are centralized.
+
+
+Refactor Goal
+-------------
+Move from "shared drag / shared wheel replay" toward explicit semantic map actions:
+
+- map pan
+- map zoom
+- overlay move
+- overlay scale
+- overlay rotate
+- pin toggle
+
+The adapter should not expose generic replay mechanics as the public contract.
+It should expose semantic map operations.
+
+
+Target Boundary Model
+---------------------
+1. `core/interactions.js`
+
+Owns only:
+
+- mode-aware gesture semantics
+- runtime drag state
+- whether a gesture is:
+  - native map
+  - overlay-only
+  - overlay-owned click sequence
+
+Does not decide:
+
+- DOM event target
+- client/screen conversion
+- host-page element lookup
+
+2. `content/page-adapter.js`
+
+Owns only:
+
+- page/document/frame coordinate conversions
+- viewport and mount resolution
+- semantic host-page map operations
+
+Target public shape:
+
+- `clientPointToScreen(...)`
+- `screenPointToClient(...)`
+- `mapToScreen(...)`
+- `screenToMap(...)`
+- `beginMapPan(...)`
+- `updateMapPan(...)`
+- `endMapPan(...)`
+- `forwardMapZoom(...)`
+
+Not:
+
+- `beginSharedDrag(...)`
+- `forwardSharedWheel(...)`
+
+Those names encode implementation rather than meaning.
+
+3. `content/overlay.js`
+
+Owns only:
+
+- DOM event bridging
+- hit-testing against the rendered overlay
+- pointer-sequence thresholding
+- forwarding normalized inputs into `interactions`
+
+Does not:
+
+- invent coordinate formulas
+- choose semantic map targets
+- decide whether pan means map viewport vs feature under cursor
+
+
+Design Principles
+-----------------
+1. Native when possible
+
+If a gesture can remain native map input, do not emulate it.
+
+2. Semantic APIs over replay APIs
+
+`map pan` is a semantic operation.
+`dispatch synthetic mousedown to some element` is an implementation detail.
+
+3. One coordinate boundary
+
+All crossing between:
+
+- DOM client space
+- extension screen space
+- rendered overlay space
+
+must go through shared adapter/transform helpers only.
+
+4. One rendered geometry basis
+
+Image, frame, pins, pin hit-testing, and double-click placement must all agree on:
+
+- base transform
+- live surface motion
+- local mount placement
+
+5. One gesture-owner decision
+
+Whether the extension owns a pointer sequence must not be reinterpreted downstream.
+
+
+Refactor Plan
+-------------
+Phase 1. Rename the semantic boundary
+
+Revise `src/content/page-adapter.js`:
+
+- rename:
+  - `beginSharedDrag` -> `beginMapPan`
+  - `updateSharedDrag` -> `updateMapPan`
+  - `endSharedDrag` -> `endMapPan`
+  - `forwardSharedWheel` -> `forwardMapZoom`
+
+- keep the underlying synthetic replay internally for now
+- but remove the "shared" naming from the public contract
+
+This makes the meaning explicit even before implementation changes.
+
+
+Phase 2. Centralize map gesture targeting
+
+Revise `src/content/page-adapter.js`:
+
+- `beginMapPan(...)` must always target the semantic map viewport host
+- `forwardMapZoom(...)` may still use point-based target resolution, but only for zoom semantics
+- any target resolution helper should be named by semantic role:
+  - `resolveMapPanTarget(...)`
+  - `resolveMapZoomTarget(...)`
+
+Do not let generic `elementFromPoint` semantics leak into pan behavior again.
+
+
+Phase 3. Make overlay bridge reflect semantic ownership
+
+Revise `src/content/overlay.js`:
+
+- plain pointerdown in `Align`:
+  - own the click sequence
+  - do not let the map see raw click/down while the gesture is unresolved
+
+- after threshold:
+  - plain drag -> `interactions.handlePointerDown(... mode=map-pan ...)`
+  - `Shift+drag` -> overlay-only drag
+
+- plain wheel:
+  - if the contract remains map zoom in `Align`, send only the semantic zoom request
+  - never depend on accidental bubbling to the map
+
+This keeps ownership explicit.
+
+
+Phase 4. Reduce duplicated policy surfaces
+
+Revise `src/core/interactions.js`:
+
+- consolidate overlay pointer policy into one semantic resolver per gesture family:
+  - pointer sequence ownership
+  - drag start mode
+  - wheel handling mode
+  - click/double-click meaning
+
+- keep them semantic:
+  - `ownsSequence`
+  - `dragIntent`
+  - `wheelIntent`
+  - `clickIntent`
+
+Avoid exposing policy objects that mix hover tracking, drag start, and pin eligibility together.
+
+
+Phase 5. Tighten render/hit-test invariants
+
+Audit and keep consistent:
+
+- `overlay image`
+- `overlay frame`
+- `pin markers`
+- `isScreenPointOverOverlay(...)`
+- `screenPointToRenderedImagePoint(...)`
+- `buildPinRenderModels(...)`
+
+Rule:
+
+- image/frame/pins render in pre-motion local space
+- live `surfaceMotion` is applied once by the map-layer parent
+- pointer hit-testing and pin placement use rendered screen space
+
+
+Phase 6. Add regression coverage by symptom class
+
+Add tests for:
+
+1. Coordinate boundary
+   - iframe + side panel offset
+   - `client -> screen -> client` round-trip
+
+2. Render consistency
+   - pins stay aligned with image under live surface motion
+
+3. Gesture ownership
+   - plain drag in `Align` does not drag map features
+   - plain wheel in `Align` does not accidentally trigger overlay-only edits
+   - double-click in `Align` does not leak to map click behavior
+
+4. Semantic adapter contract
+   - map pan targets viewport host
+   - map zoom forwarding uses non-overlay target
+
+
+Migration Sequence
+------------------
+1. Rename adapter public APIs to semantic names.
+2. Update interactions to consume only semantic map APIs.
+3. Keep current synthetic implementation behind that adapter contract.
+4. Remove remaining "shared drag / shared wheel" terminology from logs/tests/presentation.
+5. Add focused regression tests before additional behavior changes.
+6. Only then consider deeper replacement of synthetic replay with direct map hooks if available.
+
+
+Success Criteria
+----------------
+After this refactor:
+
+- `Trace` and `Align` differ only in overlay editing affordances, not in hidden map-target semantics
+- map pan in `Align` never drags a feature through the overlay
+- coordinate bugs do not require overlay-side fixes
+- page adapter is the only page-boundary authority
+- overlay is only a bridge and renderer
+- interactions is only semantic control logic
+
+
+Non-Goals
+---------
+Do not do these in this refactor:
+
+- switch to affine/projective registration
+- rewrite rendering to canvas/WebGL
+- remove synthetic replay entirely before a stable semantic adapter contract exists
+

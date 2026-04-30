@@ -6,6 +6,7 @@ import {
 } from "../core/image-normalization.js";
 import {
   PANEL_FEEDBACK_ACTION,
+  PANEL_REPO_URL,
   PANEL_TITLE,
   describePanelActionPresentation,
   resolvePanelPresentation,
@@ -22,6 +23,7 @@ import { hasOverlayImageSession } from "../core/state.js";
 import { formatBuildLabel, createLogger } from "../core/logger.js";
 
 const PANEL_MARGIN_PX = 8;
+const SVG_NS = "http://www.w3.org/2000/svg";
 
 export function createPanel({ shadow, store, interactions, statusController }) {
   const logger = createLogger("panel");
@@ -34,14 +36,30 @@ export function createPanel({ shadow, store, interactions, statusController }) {
   header.className = "id-overlay-panel__header";
   header.title = "Drag to move";
 
+  const titleRow = document.createElement("div");
+  titleRow.className = "id-overlay-panel__title-row";
+
   const heading = document.createElement("h1");
   heading.className = "id-overlay-panel__title";
   heading.textContent = PANEL_TITLE;
 
+  const repoLink = document.createElement("a");
+  repoLink.className = "id-overlay-panel__repo-link";
+  repoLink.href = PANEL_REPO_URL;
+  repoLink.target = "_blank";
+  repoLink.rel = "noopener noreferrer";
+  repoLink.setAttribute("aria-label", "Open id-overlay on GitHub");
+  repoLink.title = "GitHub";
+  repoLink.append(createGithubIcon());
+  repoLink.addEventListener("mousedown", (event) => {
+    event.stopPropagation();
+  });
+
   const buildMeta = document.createElement("p");
   buildMeta.className = "id-overlay-panel__meta";
   buildMeta.textContent = formatBuildLabel();
-  header.append(heading, buildMeta);
+  titleRow.append(heading, repoLink);
+  header.append(titleRow, buildMeta);
 
   const controls = document.createElement("div");
   controls.className = "id-overlay-panel__controls";
@@ -440,6 +458,24 @@ export function createPanel({ shadow, store, interactions, statusController }) {
     );
     return image;
   }
+}
+
+function createGithubIcon() {
+  const svg = document.createElementNS(SVG_NS, "svg");
+  svg.setAttribute("viewBox", "0 0 16 16");
+  svg.setAttribute("aria-hidden", "true");
+  svg.setAttribute("focusable", "false");
+  svg.classList.add("id-overlay-panel__repo-icon");
+
+  const path = document.createElementNS(SVG_NS, "path");
+  path.setAttribute(
+    "d",
+    "M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.5-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.5 7.5 0 0 1 4 0c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .22.15.47.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8Z",
+  );
+  path.setAttribute("fill", "currentColor");
+  svg.append(path);
+
+  return svg;
 }
 
 function clampNumber(value, min, max) {
