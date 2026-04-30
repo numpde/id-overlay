@@ -38,21 +38,6 @@ export const UI_EVENT_MODEL = Object.freeze({
     UI_EVENT_FAMILY_KIND.INTENT,
     ["mode"],
   ),
-  OPACITY_SET: defineUiEvent(
-    "opacity-set",
-    UI_EVENT_FAMILY_KIND.INTENT,
-    ["opacity"],
-  ),
-  PIN_ADDED: defineUiEvent(
-    "pin-added",
-    UI_EVENT_FAMILY_KIND.INTENT,
-    ["pin"],
-  ),
-  PIN_REMOVED: defineUiEvent(
-    "pin-removed",
-    UI_EVENT_FAMILY_KIND.INTENT,
-    ["pinId"],
-  ),
   CLEAR_PINS_TRIGGERED: defineUiEvent(
     "clear-pins-triggered",
     UI_EVENT_FAMILY_KIND.INTENT,
@@ -82,11 +67,6 @@ export const UI_EVENT_MODEL = Object.freeze({
     "solve-failed",
     UI_EVENT_FAMILY_KIND.OUTCOME,
     ["reason"],
-  ),
-  SESSION_RESTORED: defineUiEvent(
-    "session-restored",
-    UI_EVENT_FAMILY_KIND.OUTCOME,
-    ["session"],
   ),
 
   // Timer/system-driven state updates.
