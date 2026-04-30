@@ -139,3 +139,15 @@ test("unknown panel action events are a no-op", () => {
     initial,
   );
 });
+
+test("panel action reducer preserves object identity for semantic no-op transitions", () => {
+  const initial = createInitialPanelActionState();
+  assert.equal(reducePanelActionState(initial, PANEL_ACTION_EVENT.RESET), initial);
+  assert.equal(reducePanelActionState(initial, PANEL_ACTION_EVENT.CANCEL_PASTE), initial);
+
+  const confirming = reducePanelActionState(initial, PANEL_ACTION_EVENT.ARM_CLEAR_CONFIRM);
+  assert.equal(
+    reducePanelActionState(confirming, PANEL_ACTION_EVENT.ARM_CLEAR_CONFIRM),
+    confirming,
+  );
+});

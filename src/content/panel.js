@@ -19,6 +19,7 @@ import {
   reducePanelActionState,
   resolvePanelActionSemantics,
 } from "../core/panel-state.js";
+import { INTERACTION_MODE } from "../core/interaction-mode.js";
 import { hasOverlayImageSession } from "../core/state.js";
 import { formatBuildLabel, createLogger } from "../core/logger.js";
 
@@ -148,7 +149,9 @@ export function createPanel({ shadow, store, interactions, statusController }) {
   });
 
   modeInput.addEventListener("change", () => {
-    interactions.setMode(modeInput.checked ? "align" : "trace");
+    interactions.setMode(
+      modeInput.checked ? INTERACTION_MODE.ALIGN : INTERACTION_MODE.TRACE,
+    );
   });
 
   computeButton.addEventListener("click", () => {

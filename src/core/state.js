@@ -3,9 +3,13 @@ import {
   getOverlayImageWorkingDimensions,
   normalizeOverlayImageMetadata,
 } from "./image-normalization.js";
+import {
+  INTERACTION_MODE,
+  normalizeInteractionMode,
+} from "./interaction-mode.js";
 
 const DEFAULT_STATE = Object.freeze({
-  mode: "trace",
+  mode: INTERACTION_MODE.TRACE,
   opacity: 0.6,
   image: null,
   placement: null,
@@ -452,7 +456,7 @@ function normalizeOpacity(opacity) {
 }
 
 function normalizeMode(mode) {
-  return mode === "align" ? "align" : "trace";
+  return normalizeInteractionMode(mode);
 }
 
 function normalizeImage(image) {
@@ -616,7 +620,7 @@ function createClearedSessionState() {
 
 function createLoadedImageSessionState({ image, placement }) {
   return {
-    mode: "align",
+    mode: INTERACTION_MODE.ALIGN,
     image: normalizeImage(image),
     placement: normalizePlacement(placement),
     registration: createDefaultRegistration(),

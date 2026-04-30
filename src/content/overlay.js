@@ -16,7 +16,7 @@ import {
   resolveOverlayPointerMovePolicy,
   resolveOverlayPointerSequencePolicy,
   resolveOverlayWheelPolicy,
-} from "../core/interactions.js";
+} from "../core/interaction-policy.js";
 import {
   beginOverlayPointerSequence,
   clearOverlayPointerSequence,

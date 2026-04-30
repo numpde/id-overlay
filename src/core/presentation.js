@@ -1,14 +1,13 @@
 import { getOverlayImageLoadStats } from "./image-normalization.js";
+import { INTERACTION_MODE, isTraceMode } from "./interaction-mode.js";
 import { resolveRegistrationSolveState } from "./state.js";
 import { resolveOverlayRenderState } from "./transform.js";
 import {
   DRAG_MODE,
   INTERACTION_EVENT,
-  INTERACTION_MODE,
   PIN_RESULT_REASON,
   SOLVE_RESULT_REASON,
-  isTraceMode,
-} from "./interactions.js";
+} from "./interaction-policy.js";
 import { resolvePanelActionSemantics } from "./panel-state.js";
 import { RUNTIME_ERROR_SOURCE } from "./runtime-error.js";
 

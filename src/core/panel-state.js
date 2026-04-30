@@ -25,25 +25,34 @@ export function createInitialPanelActionState() {
 export function reducePanelActionState(state, eventType) {
   switch (eventType) {
     case PANEL_ACTION_EVENT.ARM_PASTE:
-      return {
-        kind: PANEL_ACTION_KIND.PASTE_ARMED,
-        sessionId: state.sessionId + 1,
-      };
+      return createPanelActionState(
+        PANEL_ACTION_KIND.PASTE_ARMED,
+        state.sessionId + 1,
+      );
     case PANEL_ACTION_EVENT.CANCEL_PASTE:
-      return {
-        kind: PANEL_ACTION_KIND.IDLE,
-        sessionId: state.sessionId + 1,
-      };
+      if (!isPasteArmed(state)) {
+        return state;
+      }
+      return createPanelActionState(
+        PANEL_ACTION_KIND.IDLE,
+        state.sessionId + 1,
+      );
     case PANEL_ACTION_EVENT.ARM_CLEAR_CONFIRM:
-      return {
-        kind: PANEL_ACTION_KIND.CLEAR_CONFIRM,
-        sessionId: state.sessionId,
-      };
+      if (isClearConfirming(state)) {
+        return state;
+      }
+      return createPanelActionState(
+        PANEL_ACTION_KIND.CLEAR_CONFIRM,
+        state.sessionId,
+      );
     case PANEL_ACTION_EVENT.RESET:
-      return {
-        kind: PANEL_ACTION_KIND.IDLE,
-        sessionId: state.sessionId,
-      };
+      if (isPanelActionIdle(state)) {
+        return state;
+      }
+      return createPanelActionState(
+        PANEL_ACTION_KIND.IDLE,
+        state.sessionId,
+      );
     default:
       return state;
   }
@@ -87,5 +96,12 @@ export function resolvePanelActionSemantics(
     shouldReset: !hasImage && hasActiveAction,
     shouldAttachPasteListener: pasteArmed,
     autoResetTimeoutMs: clearConfirming ? clearConfirmationTimeoutMs : null,
+  };
+}
+
+function createPanelActionState(kind, sessionId) {
+  return {
+    kind,
+    sessionId,
   };
 }

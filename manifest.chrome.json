@@ -33,6 +33,8 @@
         "src/core/value-store.js",
         "src/core/logger.js",
         "src/core/runtime-error.js",
+        "src/core/interaction-mode.js",
+        "src/core/interaction-policy.js",
         "src/core/panel-state.js",
         "src/core/overlay-pointer-sequence.js",
         "src/core/image-policy.js",
