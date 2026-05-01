@@ -231,8 +231,6 @@ test("resolvePanelPresentation centralizes panel labels and enablement through t
     opacityValue: "0.75",
     modeSwitch: {
       checked: true,
-      label: "Align",
-      ariaLabel: "Mode: Align",
       disabled: false,
     },
     mainAction: {

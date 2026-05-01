@@ -26,8 +26,6 @@ export function resolveUiViewModel({
 function resolveModeSwitchPresentation({ mode, hasImage }) {
   return {
     checked: mode === UI_MODE_KIND.ALIGN,
-    label: mode === UI_MODE_KIND.ALIGN ? "Align" : "Trace",
-    ariaLabel: `Mode: ${mode === UI_MODE_KIND.ALIGN ? "Align" : "Trace"}`,
     disabled: !hasImage,
   };
 }

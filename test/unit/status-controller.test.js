@@ -114,8 +114,6 @@ test("resolveUiViewModel describes the current mode state for the panel switch",
   });
   assert.deepEqual(traceViewModel.modeSwitch, {
     checked: false,
-    label: "Trace",
-    ariaLabel: "Mode: Trace",
     disabled: true,
   });
 
@@ -127,8 +125,6 @@ test("resolveUiViewModel describes the current mode state for the panel switch",
   });
   assert.deepEqual(alignViewModel.modeSwitch, {
     checked: true,
-    label: "Align",
-    ariaLabel: "Mode: Align",
     disabled: false,
   });
 });

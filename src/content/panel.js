@@ -236,8 +236,9 @@ export function createPanel({ shadow, store, interactions, statusController }) {
     opacityInput.value = panelViewModel.opacityValue;
     modeInput.checked = panelViewModel.modeSwitch.checked;
     modeInput.disabled = panelViewModel.modeSwitch.disabled;
-    modeInput.setAttribute("aria-label", panelViewModel.modeSwitch.ariaLabel);
-    modeSwitch.dataset.mode = panelViewModel.modeSwitch.label.toLowerCase();
+    const modeLabel = panelViewModel.modeSwitch.checked ? "Align" : "Trace";
+    modeInput.setAttribute("aria-label", `Mode: ${modeLabel}`);
+    modeSwitch.dataset.mode = modeLabel.toLowerCase();
     mainActionButton.textContent = panelViewModel.mainAction.label;
     mainActionButton.disabled = panelViewModel.mainAction.disabled;
     mainActionButton.classList.toggle(
