@@ -91,7 +91,7 @@
   line-height: 1.35;
 }
 
-.id-overlay-panel__mode-row {
+.id-overlay-panel__controls-row {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
