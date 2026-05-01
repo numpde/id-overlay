@@ -62,10 +62,6 @@ const OVERLAY_STYLE_TEXT = `
   pointer-events: none;
 }
 
-.id-overlay-frame--interactive {
-  pointer-events: auto;
-}
-
 .id-overlay-pin-layer {
   position: absolute;
   inset: 0;
@@ -181,16 +177,13 @@ export function createOverlay({ pageAdapter, store, interactions }) {
     const viewportRect = latestSnapshot.viewportRect;
     const localViewportRect = latestSnapshot.localViewportRect ?? viewportRect;
     const registrationUi = resolveRegistrationUiPolicy(state);
-    const overlayOwnsPointerHitTesting = (
-      registrationUi.canShowPins &&
-      !latestRuntime.isPassThroughActive
-    );
+    const overlayOwnsPointerHitTesting = doesOverlayOwnPointerHitTesting({
+      state,
+      runtime: latestRuntime,
+      registrationUi,
+    });
     overlayRoot.dataset.mode = state.mode;
     overlayRoot.dataset.passThrough = String(latestRuntime.isPassThroughActive);
-    overlayRoot.classList.toggle(
-      "id-overlay-viewport--interactive",
-      overlayOwnsPointerHitTesting,
-    );
     overlayRoot.style.left = `${localViewportRect.left}px`;
     overlayRoot.style.top = `${localViewportRect.top}px`;
     overlayRoot.style.width = `${localViewportRect.width}px`;
@@ -240,10 +233,7 @@ export function createOverlay({ pageAdapter, store, interactions }) {
     overlayFrame.style.height = `${model.height}px`;
     overlayFrame.style.transformOrigin = "0 0";
     overlayFrame.style.transform = `rotate(${model.rotationDeg}deg)`;
-    overlayFrame.classList.toggle(
-      "id-overlay-frame--interactive",
-      overlayOwnsPointerHitTesting,
-    );
+    overlayFrame.style.pointerEvents = overlayOwnsPointerHitTesting ? "auto" : "none";
 
     if (!registrationUi.canShowPins) {
       mapPinLayer.replaceChildren();
@@ -486,9 +476,10 @@ export function createOverlay({ pageAdapter, store, interactions }) {
         altKey: event.altKey,
         ctrlKey: event.ctrlKey,
       });
-      const overlayOwnsPointerHitTesting = overlayFrame.classList.contains(
-        "id-overlay-frame--interactive",
-      );
+      const overlayOwnsPointerHitTesting = doesOverlayOwnPointerHitTesting({
+        state,
+        runtime: latestRuntime,
+      });
       if (!wheelPolicy.shouldIntercept && !overlayOwnsPointerHitTesting) {
         return;
       }
@@ -669,4 +660,9 @@ function consumeOverlayEvent(event) {
   event?.preventDefault?.();
   event?.stopPropagation?.();
   event?.stopImmediatePropagation?.();
+}
+
+function doesOverlayOwnPointerHitTesting({ state, runtime, registrationUi = null }) {
+  const resolvedRegistrationUi = registrationUi ?? resolveRegistrationUiPolicy(state);
+  return resolvedRegistrationUi.canShowPins && !runtime?.isPassThroughActive;
 }

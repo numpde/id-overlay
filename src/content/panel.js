@@ -72,8 +72,8 @@ export function createPanel({ shadow, store, interactions, statusController }) {
   titleRow.append(heading, repoLink);
   header.append(titleRow, buildMeta);
 
-  const clearButton = createButton("Clear");
-  clearButton.classList.add("id-overlay-panel__clear-button");
+  const mainActionButton = createButton("Clear");
+  mainActionButton.classList.add("id-overlay-panel__main-action-button");
 
   const modeSwitch = document.createElement("label");
   modeSwitch.className = "id-overlay-mode-switch";
@@ -127,7 +127,7 @@ export function createPanel({ shadow, store, interactions, statusController }) {
 
   statusWrap.append(statusElement, statusDetail);
 
-  root.append(header, modeSwitch, opacityGroup, clearButton, statusWrap);
+  root.append(header, modeSwitch, opacityGroup, mainActionButton, statusWrap);
   shadow.append(root);
 
   let latestState = store.getState();
@@ -136,7 +136,7 @@ export function createPanel({ shadow, store, interactions, statusController }) {
   let activePanelDrag = null;
   let panelActionState = createInitialPanelActionState();
   let latestPanelViewModel = null;
-  let clearConfirmTimer = null;
+  let panelIntentTimer = null;
   applyPanelPosition();
   window.addEventListener("resize", handleWindowResize);
 
@@ -174,7 +174,7 @@ export function createPanel({ shadow, store, interactions, statusController }) {
     interactions.setOpacity(nextOpacity);
   }, { passive: false });
 
-  clearButton.addEventListener("click", async () => {
+  mainActionButton.addEventListener("click", async () => {
     await dispatchCanonicalUiEvent({
       kind: UI_EVENT_KIND.MAIN_ACTION_TRIGGERED,
     });
@@ -238,9 +238,9 @@ export function createPanel({ shadow, store, interactions, statusController }) {
     modeInput.disabled = panelViewModel.modeSwitch.disabled;
     modeInput.setAttribute("aria-label", panelViewModel.modeSwitch.ariaLabel);
     modeSwitch.dataset.mode = panelViewModel.modeSwitch.label.toLowerCase();
-    clearButton.textContent = panelViewModel.mainAction.label;
-    clearButton.disabled = panelViewModel.mainAction.disabled;
-    clearButton.classList.toggle(
+    mainActionButton.textContent = panelViewModel.mainAction.label;
+    mainActionButton.disabled = panelViewModel.mainAction.disabled;
+    mainActionButton.classList.toggle(
       "id-overlay-button--confirm",
       panelViewModel.mainAction.presentationKind === "confirm",
     );
@@ -445,11 +445,11 @@ export function createPanel({ shadow, store, interactions, statusController }) {
   }
 
   function clearClearConfirmTimer() {
-    if (!clearConfirmTimer) {
+    if (!panelIntentTimer) {
       return;
     }
-    globalThis.clearTimeout(clearConfirmTimer);
-    clearConfirmTimer = null;
+    globalThis.clearTimeout(panelIntentTimer);
+    panelIntentTimer = null;
   }
 
   async function loadClipboardImage(source, sourceLabel) {
@@ -544,8 +544,8 @@ export function createPanel({ shadow, store, interactions, statusController }) {
       },
       startPanelTimeout: async () => {
         clearClearConfirmTimer();
-        clearConfirmTimer = globalThis.setTimeout(() => {
-          clearConfirmTimer = null;
+        panelIntentTimer = globalThis.setTimeout(() => {
+          panelIntentTimer = null;
           void dispatchCanonicalUiEvent({
             kind: UI_EVENT_KIND.PANEL_TIMEOUT_ELAPSED,
           });

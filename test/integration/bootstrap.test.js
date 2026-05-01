@@ -158,7 +158,7 @@ test("panel header can drag the panel out of the way", async () => {
   }
 });
 
-test("stored align mode restores an interactive overlay", async () => {
+test("stored align mode restores an overlay frame that owns hit-testing", async () => {
   const env = createDomEnvironment({
     storageState: {
       "id-overlay/state": {
@@ -189,7 +189,8 @@ test("stored align mode restores an interactive overlay", async () => {
     await bootstrapIdOverlay();
 
     const overlay = env.document.querySelector(".id-overlay-viewport");
-    assert.equal(overlay.classList.contains("id-overlay-viewport--interactive"), true);
+    const frame = overlay.querySelector(".id-overlay-frame");
+    assert.equal(frame.style.pointerEvents, "auto");
     assert.equal(overlay.dataset.mode, "align");
   } finally {
     env.cleanup();
@@ -338,7 +339,7 @@ test("unsupported pages do not inject the extension UI", async () => {
   }
 });
 
-test("clear button arms window-level image paste capture", async () => {
+test("main action button arms window-level image paste capture", async () => {
   const env = createDomEnvironment({
     storageState: {
       "id-overlay/state": {
@@ -360,8 +361,8 @@ test("clear button arms window-level image paste capture", async () => {
     await bootstrapIdOverlay();
 
     const shadow = env.document.getElementById("id-overlay-root").shadowRoot;
-    const clearButton = shadow.querySelector(".id-overlay-panel__clear-button");
-    clearButton.click();
+    const mainActionButton = shadow.querySelector(".id-overlay-panel__main-action-button");
+    mainActionButton.click();
 
     const pasteEvent = new env.window.Event("paste", {
       bubbles: true,
@@ -393,7 +394,7 @@ test("clear button arms window-level image paste capture", async () => {
   }
 });
 
-test("clear button loads directly from navigator.clipboard.read when available", async () => {
+test("main action button loads directly from navigator.clipboard.read when available", async () => {
   const env = createDomEnvironment({
     storageState: {
       "id-overlay/state": {
@@ -427,8 +428,8 @@ test("clear button loads directly from navigator.clipboard.read when available",
     await bootstrapIdOverlay();
 
     const shadow = env.document.getElementById("id-overlay-root").shadowRoot;
-    const clearButton = shadow.querySelector(".id-overlay-panel__clear-button");
-    clearButton.click();
+    const mainActionButton = shadow.querySelector(".id-overlay-panel__main-action-button");
+    mainActionButton.click();
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     const image = env.document.querySelector(".id-overlay-image");
@@ -440,7 +441,7 @@ test("clear button loads directly from navigator.clipboard.read when available",
   }
 });
 
-test("clear button drives the canonical paste flow when no image is present", async () => {
+test("main action button drives the canonical paste flow when no image is present", async () => {
   const env = createDomEnvironment({
     storageState: {
       "id-overlay/state": {
@@ -474,27 +475,27 @@ test("clear button drives the canonical paste flow when no image is present", as
     await bootstrapIdOverlay();
 
     const shadow = env.document.getElementById("id-overlay-root").shadowRoot;
-    const clearButton = shadow.querySelector(".id-overlay-panel__clear-button");
+    const mainActionButton = shadow.querySelector(".id-overlay-panel__main-action-button");
     const modeInput = shadow.querySelector(".id-overlay-mode-switch__input");
     const image = env.document.querySelector(".id-overlay-image");
 
-    assert.equal(clearButton.textContent, "Paste");
-    assert.equal(clearButton.disabled, false);
+    assert.equal(mainActionButton.textContent, "Paste");
+    assert.equal(mainActionButton.disabled, false);
     assert.equal(modeInput.disabled, true);
 
-    clearButton.click();
+    mainActionButton.click();
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     assert.equal(image.style.display, "block");
     assert.equal(image.style.width, "640px");
-    assert.equal(clearButton.textContent, "Clear image");
+    assert.equal(mainActionButton.textContent, "Clear image");
     assert.equal(modeInput.disabled, false);
   } finally {
     env.cleanup();
   }
 });
 
-test("clicking clear-button Paste… again cancels canonical paste capture and ignores a later clipboard result", async () => {
+test("clicking main-action Paste… again cancels canonical paste capture and ignores a later clipboard result", async () => {
   const env = createDomEnvironment({
     storageState: {
       "id-overlay/state": {
@@ -524,15 +525,15 @@ test("clicking clear-button Paste… again cancels canonical paste capture and i
     await bootstrapIdOverlay();
 
     const shadow = env.document.getElementById("id-overlay-root").shadowRoot;
-    const clearButton = shadow.querySelector(".id-overlay-panel__clear-button");
+    const mainActionButton = shadow.querySelector(".id-overlay-panel__main-action-button");
     const status = shadow.querySelector(".id-overlay-panel__status");
     const image = env.document.querySelector(".id-overlay-image");
 
-    clearButton.click();
-    assert.equal(clearButton.textContent, "Paste…");
+    mainActionButton.click();
+    assert.equal(mainActionButton.textContent, "Paste…");
 
-    clearButton.click();
-    assert.equal(clearButton.textContent, "Paste");
+    mainActionButton.click();
+    assert.equal(mainActionButton.textContent, "Paste");
     assert.equal(status.textContent, "Paste cancelled.");
 
     resolveClipboardRead([
@@ -546,13 +547,13 @@ test("clicking clear-button Paste… again cancels canonical paste capture and i
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     assert.equal(image.style.display, "none");
-    assert.equal(clearButton.textContent, "Paste");
+    assert.equal(mainActionButton.textContent, "Paste");
   } finally {
     env.cleanup();
   }
 });
 
-test("clear button escalates from clear-image confirmation when no pins exist and resets after its timeout", async () => {
+test("main action button escalates from clear-image confirmation when no pins exist and resets after its timeout", async () => {
   const env = createDomEnvironment({
     storageState: {
       "id-overlay/state": {
@@ -592,16 +593,16 @@ test("clear button escalates from clear-image confirmation when no pins exist an
     await bootstrapIdOverlay();
 
     const shadow = env.document.getElementById("id-overlay-root").shadowRoot;
-    const clearButton = [...shadow.querySelectorAll(".id-overlay-button")].find(
+    const mainActionButton = [...shadow.querySelectorAll(".id-overlay-button")].find(
       (button) => button.textContent === "Clear image"
     );
     const status = shadow.querySelector(".id-overlay-panel__status");
     const image = env.document.querySelector(".id-overlay-image");
 
-    clearButton.click();
+    mainActionButton.click();
 
-    assert.equal(clearButton.textContent, "Clear image?");
-    assert.equal(clearButton.classList.contains("id-overlay-button--confirm"), true);
+    assert.equal(mainActionButton.textContent, "Clear image?");
+    assert.equal(mainActionButton.classList.contains("id-overlay-button--confirm"), true);
     assert.equal(
       status.textContent,
       "Click Clear image? again to remove the current screenshot, placement, and pins.",
@@ -610,8 +611,8 @@ test("clear button escalates from clear-image confirmation when no pins exist an
 
     scheduledTimeout?.();
 
-    assert.equal(clearButton.textContent, "Clear image");
-    assert.equal(clearButton.classList.contains("id-overlay-button--confirm"), false);
+    assert.equal(mainActionButton.textContent, "Clear image");
+    assert.equal(mainActionButton.classList.contains("id-overlay-button--confirm"), false);
   } finally {
     globalThis.setTimeout = originalSetTimeout;
     globalThis.clearTimeout = originalClearTimeout;
@@ -619,7 +620,7 @@ test("clear button escalates from clear-image confirmation when no pins exist an
   }
 });
 
-test("clear button clears pins first, then escalates to clear image", async () => {
+test("main action button clears pins first, then escalates to clear image", async () => {
   const env = createDomEnvironment({
     storageState: {
       "id-overlay/state": {
@@ -652,22 +653,22 @@ test("clear button clears pins first, then escalates to clear image", async () =
     await bootstrapIdOverlay();
 
     const shadow = env.document.getElementById("id-overlay-root").shadowRoot;
-    const clearButton = shadow.querySelector(".id-overlay-panel__clear-button");
+    const mainActionButton = shadow.querySelector(".id-overlay-panel__main-action-button");
     const image = env.document.querySelector(".id-overlay-image");
-    clearButton.click();
+    mainActionButton.click();
     assert.equal(image.style.display, "block");
-    assert.equal(clearButton.textContent, "Clear pins?");
+    assert.equal(mainActionButton.textContent, "Clear pins?");
 
-    clearButton.click();
+    mainActionButton.click();
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    assert.equal(clearButton.textContent, "Clear image");
+    assert.equal(mainActionButton.textContent, "Clear image");
     assert.equal(image.style.display, "block");
 
-    clearButton.click();
-    assert.equal(clearButton.textContent, "Clear image?");
+    mainActionButton.click();
+    assert.equal(mainActionButton.textContent, "Clear image?");
 
-    clearButton.click();
+    mainActionButton.click();
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     assert.equal(image.style.display, "none");
