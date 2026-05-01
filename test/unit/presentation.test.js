@@ -406,7 +406,7 @@ test("presentation centralizes panel action feedback copy", () => {
   );
   assert.equal(
     describePanelActionPresentation(PANEL_FEEDBACK_ACTION.UNDO, {
-      historyLabel: "Rotated overlay",
+      historyDescriptor: { kind: "rotate-overlay", label: "Rotated overlay" },
     }),
     "Undid: Rotated overlay.",
   );
@@ -416,7 +416,7 @@ test("presentation centralizes panel action feedback copy", () => {
   );
   assert.equal(
     describePanelActionPresentation(PANEL_FEEDBACK_ACTION.REDO, {
-      historyLabel: "Rotated overlay",
+      historyDescriptor: { kind: "rotate-overlay", label: "Rotated overlay" },
     }),
     "Redid: Rotated overlay.",
   );

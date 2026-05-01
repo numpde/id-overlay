@@ -56,7 +56,7 @@ export async function runPanelLiveEffects({
       if (historyDescriptor) {
         statusController.showTransient(
           describePanelActionPresentation(PANEL_FEEDBACK_ACTION.UNDO, {
-            historyLabel: historyDescriptor.label,
+            historyDescriptor,
           }),
         );
       }
@@ -67,7 +67,7 @@ export async function runPanelLiveEffects({
       if (historyDescriptor) {
         statusController.showTransient(
           describePanelActionPresentation(PANEL_FEEDBACK_ACTION.REDO, {
-            historyLabel: historyDescriptor.label,
+            historyDescriptor,
           }),
         );
       }
