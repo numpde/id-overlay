@@ -233,7 +233,7 @@ test("handled overlay wheel gestures do not bubble into the underlying map", asy
   }
 });
 
-test("plain wheel over the overlay in align mode stays native to the map", async () => {
+test("plain wheel over the overlay in align mode is forwarded manually and does not bubble into the underlying map", async () => {
   const env = createDomEnvironment({
     viewportHtml: '<div id="map"></div>',
   });
@@ -334,9 +334,9 @@ test("plain wheel over the overlay in align mode stays native to the map", async
     });
     map.dispatchEvent(event);
 
-    assert.equal(handledWheelCount, 0);
-    assert.equal(event.defaultPrevented, false);
-    assert.equal(mapWheelCount, 1);
+    assert.equal(handledWheelCount, 1);
+    assert.equal(event.defaultPrevented, true);
+    assert.equal(mapWheelCount, 0);
 
     overlay.destroy();
   } finally {

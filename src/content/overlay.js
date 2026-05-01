@@ -62,6 +62,10 @@ const OVERLAY_STYLE_TEXT = `
   pointer-events: none;
 }
 
+.id-overlay-frame--interactive {
+  pointer-events: auto;
+}
+
 .id-overlay-pin-layer {
   position: absolute;
   inset: 0;
@@ -177,11 +181,15 @@ export function createOverlay({ pageAdapter, store, interactions }) {
     const viewportRect = latestSnapshot.viewportRect;
     const localViewportRect = latestSnapshot.localViewportRect ?? viewportRect;
     const registrationUi = resolveRegistrationUiPolicy(state);
+    const overlayOwnsPointerHitTesting = (
+      registrationUi.canShowPins &&
+      !latestRuntime.isPassThroughActive
+    );
     overlayRoot.dataset.mode = state.mode;
     overlayRoot.dataset.passThrough = String(latestRuntime.isPassThroughActive);
     overlayRoot.classList.toggle(
       "id-overlay-viewport--interactive",
-      registrationUi.canShowPins && !latestRuntime.isPassThroughActive,
+      overlayOwnsPointerHitTesting,
     );
     overlayRoot.style.left = `${localViewportRect.left}px`;
     overlayRoot.style.top = `${localViewportRect.top}px`;
@@ -232,6 +240,10 @@ export function createOverlay({ pageAdapter, store, interactions }) {
     overlayFrame.style.height = `${model.height}px`;
     overlayFrame.style.transformOrigin = "0 0";
     overlayFrame.style.transform = `rotate(${model.rotationDeg}deg)`;
+    overlayFrame.classList.toggle(
+      "id-overlay-frame--interactive",
+      overlayOwnsPointerHitTesting,
+    );
 
     if (!registrationUi.canShowPins) {
       mapPinLayer.replaceChildren();
@@ -474,7 +486,10 @@ export function createOverlay({ pageAdapter, store, interactions }) {
         altKey: event.altKey,
         ctrlKey: event.ctrlKey,
       });
-      if (!wheelPolicy.shouldIntercept) {
+      const overlayOwnsPointerHitTesting = overlayFrame.classList.contains(
+        "id-overlay-frame--interactive",
+      );
+      if (!wheelPolicy.shouldIntercept && !overlayOwnsPointerHitTesting) {
         return;
       }
       if (!interactions.handleWheel({
@@ -486,7 +501,9 @@ export function createOverlay({ pageAdapter, store, interactions }) {
       })) {
         return;
       }
-      consumeOverlayEvent(event);
+      if (wheelPolicy.shouldIntercept || overlayOwnsPointerHitTesting) {
+        consumeOverlayEvent(event);
+      }
     });
   }
 
