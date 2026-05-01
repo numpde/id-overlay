@@ -104,7 +104,6 @@ test("presentation centralizes solve and render copy from semantic state", () =>
     pinCount: 0,
     solvedPinCount: 0,
     canCompute: false,
-    canClearPins: false,
     summaryLabel: "No pins yet",
     statusMessage: null,
   });
@@ -118,7 +117,6 @@ test("presentation centralizes solve and render copy from semantic state", () =>
     pinCount: 1,
     solvedPinCount: 1,
     canCompute: false,
-    canClearPins: true,
     summaryLabel: "Collect at least 2 pins",
     statusMessage: null,
   });
@@ -132,7 +130,6 @@ test("presentation centralizes solve and render copy from semantic state", () =>
     pinCount: 2,
     solvedPinCount: 2,
     canCompute: true,
-    canClearPins: true,
     summaryLabel: "Pins changed; fit pending",
     statusMessage: "Align mode: pins changed. Switch to Trace to fit the overlay from the current pins.",
   });
@@ -146,7 +143,6 @@ test("presentation centralizes solve and render copy from semantic state", () =>
     pinCount: 2,
     solvedPinCount: 3,
     canCompute: true,
-    canClearPins: true,
     summaryLabel: "Solved from 3 pin(s)",
     statusMessage: null,
   });
@@ -196,7 +192,7 @@ test("resolveUiStatusBaseline centralizes runtime-aware status copy", () => {
   assert.equal(
     resolveStatusBaseline({
       state: solvedAlignState,
-      runtime: { isPassThroughActive: true, isDragging: false, dragMode: null },
+      runtime: { isPassThroughActive: true, pointerScreenPx: null, dragMode: null },
     }),
     "Pass-through active: pan or zoom iD underneath, then release Space to continue registering.",
   );
@@ -204,7 +200,7 @@ test("resolveUiStatusBaseline centralizes runtime-aware status copy", () => {
   assert.equal(
     resolveStatusBaseline({
       state: solvedAlignState,
-      runtime: { isPassThroughActive: false, isDragging: true, dragMode: "map-pan" },
+      runtime: { isPassThroughActive: false, pointerScreenPx: null, dragMode: "map-pan" },
     }),
     "Panning the map while the overlay follows.",
   );
@@ -243,7 +239,7 @@ test("resolvePanelPresentation centralizes panel labels and enablement through t
     mainAction: {
       hasImage: true,
       pinCount: 2,
-      intent: PANEL_ACTION_KIND.PASTE_ARMED,
+      intent: PANEL_ACTION_KIND.IDLE,
       target: "clear-pins",
       canPasteImage: true,
       canClearPins: true,
@@ -259,7 +255,7 @@ test("resolvePanelPresentation centralizes panel labels and enablement through t
   });
 });
 
-test("resolvePanelPresentation disables registration actions outside align mode", () => {
+test("resolvePanelPresentation advances the primary action to clear-image when pins are not clearable", () => {
   const viewModel = resolvePanelViewModel({
     state: {
       image: { src: "x", width: 1, height: 1 },
@@ -281,8 +277,9 @@ test("resolvePanelPresentation disables registration actions outside align mode"
   });
   assert.equal(viewModel.mainAction.canPasteImage, false);
   assert.equal(viewModel.mainAction.canClearPins, false);
-  assert.equal(viewModel.mainAction.label, "Clear 2 pins");
-  assert.equal(viewModel.mainAction.disabled, true);
+  assert.equal(viewModel.mainAction.target, "clear-image");
+  assert.equal(viewModel.mainAction.label, "Clear image");
+  assert.equal(viewModel.mainAction.disabled, false);
   assert.equal(viewModel.modeSwitch.disabled, false);
 });
 

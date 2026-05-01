@@ -88,6 +88,7 @@ test("resolveUiViewModel exposes stale paste intent through the same canonical m
     }),
   });
 
+  assert.equal(viewModel.mainAction.intent, UI_PANEL_INTENT_KIND.IDLE);
   assert.equal(viewModel.mainAction.label, "Clear 2 pins");
   assert.equal(viewModel.mainAction.canPasteImage, true);
   assert.equal(viewModel.mainAction.canClearPins, true);
@@ -95,7 +96,7 @@ test("resolveUiViewModel exposes stale paste intent through the same canonical m
   assert.equal(viewModel.mainAction.shouldAttachPasteListener, false);
 });
 
-test("resolveUiViewModel keeps trace-mode registration affordances disabled without changing the primary action target", () => {
+test("resolveUiViewModel advances the primary action to clear-image when pins are not clearable", () => {
   const viewModel = resolveUiViewModel({
     uiState: createUiState({
       session: {
@@ -112,7 +113,9 @@ test("resolveUiViewModel keeps trace-mode registration affordances disabled with
 
   assert.equal(viewModel.mainAction.canPasteImage, false);
   assert.equal(viewModel.mainAction.canClearPins, false);
-  assert.equal(viewModel.mainAction.label, "Clear 2 pins");
-  assert.equal(viewModel.mainAction.disabled, true);
+  assert.equal(viewModel.mainAction.intent, UI_PANEL_INTENT_KIND.IDLE);
+  assert.equal(viewModel.mainAction.target, "clear-image");
+  assert.equal(viewModel.mainAction.label, "Clear image");
+  assert.equal(viewModel.mainAction.disabled, false);
   assert.equal(viewModel.modeSwitch.disabled, false);
 });

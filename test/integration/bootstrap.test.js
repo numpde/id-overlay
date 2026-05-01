@@ -232,8 +232,8 @@ test("trace mode hides registration pins and disables registration controls", as
     const shadow = env.document.getElementById("id-overlay-root").shadowRoot;
     const buttons = [...shadow.querySelectorAll(".id-overlay-button")];
     assert.equal(buttons.length, 1);
-    assert.equal(buttons[0].textContent, "Clear 2 pins");
-    assert.equal(buttons[0].disabled, true);
+    assert.equal(buttons[0].textContent, "Clear image");
+    assert.equal(buttons[0].disabled, false);
     assert.equal(env.document.querySelectorAll(".id-overlay-pin").length, 0);
     assert.equal(env.document.querySelectorAll(".id-overlay-map-pin").length, 0);
   } finally {

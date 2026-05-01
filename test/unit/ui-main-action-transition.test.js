@@ -6,8 +6,6 @@ import { UI_EVENT_KIND } from "../../src/core/ui-event-model.js";
 import {
   resolveMainActionDescriptor,
   transitionMainAction,
-  UI_MAIN_ACTION_PRESENTATION_KIND,
-  UI_MAIN_ACTION_TARGET_KIND,
 } from "../../src/core/ui-main-action-transition.js";
 import {
   createInitialUiState,
@@ -16,9 +14,9 @@ import {
 } from "../../src/core/ui-state-model.js";
 import { deepFreeze } from "../helpers/deep-freeze.js";
 
-test("main action descriptor target is derived from image and pins", () => {
+test("main action descriptor target is derived from actionable registration affordances", () => {
   const empty = createInitialUiState();
-  assert.equal(resolveMainActionDescriptor(empty).target, UI_MAIN_ACTION_TARGET_KIND.PASTE);
+  assert.equal(resolveMainActionDescriptor(empty).target, "paste");
 
   const imageOnly = {
     ...empty,
@@ -28,7 +26,7 @@ test("main action descriptor target is derived from image and pins", () => {
       mode: UI_MODE_KIND.ALIGN,
     },
   };
-  assert.equal(resolveMainActionDescriptor(imageOnly).target, UI_MAIN_ACTION_TARGET_KIND.CLEAR_IMAGE);
+  assert.equal(resolveMainActionDescriptor(imageOnly).target, "clear-image");
 
   const withPins = {
     ...imageOnly,
@@ -41,7 +39,16 @@ test("main action descriptor target is derived from image and pins", () => {
       },
     },
   };
-  assert.equal(resolveMainActionDescriptor(withPins).target, UI_MAIN_ACTION_TARGET_KIND.CLEAR_PINS);
+  assert.equal(resolveMainActionDescriptor(withPins).target, "clear-pins");
+
+  const traceWithPins = {
+    ...withPins,
+    session: {
+      ...withPins.session,
+      mode: UI_MODE_KIND.TRACE,
+    },
+  };
+  assert.equal(resolveMainActionDescriptor(traceWithPins).target, "clear-image");
 });
 
 test("main action descriptor captures the local semantic distinctions", () => {
@@ -61,13 +68,13 @@ test("main action descriptor captures the local semantic distinctions", () => {
     hasImage: true,
     pinCount: 0,
     intent: UI_PANEL_INTENT_KIND.IDLE,
-    target: UI_MAIN_ACTION_TARGET_KIND.CLEAR_IMAGE,
+    target: "clear-image",
     canPasteImage: true,
     canClearPins: false,
     shouldReset: false,
     disabled: false,
     label: "Clear image",
-    presentationKind: UI_MAIN_ACTION_PRESENTATION_KIND.NEUTRAL,
+    presentationKind: "neutral",
     nextIntent: UI_PANEL_INTENT_KIND.CLEAR_IMAGE_CONFIRM,
     pasteArmed: false,
     clearConfirming: false,

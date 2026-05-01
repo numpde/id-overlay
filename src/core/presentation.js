@@ -38,40 +38,36 @@ export function resolveOverlaySessionPresentation(state) {
 
 export function resolveRegistrationSolvePresentation(registration) {
   const solveState = resolveRegistrationSolveState(registration);
-  const common = {
-    ...solveState,
-    canClearPins: solveState.pinCount > 0,
-  };
   if (solveState.kind === "solved") {
     return {
-      ...common,
+      ...solveState,
       summaryLabel: `Solved from ${solveState.solvedPinCount} pin(s)`,
       statusMessage: null,
     };
   }
   if (solveState.kind === "dirty") {
     return {
-      ...common,
+      ...solveState,
       summaryLabel: "Pins changed; fit pending",
       statusMessage: "Align mode: pins changed. Switch to Trace to fit the overlay from the current pins.",
     };
   }
   if (solveState.kind === "ready") {
     return {
-      ...common,
+      ...solveState,
       summaryLabel: "Ready to fit",
       statusMessage: null,
     };
   }
   if (solveState.kind === "insufficient-pins") {
     return {
-      ...common,
+      ...solveState,
       summaryLabel: "Collect at least 2 pins",
       statusMessage: null,
     };
   }
   return {
-    ...common,
+    ...solveState,
     summaryLabel: "No pins yet",
     statusMessage: null,
   };

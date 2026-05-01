@@ -3,9 +3,9 @@ import { UI_EVENT_KIND } from "./ui-event-model.js";
 import { UI_PANEL_INTENT_KIND } from "./ui-state-model.js";
 import { createUiTransitionResult } from "./ui-transition-result.js";
 import {
-  canClearUiPins,
-  createClearedUiRegistration,
+  resolveSessionRegistrationAffordances,
 } from "./ui-registration-semantics.js";
+import { createDefaultRegistration } from "./state.js";
 
 export function transitionRegistration(uiState, event) {
   switch (event?.kind) {
@@ -17,7 +17,7 @@ export function transitionRegistration(uiState, event) {
 }
 
 export function transitionClearPins(uiState) {
-  if (!canClearUiPins(uiState)) {
+  if (!resolveSessionRegistrationAffordances(uiState.session).canClearPins) {
     return createUiTransitionResult(uiState);
   }
 
@@ -26,7 +26,7 @@ export function transitionClearPins(uiState) {
       ...uiState,
       session: {
         ...uiState.session,
-        registration: createClearedUiRegistration(),
+        registration: createDefaultRegistration(),
       },
       panel: {
         ...uiState.panel,

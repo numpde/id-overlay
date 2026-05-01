@@ -7,71 +7,72 @@ import {
 } from "./ui-state-model.js";
 import { createUiTransitionResult } from "./ui-transition-result.js";
 import {
-  canPasteUiImage,
-  canClearUiPins,
-  createClearedUiRegistration,
-  resolveUiRegistrationFacts,
+  resolveSessionRegistrationAffordances,
 } from "./ui-registration-semantics.js";
 import { transitionClearPins } from "./ui-registration-transition.js";
+import { createDefaultRegistration } from "./state.js";
 
-export const UI_MAIN_ACTION_TARGET_KIND = Object.freeze({
+const UI_MAIN_ACTION_TARGET_KIND = Object.freeze({
   PASTE: "paste",
   CLEAR_PINS: "clear-pins",
   CLEAR_IMAGE: "clear-image",
 });
 
-export const UI_MAIN_ACTION_PRESENTATION_KIND = Object.freeze({
+const UI_MAIN_ACTION_PRESENTATION_KIND = Object.freeze({
   NEUTRAL: "neutral",
   CONFIRM: "confirm",
 });
 
-function resolveMainActionTarget(uiState) {
-  const registrationFacts = resolveUiRegistrationFacts(uiState);
-  return registrationFacts.pinCount > 0
+function resolveMainActionTarget(registrationUi) {
+  return registrationUi.canClearPins
     ? UI_MAIN_ACTION_TARGET_KIND.CLEAR_PINS
-    : registrationFacts.hasImage
+    : registrationUi.hasImage
       ? UI_MAIN_ACTION_TARGET_KIND.CLEAR_IMAGE
       : UI_MAIN_ACTION_TARGET_KIND.PASTE;
 }
 
 export function resolveMainActionDescriptor(uiState) {
   const intent = uiState.panel.intent;
-  const registrationFacts = resolveUiRegistrationFacts(uiState);
-  const target = resolveMainActionTarget(uiState);
-  const canPasteImage = canPasteUiImage(uiState);
-  const canClearPins = canClearUiPins(uiState);
+  const registrationUi = resolveSessionRegistrationAffordances(uiState.session);
+  const target = resolveMainActionTarget(registrationUi);
+  const {
+    hasImage,
+    pinCount,
+    canPasteImage,
+    canClearPins,
+  } = registrationUi;
   const shouldReset = shouldResetMainActionIntent({
     intent,
     target,
     canPasteImage,
     canClearPins,
   });
-  const { hasImage, pinCount } = registrationFacts;
+  const effectiveIntent = shouldReset ? UI_PANEL_INTENT_KIND.IDLE : intent;
 
   if (target === UI_MAIN_ACTION_TARGET_KIND.PASTE) {
     return {
       hasImage,
       pinCount,
-      intent,
+      intent: effectiveIntent,
       target,
       shouldReset,
       disabled: !canPasteImage,
       canPasteImage,
       canClearPins,
-      label: intent === UI_PANEL_INTENT_KIND.PASTE_ARMED ? "Paste…" : "Paste",
+      label: effectiveIntent === UI_PANEL_INTENT_KIND.PASTE_ARMED ? "Paste…" : "Paste",
       presentationKind: UI_MAIN_ACTION_PRESENTATION_KIND.NEUTRAL,
       nextIntent: UI_PANEL_INTENT_KIND.PASTE_ARMED,
-      pasteArmed: intent === UI_PANEL_INTENT_KIND.PASTE_ARMED,
+      pasteArmed: effectiveIntent === UI_PANEL_INTENT_KIND.PASTE_ARMED,
       clearConfirming: false,
-      shouldAttachPasteListener: intent === UI_PANEL_INTENT_KIND.PASTE_ARMED,
+      shouldAttachPasteListener: effectiveIntent === UI_PANEL_INTENT_KIND.PASTE_ARMED,
     };
   }
 
-  if (intent === UI_PANEL_INTENT_KIND.CLEAR_PINS_CONFIRM) {
+  if (effectiveIntent === UI_PANEL_INTENT_KIND.CLEAR_PINS_CONFIRM) {
     return {
       hasImage,
       pinCount,
-      intent,
+      intent: effectiveIntent,
       target,
       shouldReset,
       disabled: !canClearPins,
@@ -86,11 +87,11 @@ export function resolveMainActionDescriptor(uiState) {
     };
   }
 
-  if (intent === UI_PANEL_INTENT_KIND.CLEAR_IMAGE_CONFIRM) {
+  if (effectiveIntent === UI_PANEL_INTENT_KIND.CLEAR_IMAGE_CONFIRM) {
     return {
       hasImage,
       pinCount,
-      intent,
+      intent: effectiveIntent,
       target,
       shouldReset,
       disabled: false,
@@ -109,7 +110,7 @@ export function resolveMainActionDescriptor(uiState) {
     return {
       hasImage,
       pinCount,
-      intent,
+      intent: effectiveIntent,
       target,
       shouldReset,
       disabled: !canClearPins,
@@ -127,7 +128,7 @@ export function resolveMainActionDescriptor(uiState) {
   return {
     hasImage,
     pinCount,
-    intent,
+    intent: effectiveIntent,
     target,
     shouldReset,
     disabled: false,
@@ -142,7 +143,7 @@ export function resolveMainActionDescriptor(uiState) {
   };
 }
 
-export function shouldResetMainActionIntent({
+function shouldResetMainActionIntent({
   intent,
   target,
   canPasteImage,
@@ -249,7 +250,7 @@ function transitionPasteSucceeded(uiState, event) {
       mode: UI_MODE_KIND.ALIGN,
       image: event.image ?? null,
       placement: event.placement ?? null,
-      registration: createClearedUiRegistration(),
+      registration: createDefaultRegistration(),
     },
     panel: {
       ...uiState.panel,
