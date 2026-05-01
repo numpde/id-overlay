@@ -137,7 +137,6 @@ export function createPanel({ shadow, store, interactions, statusController }) {
   root.append(header, controlsRow, opacityGroup, statusWrap);
   shadow.append(root);
 
-  let latestState = store.getState();
   let isPasteListenerAttached = false;
   let panelPosition = captureInitialPanelPosition();
   let activePanelDrag = null;
@@ -204,8 +203,7 @@ export function createPanel({ shadow, store, interactions, statusController }) {
 
   statusController.setPanelActionStateSource(() => panelActionState);
 
-  const unsubscribeStore = store.subscribe((state) => {
-    latestState = state;
+  const unsubscribeStore = store.subscribe(() => {
     const panelViewModel = resolveCurrentPanelViewModel();
     if (panelViewModel.mainAction.shouldReset) {
       setPanelActionState(
@@ -502,7 +500,7 @@ export function createPanel({ shadow, store, interactions, statusController }) {
       nextPanelActionState,
       previousUiState,
     } = transitionLiveUi({
-      state: latestState,
+      state: store.getState(),
       panelActionState,
       runtime: interactions.getRuntimeState(),
       event,
