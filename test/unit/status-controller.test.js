@@ -16,63 +16,65 @@ import { createInitialPanelActionState } from "../../src/core/panel-state.js";
 import { UI_PANEL_INTENT_KIND } from "../../src/core/ui-state-model.js";
 import { resolveUiStatusBaseline } from "../../src/core/ui-status-model.js";
 
-function resolveStatusBaseline({ state, runtime, panelActionState = { kind: UI_PANEL_INTENT_KIND.IDLE } }) {
-  return resolveUiStatusBaseline({
-    uiState: projectLiveUiState({
-      state,
-      runtime,
-      panelActionState,
-    }),
-  });
-}
-
 test("resolveUiStatusBaseline explains the current registration workflow", () => {
   assert.equal(
-    resolveStatusBaseline({
-      state: { image: null, mode: "trace" },
-      runtime: {},
+    resolveUiStatusBaseline({
+      uiState: projectLiveUiState({
+        state: { image: null, mode: "trace" },
+        runtime: {},
+        panelActionState: { kind: UI_PANEL_INTENT_KIND.IDLE },
+      }),
     }),
     "Paste a screenshot to begin.",
   );
 
   assert.equal(
-    resolveStatusBaseline({
-      state: {
-        image: { src: "x", width: 1, height: 1 },
-        mode: "trace",
-        registration: { solvedTransform: null, dirty: false },
-      },
-      runtime: {},
+    resolveUiStatusBaseline({
+      uiState: projectLiveUiState({
+        state: {
+          image: { src: "x", width: 1, height: 1 },
+          mode: "trace",
+          registration: { solvedTransform: null, dirty: false },
+        },
+        runtime: {},
+        panelActionState: { kind: UI_PANEL_INTENT_KIND.IDLE },
+      }),
     }),
     "Trace mode: the overlay follows the map using the current manual placement.",
   );
 
   assert.equal(
-    resolveStatusBaseline({
-      state: {
-        image: { src: "x", width: 1, height: 1 },
-        mode: "align",
-        registration: {
-          solvedTransform: { type: "similarity", a: 1, b: 0, tx: 0, ty: 0 },
-          dirty: false,
+    resolveUiStatusBaseline({
+      uiState: projectLiveUiState({
+        state: {
+          image: { src: "x", width: 1, height: 1 },
+          mode: "align",
+          registration: {
+            solvedTransform: { type: "similarity", a: 1, b: 0, tx: 0, ty: 0 },
+            dirty: false,
+          },
         },
-      },
-      runtime: {},
+        runtime: {},
+        panelActionState: { kind: UI_PANEL_INTENT_KIND.IDLE },
+      }),
     }),
     "Align mode: solved transform preview active. Switch to Trace to verify map-following, or adjust placement to refine and recompute.",
   );
 
   assert.equal(
-    resolveStatusBaseline({
-      state: {
-        image: { src: "x", width: 1, height: 1 },
-        mode: "trace",
-        registration: {
-          solvedTransform: { type: "similarity", a: 1, b: 0, tx: 0, ty: 0 },
-          dirty: false,
+    resolveUiStatusBaseline({
+      uiState: projectLiveUiState({
+        state: {
+          image: { src: "x", width: 1, height: 1 },
+          mode: "trace",
+          registration: {
+            solvedTransform: { type: "similarity", a: 1, b: 0, tx: 0, ty: 0 },
+            dirty: false,
+          },
         },
-      },
-      runtime: {},
+        runtime: {},
+        panelActionState: { kind: UI_PANEL_INTENT_KIND.IDLE },
+      }),
     }),
     "Trace mode: the overlay follows the map using the solved transform.",
   );
@@ -89,17 +91,23 @@ test("resolveUiStatusBaseline prioritizes live interaction state over static ren
   };
 
   assert.equal(
-    resolveStatusBaseline({
-      state: solvedState,
-      runtime: { isPassThroughActive: true, isDragging: false, dragMode: null },
+    resolveUiStatusBaseline({
+      uiState: projectLiveUiState({
+        state: solvedState,
+        runtime: { isPassThroughActive: true, isDragging: false, dragMode: null },
+        panelActionState: { kind: UI_PANEL_INTENT_KIND.IDLE },
+      }),
     }),
     "Pass-through active: pan or zoom iD underneath, then release Space to continue registering.",
   );
 
   assert.equal(
-    resolveStatusBaseline({
-      state: solvedState,
-      runtime: { isPassThroughActive: false, isDragging: true, dragMode: "map-pan" },
+    resolveUiStatusBaseline({
+      uiState: projectLiveUiState({
+        state: solvedState,
+        runtime: { isPassThroughActive: false, isDragging: true, dragMode: "map-pan" },
+        panelActionState: { kind: UI_PANEL_INTENT_KIND.IDLE },
+      }),
     }),
     "Panning the map while the overlay follows.",
   );
