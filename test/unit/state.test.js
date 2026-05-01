@@ -278,7 +278,7 @@ test("registration and image-session no-op transitions do not notify", () => {
 
 test("history checkpoint policy stays on committed session edits only", () => {
   assert.equal(isHistoryCheckpointAction({ type: STATE_ACTION.LOAD_IMAGE_SESSION }), true);
-  assert.equal(isHistoryCheckpointAction({ type: STATE_ACTION.SET_OPACITY }), true);
+  assert.equal(isHistoryCheckpointAction({ type: STATE_ACTION.SET_OPACITY }), false);
   assert.equal(isHistoryCheckpointAction({ type: STATE_ACTION.SET_PLACEMENT }), true);
   assert.equal(isHistoryCheckpointAction({ type: STATE_ACTION.ADD_PIN }), true);
   assert.equal(isHistoryCheckpointAction({ type: STATE_ACTION.REMOVE_PIN }), true);
@@ -286,6 +286,16 @@ test("history checkpoint policy stays on committed session edits only", () => {
   assert.equal(isHistoryCheckpointAction({ type: STATE_ACTION.CLEAR_IMAGE }), true);
   assert.equal(isHistoryCheckpointAction({ type: STATE_ACTION.SET_MODE }), false);
   assert.equal(isHistoryCheckpointAction({ type: STATE_ACTION.SET_SOLVED_TRANSFORM }), false);
+});
+
+test("opacity-only edits do not create undo or redo history", () => {
+  const store = createStateStore();
+
+  store.setOpacity(0.8);
+
+  assert.equal(store.getState().opacity, 0.8);
+  assert.equal(store.undo(), null);
+  assert.equal(store.redo(), null);
 });
 
 test("state history restores committed session snapshots and clears redo after a new edit", () => {
@@ -397,7 +407,7 @@ test("history batches coalesce placement edits into one undo step", () => {
   assert.equal(store.getState().placement.ty, loadedPlacement.ty - 20);
 });
 
-test("standalone placement and opacity edits are individually undoable", () => {
+test("opacity stays outside history while placement remains undoable", () => {
   const image = { src: "data:image/png;base64,abc", width: 1200, height: 800 };
   const placement = createPlacementTransform({
     image,
@@ -428,28 +438,17 @@ test("standalone placement and opacity edits are individually undoable", () => {
   assert.equal(store.getState().opacity, 0.8);
 
   assert.deepEqual(store.undo(), {
-    kind: "adjust-opacity",
-    label: "Adjusted opacity",
-  });
-  assert.equal(store.getState().opacity, initialOpacity);
-  assert.deepEqual(store.getState().placement, updatedPlacement);
-
-  assert.deepEqual(store.undo(), {
     kind: "move-overlay",
     label: "Moved overlay",
   });
   assert.deepEqual(store.getState().placement, initialPlacement);
+  assert.equal(store.getState().opacity, 0.8);
 
   assert.deepEqual(store.redo(), {
     kind: "move-overlay",
     label: "Moved overlay",
   });
   assert.deepEqual(store.getState().placement, updatedPlacement);
-
-  assert.deepEqual(store.redo(), {
-    kind: "adjust-opacity",
-    label: "Adjusted opacity",
-  });
   assert.equal(store.getState().opacity, 0.8);
 });
 

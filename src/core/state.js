@@ -37,40 +37,39 @@ export const STATE_ACTION = Object.freeze({
   CLEAR_IMAGE: "clear-image",
 });
 
-const HISTORY_CHECKPOINT_ACTIONS = new Set([
-  STATE_ACTION.SET_OPACITY,
-  STATE_ACTION.LOAD_IMAGE_SESSION,
-  STATE_ACTION.SET_PLACEMENT,
-  STATE_ACTION.ADD_PIN,
-  STATE_ACTION.REMOVE_PIN,
-  STATE_ACTION.CLEAR_PINS,
-  STATE_ACTION.CLEAR_IMAGE,
-]);
-
-const DEFAULT_HISTORY_DESCRIPTOR_BY_ACTION = Object.freeze({
-  [STATE_ACTION.SET_OPACITY]: Object.freeze({
-    kind: "adjust-opacity",
-    label: "Adjusted opacity",
-  }),
+const HISTORY_ACTIONS = Object.freeze({
   [STATE_ACTION.LOAD_IMAGE_SESSION]: Object.freeze({
-    kind: "load-image",
-    label: "Loaded screenshot",
+    defaultDescriptor: Object.freeze({
+      kind: "load-image",
+      label: "Loaded screenshot",
+    }),
+  }),
+  [STATE_ACTION.SET_PLACEMENT]: Object.freeze({
+    defaultDescriptor: null,
   }),
   [STATE_ACTION.ADD_PIN]: Object.freeze({
-    kind: "add-pin",
-    label: "Added pin",
+    defaultDescriptor: Object.freeze({
+      kind: "add-pin",
+      label: "Added pin",
+    }),
   }),
   [STATE_ACTION.REMOVE_PIN]: Object.freeze({
-    kind: "remove-pin",
-    label: "Removed pin",
+    defaultDescriptor: Object.freeze({
+      kind: "remove-pin",
+      label: "Removed pin",
+    }),
   }),
   [STATE_ACTION.CLEAR_PINS]: Object.freeze({
-    kind: "clear-pins",
-    label: "Cleared pins",
+    defaultDescriptor: Object.freeze({
+      kind: "clear-pins",
+      label: "Cleared pins",
+    }),
   }),
   [STATE_ACTION.CLEAR_IMAGE]: Object.freeze({
-    kind: "clear-image",
-    label: "Cleared image",
+    defaultDescriptor: Object.freeze({
+      kind: "clear-image",
+      label: "Cleared image",
+    }),
   }),
 });
 
@@ -102,11 +101,10 @@ export function createStateStore(initialState = {}) {
     });
   }
 
-  function setOpacity(opacity, options = {}) {
+  function setOpacity(opacity) {
     return dispatch({
       type: STATE_ACTION.SET_OPACITY,
       opacity,
-      historyDescriptor: options.historyDescriptor ?? null,
     });
   }
 
@@ -227,7 +225,7 @@ export function createStateStore(initialState = {}) {
     const previousEntry = past.at(-1);
     future = [createHistoryEntry(state, previousEntry.descriptor), ...future];
     past = nextPast;
-    state = previousEntry.state;
+    state = restoreUndoableSessionState(state, previousEntry.undoableState);
     notify();
     return previousEntry.descriptor;
   }
@@ -239,7 +237,7 @@ export function createStateStore(initialState = {}) {
     const [nextEntry, ...nextFuture] = future;
     past = [...past, createHistoryEntry(state, nextEntry.descriptor)];
     future = nextFuture;
-    state = nextEntry.state;
+    state = restoreUndoableSessionState(state, nextEntry.undoableState);
     notify();
     return nextEntry.descriptor;
   }
@@ -299,12 +297,12 @@ export function createStateStore(initialState = {}) {
 }
 
 export function isHistoryCheckpointAction(action) {
-  return HISTORY_CHECKPOINT_ACTIONS.has(action?.type);
+  return Object.hasOwn(HISTORY_ACTIONS, action?.type);
 }
 
 function createHistoryEntry(state, descriptor = null) {
   return Object.freeze({
-    state,
+    undoableState: projectUndoableSessionState(state),
     descriptor: freezeHistoryDescriptor(descriptor),
   });
 }
@@ -313,7 +311,7 @@ function resolveHistoryDescriptor(action) {
   if (action?.historyDescriptor) {
     return freezeHistoryDescriptor(action.historyDescriptor);
   }
-  return DEFAULT_HISTORY_DESCRIPTOR_BY_ACTION[action?.type] ?? null;
+  return HISTORY_ACTIONS[action?.type]?.defaultDescriptor ?? null;
 }
 
 function freezeHistoryDescriptor(descriptor) {
@@ -324,6 +322,25 @@ function freezeHistoryDescriptor(descriptor) {
     kind: descriptor.kind ?? null,
     label: descriptor.label ?? null,
   });
+}
+
+function projectUndoableSessionState(state) {
+  return {
+    mode: state.mode,
+    image: state.image,
+    placement: state.placement,
+    registration: state.registration,
+  };
+}
+
+function restoreUndoableSessionState(currentState, undoableState) {
+  if (!undoableState) {
+    return currentState;
+  }
+  return {
+    ...currentState,
+    ...undoableState,
+  };
 }
 
 export function reduceState(state, action) {

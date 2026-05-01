@@ -113,6 +113,21 @@ export const INTERACTION_RUNTIME_ACTION = Object.freeze({
   RESET: "reset",
 });
 
+export const INTERACTION_HISTORY_DESCRIPTOR = Object.freeze({
+  MOVE_OVERLAY: Object.freeze({
+    kind: "move-overlay",
+    label: "Moved overlay",
+  }),
+  ROTATE_OVERLAY: Object.freeze({
+    kind: "rotate-overlay",
+    label: "Rotated overlay",
+  }),
+  SCALE_OVERLAY: Object.freeze({
+    kind: "scale-overlay",
+    label: "Scaled overlay",
+  }),
+});
+
 export function reduceInteractionRuntime(previousRuntime, action, state) {
   const previous = previousRuntime ?? DEFAULT_RUNTIME;
   let next = previous;
@@ -470,10 +485,7 @@ export function createInteractionController({
           startPointerScreenPx: screenPoint,
           startCenterScreenPx: centerScreenPx,
         };
-        store.beginHistoryBatch({
-          kind: "move-overlay",
-          label: "Moved overlay",
-        });
+        store.beginHistoryBatch(INTERACTION_HISTORY_DESCRIPTOR.MOVE_OVERLAY);
       }
       startDragRuntime(screenPoint, {
         isPointerInsideImage: true,
@@ -550,12 +562,7 @@ export function createInteractionController({
 
       if (wheelMode === WHEEL_MODE.ADJUST_OPACITY) {
         const nextOpacity = opacityFromWheelDelta(state.opacity, deltaY);
-        store.setOpacity(nextOpacity, {
-          historyDescriptor: {
-            kind: "adjust-opacity",
-            label: "Adjusted opacity",
-          },
-        });
+        store.setOpacity(nextOpacity);
         logger.info("Adjusted overlay opacity", { opacity: nextOpacity, deltaY });
         updatePointer(screenPoint, { isPointerInsideImage: true });
         return true;
@@ -572,10 +579,7 @@ export function createInteractionController({
           rotationRad: nextRotationRad,
         });
         store.setPlacement(nextPlacement, {
-          historyDescriptor: {
-            kind: "rotate-overlay",
-            label: "Rotated overlay",
-          },
+          historyDescriptor: INTERACTION_HISTORY_DESCRIPTOR.ROTATE_OVERLAY,
         });
         logger.info("Rotated overlay placement", { rotationRad: nextRotationRad, deltaY });
       } else if (wheelMode === WHEEL_MODE.ZOOM_OVERLAY) {
@@ -588,10 +592,7 @@ export function createInteractionController({
           screenScale: nextScale,
         });
         store.setPlacement(nextPlacement, {
-          historyDescriptor: {
-            kind: "scale-overlay",
-            label: "Scaled overlay",
-          },
+          historyDescriptor: INTERACTION_HISTORY_DESCRIPTOR.SCALE_OVERLAY,
         });
         logger.info("Scaled overlay placement", { scale: nextScale, deltaY });
       }
@@ -700,10 +701,7 @@ export function createInteractionController({
       centerScreenPx: nextCenterScreenPx,
     });
     store.setPlacement(nextPlacement, {
-      historyDescriptor: {
-        kind: "move-overlay",
-        label: "Moved overlay",
-      },
+      historyDescriptor: INTERACTION_HISTORY_DESCRIPTOR.MOVE_OVERLAY,
     });
   }
 
