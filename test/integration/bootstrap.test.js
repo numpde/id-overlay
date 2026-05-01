@@ -510,7 +510,7 @@ test("main action button drives the canonical paste flow when no image is presen
     assert.equal(image.style.width, "640px");
     assert.equal(mainActionButton.textContent, "Clear image");
     assert.equal(undoButton.disabled, false);
-    assert.equal(undoButton.title, "Undo: Loaded screenshot");
+    assert.equal(undoButton.title, "Remove image");
     assert.equal(redoButton.disabled, true);
     assert.equal(redoButton.title, "");
     assert.equal(modeInput.disabled, false);
@@ -568,7 +568,7 @@ test("panel undo and redo restore committed session state and reset confirmation
     await new Promise((resolve) => setTimeout(resolve, 0));
     assert.equal(mainActionButton.textContent, "Clear image");
     assert.equal(undoButton.disabled, false);
-    assert.equal(undoButton.title, "Undo: Loaded screenshot");
+    assert.equal(undoButton.title, "Remove image");
     assert.equal(redoButton.title, "");
 
     mainActionButton.click();
@@ -584,7 +584,7 @@ test("panel undo and redo restore committed session state and reset confirmation
     assert.equal(undoButton.disabled, true);
     assert.equal(redoButton.disabled, false);
     assert.equal(undoButton.title, "");
-    assert.equal(redoButton.title, "Redo: Loaded screenshot");
+    assert.equal(redoButton.title, "Reload image");
 
     redoButton.click();
     await new Promise((resolve) => setTimeout(resolve, 0));
@@ -594,7 +594,7 @@ test("panel undo and redo restore committed session state and reset confirmation
     assert.equal(status.textContent, "Redid: Loaded screenshot.");
     assert.equal(undoButton.disabled, false);
     assert.equal(redoButton.disabled, true);
-    assert.equal(undoButton.title, "Undo: Loaded screenshot");
+    assert.equal(undoButton.title, "Remove image");
     assert.equal(redoButton.title, "");
   } finally {
     env.cleanup();
@@ -760,6 +760,7 @@ test("main action button clears pins first, then escalates to clear image", asyn
 
     const shadow = env.document.getElementById("id-overlay-root").shadowRoot;
     const mainActionButton = shadow.querySelector(".id-overlay-panel__main-action-button");
+    const [undoButton, redoButton] = shadow.querySelectorAll(".id-overlay-panel__history-button");
     const image = env.document.querySelector(".id-overlay-image");
     mainActionButton.click();
     assert.equal(image.style.display, "block");
@@ -770,6 +771,7 @@ test("main action button clears pins first, then escalates to clear image", asyn
 
     assert.equal(mainActionButton.textContent, "Clear image");
     assert.equal(image.style.display, "block");
+    assert.equal(undoButton.title, "Restore pins");
 
     mainActionButton.click();
     assert.equal(mainActionButton.textContent, "Clear image?");
@@ -778,6 +780,13 @@ test("main action button clears pins first, then escalates to clear image", asyn
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     assert.equal(image.style.display, "none");
+    assert.equal(undoButton.title, "Reload image");
+
+    undoButton.click();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    assert.equal(image.style.display, "block");
+    assert.equal(redoButton.title, "Clear image");
   } finally {
     env.cleanup();
   }

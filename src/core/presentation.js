@@ -158,6 +158,65 @@ export function describePanelActionPresentation(action, payload = {}) {
   }
 }
 
+export function describePendingHistoryControl({ direction, descriptor } = {}) {
+  if (!descriptor?.kind) {
+    return "";
+  }
+  if (direction === "undo") {
+    return describePendingUndoControl(descriptor);
+  }
+  if (direction === "redo") {
+    return describePendingRedoControl(descriptor);
+  }
+  return "";
+}
+
+function describePendingUndoControl(descriptor) {
+  switch (descriptor.kind) {
+    case "load-image":
+      return "Remove image";
+    case "clear-image":
+      return "Reload image";
+    case "add-pin":
+      return "Remove pin";
+    case "remove-pin":
+      return "Restore pin";
+    case "clear-pins":
+      return "Restore pins";
+    case "move-overlay":
+      return "Move overlay back";
+    case "rotate-overlay":
+      return "Restore rotation";
+    case "scale-overlay":
+      return "Restore scale";
+    default:
+      return "";
+  }
+}
+
+function describePendingRedoControl(descriptor) {
+  switch (descriptor.kind) {
+    case "load-image":
+      return "Reload image";
+    case "clear-image":
+      return "Clear image";
+    case "add-pin":
+      return "Add pin";
+    case "remove-pin":
+      return "Remove pin";
+    case "clear-pins":
+      return "Clear pins";
+    case "move-overlay":
+      return "Move overlay again";
+    case "rotate-overlay":
+      return "Rotate overlay again";
+    case "scale-overlay":
+      return "Scale overlay again";
+    default:
+      return "";
+  }
+}
+
 export function describeLoadedImagePresentation(image) {
   const stats = getOverlayImageLoadStats(image);
   if (!stats) {

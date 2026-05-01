@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import {
   PANEL_FEEDBACK_ACTION,
+  describePendingHistoryControl,
   describeOverlayRenderLabel,
   describeOverlayRenderMessage,
   describePanelActionPresentation,
@@ -449,4 +450,43 @@ test("presentation centralizes panel action feedback copy", () => {
     }),
     "Loaded screenshot 2048×1024 from 5000×2500.",
   );
+});
+
+test("presentation describes pending history controls by their result", () => {
+  assert.equal(
+    describePendingHistoryControl({
+      direction: "undo",
+      descriptor: { kind: "clear-image", label: "Cleared image" },
+    }),
+    "Reload image",
+  );
+  assert.equal(
+    describePendingHistoryControl({
+      direction: "redo",
+      descriptor: { kind: "clear-image", label: "Cleared image" },
+    }),
+    "Clear image",
+  );
+  assert.equal(
+    describePendingHistoryControl({
+      direction: "undo",
+      descriptor: { kind: "load-image", label: "Loaded screenshot" },
+    }),
+    "Remove image",
+  );
+  assert.equal(
+    describePendingHistoryControl({
+      direction: "redo",
+      descriptor: { kind: "load-image", label: "Loaded screenshot" },
+    }),
+    "Reload image",
+  );
+  assert.equal(
+    describePendingHistoryControl({
+      direction: "undo",
+      descriptor: { kind: "rotate-overlay", label: "Rotated overlay" },
+    }),
+    "Restore rotation",
+  );
+  assert.equal(describePendingHistoryControl({ direction: "undo", descriptor: null }), "");
 });

@@ -6,6 +6,7 @@ import {
 } from "../core/image-normalization.js";
 import {
   PANEL_FEEDBACK_ACTION,
+  describePendingHistoryControl,
   describePanelActionPresentation,
 } from "../core/presentation.js";
 import {
@@ -282,17 +283,17 @@ export function createPanel({ shadow, store, interactions, statusController }) {
     applyHistoryButtonPresentation({
       button: undoButton,
       descriptor: store.getUndoDescriptor(),
-      prefix: "Undo",
+      direction: "undo",
     });
     applyHistoryButtonPresentation({
       button: redoButton,
       descriptor: store.getRedoDescriptor(),
-      prefix: "Redo",
+      direction: "redo",
     });
   }
 
-  function applyHistoryButtonPresentation({ button, descriptor, prefix }) {
-    const label = descriptor?.label ? `${prefix}: ${descriptor.label}` : "";
+  function applyHistoryButtonPresentation({ button, descriptor, direction }) {
+    const label = describePendingHistoryControl({ direction, descriptor });
     button.title = label;
     if (label) {
       button.setAttribute("aria-label", label);
