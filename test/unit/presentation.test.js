@@ -235,7 +235,6 @@ test("resolvePanelPresentation centralizes panel labels and enablement through t
       ariaLabel: "Mode: Align",
       disabled: false,
     },
-    hasImage: true,
     mainAction: {
       hasImage: true,
       pinCount: 2,
@@ -275,7 +274,7 @@ test("resolvePanelPresentation advances the primary action to clear-image when p
   assert.equal(viewModel.modeSwitch.disabled, false);
 });
 
-test("resolvePanelViewModel keeps panel semantics and presentation on one has-image source", () => {
+test("resolvePanelViewModel keeps panel semantics on the main-action image source", () => {
   const viewModel = resolvePanelViewModel({
     state: {
       image: null,
@@ -293,7 +292,7 @@ test("resolvePanelViewModel keeps panel semantics and presentation on one has-im
     },
   });
 
-  assert.equal(viewModel.hasImage, false);
+  assert.equal(viewModel.mainAction.hasImage, false);
   assert.equal(viewModel.mainAction.disabled, false);
   assert.equal(viewModel.mainAction.label, "Paste");
   assert.equal(viewModel.mainAction.shouldReset, true);

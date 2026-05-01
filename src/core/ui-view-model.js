@@ -19,7 +19,6 @@ export function resolveUiViewModel({
       mode: uiState.session.mode,
       hasImage: mainAction.hasImage,
     }),
-    hasImage: mainAction.hasImage,
     mainAction,
   };
 }

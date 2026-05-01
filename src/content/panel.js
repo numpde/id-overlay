@@ -244,7 +244,7 @@ export function createPanel({ shadow, store, interactions, statusController }) {
       "id-overlay-button--confirm",
       panelViewModel.mainAction.presentationKind === "confirm",
     );
-    opacityInput.disabled = !panelViewModel.hasImage;
+    opacityInput.disabled = !panelViewModel.mainAction.hasImage;
   }
 
   function applyModeSelection(mode) {
