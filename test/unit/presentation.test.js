@@ -488,5 +488,12 @@ test("presentation describes pending history controls by their result", () => {
     }),
     "Restore rotation",
   );
+  assert.equal(
+    describePendingHistoryControl({
+      direction: "later",
+      descriptor: { kind: "rotate-overlay", label: "Rotated overlay" },
+    }),
+    "",
+  );
   assert.equal(describePendingHistoryControl({ direction: "undo", descriptor: null }), "");
 });

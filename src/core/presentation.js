@@ -26,6 +26,41 @@ export const PANEL_FEEDBACK_ACTION = Object.freeze({
   CLIPBOARD_IMAGE_LOADED: "clipboard-image-loaded",
 });
 
+const PENDING_HISTORY_CONTROL_LABELS_BY_KIND = Object.freeze({
+  "load-image": Object.freeze({
+    undo: "Remove image",
+    redo: "Reload image",
+  }),
+  "clear-image": Object.freeze({
+    undo: "Reload image",
+    redo: "Clear image",
+  }),
+  "add-pin": Object.freeze({
+    undo: "Remove pin",
+    redo: "Add pin",
+  }),
+  "remove-pin": Object.freeze({
+    undo: "Restore pin",
+    redo: "Remove pin",
+  }),
+  "clear-pins": Object.freeze({
+    undo: "Restore pins",
+    redo: "Clear pins",
+  }),
+  "move-overlay": Object.freeze({
+    undo: "Move overlay back",
+    redo: "Move overlay again",
+  }),
+  "rotate-overlay": Object.freeze({
+    undo: "Restore rotation",
+    redo: "Rotate overlay again",
+  }),
+  "scale-overlay": Object.freeze({
+    undo: "Restore scale",
+    redo: "Scale overlay again",
+  }),
+});
+
 export function describeRegistrationSolveSummary(solveState) {
   if (solveState.kind === "solved") {
     return `Solved from ${solveState.solvedPinCount} pin(s)`;
@@ -162,59 +197,7 @@ export function describePendingHistoryControl({ direction, descriptor } = {}) {
   if (!descriptor?.kind) {
     return "";
   }
-  if (direction === "undo") {
-    return describePendingUndoControl(descriptor);
-  }
-  if (direction === "redo") {
-    return describePendingRedoControl(descriptor);
-  }
-  return "";
-}
-
-function describePendingUndoControl(descriptor) {
-  switch (descriptor.kind) {
-    case "load-image":
-      return "Remove image";
-    case "clear-image":
-      return "Reload image";
-    case "add-pin":
-      return "Remove pin";
-    case "remove-pin":
-      return "Restore pin";
-    case "clear-pins":
-      return "Restore pins";
-    case "move-overlay":
-      return "Move overlay back";
-    case "rotate-overlay":
-      return "Restore rotation";
-    case "scale-overlay":
-      return "Restore scale";
-    default:
-      return "";
-  }
-}
-
-function describePendingRedoControl(descriptor) {
-  switch (descriptor.kind) {
-    case "load-image":
-      return "Reload image";
-    case "clear-image":
-      return "Clear image";
-    case "add-pin":
-      return "Add pin";
-    case "remove-pin":
-      return "Remove pin";
-    case "clear-pins":
-      return "Clear pins";
-    case "move-overlay":
-      return "Move overlay again";
-    case "rotate-overlay":
-      return "Rotate overlay again";
-    case "scale-overlay":
-      return "Scale overlay again";
-    default:
-      return "";
-  }
+  return PENDING_HISTORY_CONTROL_LABELS_BY_KIND[descriptor.kind]?.[direction] ?? "";
 }
 
 export function describeLoadedImagePresentation(image) {
