@@ -7,7 +7,6 @@ import {
   describeInteractionEventPresentation,
   describePinResultPresentation,
   describeSolveResultPresentation,
-  resolveDefaultStatusMessage,
 } from "../../src/core/presentation.js";
 import { resolveUiViewModel } from "../../src/core/ui-view-model.js";
 import { createStateStore } from "../../src/core/state.js";
@@ -15,10 +14,21 @@ import { createValueStore } from "../../src/core/value-store.js";
 import { projectLiveUiState } from "../../src/core/ui-live-state.js";
 import { createInitialPanelActionState } from "../../src/core/panel-state.js";
 import { UI_PANEL_INTENT_KIND } from "../../src/core/ui-state-model.js";
+import { resolveUiStatusBaseline } from "../../src/core/ui-status-model.js";
 
-test("resolveDefaultStatusMessage explains the current registration workflow", () => {
+function resolveStatusBaseline({ state, runtime, panelActionState = { kind: UI_PANEL_INTENT_KIND.IDLE } }) {
+  return resolveUiStatusBaseline({
+    uiState: projectLiveUiState({
+      state,
+      runtime,
+      panelActionState,
+    }),
+  });
+}
+
+test("resolveUiStatusBaseline explains the current registration workflow", () => {
   assert.equal(
-    resolveDefaultStatusMessage({
+    resolveStatusBaseline({
       state: { image: null, mode: "trace" },
       runtime: {},
     }),
@@ -26,7 +36,7 @@ test("resolveDefaultStatusMessage explains the current registration workflow", (
   );
 
   assert.equal(
-    resolveDefaultStatusMessage({
+    resolveStatusBaseline({
       state: {
         image: { src: "x", width: 1, height: 1 },
         mode: "trace",
@@ -38,7 +48,7 @@ test("resolveDefaultStatusMessage explains the current registration workflow", (
   );
 
   assert.equal(
-    resolveDefaultStatusMessage({
+    resolveStatusBaseline({
       state: {
         image: { src: "x", width: 1, height: 1 },
         mode: "align",
@@ -53,7 +63,7 @@ test("resolveDefaultStatusMessage explains the current registration workflow", (
   );
 
   assert.equal(
-    resolveDefaultStatusMessage({
+    resolveStatusBaseline({
       state: {
         image: { src: "x", width: 1, height: 1 },
         mode: "trace",
@@ -68,7 +78,7 @@ test("resolveDefaultStatusMessage explains the current registration workflow", (
   );
 });
 
-test("resolveDefaultStatusMessage prioritizes live interaction state over static render copy", () => {
+test("resolveUiStatusBaseline prioritizes live interaction state over static render copy", () => {
   const solvedState = {
     image: { src: "x", width: 1, height: 1 },
     mode: "align",
@@ -79,7 +89,7 @@ test("resolveDefaultStatusMessage prioritizes live interaction state over static
   };
 
   assert.equal(
-    resolveDefaultStatusMessage({
+    resolveStatusBaseline({
       state: solvedState,
       runtime: { isPassThroughActive: true, isDragging: false, dragMode: null },
     }),
@@ -87,7 +97,7 @@ test("resolveDefaultStatusMessage prioritizes live interaction state over static
   );
 
   assert.equal(
-    resolveDefaultStatusMessage({
+    resolveStatusBaseline({
       state: solvedState,
       runtime: { isPassThroughActive: false, isDragging: true, dragMode: "map-pan" },
     }),
@@ -102,7 +112,7 @@ test("resolveUiViewModel describes the current mode state for the panel switch",
       panelActionState: createInitialPanelActionState(),
     }),
   });
-  assert.deepEqual(traceViewModel.presentation.modeSwitch, {
+  assert.deepEqual(traceViewModel.modeSwitch, {
     checked: false,
     label: "Trace",
     ariaLabel: "Mode: Trace",
@@ -115,7 +125,7 @@ test("resolveUiViewModel describes the current mode state for the panel switch",
       panelActionState: createInitialPanelActionState(),
     }),
   });
-  assert.deepEqual(alignViewModel.presentation.modeSwitch, {
+  assert.deepEqual(alignViewModel.modeSwitch, {
     checked: true,
     label: "Align",
     ariaLabel: "Mode: Align",
@@ -272,19 +282,9 @@ test("status controller uses canonical ui-state source for baseline panel prompt
   };
 
   const controller = createStatusController({ store, interactions });
-  controller.setUiStateSource(() =>
-    projectLiveUiState({
-      state: {
-        image: null,
-        mode: "align",
-        opacity: 0.6,
-        registration: { pins: [], solvedTransform: null, dirty: false },
-      },
-      panelActionState: {
-        kind: UI_PANEL_INTENT_KIND.PASTE_ARMED,
-      },
-    }),
-  );
+  controller.setPanelActionStateSource(() => ({
+    kind: UI_PANEL_INTENT_KIND.PASTE_ARMED,
+  }));
 
   assert.equal(
     controller.getMessage(),

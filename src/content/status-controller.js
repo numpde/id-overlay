@@ -1,9 +1,10 @@
 import { createValueStore } from "../core/value-store.js";
 import {
   describeInteractionEventPresentation,
-  resolveDefaultStatusMessage,
 } from "../core/presentation.js";
 import { resolveUiStatusBaseline } from "../core/ui-status-model.js";
+import { projectLiveUiState } from "../core/ui-live-state.js";
+import { UI_PANEL_INTENT_KIND } from "../core/ui-state-model.js";
 
 const DEFAULT_TRANSIENT_MS = 1800;
 
@@ -11,7 +12,7 @@ export function createStatusController({ store, interactions }) {
   const messageStore = createValueStore("");
   let transientMessage = null;
   let transientTimer = null;
-  let uiStateSource = null;
+  let panelActionStateSource = null;
 
   const unsubscribeStore = store.subscribe(syncMessage, { emitCurrent: false });
   const unsubscribeInteractions = interactions.subscribe(syncMessage, { emitCurrent: false });
@@ -32,8 +33,8 @@ export function createStatusController({ store, interactions }) {
     return messageStore.get();
   }
 
-  function setUiStateSource(source) {
-    uiStateSource = source;
+  function setPanelActionStateSource(source) {
+    panelActionStateSource = source;
     syncMessage();
   }
 
@@ -53,7 +54,7 @@ export function createStatusController({ store, interactions }) {
 
   function destroy() {
     clearTransientTimer();
-    uiStateSource = null;
+    panelActionStateSource = null;
     unsubscribeStore();
     unsubscribeInteractions();
     unsubscribeInteractionEvents?.();
@@ -67,12 +68,14 @@ export function createStatusController({ store, interactions }) {
   }
 
   function resolveBaselineMessage() {
-    if (uiStateSource) {
-      return resolveUiStatusBaseline({ uiState: uiStateSource() });
-    }
-    return resolveDefaultStatusMessage({
-      state: store.getState(),
-      runtime: interactions.getRuntimeState(),
+    return resolveUiStatusBaseline({
+      uiState: projectLiveUiState({
+        state: store.getState(),
+        runtime: interactions.getRuntimeState(),
+        panelActionState: panelActionStateSource?.() ?? {
+          kind: UI_PANEL_INTENT_KIND.IDLE,
+        },
+      }),
     });
   }
 
@@ -87,7 +90,7 @@ export function createStatusController({ store, interactions }) {
     subscribe,
     getMessage,
     showTransient,
-    setUiStateSource,
+    setPanelActionStateSource,
     refresh,
     destroy,
   };

@@ -180,12 +180,12 @@ export function createPanel({ shadow, store, interactions, statusController }) {
     });
   });
 
-  statusController.setUiStateSource(resolveCurrentUiState);
+  statusController.setPanelActionStateSource(() => panelActionState);
 
   const unsubscribeStore = store.subscribe((state) => {
     latestState = state;
     const panelViewModel = resolveCurrentPanelViewModel();
-    if (panelViewModel.actionSemantics.shouldReset) {
+    if (panelViewModel.mainAction.shouldReset) {
       setPanelActionState(
         syncPanelActionStateToUiIntent({
           previousPanelActionState: panelActionState,
@@ -209,7 +209,7 @@ export function createPanel({ shadow, store, interactions, statusController }) {
       detachPasteListener();
       endPanelDrag();
       clearClearConfirmTimer();
-      statusController.setUiStateSource(null);
+      statusController.setPanelActionStateSource(null);
       window.removeEventListener("resize", handleWindowResize);
       unsubscribeStore();
       unsubscribeStatus();
@@ -233,19 +233,18 @@ export function createPanel({ shadow, store, interactions, statusController }) {
 
   function applyPanelViewModel(panelViewModel) {
     latestPanelViewModel = panelViewModel;
-    const { presentation } = panelViewModel;
-    opacityInput.value = presentation.opacityValue;
-    modeInput.checked = presentation.modeSwitch.checked;
-    modeInput.disabled = presentation.modeSwitch.disabled;
-    modeInput.setAttribute("aria-label", presentation.modeSwitch.ariaLabel);
-    modeSwitch.dataset.mode = presentation.modeSwitch.label.toLowerCase();
-    clearButton.textContent = presentation.clearButtonLabel;
-    clearButton.disabled = presentation.clearButtonDisabled;
+    opacityInput.value = panelViewModel.opacityValue;
+    modeInput.checked = panelViewModel.modeSwitch.checked;
+    modeInput.disabled = panelViewModel.modeSwitch.disabled;
+    modeInput.setAttribute("aria-label", panelViewModel.modeSwitch.ariaLabel);
+    modeSwitch.dataset.mode = panelViewModel.modeSwitch.label.toLowerCase();
+    clearButton.textContent = panelViewModel.mainAction.label;
+    clearButton.disabled = panelViewModel.mainAction.disabled;
     clearButton.classList.toggle(
       "id-overlay-button--confirm",
-      presentation.clearButtonVariant === "confirm",
+      panelViewModel.mainAction.presentationKind === "confirm",
     );
-    opacityInput.disabled = !presentation.hasImage;
+    opacityInput.disabled = !panelViewModel.hasImage;
   }
 
   function applyModeSelection(mode) {
@@ -307,7 +306,7 @@ export function createPanel({ shadow, store, interactions, statusController }) {
   }
 
   async function handleWindowPaste(event) {
-    if (!getPanelActionSemantics().pasteArmed) {
+    if (!getMainAction().pasteArmed) {
       return;
     }
 
@@ -377,13 +376,13 @@ export function createPanel({ shadow, store, interactions, statusController }) {
     }
     panelActionState = nextState;
     const panelViewModel = resolveCurrentPanelViewModel();
-    syncPanelActionSideEffects(panelViewModel.actionSemantics);
+    syncPanelActionSideEffects(panelViewModel.mainAction);
     applyPanelViewModel(panelViewModel);
     statusController.refresh();
   }
 
-  function getPanelActionSemantics() {
-    return latestPanelViewModel?.actionSemantics ?? resolveCurrentPanelViewModel().actionSemantics;
+  function getMainAction() {
+    return latestPanelViewModel?.mainAction ?? resolveCurrentPanelViewModel().mainAction;
   }
 
   function setPanelPosition(nextPosition) {
@@ -418,15 +417,15 @@ export function createPanel({ shadow, store, interactions, statusController }) {
     };
   }
 
-  function syncPanelActionSideEffects(semantics = getPanelActionSemantics()) {
-    if (!semantics.clearConfirming) {
+  function syncPanelActionSideEffects(mainAction = getMainAction()) {
+    if (!mainAction.clearConfirming) {
       clearClearConfirmTimer();
     }
-    syncPasteListener(semantics);
+    syncPasteListener(mainAction);
   }
 
-  function syncPasteListener(semantics) {
-    const { shouldAttachPasteListener } = semantics;
+  function syncPasteListener(mainAction) {
+    const { shouldAttachPasteListener } = mainAction;
     if (shouldAttachPasteListener && !isPasteListenerAttached) {
       window.addEventListener("paste", handleWindowPaste, true);
       isPasteListenerAttached = true;

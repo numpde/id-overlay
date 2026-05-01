@@ -8,7 +8,6 @@ import {
   describeInteractionEventPresentation,
   describePinResultPresentation,
   describeSolveResultPresentation,
-  resolveDefaultStatusMessage,
   resolveOverlayRenderPresentation,
   resolveRegistrationSolvePresentation,
   resolveOverlaySessionPresentation,
@@ -20,6 +19,7 @@ import {
   CLEAR_PINS_CONFIRMATION_MESSAGE,
   CLEAR_IMAGE_CONFIRMATION_MESSAGE,
   MANUAL_PASTE_PROMPT,
+  resolveUiStatusBaseline,
 } from "../../src/core/ui-status-model.js";
 import { resolveUiViewModel } from "../../src/core/ui-view-model.js";
 
@@ -33,7 +33,17 @@ function resolvePanelViewModel({ state, panelActionState }) {
 }
 
 function resolvePanelPresentation(input) {
-  return resolvePanelViewModel(input).presentation;
+  return resolvePanelViewModel(input);
+}
+
+function resolveStatusBaseline({ state, runtime, panelActionState = { kind: PANEL_ACTION_KIND.IDLE } }) {
+  return resolveUiStatusBaseline({
+    uiState: projectLiveUiState({
+      state,
+      runtime,
+      panelActionState,
+    }),
+  });
 }
 
 test("resolveOverlaySessionPresentation centralizes session labels and enablement", () => {
@@ -164,9 +174,9 @@ test("presentation centralizes solve and render copy from semantic state", () =>
   });
 });
 
-test("resolveDefaultStatusMessage centralizes runtime-aware status copy", () => {
+test("resolveUiStatusBaseline centralizes runtime-aware status copy", () => {
   assert.equal(
-    resolveDefaultStatusMessage({
+    resolveStatusBaseline({
       state: { image: null, mode: "trace", registration: { pins: [], solvedTransform: null, dirty: false } },
       runtime: {},
     }),
@@ -184,7 +194,7 @@ test("resolveDefaultStatusMessage centralizes runtime-aware status copy", () => 
   };
 
   assert.equal(
-    resolveDefaultStatusMessage({
+    resolveStatusBaseline({
       state: solvedAlignState,
       runtime: { isPassThroughActive: true, isDragging: false, dragMode: null },
     }),
@@ -192,7 +202,7 @@ test("resolveDefaultStatusMessage centralizes runtime-aware status copy", () => 
   );
 
   assert.equal(
-    resolveDefaultStatusMessage({
+    resolveStatusBaseline({
       state: solvedAlignState,
       runtime: { isPassThroughActive: false, isDragging: true, dragMode: "map-pan" },
     }),
@@ -200,7 +210,7 @@ test("resolveDefaultStatusMessage centralizes runtime-aware status copy", () => 
   );
 });
 
-test("resolvePanelPresentation centralizes panel labels and enablement", () => {
+test("resolvePanelPresentation centralizes panel labels and enablement through the canonical main-action descriptor", () => {
   const presentation = resolvePanelPresentation({
     state: {
       image: { src: "x", width: 1, height: 1 },
@@ -230,9 +240,20 @@ test("resolvePanelPresentation centralizes panel labels and enablement", () => {
       disabled: false,
     },
     hasImage: true,
-    clearButtonLabel: "Clear 2 pins",
-    clearButtonVariant: "neutral",
-    clearButtonDisabled: false,
+    mainAction: {
+      intent: PANEL_ACTION_KIND.PASTE_ARMED,
+      target: "clear-pins",
+      canPasteImage: true,
+      canClearPins: true,
+      shouldReset: true,
+      disabled: false,
+      label: "Clear 2 pins",
+      presentationKind: "neutral",
+      nextIntent: PANEL_ACTION_KIND.CLEAR_PINS_CONFIRM,
+      pasteArmed: false,
+      clearConfirming: false,
+      shouldAttachPasteListener: false,
+    },
   });
 });
 
@@ -256,13 +277,11 @@ test("resolvePanelPresentation disables registration actions outside align mode"
       sessionId: 0,
     },
   });
-  const presentation = viewModel.presentation;
-
-  assert.equal(viewModel.actionSemantics.canPasteImage, false);
-  assert.equal(viewModel.actionSemantics.canClearPins, false);
-  assert.equal(presentation.clearButtonLabel, "Clear 2 pins");
-  assert.equal(presentation.clearButtonDisabled, true);
-  assert.equal(presentation.modeSwitch.disabled, false);
+  assert.equal(viewModel.mainAction.canPasteImage, false);
+  assert.equal(viewModel.mainAction.canClearPins, false);
+  assert.equal(viewModel.mainAction.label, "Clear 2 pins");
+  assert.equal(viewModel.mainAction.disabled, true);
+  assert.equal(viewModel.modeSwitch.disabled, false);
 });
 
 test("resolvePanelViewModel keeps panel semantics and presentation on one has-image source", () => {
@@ -283,13 +302,12 @@ test("resolvePanelViewModel keeps panel semantics and presentation on one has-im
     },
   });
 
-  assert.equal(viewModel.presentation.hasImage, false);
-  assert.equal(viewModel.presentation.clearButtonDisabled, false);
-  assert.equal(viewModel.presentation.clearButtonLabel, "Paste");
-  assert.equal(viewModel.actionSemantics.hasImage, false);
-  assert.equal(viewModel.actionSemantics.canPasteImage, true);
-  assert.equal(viewModel.actionSemantics.shouldReset, true);
-  assert.equal(viewModel.presentation.modeSwitch.disabled, true);
+  assert.equal(viewModel.hasImage, false);
+  assert.equal(viewModel.mainAction.disabled, false);
+  assert.equal(viewModel.mainAction.label, "Paste");
+  assert.equal(viewModel.mainAction.canPasteImage, true);
+  assert.equal(viewModel.mainAction.shouldReset, true);
+  assert.equal(viewModel.modeSwitch.disabled, true);
 });
 
 test("resolvePanelPresentation keeps confirmation labels aligned with canonical status prompts", () => {
@@ -310,8 +328,8 @@ test("resolvePanelPresentation keeps confirmation labels aligned with canonical 
     },
   });
 
-  assert.equal(pinsPresentation.clearButtonLabel, "Clear pins?");
-  assert.equal(pinsPresentation.clearButtonVariant, "confirm");
+  assert.equal(pinsPresentation.mainAction.label, "Clear pins?");
+  assert.equal(pinsPresentation.mainAction.presentationKind, "confirm");
 
   const imagePresentation = resolvePanelPresentation({
     state: {
@@ -330,8 +348,8 @@ test("resolvePanelPresentation keeps confirmation labels aligned with canonical 
     },
   });
 
-  assert.equal(imagePresentation.clearButtonLabel, "Clear image?");
-  assert.equal(imagePresentation.clearButtonVariant, "confirm");
+  assert.equal(imagePresentation.mainAction.label, "Clear image?");
+  assert.equal(imagePresentation.mainAction.presentationKind, "confirm");
   assert.notEqual(CLEAR_PINS_CONFIRMATION_MESSAGE, CLEAR_IMAGE_CONFIRMATION_MESSAGE);
   assert.equal(MANUAL_PASTE_PROMPT.startsWith("Press"), true);
 });

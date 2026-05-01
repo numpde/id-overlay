@@ -58,6 +58,9 @@ export function resolveMainActionDescriptor(uiState) {
       label: intent === UI_PANEL_INTENT_KIND.PASTE_ARMED ? "Paste…" : "Paste",
       presentationKind: UI_MAIN_ACTION_PRESENTATION_KIND.NEUTRAL,
       nextIntent: UI_PANEL_INTENT_KIND.PASTE_ARMED,
+      pasteArmed: intent === UI_PANEL_INTENT_KIND.PASTE_ARMED,
+      clearConfirming: false,
+      shouldAttachPasteListener: intent === UI_PANEL_INTENT_KIND.PASTE_ARMED,
     };
   }
 
@@ -72,6 +75,9 @@ export function resolveMainActionDescriptor(uiState) {
       label: "Clear pins?",
       presentationKind: UI_MAIN_ACTION_PRESENTATION_KIND.CONFIRM,
       nextIntent: UI_PANEL_INTENT_KIND.CLEAR_PINS_CONFIRM,
+      pasteArmed: false,
+      clearConfirming: true,
+      shouldAttachPasteListener: false,
     };
   }
 
@@ -86,6 +92,9 @@ export function resolveMainActionDescriptor(uiState) {
       label: "Clear image?",
       presentationKind: UI_MAIN_ACTION_PRESENTATION_KIND.CONFIRM,
       nextIntent: UI_PANEL_INTENT_KIND.CLEAR_IMAGE_CONFIRM,
+      pasteArmed: false,
+      clearConfirming: true,
+      shouldAttachPasteListener: false,
     };
   }
 
@@ -100,6 +109,9 @@ export function resolveMainActionDescriptor(uiState) {
       label: resolveClearPinsLabel(pinCount),
       presentationKind: UI_MAIN_ACTION_PRESENTATION_KIND.NEUTRAL,
       nextIntent: UI_PANEL_INTENT_KIND.CLEAR_PINS_CONFIRM,
+      pasteArmed: false,
+      clearConfirming: false,
+      shouldAttachPasteListener: false,
     };
   }
 
@@ -113,6 +125,9 @@ export function resolveMainActionDescriptor(uiState) {
     label: "Clear image",
     presentationKind: UI_MAIN_ACTION_PRESENTATION_KIND.NEUTRAL,
     nextIntent: UI_PANEL_INTENT_KIND.CLEAR_IMAGE_CONFIRM,
+    pasteArmed: false,
+    clearConfirming: false,
+    shouldAttachPasteListener: false,
   };
 }
 

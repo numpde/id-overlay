@@ -8,12 +8,7 @@ import {
   SOLVE_RESULT_REASON,
 } from "./interaction-policy.js";
 import { RUNTIME_ERROR_SOURCE } from "./runtime-error.js";
-import {
-  MANUAL_PASTE_PROMPT,
-  resolveUiStatusBaseline,
-} from "./ui-status-model.js";
-import { projectLiveUiState } from "./ui-live-state.js";
-import { UI_PANEL_INTENT_KIND } from "./ui-state-model.js";
+import { MANUAL_PASTE_PROMPT } from "./ui-status-model.js";
 import { resolveSessionRegistrationAffordances } from "./ui-registration-semantics.js";
 
 export const PANEL_FEEDBACK_ACTION = Object.freeze({
@@ -120,18 +115,6 @@ export function resolveOverlayRenderPresentation(state) {
         label: "Manual placement active",
         message: null,
       };
-}
-
-export function resolveDefaultStatusMessage({ state, runtime }) {
-  return resolveUiStatusBaseline({
-    uiState: projectLiveUiState({
-      state,
-      runtime,
-      panelActionState: {
-        kind: UI_PANEL_INTENT_KIND.IDLE,
-      },
-    }),
-  });
 }
 
 export function describePinResultPresentation(result) {

@@ -43,12 +43,12 @@ test("resolveUiViewModel reflects the empty trace state without panel semantics 
     uiState: createInitialUiState(),
   });
 
-  assert.equal(viewModel.presentation.clearButtonLabel, "Paste");
-  assert.equal(viewModel.presentation.clearButtonDisabled, false);
-  assert.equal(viewModel.actionSemantics.canPasteImage, true);
-  assert.equal(viewModel.actionSemantics.canClearPins, false);
-  assert.equal(viewModel.actionSemantics.shouldReset, false);
-  assert.equal(viewModel.presentation.modeSwitch.disabled, true);
+  assert.equal(viewModel.mainAction.label, "Paste");
+  assert.equal(viewModel.mainAction.disabled, false);
+  assert.equal(viewModel.mainAction.canPasteImage, true);
+  assert.equal(viewModel.mainAction.canClearPins, false);
+  assert.equal(viewModel.mainAction.shouldReset, false);
+  assert.equal(viewModel.modeSwitch.disabled, true);
 });
 
 test("resolveUiViewModel resets stale clear-image confirmation back onto the paste action", () => {
@@ -63,14 +63,14 @@ test("resolveUiViewModel resets stale clear-image confirmation back onto the pas
     }),
   });
 
-  assert.equal(viewModel.presentation.clearButtonLabel, "Paste");
-  assert.equal(viewModel.presentation.clearButtonDisabled, false);
-  assert.equal(viewModel.actionSemantics.shouldReset, true);
-  assert.equal(viewModel.actionSemantics.canPasteImage, true);
-  assert.equal(viewModel.presentation.modeSwitch.disabled, true);
+  assert.equal(viewModel.mainAction.label, "Paste");
+  assert.equal(viewModel.mainAction.disabled, false);
+  assert.equal(viewModel.mainAction.shouldReset, true);
+  assert.equal(viewModel.mainAction.canPasteImage, true);
+  assert.equal(viewModel.modeSwitch.disabled, true);
 });
 
-test("resolveUiViewModel keeps paste arming and destructive labels on the same canonical basis", () => {
+test("resolveUiViewModel exposes stale paste intent through the same canonical main-action descriptor", () => {
   const viewModel = resolveUiViewModel({
     uiState: createUiState({
       session: {
@@ -88,10 +88,11 @@ test("resolveUiViewModel keeps paste arming and destructive labels on the same c
     }),
   });
 
-  assert.equal(viewModel.presentation.clearButtonLabel, "Clear 2 pins");
-  assert.equal(viewModel.actionSemantics.canPasteImage, true);
-  assert.equal(viewModel.actionSemantics.canClearPins, true);
-  assert.equal(viewModel.actionSemantics.shouldAttachPasteListener, true);
+  assert.equal(viewModel.mainAction.label, "Clear 2 pins");
+  assert.equal(viewModel.mainAction.canPasteImage, true);
+  assert.equal(viewModel.mainAction.canClearPins, true);
+  assert.equal(viewModel.mainAction.shouldReset, true);
+  assert.equal(viewModel.mainAction.shouldAttachPasteListener, false);
 });
 
 test("resolveUiViewModel keeps trace-mode registration affordances disabled without changing the primary action target", () => {
@@ -109,9 +110,9 @@ test("resolveUiViewModel keeps trace-mode registration affordances disabled with
     }),
   });
 
-  assert.equal(viewModel.actionSemantics.canPasteImage, false);
-  assert.equal(viewModel.actionSemantics.canClearPins, false);
-  assert.equal(viewModel.presentation.clearButtonLabel, "Clear 2 pins");
-  assert.equal(viewModel.presentation.clearButtonDisabled, true);
-  assert.equal(viewModel.presentation.modeSwitch.disabled, false);
+  assert.equal(viewModel.mainAction.canPasteImage, false);
+  assert.equal(viewModel.mainAction.canClearPins, false);
+  assert.equal(viewModel.mainAction.label, "Clear 2 pins");
+  assert.equal(viewModel.mainAction.disabled, true);
+  assert.equal(viewModel.modeSwitch.disabled, false);
 });
