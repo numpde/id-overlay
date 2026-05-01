@@ -123,6 +123,8 @@ test("resolveUiViewModel describes the current mode state for the panel switch",
   assert.deepEqual(traceViewModel.modeSwitch, {
     checked: false,
     disabled: true,
+    accessibleLabel: "Mode: Trace",
+    mode: "trace",
   });
 
   const alignViewModel = resolveUiViewModel({
@@ -134,6 +136,8 @@ test("resolveUiViewModel describes the current mode state for the panel switch",
   assert.deepEqual(alignViewModel.modeSwitch, {
     checked: true,
     disabled: false,
+    accessibleLabel: "Mode: Align",
+    mode: "align",
   });
 });
 

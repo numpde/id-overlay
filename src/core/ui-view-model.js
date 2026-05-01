@@ -24,8 +24,12 @@ export function resolveUiViewModel({
 }
 
 function resolveModeSwitchPresentation({ mode, hasImage }) {
+  const isAlign = mode === UI_MODE_KIND.ALIGN;
+  const label = isAlign ? "Align" : "Trace";
   return {
-    checked: mode === UI_MODE_KIND.ALIGN,
+    checked: isAlign,
     disabled: !hasImage,
+    accessibleLabel: `Mode: ${label}`,
+    mode: label.toLowerCase(),
   };
 }
