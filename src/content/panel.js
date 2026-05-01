@@ -75,23 +75,29 @@ export function createPanel({ shadow, store, interactions, statusController }) {
   const mainActionButton = createButton("Clear");
   mainActionButton.classList.add("id-overlay-panel__main-action-button");
 
+  const modeRow = document.createElement("div");
+  modeRow.className = "id-overlay-panel__mode-row";
+
+  const undoButton = createButton("↶");
+  undoButton.classList.add("id-overlay-panel__history-button");
+  undoButton.setAttribute("aria-label", "Undo");
+  undoButton.title = "Undo";
+
+  const redoButton = createButton("↷");
+  redoButton.classList.add("id-overlay-panel__history-button");
+  redoButton.setAttribute("aria-label", "Redo");
+  redoButton.title = "Redo";
+
   const historyActions = document.createElement("div");
   historyActions.className = "id-overlay-panel__history-actions";
-
-  const undoButton = createButton("Undo");
-  undoButton.classList.add("id-overlay-panel__history-button");
-
-  const redoButton = createButton("Redo");
-  redoButton.classList.add("id-overlay-panel__history-button");
-
   historyActions.append(undoButton, redoButton);
 
   const modeSwitch = document.createElement("label");
   modeSwitch.className = "id-overlay-mode-switch";
 
-  const modeAlignLabel = document.createElement("span");
-  modeAlignLabel.className = "id-overlay-mode-switch__label";
-  modeAlignLabel.textContent = "Align";
+  const modeTraceLabel = document.createElement("span");
+  modeTraceLabel.className = "id-overlay-mode-switch__label";
+  modeTraceLabel.textContent = "Trace";
 
   const modeInput = document.createElement("input");
   modeInput.type = "checkbox";
@@ -103,11 +109,11 @@ export function createPanel({ shadow, store, interactions, statusController }) {
   modeThumb.className = "id-overlay-mode-switch__thumb";
   modeTrack.append(modeThumb);
 
-  const modeTraceLabel = document.createElement("span");
-  modeTraceLabel.className = "id-overlay-mode-switch__label";
-  modeTraceLabel.textContent = "Trace";
+  const modeAlignLabel = document.createElement("span");
+  modeAlignLabel.className = "id-overlay-mode-switch__label";
+  modeAlignLabel.textContent = "Align";
 
-  modeSwitch.append(modeAlignLabel, modeInput, modeTrack, modeTraceLabel);
+  modeSwitch.append(modeTraceLabel, modeInput, modeTrack, modeAlignLabel);
 
   const opacityGroup = document.createElement("label");
   opacityGroup.className = "id-overlay-field";
@@ -138,7 +144,9 @@ export function createPanel({ shadow, store, interactions, statusController }) {
 
   statusWrap.append(statusElement, statusDetail);
 
-  root.append(header, modeSwitch, opacityGroup, historyActions, mainActionButton, statusWrap);
+  modeRow.append(modeSwitch, historyActions);
+
+  root.append(header, modeRow, opacityGroup, mainActionButton, statusWrap);
   shadow.append(root);
 
   let latestState = store.getState();

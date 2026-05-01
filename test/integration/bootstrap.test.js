@@ -232,13 +232,20 @@ test("trace mode hides registration pins and disables registration controls", as
 
     const shadow = env.document.getElementById("id-overlay-root").shadowRoot;
     const mainActionButton = shadow.querySelector(".id-overlay-panel__main-action-button");
+    const modeRow = shadow.querySelector(".id-overlay-panel__mode-row");
+    const modeSwitch = shadow.querySelector(".id-overlay-mode-switch");
     const historyButtons = [...shadow.querySelectorAll(".id-overlay-panel__history-button")];
     assert.equal(mainActionButton.textContent, "Clear image");
     assert.equal(mainActionButton.disabled, false);
+    assert.equal(modeRow.contains(modeSwitch), true);
     assert.equal(historyButtons.length, 2);
-    assert.equal(historyButtons[0].textContent, "Undo");
+    assert.equal(modeRow.contains(historyButtons[0]), true);
+    assert.equal(modeRow.contains(historyButtons[1]), true);
+    assert.equal(historyButtons[0].textContent, "↶");
+    assert.equal(historyButtons[0].getAttribute("aria-label"), "Undo");
     assert.equal(historyButtons[0].disabled, true);
-    assert.equal(historyButtons[1].textContent, "Redo");
+    assert.equal(historyButtons[1].textContent, "↷");
+    assert.equal(historyButtons[1].getAttribute("aria-label"), "Redo");
     assert.equal(historyButtons[1].disabled, true);
     assert.equal(env.document.querySelectorAll(".id-overlay-pin").length, 0);
     assert.equal(env.document.querySelectorAll(".id-overlay-map-pin").length, 0);
@@ -847,7 +854,10 @@ test("scrolling the mode switch selects align on wheel-up and trace on wheel-dow
     const modeSwitch = shadow.querySelector(".id-overlay-mode-switch");
     const modeInput = shadow.querySelector(".id-overlay-mode-switch__input");
     const overlay = env.document.querySelector(".id-overlay-viewport");
+    const modeLabels = [...shadow.querySelectorAll(".id-overlay-mode-switch__label")]
+      .map((label) => label.textContent);
 
+    assert.deepEqual(modeLabels, ["Trace", "Align"]);
     assert.equal(modeInput.checked, false);
     assert.equal(overlay.dataset.mode, "trace");
 
