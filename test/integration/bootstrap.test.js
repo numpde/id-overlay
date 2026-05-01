@@ -231,13 +231,9 @@ test("trace mode hides registration pins and disables registration controls", as
 
     const shadow = env.document.getElementById("id-overlay-root").shadowRoot;
     const buttons = [...shadow.querySelectorAll(".id-overlay-button")];
-    const pasteButton = buttons.find((button) => button.textContent === "Paste");
-    const clearPinsButton = buttons.find((button) => button.textContent === "Clear 2 pins");
-
-    assert.ok(pasteButton);
-    assert.ok(clearPinsButton);
-    assert.equal(pasteButton.disabled, true);
-    assert.equal(clearPinsButton.disabled, true);
+    assert.equal(buttons.length, 1);
+    assert.equal(buttons[0].textContent, "Clear 2 pins");
+    assert.equal(buttons[0].disabled, false);
     assert.equal(env.document.querySelectorAll(".id-overlay-pin").length, 0);
     assert.equal(env.document.querySelectorAll(".id-overlay-map-pin").length, 0);
   } finally {
@@ -342,7 +338,7 @@ test("unsupported pages do not inject the extension UI", async () => {
   }
 });
 
-test("paste button arms window-level image paste capture", async () => {
+test("clear button arms window-level image paste capture", async () => {
   const env = createDomEnvironment({
     storageState: {
       "id-overlay/state": {
@@ -364,10 +360,8 @@ test("paste button arms window-level image paste capture", async () => {
     await bootstrapIdOverlay();
 
     const shadow = env.document.getElementById("id-overlay-root").shadowRoot;
-    const pasteButton = [...shadow.querySelectorAll(".id-overlay-button")].find(
-      (button) => button.textContent === "Paste"
-    );
-    pasteButton.click();
+    const clearButton = shadow.querySelector(".id-overlay-panel__clear-button");
+    clearButton.click();
 
     const pasteEvent = new env.window.Event("paste", {
       bubbles: true,
@@ -399,7 +393,7 @@ test("paste button arms window-level image paste capture", async () => {
   }
 });
 
-test("paste button loads directly from navigator.clipboard.read when available", async () => {
+test("clear button loads directly from navigator.clipboard.read when available", async () => {
   const env = createDomEnvironment({
     storageState: {
       "id-overlay/state": {
@@ -433,10 +427,8 @@ test("paste button loads directly from navigator.clipboard.read when available",
     await bootstrapIdOverlay();
 
     const shadow = env.document.getElementById("id-overlay-root").shadowRoot;
-    const pasteButton = [...shadow.querySelectorAll(".id-overlay-button")].find(
-      (button) => button.textContent === "Paste"
-    );
-    pasteButton.click();
+    const clearButton = shadow.querySelector(".id-overlay-panel__clear-button");
+    clearButton.click();
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     const image = env.document.querySelector(".id-overlay-image");
@@ -493,66 +485,6 @@ test("clear button drives the canonical paste flow when no image is present", as
     assert.equal(image.style.display, "block");
     assert.equal(image.style.width, "640px");
     assert.equal(clearButton.textContent, "Clear image");
-  } finally {
-    env.cleanup();
-  }
-});
-
-test("clicking Paste… again cancels paste capture and ignores a later clipboard result", async () => {
-  const env = createDomEnvironment({
-    storageState: {
-      "id-overlay/state": {
-        mode: "align",
-        opacity: 0.6,
-        image: null,
-        registration: {
-          pins: [],
-          solvedTransform: null,
-          dirty: false,
-        },
-      },
-    },
-  });
-  installImageReadStubs(env.window);
-  let resolveClipboardRead;
-  env.window.navigator.clipboard = {
-    read() {
-      return new Promise((resolve) => {
-        resolveClipboardRead = resolve;
-      });
-    },
-  };
-
-  try {
-    const { bootstrapIdOverlay } = await import(`${repoFileUrl("src/content/main.js")}?pcancel=${Date.now()}`);
-    await bootstrapIdOverlay();
-
-    const shadow = env.document.getElementById("id-overlay-root").shadowRoot;
-    const pasteButton = [...shadow.querySelectorAll(".id-overlay-button")].find(
-      (button) => button.textContent === "Paste"
-    );
-    const status = shadow.querySelector(".id-overlay-panel__status");
-    const image = env.document.querySelector(".id-overlay-image");
-
-    pasteButton.click();
-    assert.equal(pasteButton.textContent, "Paste…");
-
-    pasteButton.click();
-    assert.equal(pasteButton.textContent, "Paste");
-    assert.equal(status.textContent, "Paste cancelled.");
-
-    resolveClipboardRead([
-      {
-        types: ["image/png"],
-        async getType() {
-          return { name: "clipboard-image.png" };
-        },
-      },
-    ]);
-    await new Promise((resolve) => setTimeout(resolve, 0));
-
-    assert.equal(image.style.display, "none");
-    assert.equal(pasteButton.textContent, "Paste");
   } finally {
     env.cleanup();
   }
@@ -718,11 +650,6 @@ test("clear button clears pins first, then escalates to clear image", async () =
     const shadow = env.document.getElementById("id-overlay-root").shadowRoot;
     const clearButton = shadow.querySelector(".id-overlay-panel__clear-button");
     const image = env.document.querySelector(".id-overlay-image");
-    const clearPinsButton = [...shadow.querySelectorAll(".id-overlay-button")].find(
-      (button) => !button.classList.contains("id-overlay-panel__clear-button") &&
-        button.textContent.includes("Clear 1 pin")
-    );
-
     clearButton.click();
     assert.equal(image.style.display, "block");
     assert.equal(clearButton.textContent, "Clear pins?");
@@ -730,7 +657,6 @@ test("clear button clears pins first, then escalates to clear image", async () =
     clearButton.click();
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    assert.equal(clearPinsButton.disabled, true);
     assert.equal(clearButton.textContent, "Clear image");
     assert.equal(image.style.display, "block");
 

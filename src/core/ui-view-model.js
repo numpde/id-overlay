@@ -30,13 +30,9 @@ export function resolveUiViewModel({
   return {
     actionSemantics,
     presentation: {
-      pasteLabel: panelActionPresentation.pasteLabel,
       opacityValue: String(uiState.session.opacity),
       modeSwitch: resolveModeSwitchPresentation(uiState.session.mode),
       hasImage: actionSemantics.hasImage,
-      canPasteImage: actionSemantics.canPasteImage,
-      canClearPins: actionSemantics.canClearPins,
-      clearPinsLabel: resolveClearPinsLabel(actionSemantics.pinCount),
       clearButtonLabel: panelActionPresentation.clearButtonLabel,
       clearButtonVariant: panelActionPresentation.clearButtonVariant,
       clearButtonDisabled: panelActionPresentation.clearButtonDisabled,
@@ -150,7 +146,6 @@ function resolvePanelActionPresentation({ actionSemantics }) {
     clearImageConfirming: actionSemantics.clearImageConfirming,
   });
   return {
-    pasteLabel: actionSemantics.pasteArmed ? "Paste…" : "Paste",
     clearButtonLabel: clearActionPresentation.label,
     clearButtonVariant: clearActionPresentation.variant,
     clearButtonDisabled: clearActionPresentation.disabled,

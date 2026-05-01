@@ -45,11 +45,10 @@ test("resolveUiViewModel reflects the empty trace state without panel semantics 
     statusMessage: "Paste a screenshot to begin.",
   });
 
-  assert.equal(viewModel.presentation.pasteLabel, "Paste");
   assert.equal(viewModel.presentation.clearButtonLabel, "Paste");
   assert.equal(viewModel.presentation.clearButtonDisabled, true);
-  assert.equal(viewModel.presentation.canPasteImage, false);
-  assert.equal(viewModel.presentation.canClearPins, false);
+  assert.equal(viewModel.actionSemantics.canPasteImage, false);
+  assert.equal(viewModel.actionSemantics.canClearPins, false);
   assert.equal(viewModel.actionSemantics.shouldReset, false);
 });
 
@@ -91,10 +90,9 @@ test("resolveUiViewModel keeps paste arming and destructive labels on the same c
     statusMessage: "Ready.",
   });
 
-  assert.equal(viewModel.presentation.pasteLabel, "Paste…");
   assert.equal(viewModel.presentation.clearButtonLabel, "Clear 2 pins");
-  assert.equal(viewModel.presentation.canPasteImage, true);
-  assert.equal(viewModel.presentation.canClearPins, true);
+  assert.equal(viewModel.actionSemantics.canPasteImage, true);
+  assert.equal(viewModel.actionSemantics.canClearPins, true);
   assert.equal(viewModel.presentation.statusMessage, MANUAL_PASTE_PROMPT);
   assert.equal(viewModel.actionSemantics.shouldAttachPasteListener, true);
 });
@@ -115,8 +113,8 @@ test("resolveUiViewModel keeps trace-mode registration affordances disabled with
     statusMessage: "Ready.",
   });
 
-  assert.equal(viewModel.presentation.canPasteImage, false);
-  assert.equal(viewModel.presentation.canClearPins, false);
+  assert.equal(viewModel.actionSemantics.canPasteImage, false);
+  assert.equal(viewModel.actionSemantics.canClearPins, false);
   assert.equal(viewModel.presentation.clearButtonLabel, "Clear 2 pins");
   assert.equal(viewModel.presentation.clearButtonDisabled, false);
 });

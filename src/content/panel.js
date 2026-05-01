@@ -73,15 +73,8 @@ export function createPanel({ shadow, store, interactions, statusController }) {
   titleRow.append(heading, repoLink);
   header.append(titleRow, buildMeta);
 
-  const controls = document.createElement("div");
-  controls.className = "id-overlay-panel__controls";
-
-  const pasteButton = createButton("Paste");
-  const clearPinsButton = createButton("Clear pins");
   const clearButton = createButton("Clear");
   clearButton.classList.add("id-overlay-panel__clear-button");
-
-  controls.append(pasteButton, clearPinsButton);
 
   const modeSwitch = document.createElement("label");
   modeSwitch.className = "id-overlay-mode-switch";
@@ -135,7 +128,7 @@ export function createPanel({ shadow, store, interactions, statusController }) {
 
   statusWrap.append(statusElement, statusDetail);
 
-  root.append(header, modeSwitch, controls, opacityGroup, clearButton, statusWrap);
+  root.append(header, modeSwitch, opacityGroup, clearButton, statusWrap);
   shadow.append(root);
 
   let latestState = store.getState();
@@ -151,10 +144,6 @@ export function createPanel({ shadow, store, interactions, statusController }) {
 
   header.addEventListener("mousedown", handlePanelDragStart);
 
-  pasteButton.addEventListener("click", async () => {
-    await handlePasteActionClick();
-  });
-
   modeInput.addEventListener("change", () => {
     applyModeSelection(
       modeInput.checked ? INTERACTION_MODE.ALIGN : INTERACTION_MODE.TRACE,
@@ -167,12 +156,6 @@ export function createPanel({ shadow, store, interactions, statusController }) {
       event.deltaY < 0 ? INTERACTION_MODE.ALIGN : INTERACTION_MODE.TRACE,
     );
   }, { passive: false });
-
-  clearPinsButton.addEventListener("click", async () => {
-    await dispatchCanonicalUiEvent({
-      kind: UI_EVENT_KIND.CLEAR_PINS_TRIGGERED,
-    });
-  });
 
   opacityInput.addEventListener("input", () => {
     interactions.setOpacity(clampOpacity(Number(opacityInput.value)));
@@ -239,8 +222,6 @@ export function createPanel({ shadow, store, interactions, statusController }) {
   function applyPanelViewModel(panelViewModel) {
     latestPanelViewModel = panelViewModel;
     const { presentation } = panelViewModel;
-    pasteButton.textContent = presentation.pasteLabel;
-    pasteButton.disabled = !presentation.canPasteImage;
     opacityInput.value = presentation.opacityValue;
     modeInput.checked = presentation.modeSwitch.checked;
     modeInput.setAttribute("aria-label", presentation.modeSwitch.ariaLabel);
@@ -252,8 +233,6 @@ export function createPanel({ shadow, store, interactions, statusController }) {
       presentation.clearButtonVariant === "confirm",
     );
     opacityInput.disabled = !presentation.hasImage;
-    clearPinsButton.disabled = !presentation.canClearPins;
-    clearPinsButton.textContent = presentation.clearPinsLabel;
     statusElement.textContent = presentation.statusMessage;
     statusDetailSurface.textContent = presentation.statusMessage;
   }
@@ -314,22 +293,6 @@ export function createPanel({ shadow, store, interactions, statusController }) {
 
   function handleWindowResize() {
     setPanelPosition(panelPosition);
-  }
-
-  async function handlePasteActionClick() {
-    if (getPanelActionSemantics().pasteArmed) {
-      const cancelPromise = dispatchCanonicalUiEvent({
-        kind: UI_EVENT_KIND.PASTE_CANCELLED,
-      });
-      logger.info("Cancelled paste capture");
-      statusController.showTransient(describePanelActionPresentation(PANEL_FEEDBACK_ACTION.PASTE_CANCELLED));
-      await cancelPromise;
-      return;
-    }
-
-    await dispatchCanonicalUiEvent({
-      kind: UI_EVENT_KIND.MAIN_ACTION_TRIGGERED,
-    });
   }
 
   async function handleWindowPaste(event) {

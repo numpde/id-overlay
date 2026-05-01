@@ -224,7 +224,6 @@ test("resolvePanelPresentation centralizes panel labels and enablement", () => {
   });
 
   assert.deepEqual(presentation, {
-    pasteLabel: "Paste…",
     opacityValue: "0.75",
     modeSwitch: {
       checked: true,
@@ -232,9 +231,6 @@ test("resolvePanelPresentation centralizes panel labels and enablement", () => {
       ariaLabel: "Mode: Align",
     },
     hasImage: true,
-    canPasteImage: true,
-    canClearPins: true,
-    clearPinsLabel: "Clear 2 pins",
     clearButtonLabel: "Clear 2 pins",
     clearButtonVariant: "neutral",
     clearButtonDisabled: false,
@@ -243,7 +239,7 @@ test("resolvePanelPresentation centralizes panel labels and enablement", () => {
 });
 
 test("resolvePanelPresentation disables registration actions outside align mode", () => {
-  const presentation = resolvePanelPresentation({
+  const viewModel = resolvePanelViewModel({
     state: {
       image: { src: "x", width: 1, height: 1 },
       mode: "trace",
@@ -263,9 +259,12 @@ test("resolvePanelPresentation disables registration actions outside align mode"
       sessionId: 0,
     },
   });
+  const presentation = viewModel.presentation;
 
-  assert.equal(presentation.canPasteImage, false);
-  assert.equal(presentation.canClearPins, false);
+  assert.equal(viewModel.actionSemantics.canPasteImage, false);
+  assert.equal(viewModel.actionSemantics.canClearPins, false);
+  assert.equal(presentation.clearButtonLabel, "Clear 2 pins");
+  assert.equal(presentation.clearButtonDisabled, false);
 });
 
 test("resolvePanelViewModel keeps panel semantics and presentation on one has-image source", () => {
