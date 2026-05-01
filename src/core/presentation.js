@@ -61,6 +61,11 @@ const PENDING_HISTORY_CONTROL_LABELS_BY_KIND = Object.freeze({
   }),
 });
 
+const HISTORY_CONTROL_FALLBACK_LABELS = Object.freeze({
+  undo: "Undo",
+  redo: "Redo",
+});
+
 export function describeRegistrationSolveSummary(solveState) {
   if (solveState.kind === "solved") {
     return `Solved from ${solveState.solvedPinCount} pin(s)`;
@@ -198,6 +203,14 @@ export function describePendingHistoryControl({ direction, descriptor } = {}) {
     return "";
   }
   return PENDING_HISTORY_CONTROL_LABELS_BY_KIND[descriptor.kind]?.[direction] ?? "";
+}
+
+export function resolveHistoryControlPresentation({ direction, descriptor } = {}) {
+  const title = describePendingHistoryControl({ direction, descriptor });
+  return {
+    title,
+    accessibleLabel: title || HISTORY_CONTROL_FALLBACK_LABELS[direction] || "",
+  };
 }
 
 export function describeLoadedImagePresentation(image) {

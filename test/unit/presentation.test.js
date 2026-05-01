@@ -9,6 +9,7 @@ import {
   describePanelActionPresentation,
   describeRegistrationSolveSummary,
   describeRuntimeErrorPresentation,
+  resolveHistoryControlPresentation,
   describeInteractionEventPresentation,
   describePinResultPresentation,
   describeSolveResultPresentation,
@@ -496,4 +497,27 @@ test("presentation describes pending history controls by their result", () => {
     "",
   );
   assert.equal(describePendingHistoryControl({ direction: "undo", descriptor: null }), "");
+});
+
+test("presentation resolves complete history control DOM copy", () => {
+  assert.deepEqual(
+    resolveHistoryControlPresentation({
+      direction: "undo",
+      descriptor: null,
+    }),
+    {
+      title: "",
+      accessibleLabel: "Undo",
+    },
+  );
+  assert.deepEqual(
+    resolveHistoryControlPresentation({
+      direction: "redo",
+      descriptor: { kind: "load-image", label: "Loaded screenshot" },
+    }),
+    {
+      title: "Reload image",
+      accessibleLabel: "Reload image",
+    },
+  );
 });
