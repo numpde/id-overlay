@@ -142,7 +142,6 @@ export function createPanel({ shadow, store, interactions, statusController }) {
   let panelPosition = captureInitialPanelPosition();
   let activePanelDrag = null;
   let panelActionState = createInitialPanelActionState();
-  let latestPanelViewModel = null;
   let panelIntentTimer = null;
   applyPanelPosition();
   window.addEventListener("resize", handleWindowResize);
@@ -261,7 +260,6 @@ export function createPanel({ shadow, store, interactions, statusController }) {
   }
 
   function applyPanelViewModel(panelViewModel) {
-    latestPanelViewModel = panelViewModel;
     opacityInput.value = panelViewModel.opacityControl.value;
     opacityInput.disabled = panelViewModel.opacityControl.disabled;
     modeInput.checked = panelViewModel.modeSwitch.checked;
@@ -343,7 +341,7 @@ export function createPanel({ shadow, store, interactions, statusController }) {
   }
 
   async function handleWindowPaste(event) {
-    if (getMainAction().intent !== UI_PANEL_INTENT_KIND.PASTE_ARMED) {
+    if (resolveCurrentPanelViewModel().mainAction.intent !== UI_PANEL_INTENT_KIND.PASTE_ARMED) {
       return;
     }
 
@@ -418,10 +416,6 @@ export function createPanel({ shadow, store, interactions, statusController }) {
     statusController.refresh();
   }
 
-  function getMainAction() {
-    return latestPanelViewModel?.mainAction ?? resolveCurrentPanelViewModel().mainAction;
-  }
-
   function setPanelPosition(nextPosition) {
     panelPosition = clampPanelPosition(nextPosition);
     applyPanelPosition();
@@ -454,7 +448,7 @@ export function createPanel({ shadow, store, interactions, statusController }) {
     };
   }
 
-  function syncPanelActionSideEffects(mainAction = getMainAction()) {
+  function syncPanelActionSideEffects(mainAction) {
     if (mainAction.presentationKind !== "confirm") {
       clearClearConfirmTimer();
     }
