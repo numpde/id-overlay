@@ -16,7 +16,6 @@ import {
   TRACE_MANUAL_STATUS_MESSAGE,
   TRACE_SOLVED_STATUS_MESSAGE,
 } from "./ui-status-model.js";
-import { resolveSessionRegistrationAffordances } from "./ui-registration-semantics.js";
 
 export const PANEL_FEEDBACK_ACTION = Object.freeze({
   PASTE_CANCELLED: "paste-cancelled",
@@ -26,22 +25,6 @@ export const PANEL_FEEDBACK_ACTION = Object.freeze({
   CLIPBOARD_MISSING_IMAGE_WITH_PROMPT: "clipboard-missing-image-with-prompt",
   CLIPBOARD_IMAGE_LOADED: "clipboard-image-loaded",
 });
-
-export function resolveOverlaySessionPresentation(state) {
-  const solvePresentation = resolveRegistrationSolvePresentation(state.registration);
-  const renderPresentation = resolveOverlayRenderPresentation(state);
-  const registrationUi = resolveSessionRegistrationAffordances(state);
-
-  return {
-    hasImage: renderPresentation.hasImage,
-    canPasteImage: registrationUi.canPasteImage,
-    canShowPins: registrationUi.canShowPins,
-    pinCount: solvePresentation.pinCount,
-    canClearPins: registrationUi.canClearPins,
-    solve: solvePresentation,
-    render: renderPresentation,
-  };
-}
 
 export function resolveRegistrationSolvePresentation(registration) {
   const solveState = resolveRegistrationSolveState(registration);

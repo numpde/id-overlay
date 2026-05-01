@@ -10,7 +10,6 @@ import {
   describeSolveResultPresentation,
   resolveOverlayRenderPresentation,
   resolveRegistrationSolvePresentation,
-  resolveOverlaySessionPresentation,
 } from "../../src/core/presentation.js";
 import { RUNTIME_ERROR_SOURCE } from "../../src/core/runtime-error.js";
 import { projectLiveUiState } from "../../src/core/ui-live-state.js";
@@ -45,54 +44,6 @@ function resolveStatusBaseline({ state, runtime, panelActionState = { kind: UI_P
     }),
   });
 }
-
-test("resolveOverlaySessionPresentation centralizes session labels and enablement", () => {
-  const empty = resolveOverlaySessionPresentation({
-    image: null,
-    mode: "trace",
-    registration: {
-      pins: [],
-      solvedTransform: null,
-      dirty: false,
-    },
-  });
-
-  assert.equal(empty.hasImage, false);
-  assert.equal(empty.canPasteImage, true);
-  assert.equal(empty.canShowPins, false);
-  assert.equal(empty.pinCount, 0);
-  assert.equal(empty.canClearPins, false);
-  assert.equal(empty.solve.summaryLabel, "No pins yet");
-  assert.equal(empty.render.label, "No image");
-
-  const solved = resolveOverlaySessionPresentation({
-    image: { src: "x", width: 1, height: 1 },
-    mode: "trace",
-    registration: {
-      pins: [
-        { id: 1, imagePx: { x: 1, y: 2 }, mapLatLon: { lat: 1, lon: 2 } },
-        { id: 2, imagePx: { x: 3, y: 4 }, mapLatLon: { lat: 3, lon: 4 } },
-      ],
-      solvedTransform: {
-        type: "similarity",
-        a: 1,
-        b: 0,
-        tx: 0,
-        ty: 0,
-        pinCount: 2,
-      },
-      dirty: false,
-    },
-  });
-
-  assert.equal(solved.hasImage, true);
-  assert.equal(solved.canPasteImage, false);
-  assert.equal(solved.canShowPins, false);
-  assert.equal(solved.pinCount, 2);
-  assert.equal(solved.canClearPins, false);
-  assert.equal(solved.solve.summaryLabel, "Solved from 2 pin(s)");
-  assert.equal(solved.render.label, "Solved transform active");
-});
 
 test("presentation centralizes solve and render copy from semantic state", () => {
   assert.deepEqual(resolveRegistrationSolvePresentation({
