@@ -877,11 +877,10 @@ test("scrolling the mode switch selects align on wheel-up and trace on wheel-dow
     const modeSwitch = shadow.querySelector(".id-overlay-mode-switch");
     const modeInput = shadow.querySelector(".id-overlay-mode-switch__input");
     const overlay = env.document.querySelector(".id-overlay-viewport");
-    const modeLabels = [...shadow.querySelectorAll(".id-overlay-mode-switch__label")]
-      .map((label) => label.textContent);
 
-    assert.deepEqual(modeLabels, ["Trace", "Align"]);
+    assert.equal(shadow.querySelectorAll(".id-overlay-mode-switch__label").length, 0);
     assert.equal(modeInput.checked, false);
+    assert.equal(modeInput.getAttribute("aria-label"), "Mode: Trace");
     assert.equal(overlay.dataset.mode, "trace");
 
     modeSwitch.dispatchEvent(new env.window.WheelEvent("wheel", {
@@ -892,6 +891,7 @@ test("scrolling the mode switch selects align on wheel-up and trace on wheel-dow
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     assert.equal(modeInput.checked, true);
+    assert.equal(modeInput.getAttribute("aria-label"), "Mode: Align");
     assert.equal(overlay.dataset.mode, "align");
 
     modeSwitch.dispatchEvent(new env.window.WheelEvent("wheel", {

@@ -92,10 +92,6 @@ export function createPanel({ shadow, store, interactions, statusController }) {
   const modeSwitch = document.createElement("label");
   modeSwitch.className = "id-overlay-mode-switch";
 
-  const modeTraceLabel = document.createElement("span");
-  modeTraceLabel.className = "id-overlay-mode-switch__label";
-  modeTraceLabel.textContent = "Trace";
-
   const modeInput = document.createElement("input");
   modeInput.type = "checkbox";
   modeInput.className = "id-overlay-mode-switch__input";
@@ -106,11 +102,7 @@ export function createPanel({ shadow, store, interactions, statusController }) {
   modeThumb.className = "id-overlay-mode-switch__thumb";
   modeTrack.append(modeThumb);
 
-  const modeAlignLabel = document.createElement("span");
-  modeAlignLabel.className = "id-overlay-mode-switch__label";
-  modeAlignLabel.textContent = "Align";
-
-  modeSwitch.append(modeTraceLabel, modeInput, modeTrack, modeAlignLabel);
+  modeSwitch.append(modeInput, modeTrack);
 
   const opacityGroup = document.createElement("label");
   opacityGroup.className = "id-overlay-field";

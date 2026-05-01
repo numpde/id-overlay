@@ -98,17 +98,11 @@
 }
 
 .id-overlay-mode-switch {
-  display: grid;
-  grid-template-columns: auto auto 42px auto;
+  display: inline-grid;
+  grid-template-columns: 42px;
   align-items: center;
-  justify-content: stretch;
-  gap: 8px;
+  justify-content: start;
   user-select: none;
-}
-
-.id-overlay-mode-switch__label {
-  color: #475569;
-  font-weight: 600;
 }
 
 .id-overlay-mode-switch__input {
