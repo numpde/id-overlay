@@ -470,7 +470,10 @@ export function createInteractionController({
           startPointerScreenPx: screenPoint,
           startCenterScreenPx: centerScreenPx,
         };
-        store.beginHistoryBatch();
+        store.beginHistoryBatch({
+          kind: "move-overlay",
+          label: "Moved overlay",
+        });
       }
       startDragRuntime(screenPoint, {
         isPointerInsideImage: true,
@@ -547,7 +550,12 @@ export function createInteractionController({
 
       if (wheelMode === WHEEL_MODE.ADJUST_OPACITY) {
         const nextOpacity = opacityFromWheelDelta(state.opacity, deltaY);
-        store.setOpacity(nextOpacity);
+        store.setOpacity(nextOpacity, {
+          historyDescriptor: {
+            kind: "adjust-opacity",
+            label: "Adjusted opacity",
+          },
+        });
         logger.info("Adjusted overlay opacity", { opacity: nextOpacity, deltaY });
         updatePointer(screenPoint, { isPointerInsideImage: true });
         return true;
@@ -563,7 +571,12 @@ export function createInteractionController({
           anchorScreenPx: screenPoint,
           rotationRad: nextRotationRad,
         });
-        store.setPlacement(nextPlacement);
+        store.setPlacement(nextPlacement, {
+          historyDescriptor: {
+            kind: "rotate-overlay",
+            label: "Rotated overlay",
+          },
+        });
         logger.info("Rotated overlay placement", { rotationRad: nextRotationRad, deltaY });
       } else if (wheelMode === WHEEL_MODE.ZOOM_OVERLAY) {
         const screenScale = Math.hypot(placementState.placement.a, placementState.placement.b) * (2 ** snapshot.mapView.zoom);
@@ -574,7 +587,12 @@ export function createInteractionController({
           anchorScreenPx: screenPoint,
           screenScale: nextScale,
         });
-        store.setPlacement(nextPlacement);
+        store.setPlacement(nextPlacement, {
+          historyDescriptor: {
+            kind: "scale-overlay",
+            label: "Scaled overlay",
+          },
+        });
         logger.info("Scaled overlay placement", { scale: nextScale, deltaY });
       }
       updatePointer(screenPoint, { isPointerInsideImage: true });
@@ -681,7 +699,12 @@ export function createInteractionController({
       snapshot,
       centerScreenPx: nextCenterScreenPx,
     });
-    store.setPlacement(nextPlacement);
+    store.setPlacement(nextPlacement, {
+      historyDescriptor: {
+        kind: "move-overlay",
+        label: "Moved overlay",
+      },
+    });
   }
 
   function syncPlacementBaselineToCurrentRenderTransform(state = store.getState()) {
@@ -824,12 +847,12 @@ export function createInteractionController({
         pointerScreenPx: null,
         isPointerInsideImage: false,
       });
-      const changed = direction === "undo" ? store.undo() : store.redo();
-      if (changed) {
+      const historyDescriptor = direction === "undo" ? store.undo() : store.redo();
+      if (historyDescriptor) {
         logger.info(`${direction === "undo" ? "Undid" : "Redid"} session history`);
         syncRuntimeFromState();
       }
-      return changed;
+      return historyDescriptor;
     }, { fallbackValue: false });
   }
 

@@ -101,7 +101,10 @@ test("shift-dragging updates placement through the adapter only", () => {
     transform: nextTransform,
   }), { x: 560, y: 280 });
 
-  assert.equal(controller.undoSessionHistory(), true);
+  assert.deepEqual(controller.undoSessionHistory(), {
+    kind: "move-overlay",
+    label: "Moved overlay",
+  });
   const undoneTransform = createPlacementScreenTransform({
     snapshot: {
       viewportRect: { left: 100, top: 100, width: 800, height: 400 },
@@ -114,7 +117,10 @@ test("shift-dragging updates placement through the adapter only", () => {
     transform: undoneTransform,
   }), { x: 500, y: 300 });
 
-  assert.equal(controller.redoSessionHistory(), true);
+  assert.deepEqual(controller.redoSessionHistory(), {
+    kind: "move-overlay",
+    label: "Moved overlay",
+  });
   const redoneTransform = createPlacementScreenTransform({
     snapshot: {
       viewportRect: { left: 100, top: 100, width: 800, height: 400 },
@@ -452,11 +458,17 @@ test("ctrl-wheel rotates the overlay only and marks a solved transform dirty aga
   assert.equal(store.getState().registration.dirty, true);
   assert.ok(store.getState().registration.solvedTransform);
 
-  assert.equal(controller.undoSessionHistory(), true);
+  assert.deepEqual(controller.undoSessionHistory(), {
+    kind: "rotate-overlay",
+    label: "Rotated overlay",
+  });
   assert.equal(store.getState().placement.rotationRad, 0);
   assert.equal(store.getState().registration.dirty, false);
 
-  assert.equal(controller.redoSessionHistory(), true);
+  assert.deepEqual(controller.redoSessionHistory(), {
+    kind: "rotate-overlay",
+    label: "Rotated overlay",
+  });
   assert.deepEqual(store.getState().placement, rotatedPlacement);
   assert.equal(store.getState().registration.dirty, true);
 });
@@ -563,10 +575,16 @@ test("shift-wheel scales around the image point under the mouse", () => {
   assert.ok(Math.abs(afterAnchorScreenPoint.y - anchorScreenPoint.y) < 1e-9);
 
   const scaledPlacement = store.getState().placement;
-  assert.equal(controller.undoSessionHistory(), true);
+  assert.deepEqual(controller.undoSessionHistory(), {
+    kind: "scale-overlay",
+    label: "Scaled overlay",
+  });
   assert.deepEqual(store.getState().placement, initialPlacement);
 
-  assert.equal(controller.redoSessionHistory(), true);
+  assert.deepEqual(controller.redoSessionHistory(), {
+    kind: "scale-overlay",
+    label: "Scaled overlay",
+  });
   assert.deepEqual(store.getState().placement, scaledPlacement);
 });
 
@@ -656,10 +674,16 @@ test("alt-wheel adjusts the overlay opacity in align mode without zooming the ma
   assert.ok(store.getState().opacity > initialOpacity);
   assert.equal(adapterCalls.mapZoomCalls.length, 0);
 
-  assert.equal(controller.undoSessionHistory(), true);
+  assert.deepEqual(controller.undoSessionHistory(), {
+    kind: "adjust-opacity",
+    label: "Adjusted opacity",
+  });
   assert.equal(store.getState().opacity, initialOpacity);
 
-  assert.equal(controller.redoSessionHistory(), true);
+  assert.deepEqual(controller.redoSessionHistory(), {
+    kind: "adjust-opacity",
+    label: "Adjusted opacity",
+  });
   assert.equal(store.getState().opacity, adjustedOpacity);
 });
 
@@ -686,10 +710,16 @@ test("alt-wheel adjusts the overlay opacity in trace mode", () => {
   assert.ok(store.getState().opacity < initialOpacity);
   assert.equal(adapterCalls.mapZoomCalls.length, 0);
 
-  assert.equal(controller.undoSessionHistory(), true);
+  assert.deepEqual(controller.undoSessionHistory(), {
+    kind: "adjust-opacity",
+    label: "Adjusted opacity",
+  });
   assert.equal(store.getState().opacity, initialOpacity);
 
-  assert.equal(controller.redoSessionHistory(), true);
+  assert.deepEqual(controller.redoSessionHistory(), {
+    kind: "adjust-opacity",
+    label: "Adjusted opacity",
+  });
   assert.equal(store.getState().opacity, adjustedOpacity);
 });
 

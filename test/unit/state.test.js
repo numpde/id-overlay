@@ -312,16 +312,25 @@ test("state history restores committed session snapshots and clears redo after a
   assert.equal(store.canRedo(), false);
   assert.equal(store.getState().registration.pins.length, 1);
 
-  assert.equal(store.undo(), true);
+  assert.deepEqual(store.undo(), {
+    kind: "add-pin",
+    label: "Added pin",
+  });
   assert.equal(store.getState().registration.pins.length, 0);
   assert.equal(store.getState().image.src, image.src);
   assert.equal(store.canRedo(), true);
 
-  assert.equal(store.undo(), true);
+  assert.deepEqual(store.undo(), {
+    kind: "load-image",
+    label: "Loaded screenshot",
+  });
   assert.equal(store.getState().image, null);
   assert.equal(store.getState().mode, "trace");
 
-  assert.equal(store.redo(), true);
+  assert.deepEqual(store.redo(), {
+    kind: "load-image",
+    label: "Loaded screenshot",
+  });
   assert.equal(store.getState().image.src, image.src);
   assert.equal(store.getState().registration.pins.length, 0);
 
@@ -337,8 +346,8 @@ test("undo and redo are no-ops when history is empty", () => {
     calls += 1;
   }, { emitCurrent: false });
 
-  assert.equal(store.undo(), false);
-  assert.equal(store.redo(), false);
+  assert.equal(store.undo(), null);
+  assert.equal(store.redo(), null);
   assert.equal(calls, 0);
 });
 
@@ -356,7 +365,10 @@ test("history batches coalesce placement edits into one undo step", () => {
   store.loadImageSession(image, placement);
   const loadedPlacement = store.getState().placement;
 
-  store.beginHistoryBatch();
+  store.beginHistoryBatch({
+    kind: "move-overlay",
+    label: "Moved overlay",
+  });
   store.setPlacement({
     ...store.getState().placement,
     tx: loadedPlacement.tx + 10,
@@ -371,10 +383,16 @@ test("history batches coalesce placement edits into one undo step", () => {
   assert.equal(store.getState().placement.tx, loadedPlacement.tx + 30);
   assert.equal(store.getState().placement.ty, loadedPlacement.ty - 20);
 
-  assert.equal(store.undo(), true);
+  assert.deepEqual(store.undo(), {
+    kind: "move-overlay",
+    label: "Moved overlay",
+  });
   assert.deepEqual(store.getState().placement, loadedPlacement);
 
-  assert.equal(store.redo(), true);
+  assert.deepEqual(store.redo(), {
+    kind: "move-overlay",
+    label: "Moved overlay",
+  });
   assert.equal(store.getState().placement.tx, loadedPlacement.tx + 30);
   assert.equal(store.getState().placement.ty, loadedPlacement.ty - 20);
 });
@@ -398,23 +416,40 @@ test("standalone placement and opacity edits are individually undoable", () => {
     tx: initialPlacement.tx + 25,
   };
 
-  store.setPlacement(updatedPlacement);
+  store.setPlacement(updatedPlacement, {
+    historyDescriptor: {
+      kind: "move-overlay",
+      label: "Moved overlay",
+    },
+  });
   store.setOpacity(0.8);
 
   assert.deepEqual(store.getState().placement, updatedPlacement);
   assert.equal(store.getState().opacity, 0.8);
 
-  assert.equal(store.undo(), true);
+  assert.deepEqual(store.undo(), {
+    kind: "adjust-opacity",
+    label: "Adjusted opacity",
+  });
   assert.equal(store.getState().opacity, initialOpacity);
   assert.deepEqual(store.getState().placement, updatedPlacement);
 
-  assert.equal(store.undo(), true);
+  assert.deepEqual(store.undo(), {
+    kind: "move-overlay",
+    label: "Moved overlay",
+  });
   assert.deepEqual(store.getState().placement, initialPlacement);
 
-  assert.equal(store.redo(), true);
+  assert.deepEqual(store.redo(), {
+    kind: "move-overlay",
+    label: "Moved overlay",
+  });
   assert.deepEqual(store.getState().placement, updatedPlacement);
 
-  assert.equal(store.redo(), true);
+  assert.deepEqual(store.redo(), {
+    kind: "adjust-opacity",
+    label: "Adjusted opacity",
+  });
   assert.equal(store.getState().opacity, 0.8);
 });
 

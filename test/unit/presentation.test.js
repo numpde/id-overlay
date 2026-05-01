@@ -386,8 +386,20 @@ test("presentation centralizes panel action feedback copy", () => {
     "Undid change.",
   );
   assert.equal(
+    describePanelActionPresentation(PANEL_FEEDBACK_ACTION.UNDO, {
+      historyLabel: "Rotated overlay",
+    }),
+    "Undid: Rotated overlay.",
+  );
+  assert.equal(
     describePanelActionPresentation(PANEL_FEEDBACK_ACTION.REDO),
     "Redid change.",
+  );
+  assert.equal(
+    describePanelActionPresentation(PANEL_FEEDBACK_ACTION.REDO, {
+      historyLabel: "Rotated overlay",
+    }),
+    "Redid: Rotated overlay.",
   );
   assert.equal(
     describePanelActionPresentation(PANEL_FEEDBACK_ACTION.CLIPBOARD_MISSING_IMAGE),

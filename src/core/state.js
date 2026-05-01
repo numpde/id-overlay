@@ -47,12 +47,40 @@ const HISTORY_CHECKPOINT_ACTIONS = new Set([
   STATE_ACTION.CLEAR_IMAGE,
 ]);
 
+const DEFAULT_HISTORY_DESCRIPTOR_BY_ACTION = Object.freeze({
+  [STATE_ACTION.SET_OPACITY]: Object.freeze({
+    kind: "adjust-opacity",
+    label: "Adjusted opacity",
+  }),
+  [STATE_ACTION.LOAD_IMAGE_SESSION]: Object.freeze({
+    kind: "load-image",
+    label: "Loaded screenshot",
+  }),
+  [STATE_ACTION.ADD_PIN]: Object.freeze({
+    kind: "add-pin",
+    label: "Added pin",
+  }),
+  [STATE_ACTION.REMOVE_PIN]: Object.freeze({
+    kind: "remove-pin",
+    label: "Removed pin",
+  }),
+  [STATE_ACTION.CLEAR_PINS]: Object.freeze({
+    kind: "clear-pins",
+    label: "Cleared pins",
+  }),
+  [STATE_ACTION.CLEAR_IMAGE]: Object.freeze({
+    kind: "clear-image",
+    label: "Cleared image",
+  }),
+});
+
 export function createStateStore(initialState = {}) {
   let state = normalizeState(initialState);
   let past = [];
   let future = [];
   let historyBatchDepth = 0;
   let historyBatchBaseState = null;
+  let historyBatchDescriptor = null;
   const listeners = new Set();
 
   function getState() {
@@ -74,25 +102,28 @@ export function createStateStore(initialState = {}) {
     });
   }
 
-  function setOpacity(opacity) {
+  function setOpacity(opacity, options = {}) {
     return dispatch({
       type: STATE_ACTION.SET_OPACITY,
       opacity,
+      historyDescriptor: options.historyDescriptor ?? null,
     });
   }
 
-  function loadImageSession(image, placement) {
+  function loadImageSession(image, placement, options = {}) {
     return dispatch({
       type: STATE_ACTION.LOAD_IMAGE_SESSION,
       image,
       placement,
+      historyDescriptor: options.historyDescriptor ?? null,
     });
   }
 
-  function setPlacement(nextPlacement) {
+  function setPlacement(nextPlacement, options = {}) {
     return dispatch({
       type: STATE_ACTION.SET_PLACEMENT,
       placement: nextPlacement,
+      historyDescriptor: options.historyDescriptor ?? null,
     });
   }
 
@@ -103,29 +134,32 @@ export function createStateStore(initialState = {}) {
     });
   }
 
-  function addPin({ imagePx, mapLatLon }) {
+  function addPin({ imagePx, mapLatLon }, options = {}) {
     const previousRegistration = state.registration;
     const nextState = dispatch({
       type: STATE_ACTION.ADD_PIN,
       imagePx,
       mapLatLon,
+      historyDescriptor: options.historyDescriptor ?? null,
     });
     return resolveRegistrationPinMutation(previousRegistration, nextState.registration).addedPin;
   }
 
-  function removePin(pinId) {
+  function removePin(pinId, options = {}) {
     const previousRegistration = state.registration;
     const nextState = dispatch({
       type: STATE_ACTION.REMOVE_PIN,
       pinId,
+      historyDescriptor: options.historyDescriptor ?? null,
     });
     return resolveRegistrationPinMutation(previousRegistration, nextState.registration).removedPinIds.includes(pinId);
   }
 
-  function clearPins() {
+  function clearPins(options = {}) {
     const previousRegistration = state.registration;
     const nextState = dispatch({
       type: STATE_ACTION.CLEAR_PINS,
+      historyDescriptor: options.historyDescriptor ?? null,
     });
     return didRegistrationChange(previousRegistration, nextState.registration);
   }
@@ -143,9 +177,10 @@ export function createStateStore(initialState = {}) {
     });
   }
 
-  function clearImage() {
+  function clearImage(options = {}) {
     return dispatch({
       type: STATE_ACTION.CLEAR_IMAGE,
+      historyDescriptor: options.historyDescriptor ?? null,
     });
   }
 
@@ -157,8 +192,11 @@ export function createStateStore(initialState = {}) {
     return future.length > 0;
   }
 
-  function beginHistoryBatch() {
+  function beginHistoryBatch(descriptor = null) {
     historyBatchDepth += 1;
+    if (descriptor && historyBatchDepth === 1) {
+      historyBatchDescriptor = freezeHistoryDescriptor(descriptor);
+    }
   }
 
   function endHistoryBatch() {
@@ -170,55 +208,59 @@ export function createStateStore(initialState = {}) {
       return false;
     }
     if (historyBatchBaseState && historyBatchBaseState !== state) {
-      past = [...past, historyBatchBaseState];
+      past = [...past, createHistoryEntry(historyBatchBaseState, historyBatchDescriptor)];
       future = [];
       historyBatchBaseState = null;
+      historyBatchDescriptor = null;
       return true;
     }
     historyBatchBaseState = null;
+    historyBatchDescriptor = null;
     return false;
   }
 
   function undo() {
     if (!canUndo()) {
-      return false;
+      return null;
     }
     const nextPast = past.slice(0, -1);
-    const previousState = past.at(-1);
-    future = [state, ...future];
+    const previousEntry = past.at(-1);
+    future = [createHistoryEntry(state, previousEntry.descriptor), ...future];
     past = nextPast;
-    state = previousState;
+    state = previousEntry.state;
     notify();
-    return true;
+    return previousEntry.descriptor;
   }
 
   function redo() {
     if (!canRedo()) {
-      return false;
+      return null;
     }
-    const [nextState, ...nextFuture] = future;
-    past = [...past, state];
+    const [nextEntry, ...nextFuture] = future;
+    past = [...past, createHistoryEntry(state, nextEntry.descriptor)];
     future = nextFuture;
-    state = nextState;
+    state = nextEntry.state;
     notify();
-    return true;
+    return nextEntry.descriptor;
   }
 
   function dispatch(action) {
     return replaceState(reduceState(state, action), {
-      checkpoint: isHistoryCheckpointAction(action),
+      checkpointAction: isHistoryCheckpointAction(action) ? action : null,
     });
   }
 
-  function replaceState(nextState, { checkpoint = false } = {}) {
+  function replaceState(nextState, { checkpointAction = null } = {}) {
     if (nextState === state) {
       return state;
     }
-    if (checkpoint) {
+    if (checkpointAction) {
+      const descriptor = resolveHistoryDescriptor(checkpointAction);
       if (historyBatchDepth > 0) {
         historyBatchBaseState ??= state;
+        historyBatchDescriptor ??= descriptor;
       } else {
-        past = [...past, state];
+        past = [...past, createHistoryEntry(state, descriptor)];
         future = [];
       }
     }
@@ -258,6 +300,30 @@ export function createStateStore(initialState = {}) {
 
 export function isHistoryCheckpointAction(action) {
   return HISTORY_CHECKPOINT_ACTIONS.has(action?.type);
+}
+
+function createHistoryEntry(state, descriptor = null) {
+  return Object.freeze({
+    state,
+    descriptor: freezeHistoryDescriptor(descriptor),
+  });
+}
+
+function resolveHistoryDescriptor(action) {
+  if (action?.historyDescriptor) {
+    return freezeHistoryDescriptor(action.historyDescriptor);
+  }
+  return DEFAULT_HISTORY_DESCRIPTOR_BY_ACTION[action?.type] ?? null;
+}
+
+function freezeHistoryDescriptor(descriptor) {
+  if (!descriptor) {
+    return null;
+  }
+  return Object.freeze({
+    kind: descriptor.kind ?? null,
+    label: descriptor.label ?? null,
+  });
 }
 
 export function reduceState(state, action) {

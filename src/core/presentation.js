@@ -138,9 +138,13 @@ export function describePanelActionPresentation(action, payload = {}) {
     case PANEL_FEEDBACK_ACTION.CLEAR_IMAGE:
       return "Cleared the current screenshot.";
     case PANEL_FEEDBACK_ACTION.UNDO:
-      return "Undid change.";
+      return payload.historyLabel
+        ? `Undid: ${payload.historyLabel}.`
+        : "Undid change.";
     case PANEL_FEEDBACK_ACTION.REDO:
-      return "Redid change.";
+      return payload.historyLabel
+        ? `Redid: ${payload.historyLabel}.`
+        : "Redid change.";
     case PANEL_FEEDBACK_ACTION.CLIPBOARD_MISSING_IMAGE:
       return "Clipboard does not contain an image.";
     case PANEL_FEEDBACK_ACTION.CLIPBOARD_IMAGE_UNREADABLE:

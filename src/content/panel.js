@@ -555,19 +555,23 @@ export function createPanel({ shadow, store, interactions, statusController }) {
       },
       undoSession: async () => {
         statusController.clearTransient();
-        const changed = interactions.undoSessionHistory();
-        if (changed) {
+        const historyDescriptor = interactions.undoSessionHistory();
+        if (historyDescriptor) {
           statusController.showTransient(
-            describePanelActionPresentation(PANEL_FEEDBACK_ACTION.UNDO),
+            describePanelActionPresentation(PANEL_FEEDBACK_ACTION.UNDO, {
+              historyLabel: historyDescriptor.label,
+            }),
           );
         }
       },
       redoSession: async () => {
         statusController.clearTransient();
-        const changed = interactions.redoSessionHistory();
-        if (changed) {
+        const historyDescriptor = interactions.redoSessionHistory();
+        if (historyDescriptor) {
           statusController.showTransient(
-            describePanelActionPresentation(PANEL_FEEDBACK_ACTION.REDO),
+            describePanelActionPresentation(PANEL_FEEDBACK_ACTION.REDO, {
+              historyLabel: historyDescriptor.label,
+            }),
           );
         }
       },
