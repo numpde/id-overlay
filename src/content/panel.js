@@ -72,7 +72,7 @@ export function createPanel({ shadow, store, interactions, statusController }) {
   titleRow.append(heading, repoLink);
   header.append(titleRow, buildMeta);
 
-  const mainActionButton = createButton("Clear");
+  const mainActionButton = createButton("");
   mainActionButton.classList.add("id-overlay-panel__main-action-button");
 
   const controlsRow = document.createElement("div");
