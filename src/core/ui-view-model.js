@@ -14,7 +14,10 @@ export function resolveUiViewModel({
   const mainAction = resolveMainActionDescriptor(uiState);
 
   return {
-    opacityValue: String(uiState.session.opacity),
+    opacityControl: {
+      value: String(uiState.session.opacity),
+      disabled: !mainAction.hasImage,
+    },
     modeSwitch: resolveModeSwitchPresentation({
       mode: uiState.session.mode,
       hasImage: mainAction.hasImage,

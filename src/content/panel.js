@@ -257,7 +257,8 @@ export function createPanel({ shadow, store, interactions, statusController }) {
 
   function applyPanelViewModel(panelViewModel) {
     latestPanelViewModel = panelViewModel;
-    opacityInput.value = panelViewModel.opacityValue;
+    opacityInput.value = panelViewModel.opacityControl.value;
+    opacityInput.disabled = panelViewModel.opacityControl.disabled;
     modeInput.checked = panelViewModel.modeSwitch.checked;
     modeInput.disabled = panelViewModel.modeSwitch.disabled;
     modeInput.setAttribute("aria-label", panelViewModel.modeSwitch.accessibleLabel);
@@ -268,7 +269,6 @@ export function createPanel({ shadow, store, interactions, statusController }) {
       "id-overlay-button--confirm",
       panelViewModel.mainAction.presentationKind === "confirm",
     );
-    opacityInput.disabled = !panelViewModel.mainAction.hasImage;
     undoButton.disabled = !store.canUndo();
     redoButton.disabled = !store.canRedo();
     applyHistoryButtonPresentation({

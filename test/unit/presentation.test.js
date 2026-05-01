@@ -210,7 +210,10 @@ test("resolvePanelPresentation centralizes panel labels and enablement through t
   });
 
   assert.deepEqual(presentation, {
-    opacityValue: "0.75",
+    opacityControl: {
+      value: "0.75",
+      disabled: false,
+    },
     modeSwitch: {
       checked: true,
       disabled: false,

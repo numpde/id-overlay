@@ -46,6 +46,10 @@ test("resolveUiViewModel reflects the empty trace state without panel semantics 
   assert.equal(viewModel.mainAction.label, "Paste");
   assert.equal(viewModel.mainAction.disabled, false);
   assert.equal(viewModel.mainAction.shouldReset, false);
+  assert.deepEqual(viewModel.opacityControl, {
+    value: "0.6",
+    disabled: true,
+  });
   assert.equal(viewModel.modeSwitch.disabled, true);
 });
 
@@ -64,6 +68,7 @@ test("resolveUiViewModel resets stale clear-image confirmation back onto the pas
   assert.equal(viewModel.mainAction.label, "Paste");
   assert.equal(viewModel.mainAction.disabled, false);
   assert.equal(viewModel.mainAction.shouldReset, true);
+  assert.equal(viewModel.opacityControl.disabled, true);
   assert.equal(viewModel.modeSwitch.disabled, true);
 });
 
@@ -109,5 +114,6 @@ test("resolveUiViewModel advances the primary action to clear-image when pins ar
   assert.equal(viewModel.mainAction.target, "clear-image");
   assert.equal(viewModel.mainAction.label, "Clear image");
   assert.equal(viewModel.mainAction.disabled, false);
+  assert.equal(viewModel.opacityControl.disabled, false);
   assert.equal(viewModel.modeSwitch.disabled, false);
 });
