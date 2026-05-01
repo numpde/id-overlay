@@ -31,7 +31,7 @@ test("transitionLiveUi projects, routes, and syncs panel intent for main-action 
   });
 
   assert.equal(result.previousUiState.panel.intent, UI_PANEL_INTENT_KIND.IDLE);
-  assert.equal(result.nextUiState.panel.intent, UI_PANEL_INTENT_KIND.PASTE_ARMED);
+  assert.equal(result.transitionResult.state.panel.intent, UI_PANEL_INTENT_KIND.PASTE_ARMED);
   assert.equal(result.nextPanelActionState.kind, UI_PANEL_INTENT_KIND.PASTE_ARMED);
   assert.deepEqual(result.transitionResult.effects, [UI_EFFECT_KIND.REQUEST_PASTE_INPUT]);
 });
@@ -55,7 +55,7 @@ test("transitionLiveUi preserves paste-cancel feedback as a canonical effect", (
     },
   });
 
-  assert.equal(result.nextUiState.panel.intent, UI_PANEL_INTENT_KIND.IDLE);
+  assert.equal(result.transitionResult.state.panel.intent, UI_PANEL_INTENT_KIND.IDLE);
   assert.equal(result.nextPanelActionState.kind, UI_PANEL_INTENT_KIND.IDLE);
   assert.deepEqual(result.transitionResult.effects, [
     UI_EFFECT_KIND.SHOW_PASTE_CANCELLED_FEEDBACK,
@@ -85,7 +85,7 @@ test("transitionLiveUi preserves canonical mode transition effects for the live 
   });
 
   assert.equal(result.previousUiState.session.mode, UI_MODE_KIND.ALIGN);
-  assert.equal(result.nextUiState.session.mode, UI_MODE_KIND.TRACE);
+  assert.equal(result.transitionResult.state.session.mode, UI_MODE_KIND.TRACE);
   assert.deepEqual(result.transitionResult.effects, [
     UI_EFFECT_KIND.REQUEST_REGISTRATION_SOLVE,
   ]);

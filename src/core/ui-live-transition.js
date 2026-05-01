@@ -16,16 +16,14 @@ export function transitionLiveUi({
     runtime,
   });
   const transitionResult = transitionUiState(previousUiState, event);
-  const nextUiState = transitionResult.state;
   const nextPanelActionState = syncPanelActionState(
     panelActionState,
-    nextUiState.panel.intent,
+    transitionResult.state.panel.intent,
   );
 
   return {
     previousUiState,
     transitionResult,
-    nextUiState,
     nextPanelActionState,
   };
 }

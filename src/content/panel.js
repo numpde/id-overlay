@@ -466,38 +466,26 @@ export function createPanel({ shadow, store, interactions, statusController }) {
   }
 
   async function dispatchCanonicalUiEvent(event) {
-    const liveTransition = transitionLiveUi({
+    const {
+      transitionResult,
+      nextPanelActionState,
+      previousUiState,
+    } = transitionLiveUi({
       state: latestState,
       panelActionState,
       runtime: interactions.getRuntimeState(),
       event,
     });
-    await applyCanonicalUiTransition({
-      event,
-      liveTransition,
-    });
-    return liveTransition.transitionResult;
-  }
-
-  async function applyCanonicalUiTransition({
-    event,
-    liveTransition,
-  }) {
-    const {
-      transitionResult,
-      nextPanelActionState,
-      nextUiState,
-      previousUiState,
-    } = liveTransition;
 
     setPanelActionState(nextPanelActionState);
 
     await runCanonicalUiEffects({
       previousUiState,
-      nextUiState,
+      nextUiState: transitionResult.state,
       effects: transitionResult.effects,
       nextPanelActionState,
     });
+    return transitionResult;
   }
 
   async function runCanonicalUiEffects({
