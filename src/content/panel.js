@@ -6,7 +6,6 @@ import {
 } from "../core/image-normalization.js";
 import {
   PANEL_FEEDBACK_ACTION,
-  describePanelActionPresentation,
 } from "../core/presentation.js";
 import {
   runPanelLiveEffects,
@@ -353,14 +352,14 @@ export function createPanel({ shadow, store, interactions, statusController }) {
     );
     if (!item) {
       logger.warn("Window paste event did not contain an image");
-      statusController.showTransient(describePanelActionPresentation(PANEL_FEEDBACK_ACTION.CLIPBOARD_MISSING_IMAGE));
+      statusController.showPanelFeedback(PANEL_FEEDBACK_ACTION.CLIPBOARD_MISSING_IMAGE);
       return;
     }
 
     const file = item.getAsFile();
     if (!file) {
       logger.warn("Window paste event image could not be converted to a file");
-      statusController.showTransient(describePanelActionPresentation(PANEL_FEEDBACK_ACTION.CLIPBOARD_IMAGE_UNREADABLE));
+      statusController.showPanelFeedback(PANEL_FEEDBACK_ACTION.CLIPBOARD_IMAGE_UNREADABLE);
       return;
     }
 
@@ -384,7 +383,7 @@ export function createPanel({ shadow, store, interactions, statusController }) {
 
       if (!imageType) {
         logger.warn("Clipboard API read succeeded but no image type was present");
-        statusController.showTransient(describePanelActionPresentation(PANEL_FEEDBACK_ACTION.CLIPBOARD_MISSING_IMAGE_WITH_PROMPT));
+        statusController.showPanelFeedback(PANEL_FEEDBACK_ACTION.CLIPBOARD_MISSING_IMAGE_WITH_PROMPT);
         return null;
       }
 
@@ -488,9 +487,7 @@ export function createPanel({ shadow, store, interactions, statusController }) {
       source: sourceLabel,
       ...imageStats,
     });
-    statusController.showTransient(
-      describePanelActionPresentation(PANEL_FEEDBACK_ACTION.CLIPBOARD_IMAGE_LOADED, image),
-    );
+    statusController.showPanelFeedback(PANEL_FEEDBACK_ACTION.CLIPBOARD_IMAGE_LOADED, image);
     return image;
   }
 

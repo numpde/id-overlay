@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { createStatusController } from "../../src/content/status-controller.js";
 import { INTERACTION_EVENT } from "../../src/core/interactions.js";
 import {
+  PANEL_FEEDBACK_ACTION,
   describeInteractionEventPresentation,
   describePinResultPresentation,
   describeSolveResultPresentation,
@@ -219,6 +220,38 @@ test("status controller falls back to derived status after a transient", async (
   await new Promise((resolve) => setTimeout(resolve, 0));
 
   assert.equal(messages.at(-1), "Paste a screenshot to begin.");
+
+  unsubscribe();
+  controller.destroy();
+});
+
+test("status controller renders semantic panel feedback through presentation", () => {
+  const store = createStateStore();
+  const runtime = createValueStore({
+    isDragging: false,
+    isPassThroughActive: false,
+    dragMode: null,
+  });
+  const interactions = {
+    getRuntimeState() {
+      return runtime.get();
+    },
+    subscribe(listener, options) {
+      return runtime.subscribe(listener, options);
+    },
+  };
+
+  const controller = createStatusController({ store, interactions });
+  const messages = [];
+  const unsubscribe = controller.subscribe((message) => {
+    messages.push(message);
+  });
+
+  controller.showPanelFeedback(PANEL_FEEDBACK_ACTION.UNDO, {
+    historyDescriptor: { kind: "move-overlay", label: "Moved overlay" },
+  }, { durationMs: 0 });
+
+  assert.equal(messages.at(-1), "Undid: Moved overlay.");
 
   unsubscribe();
   controller.destroy();

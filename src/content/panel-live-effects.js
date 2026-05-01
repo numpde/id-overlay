@@ -1,11 +1,6 @@
 import { UI_EVENT_KIND } from "../core/ui-event-model.js";
-import {
-  PANEL_FEEDBACK_ACTION,
-  describePanelActionPresentation,
-} from "../core/presentation.js";
-import {
-  runUiLiveEffects,
-} from "../core/ui-live-effect-runner.js";
+import { PANEL_FEEDBACK_ACTION } from "../core/presentation.js";
+import { runUiLiveEffects } from "../core/ui-live-effect-runner.js";
 
 export async function runPanelLiveEffects({
   previousUiState,
@@ -46,37 +41,29 @@ export async function runPanelLiveEffects({
     clearImage: async () => {
       logger.info("Cleared image from canonical destructive action");
       interactions.clearImage();
-      statusController.showTransient(
-        describePanelActionPresentation(PANEL_FEEDBACK_ACTION.CLEAR_IMAGE),
-      );
+      statusController.showPanelFeedback(PANEL_FEEDBACK_ACTION.CLEAR_IMAGE);
     },
     undoSession: async () => {
       statusController.clearTransient();
       const historyDescriptor = interactions.undoSessionHistory();
       if (historyDescriptor) {
-        statusController.showTransient(
-          describePanelActionPresentation(PANEL_FEEDBACK_ACTION.UNDO, {
-            historyDescriptor,
-          }),
-        );
+        statusController.showPanelFeedback(PANEL_FEEDBACK_ACTION.UNDO, {
+          historyDescriptor,
+        });
       }
     },
     redoSession: async () => {
       statusController.clearTransient();
       const historyDescriptor = interactions.redoSessionHistory();
       if (historyDescriptor) {
-        statusController.showTransient(
-          describePanelActionPresentation(PANEL_FEEDBACK_ACTION.REDO, {
-            historyDescriptor,
-          }),
-        );
+        statusController.showPanelFeedback(PANEL_FEEDBACK_ACTION.REDO, {
+          historyDescriptor,
+        });
       }
     },
     showPasteCancelledFeedback: async () => {
       logger.info("Cancelled paste capture");
-      statusController.showTransient(
-        describePanelActionPresentation(PANEL_FEEDBACK_ACTION.PASTE_CANCELLED),
-      );
+      statusController.showPanelFeedback(PANEL_FEEDBACK_ACTION.PASTE_CANCELLED);
     },
     startPanelTimeout,
     cancelPanelTimeout,

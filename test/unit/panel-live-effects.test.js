@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import { runPanelLiveEffects } from "../../src/content/panel-live-effects.js";
 import { UI_EFFECT_KIND } from "../../src/core/ui-effect-model.js";
+import { PANEL_FEEDBACK_ACTION } from "../../src/core/presentation.js";
 import { createInitialUiState, UI_MODE_KIND } from "../../src/core/ui-state-model.js";
 
 test("runPanelLiveEffects maps semantic effects to panel side effects", async () => {
@@ -58,8 +59,8 @@ test("runPanelLiveEffects maps semantic effects to panel side effects", async ()
       },
     },
     statusController: {
-      showTransient(message) {
-        transients.push(message);
+      showPanelFeedback(action, payload) {
+        transients.push({ action, payload });
       },
       clearTransient() {
         calls.push("clear-transient");
@@ -98,9 +99,25 @@ test("runPanelLiveEffects maps semantic effects to panel side effects", async ()
     "cancel-timeout",
   ]);
   assert.deepEqual(transients, [
-    "Cleared the current screenshot.",
-    "Undid: Moved overlay.",
-    "Redid: Moved overlay.",
-    "Paste cancelled.",
+    {
+      action: PANEL_FEEDBACK_ACTION.CLEAR_IMAGE,
+      payload: undefined,
+    },
+    {
+      action: PANEL_FEEDBACK_ACTION.UNDO,
+      payload: {
+        historyDescriptor: { label: "Moved overlay" },
+      },
+    },
+    {
+      action: PANEL_FEEDBACK_ACTION.REDO,
+      payload: {
+        historyDescriptor: { label: "Moved overlay" },
+      },
+    },
+    {
+      action: PANEL_FEEDBACK_ACTION.PASTE_CANCELLED,
+      payload: undefined,
+    },
   ]);
 });

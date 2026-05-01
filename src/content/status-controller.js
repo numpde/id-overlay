@@ -1,5 +1,6 @@
 import { createValueStore } from "../core/value-store.js";
 import {
+  describePanelActionPresentation,
   describeInteractionEventPresentation,
 } from "../core/presentation.js";
 import { resolveUiStatusBaseline } from "../core/ui-status-model.js";
@@ -52,6 +53,13 @@ export function createStatusController({ store, interactions }) {
     }, durationMs);
   }
 
+  function showPanelFeedback(action, payload, options) {
+    const message = describePanelActionPresentation(action, payload);
+    if (message) {
+      showTransient(message, options);
+    }
+  }
+
   function clearTransient() {
     if (transientMessage === null && !transientTimer) {
       return;
@@ -99,6 +107,7 @@ export function createStatusController({ store, interactions }) {
     subscribe,
     getMessage,
     showTransient,
+    showPanelFeedback,
     clearTransient,
     setPanelActionStateSource,
     refresh,
