@@ -93,7 +93,7 @@ test("resolveUiViewModel exposes stale paste intent through the same canonical m
   assert.equal(viewModel.mainAction.canPasteImage, true);
   assert.equal(viewModel.mainAction.canClearPins, true);
   assert.equal(viewModel.mainAction.shouldReset, true);
-  assert.equal(viewModel.mainAction.shouldAttachPasteListener, false);
+  assert.equal(viewModel.mainAction.pasteArmed, false);
 });
 
 test("resolveUiViewModel advances the primary action to clear-image when pins are not clearable", () => {

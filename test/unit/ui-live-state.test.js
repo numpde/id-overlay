@@ -2,7 +2,6 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  PANEL_ACTION_KIND,
   createInitialPanelActionState,
   syncPanelActionState,
 } from "../../src/core/panel-state.js";
@@ -34,7 +33,7 @@ test("projectLiveUiState maps current live session and panel facts into canonica
   };
   const panelActionState = syncPanelActionState(
     createInitialPanelActionState(),
-    PANEL_ACTION_KIND.CLEAR_PINS_CONFIRM,
+    UI_PANEL_INTENT_KIND.CLEAR_PINS_CONFIRM,
   );
 
   assert.deepEqual(

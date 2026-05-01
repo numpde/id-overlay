@@ -1,14 +1,12 @@
 import { UI_PANEL_INTENT_KIND } from "./ui-state-model.js";
 
-export const PANEL_ACTION_KIND = UI_PANEL_INTENT_KIND;
-
 export const PANEL_ACTION_DEFAULTS = Object.freeze({
   clearConfirmationTimeoutMs: 1800,
 });
 
 export function createInitialPanelActionState() {
   return {
-    kind: PANEL_ACTION_KIND.IDLE,
+    kind: UI_PANEL_INTENT_KIND.IDLE,
     sessionId: 0,
   };
 }
@@ -19,24 +17,24 @@ export function syncPanelActionState(state, nextKind) {
   }
 
   switch (nextKind) {
-    case PANEL_ACTION_KIND.PASTE_ARMED:
+    case UI_PANEL_INTENT_KIND.PASTE_ARMED:
       return createPanelActionState(
-        PANEL_ACTION_KIND.PASTE_ARMED,
+        UI_PANEL_INTENT_KIND.PASTE_ARMED,
         state.sessionId + 1,
       );
-    case PANEL_ACTION_KIND.CLEAR_PINS_CONFIRM:
+    case UI_PANEL_INTENT_KIND.CLEAR_PINS_CONFIRM:
       return createPanelActionState(
-        PANEL_ACTION_KIND.CLEAR_PINS_CONFIRM,
+        UI_PANEL_INTENT_KIND.CLEAR_PINS_CONFIRM,
         state.sessionId,
       );
-    case PANEL_ACTION_KIND.CLEAR_IMAGE_CONFIRM:
+    case UI_PANEL_INTENT_KIND.CLEAR_IMAGE_CONFIRM:
       return createPanelActionState(
-        PANEL_ACTION_KIND.CLEAR_IMAGE_CONFIRM,
+        UI_PANEL_INTENT_KIND.CLEAR_IMAGE_CONFIRM,
         state.sessionId,
       );
-    case PANEL_ACTION_KIND.IDLE:
+    case UI_PANEL_INTENT_KIND.IDLE:
       return createPanelActionState(
-        PANEL_ACTION_KIND.IDLE,
+        UI_PANEL_INTENT_KIND.IDLE,
         isPasteArmed(state) ? state.sessionId + 1 : state.sessionId,
       );
     default:
@@ -45,7 +43,7 @@ export function syncPanelActionState(state, nextKind) {
 }
 
 function isPasteArmed(state) {
-  return state.kind === PANEL_ACTION_KIND.PASTE_ARMED;
+  return state.kind === UI_PANEL_INTENT_KIND.PASTE_ARMED;
 }
 
 export function isPanelActionSessionActive(state, sessionId) {

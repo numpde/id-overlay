@@ -425,13 +425,12 @@ export function createPanel({ shadow, store, interactions, statusController }) {
   }
 
   function syncPasteListener(mainAction) {
-    const { shouldAttachPasteListener } = mainAction;
-    if (shouldAttachPasteListener && !isPasteListenerAttached) {
+    if (mainAction.pasteArmed && !isPasteListenerAttached) {
       window.addEventListener("paste", handleWindowPaste, true);
       isPasteListenerAttached = true;
       return;
     }
-    if (!shouldAttachPasteListener && isPasteListenerAttached) {
+    if (!mainAction.pasteArmed && isPasteListenerAttached) {
       detachPasteListener();
     }
   }

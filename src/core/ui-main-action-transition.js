@@ -64,7 +64,6 @@ export function resolveMainActionDescriptor(uiState) {
       nextIntent: UI_PANEL_INTENT_KIND.PASTE_ARMED,
       pasteArmed: effectiveIntent === UI_PANEL_INTENT_KIND.PASTE_ARMED,
       clearConfirming: false,
-      shouldAttachPasteListener: effectiveIntent === UI_PANEL_INTENT_KIND.PASTE_ARMED,
     };
   }
 
@@ -83,7 +82,6 @@ export function resolveMainActionDescriptor(uiState) {
       nextIntent: UI_PANEL_INTENT_KIND.CLEAR_PINS_CONFIRM,
       pasteArmed: false,
       clearConfirming: true,
-      shouldAttachPasteListener: false,
     };
   }
 
@@ -102,7 +100,6 @@ export function resolveMainActionDescriptor(uiState) {
       nextIntent: UI_PANEL_INTENT_KIND.CLEAR_IMAGE_CONFIRM,
       pasteArmed: false,
       clearConfirming: true,
-      shouldAttachPasteListener: false,
     };
   }
 
@@ -121,7 +118,6 @@ export function resolveMainActionDescriptor(uiState) {
       nextIntent: UI_PANEL_INTENT_KIND.CLEAR_PINS_CONFIRM,
       pasteArmed: false,
       clearConfirming: false,
-      shouldAttachPasteListener: false,
     };
   }
 
@@ -139,7 +135,6 @@ export function resolveMainActionDescriptor(uiState) {
     nextIntent: UI_PANEL_INTENT_KIND.CLEAR_IMAGE_CONFIRM,
     pasteArmed: false,
     clearConfirming: false,
-    shouldAttachPasteListener: false,
   };
 }
 

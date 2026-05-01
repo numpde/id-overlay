@@ -78,7 +78,6 @@ test("main action descriptor captures the local semantic distinctions", () => {
     nextIntent: UI_PANEL_INTENT_KIND.CLEAR_IMAGE_CONFIRM,
     pasteArmed: false,
     clearConfirming: false,
-    shouldAttachPasteListener: false,
   });
 });
 

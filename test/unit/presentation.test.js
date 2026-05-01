@@ -12,7 +12,6 @@ import {
   resolveRegistrationSolvePresentation,
   resolveOverlaySessionPresentation,
 } from "../../src/core/presentation.js";
-import { PANEL_ACTION_KIND } from "../../src/core/panel-state.js";
 import { RUNTIME_ERROR_SOURCE } from "../../src/core/runtime-error.js";
 import { projectLiveUiState } from "../../src/core/ui-live-state.js";
 import {
@@ -22,6 +21,7 @@ import {
   resolveUiStatusBaseline,
 } from "../../src/core/ui-status-model.js";
 import { resolveUiViewModel } from "../../src/core/ui-view-model.js";
+import { UI_PANEL_INTENT_KIND } from "../../src/core/ui-state-model.js";
 
 function resolvePanelViewModel({ state, panelActionState }) {
   return resolveUiViewModel({
@@ -36,7 +36,7 @@ function resolvePanelPresentation(input) {
   return resolvePanelViewModel(input);
 }
 
-function resolveStatusBaseline({ state, runtime, panelActionState = { kind: PANEL_ACTION_KIND.IDLE } }) {
+function resolveStatusBaseline({ state, runtime, panelActionState = { kind: UI_PANEL_INTENT_KIND.IDLE } }) {
   return resolveUiStatusBaseline({
     uiState: projectLiveUiState({
       state,
@@ -222,7 +222,7 @@ test("resolvePanelPresentation centralizes panel labels and enablement through t
       },
     },
     panelActionState: {
-      kind: PANEL_ACTION_KIND.PASTE_ARMED,
+      kind: UI_PANEL_INTENT_KIND.PASTE_ARMED,
       sessionId: 1,
     },
   });
@@ -239,7 +239,7 @@ test("resolvePanelPresentation centralizes panel labels and enablement through t
     mainAction: {
       hasImage: true,
       pinCount: 2,
-      intent: PANEL_ACTION_KIND.IDLE,
+      intent: UI_PANEL_INTENT_KIND.IDLE,
       target: "clear-pins",
       canPasteImage: true,
       canClearPins: true,
@@ -247,10 +247,9 @@ test("resolvePanelPresentation centralizes panel labels and enablement through t
       disabled: false,
       label: "Clear 2 pins",
       presentationKind: "neutral",
-      nextIntent: PANEL_ACTION_KIND.CLEAR_PINS_CONFIRM,
+      nextIntent: UI_PANEL_INTENT_KIND.CLEAR_PINS_CONFIRM,
       pasteArmed: false,
       clearConfirming: false,
-      shouldAttachPasteListener: false,
     },
   });
 });
@@ -271,7 +270,7 @@ test("resolvePanelPresentation advances the primary action to clear-image when p
       },
     },
     panelActionState: {
-      kind: PANEL_ACTION_KIND.IDLE,
+      kind: UI_PANEL_INTENT_KIND.IDLE,
       sessionId: 0,
     },
   });
@@ -296,7 +295,7 @@ test("resolvePanelViewModel keeps panel semantics and presentation on one has-im
       },
     },
     panelActionState: {
-      kind: PANEL_ACTION_KIND.CLEAR_IMAGE_CONFIRM,
+      kind: UI_PANEL_INTENT_KIND.CLEAR_IMAGE_CONFIRM,
       sessionId: 0,
     },
   });
@@ -322,7 +321,7 @@ test("resolvePanelPresentation keeps confirmation labels aligned with canonical 
       },
     },
     panelActionState: {
-      kind: PANEL_ACTION_KIND.CLEAR_PINS_CONFIRM,
+      kind: UI_PANEL_INTENT_KIND.CLEAR_PINS_CONFIRM,
       sessionId: 0,
     },
   });
@@ -342,7 +341,7 @@ test("resolvePanelPresentation keeps confirmation labels aligned with canonical 
       },
     },
     panelActionState: {
-      kind: PANEL_ACTION_KIND.CLEAR_IMAGE_CONFIRM,
+      kind: UI_PANEL_INTENT_KIND.CLEAR_IMAGE_CONFIRM,
       sessionId: 0,
     },
   });
