@@ -220,6 +220,18 @@ test("resolvePanelPresentation centralizes panel labels and enablement through t
       accessibleLabel: "Mode: Align",
       mode: "align",
     },
+    historyControls: {
+      undo: {
+        disabled: true,
+        title: "",
+        accessibleLabel: "Undo",
+      },
+      redo: {
+        disabled: true,
+        title: "",
+        accessibleLabel: "Redo",
+      },
+    },
     mainAction: {
       hasImage: true,
       pinCount: 2,

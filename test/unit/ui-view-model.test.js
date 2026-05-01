@@ -51,6 +51,18 @@ test("resolveUiViewModel reflects the empty trace state without panel semantics 
     disabled: true,
   });
   assert.equal(viewModel.modeSwitch.disabled, true);
+  assert.deepEqual(viewModel.historyControls, {
+    undo: {
+      disabled: true,
+      title: "",
+      accessibleLabel: "Undo",
+    },
+    redo: {
+      disabled: true,
+      title: "",
+      accessibleLabel: "Redo",
+    },
+  });
 });
 
 test("resolveUiViewModel resets stale clear-image confirmation back onto the paste action", () => {
@@ -116,4 +128,29 @@ test("resolveUiViewModel advances the primary action to clear-image when pins ar
   assert.equal(viewModel.mainAction.disabled, false);
   assert.equal(viewModel.opacityControl.disabled, false);
   assert.equal(viewModel.modeSwitch.disabled, false);
+});
+
+test("resolveUiViewModel centralizes history control presentation", () => {
+  const viewModel = resolveUiViewModel({
+    uiState: createUiState(),
+    history: {
+      canUndo: true,
+      canRedo: false,
+      undoDescriptor: { kind: "load-image", label: "Loaded screenshot" },
+      redoDescriptor: null,
+    },
+  });
+
+  assert.deepEqual(viewModel.historyControls, {
+    undo: {
+      disabled: false,
+      title: "Remove image",
+      accessibleLabel: "Remove image",
+    },
+    redo: {
+      disabled: true,
+      title: "",
+      accessibleLabel: "Redo",
+    },
+  });
 });

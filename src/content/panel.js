@@ -7,7 +7,6 @@ import {
 import {
   PANEL_FEEDBACK_ACTION,
   describePanelActionPresentation,
-  resolveHistoryControlPresentation,
 } from "../core/presentation.js";
 import {
   PANEL_ACTION_DEFAULTS,
@@ -252,6 +251,12 @@ export function createPanel({ shadow, store, interactions, statusController }) {
   function resolveCurrentPanelViewModel() {
     return resolveUiViewModel({
       uiState: resolveCurrentUiState(),
+      history: {
+        canUndo: store.canUndo(),
+        canRedo: store.canRedo(),
+        undoDescriptor: store.getUndoDescriptor(),
+        redoDescriptor: store.getRedoDescriptor(),
+      },
     });
   }
 
@@ -269,22 +274,12 @@ export function createPanel({ shadow, store, interactions, statusController }) {
       "id-overlay-button--confirm",
       panelViewModel.mainAction.presentationKind === "confirm",
     );
-    undoButton.disabled = !store.canUndo();
-    redoButton.disabled = !store.canRedo();
-    applyHistoryButtonPresentation({
-      button: undoButton,
-      descriptor: store.getUndoDescriptor(),
-      direction: "undo",
-    });
-    applyHistoryButtonPresentation({
-      button: redoButton,
-      descriptor: store.getRedoDescriptor(),
-      direction: "redo",
-    });
+    applyHistoryButtonPresentation(undoButton, panelViewModel.historyControls.undo);
+    applyHistoryButtonPresentation(redoButton, panelViewModel.historyControls.redo);
   }
 
-  function applyHistoryButtonPresentation({ button, descriptor, direction }) {
-    const presentation = resolveHistoryControlPresentation({ direction, descriptor });
+  function applyHistoryButtonPresentation(button, presentation) {
+    button.disabled = presentation.disabled;
     button.title = presentation.title;
     button.setAttribute("aria-label", presentation.accessibleLabel);
   }

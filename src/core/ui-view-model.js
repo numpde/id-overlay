@@ -4,12 +4,16 @@ import {
 import {
   resolveMainActionDescriptor,
 } from "./ui-main-action-transition.js";
+import {
+  resolveHistoryControlPresentation,
+} from "./presentation.js";
 
 export const PANEL_TITLE = "Reference Overlay";
 export const PANEL_REPO_URL = "https://github.com/numpde/id-overlay";
 
 export function resolveUiViewModel({
   uiState,
+  history = {},
 }) {
   const mainAction = resolveMainActionDescriptor(uiState);
 
@@ -22,7 +26,30 @@ export function resolveUiViewModel({
       mode: uiState.session.mode,
       hasImage: mainAction.hasImage,
     }),
+    historyControls: resolveHistoryControlsPresentation(history),
     mainAction,
+  };
+}
+
+function resolveHistoryControlsPresentation(history) {
+  return {
+    undo: resolveHistoryButtonPresentation({
+      direction: "undo",
+      disabled: !history.canUndo,
+      descriptor: history.undoDescriptor,
+    }),
+    redo: resolveHistoryButtonPresentation({
+      direction: "redo",
+      disabled: !history.canRedo,
+      descriptor: history.redoDescriptor,
+    }),
+  };
+}
+
+function resolveHistoryButtonPresentation({ direction, disabled, descriptor }) {
+  return {
+    disabled,
+    ...resolveHistoryControlPresentation({ direction, descriptor }),
   };
 }
 
