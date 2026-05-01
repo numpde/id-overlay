@@ -1,7 +1,7 @@
 import {
   projectLiveUiState,
-  syncPanelActionStateToUiIntent,
 } from "./ui-live-state.js";
+import { syncPanelActionState } from "./panel-state.js";
 import { transitionUiState } from "./ui-transition.js";
 
 export function transitionLiveUi({
@@ -17,10 +17,10 @@ export function transitionLiveUi({
   });
   const transitionResult = transitionUiState(previousUiState, event);
   const nextUiState = transitionResult.state;
-  const nextPanelActionState = syncPanelActionStateToUiIntent({
-    previousPanelActionState: panelActionState,
-    nextIntent: nextUiState.panel.intent,
-  });
+  const nextPanelActionState = syncPanelActionState(
+    panelActionState,
+    nextUiState.panel.intent,
+  );
 
   return {
     previousUiState,

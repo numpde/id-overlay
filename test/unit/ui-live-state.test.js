@@ -11,7 +11,6 @@ import {
 import {
   projectLiveUiState,
   projectLiveUiRuntime,
-  syncPanelActionStateToUiIntent,
 } from "../../src/core/ui-live-state.js";
 
 test("projectLiveUiState maps current live session and panel facts into canonical uiState", () => {
@@ -64,22 +63,16 @@ test("projectLiveUiState maps current live session and panel facts into canonica
   );
 });
 
-test("syncPanelActionStateToUiIntent preserves panel reducer session semantics", () => {
+test("panel intent sync uses the shared panel action reducer semantics", () => {
   const initial = createInitialPanelActionState();
-  const pasteArmed = syncPanelActionStateToUiIntent({
-    previousPanelActionState: initial,
-    nextIntent: UI_PANEL_INTENT_KIND.PASTE_ARMED,
-  });
+  const pasteArmed = syncPanelActionState(initial, UI_PANEL_INTENT_KIND.PASTE_ARMED);
 
   assert.deepEqual(pasteArmed, {
     kind: "paste-armed",
     sessionId: 1,
   });
 
-  const idle = syncPanelActionStateToUiIntent({
-    previousPanelActionState: pasteArmed,
-    nextIntent: UI_PANEL_INTENT_KIND.IDLE,
-  });
+  const idle = syncPanelActionState(pasteArmed, UI_PANEL_INTENT_KIND.IDLE);
 
   assert.deepEqual(idle, {
     kind: "idle",

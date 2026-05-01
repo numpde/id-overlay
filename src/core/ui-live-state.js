@@ -4,9 +4,6 @@ import {
   UI_ACTIVE_GESTURE_KIND,
   UI_INPUT_OVERRIDE_KIND,
 } from "./ui-state-model.js";
-import {
-  syncPanelActionState,
-} from "./panel-state.js";
 
 export function projectLiveUiState({
   state,
@@ -32,13 +29,6 @@ export function projectLiveUiState({
       intent: panelActionState?.kind ?? UI_PANEL_INTENT_KIND.IDLE,
     },
   };
-}
-
-export function syncPanelActionStateToUiIntent({
-  previousPanelActionState,
-  nextIntent,
-}) {
-  return syncPanelActionState(previousPanelActionState, nextIntent);
 }
 
 export function projectLiveUiRuntime(runtime) {

@@ -12,6 +12,7 @@ import {
   PANEL_ACTION_DEFAULTS,
   createInitialPanelActionState,
   isPanelActionSessionActive,
+  syncPanelActionState,
 } from "../core/panel-state.js";
 import { UI_EVENT_KIND } from "../core/ui-event-model.js";
 import { UI_PANEL_INTENT_KIND } from "../core/ui-state-model.js";
@@ -20,7 +21,6 @@ import {
 } from "../core/ui-live-effect-runner.js";
 import {
   projectLiveUiState,
-  syncPanelActionStateToUiIntent,
 } from "../core/ui-live-state.js";
 import {
   transitionLiveUi,
@@ -187,10 +187,10 @@ export function createPanel({ shadow, store, interactions, statusController }) {
     const panelViewModel = resolveCurrentPanelViewModel();
     if (panelViewModel.mainAction.shouldReset) {
       setPanelActionState(
-        syncPanelActionStateToUiIntent({
-          previousPanelActionState: panelActionState,
-          nextIntent: UI_PANEL_INTENT_KIND.IDLE,
-        }),
+        syncPanelActionState(
+          panelActionState,
+          UI_PANEL_INTENT_KIND.IDLE,
+        ),
       );
       return;
     }
