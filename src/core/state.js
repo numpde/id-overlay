@@ -38,7 +38,9 @@ export const STATE_ACTION = Object.freeze({
 });
 
 const HISTORY_CHECKPOINT_ACTIONS = new Set([
+  STATE_ACTION.SET_OPACITY,
   STATE_ACTION.LOAD_IMAGE_SESSION,
+  STATE_ACTION.SET_PLACEMENT,
   STATE_ACTION.ADD_PIN,
   STATE_ACTION.REMOVE_PIN,
   STATE_ACTION.CLEAR_PINS,
@@ -49,6 +51,8 @@ export function createStateStore(initialState = {}) {
   let state = normalizeState(initialState);
   let past = [];
   let future = [];
+  let historyBatchDepth = 0;
+  let historyBatchBaseState = null;
   const listeners = new Set();
 
   function getState() {
@@ -153,6 +157,28 @@ export function createStateStore(initialState = {}) {
     return future.length > 0;
   }
 
+  function beginHistoryBatch() {
+    historyBatchDepth += 1;
+  }
+
+  function endHistoryBatch() {
+    if (historyBatchDepth === 0) {
+      return false;
+    }
+    historyBatchDepth -= 1;
+    if (historyBatchDepth > 0) {
+      return false;
+    }
+    if (historyBatchBaseState && historyBatchBaseState !== state) {
+      past = [...past, historyBatchBaseState];
+      future = [];
+      historyBatchBaseState = null;
+      return true;
+    }
+    historyBatchBaseState = null;
+    return false;
+  }
+
   function undo() {
     if (!canUndo()) {
       return false;
@@ -189,8 +215,12 @@ export function createStateStore(initialState = {}) {
       return state;
     }
     if (checkpoint) {
-      past = [...past, state];
-      future = [];
+      if (historyBatchDepth > 0) {
+        historyBatchBaseState ??= state;
+      } else {
+        past = [...past, state];
+        future = [];
+      }
     }
     state = nextState;
     notify();
@@ -219,6 +249,8 @@ export function createStateStore(initialState = {}) {
     clearImage,
     canUndo,
     canRedo,
+    beginHistoryBatch,
+    endHistoryBatch,
     undo,
     redo,
   };

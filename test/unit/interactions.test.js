@@ -100,6 +100,32 @@ test("shift-dragging updates placement through the adapter only", () => {
     imagePoint: { x: 400, y: 200 },
     transform: nextTransform,
   }), { x: 560, y: 280 });
+
+  assert.equal(controller.undoSessionHistory(), true);
+  const undoneTransform = createPlacementScreenTransform({
+    snapshot: {
+      viewportRect: { left: 100, top: 100, width: 800, height: 400 },
+      mapView: { center: { lat: -1.23, lon: 36.84 }, zoom: 16 },
+    },
+    placement: store.getState().placement,
+  });
+  assert.deepEqual(imagePointToScreenPoint({
+    imagePoint: { x: 400, y: 200 },
+    transform: undoneTransform,
+  }), { x: 500, y: 300 });
+
+  assert.equal(controller.redoSessionHistory(), true);
+  const redoneTransform = createPlacementScreenTransform({
+    snapshot: {
+      viewportRect: { left: 100, top: 100, width: 800, height: 400 },
+      mapView: { center: { lat: -1.23, lon: 36.84 }, zoom: 16 },
+    },
+    placement: store.getState().placement,
+  });
+  assert.deepEqual(imagePointToScreenPoint({
+    imagePoint: { x: 400, y: 200 },
+    transform: redoneTransform,
+  }), { x: 560, y: 280 });
 });
 
 test("shift-dragging stays anchored to the visible overlay under live surface motion", () => {
@@ -422,8 +448,17 @@ test("ctrl-wheel rotates the overlay only and marks a solved transform dirty aga
     screenPoint: { x: 600, y: 320 },
   });
 
+  const rotatedPlacement = store.getState().placement;
   assert.equal(store.getState().registration.dirty, true);
   assert.ok(store.getState().registration.solvedTransform);
+
+  assert.equal(controller.undoSessionHistory(), true);
+  assert.equal(store.getState().placement.rotationRad, 0);
+  assert.equal(store.getState().registration.dirty, false);
+
+  assert.equal(controller.redoSessionHistory(), true);
+  assert.deepEqual(store.getState().placement, rotatedPlacement);
+  assert.equal(store.getState().registration.dirty, true);
 });
 
 test("ctrl-wheel rotates around the image point under the mouse", () => {
@@ -497,6 +532,7 @@ test("shift-wheel scales around the image point under the mouse", () => {
   });
 
   const anchorScreenPoint = { x: 650, y: 260 };
+  const initialPlacement = store.getState().placement;
   const beforeTransform = resolveOverlayScreenTransform({
     state: store.getState(),
     snapshot: pageAdapter.getSnapshot(),
@@ -525,6 +561,13 @@ test("shift-wheel scales around the image point under the mouse", () => {
 
   assert.ok(Math.abs(afterAnchorScreenPoint.x - anchorScreenPoint.x) < 1e-9);
   assert.ok(Math.abs(afterAnchorScreenPoint.y - anchorScreenPoint.y) < 1e-9);
+
+  const scaledPlacement = store.getState().placement;
+  assert.equal(controller.undoSessionHistory(), true);
+  assert.deepEqual(store.getState().placement, initialPlacement);
+
+  assert.equal(controller.redoSessionHistory(), true);
+  assert.deepEqual(store.getState().placement, scaledPlacement);
 });
 
 test("map pan/zoom gestures keep a solved transform clean until overlay-only editing begins", () => {
@@ -609,8 +652,15 @@ test("alt-wheel adjusts the overlay opacity in align mode without zooming the ma
     screenPoint: { x: 600, y: 320 },
   });
 
+  const adjustedOpacity = store.getState().opacity;
   assert.ok(store.getState().opacity > initialOpacity);
   assert.equal(adapterCalls.mapZoomCalls.length, 0);
+
+  assert.equal(controller.undoSessionHistory(), true);
+  assert.equal(store.getState().opacity, initialOpacity);
+
+  assert.equal(controller.redoSessionHistory(), true);
+  assert.equal(store.getState().opacity, adjustedOpacity);
 });
 
 test("alt-wheel adjusts the overlay opacity in trace mode", () => {
@@ -631,9 +681,16 @@ test("alt-wheel adjusts the overlay opacity in trace mode", () => {
     screenPoint: { x: 600, y: 320 },
   });
 
+  const adjustedOpacity = store.getState().opacity;
   assert.equal(handled, true);
   assert.ok(store.getState().opacity < initialOpacity);
   assert.equal(adapterCalls.mapZoomCalls.length, 0);
+
+  assert.equal(controller.undoSessionHistory(), true);
+  assert.equal(store.getState().opacity, initialOpacity);
+
+  assert.equal(controller.redoSessionHistory(), true);
+  assert.equal(store.getState().opacity, adjustedOpacity);
 });
 
 test("toggleing to trace auto-computes a dirty transform when enough pins exist", () => {

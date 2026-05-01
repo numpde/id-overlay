@@ -278,13 +278,13 @@ test("registration and image-session no-op transitions do not notify", () => {
 
 test("history checkpoint policy stays on committed session edits only", () => {
   assert.equal(isHistoryCheckpointAction({ type: STATE_ACTION.LOAD_IMAGE_SESSION }), true);
+  assert.equal(isHistoryCheckpointAction({ type: STATE_ACTION.SET_OPACITY }), true);
+  assert.equal(isHistoryCheckpointAction({ type: STATE_ACTION.SET_PLACEMENT }), true);
   assert.equal(isHistoryCheckpointAction({ type: STATE_ACTION.ADD_PIN }), true);
   assert.equal(isHistoryCheckpointAction({ type: STATE_ACTION.REMOVE_PIN }), true);
   assert.equal(isHistoryCheckpointAction({ type: STATE_ACTION.CLEAR_PINS }), true);
   assert.equal(isHistoryCheckpointAction({ type: STATE_ACTION.CLEAR_IMAGE }), true);
   assert.equal(isHistoryCheckpointAction({ type: STATE_ACTION.SET_MODE }), false);
-  assert.equal(isHistoryCheckpointAction({ type: STATE_ACTION.SET_OPACITY }), false);
-  assert.equal(isHistoryCheckpointAction({ type: STATE_ACTION.SET_PLACEMENT }), false);
   assert.equal(isHistoryCheckpointAction({ type: STATE_ACTION.SET_SOLVED_TRANSFORM }), false);
 });
 
@@ -340,6 +340,82 @@ test("undo and redo are no-ops when history is empty", () => {
   assert.equal(store.undo(), false);
   assert.equal(store.redo(), false);
   assert.equal(calls, 0);
+});
+
+test("history batches coalesce placement edits into one undo step", () => {
+  const image = { src: "data:image/png;base64,abc", width: 1200, height: 800 };
+  const placement = createPlacementTransform({
+    image,
+    centerMapLatLon: { lat: -1.23, lon: 36.84 },
+    scale: 1,
+    rotationRad: 0,
+    zoom: 16,
+  });
+  const store = createStateStore();
+
+  store.loadImageSession(image, placement);
+  const loadedPlacement = store.getState().placement;
+
+  store.beginHistoryBatch();
+  store.setPlacement({
+    ...store.getState().placement,
+    tx: loadedPlacement.tx + 10,
+  });
+  store.setPlacement({
+    ...store.getState().placement,
+    tx: loadedPlacement.tx + 30,
+    ty: loadedPlacement.ty - 20,
+  });
+  assert.equal(store.endHistoryBatch(), true);
+
+  assert.equal(store.getState().placement.tx, loadedPlacement.tx + 30);
+  assert.equal(store.getState().placement.ty, loadedPlacement.ty - 20);
+
+  assert.equal(store.undo(), true);
+  assert.deepEqual(store.getState().placement, loadedPlacement);
+
+  assert.equal(store.redo(), true);
+  assert.equal(store.getState().placement.tx, loadedPlacement.tx + 30);
+  assert.equal(store.getState().placement.ty, loadedPlacement.ty - 20);
+});
+
+test("standalone placement and opacity edits are individually undoable", () => {
+  const image = { src: "data:image/png;base64,abc", width: 1200, height: 800 };
+  const placement = createPlacementTransform({
+    image,
+    centerMapLatLon: { lat: -1.23, lon: 36.84 },
+    scale: 1,
+    rotationRad: 0,
+    zoom: 16,
+  });
+  const store = createStateStore();
+
+  store.loadImageSession(image, placement);
+  const initialPlacement = store.getState().placement;
+  const initialOpacity = store.getState().opacity;
+  const updatedPlacement = {
+    ...initialPlacement,
+    tx: initialPlacement.tx + 25,
+  };
+
+  store.setPlacement(updatedPlacement);
+  store.setOpacity(0.8);
+
+  assert.deepEqual(store.getState().placement, updatedPlacement);
+  assert.equal(store.getState().opacity, 0.8);
+
+  assert.equal(store.undo(), true);
+  assert.equal(store.getState().opacity, initialOpacity);
+  assert.deepEqual(store.getState().placement, updatedPlacement);
+
+  assert.equal(store.undo(), true);
+  assert.deepEqual(store.getState().placement, initialPlacement);
+
+  assert.equal(store.redo(), true);
+  assert.deepEqual(store.getState().placement, updatedPlacement);
+
+  assert.equal(store.redo(), true);
+  assert.equal(store.getState().opacity, 0.8);
 });
 
 test("adding and removing pins invalidates solved transforms", () => {

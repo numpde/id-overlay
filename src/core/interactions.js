@@ -470,6 +470,7 @@ export function createInteractionController({
           startPointerScreenPx: screenPoint,
           startCenterScreenPx: centerScreenPx,
         };
+        store.beginHistoryBatch();
       }
       startDragRuntime(screenPoint, {
         isPointerInsideImage: true,
@@ -487,6 +488,8 @@ export function createInteractionController({
       dragTo(screenPoint);
       if (isMapPanDragMode(dragState.mode)) {
         pageAdapter.endMapPan?.(screenPoint);
+      } else {
+        store.endHistoryBatch();
       }
       dragState = null;
       endDragRuntime(screenPoint, {
@@ -837,6 +840,8 @@ export function createInteractionController({
   } = {}) {
     if (isMapPanDragMode(dragState?.mode)) {
       pageAdapter.endMapPan?.(endPointerScreenPx);
+    } else if (dragState?.mode === DRAG_MODE.MOVE_OVERLAY) {
+      store.endHistoryBatch();
     }
     dragState = null;
     dispatchRuntime({
