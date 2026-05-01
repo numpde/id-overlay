@@ -8,7 +8,14 @@ import {
   SOLVE_RESULT_REASON,
 } from "./interaction-policy.js";
 import { RUNTIME_ERROR_SOURCE } from "./runtime-error.js";
-import { MANUAL_PASTE_PROMPT } from "./ui-status-model.js";
+import {
+  ALIGN_SOLVED_PREVIEW_STATUS_MESSAGE,
+  DIRTY_PINS_STATUS_MESSAGE,
+  EMPTY_SESSION_STATUS_MESSAGE,
+  MANUAL_PASTE_PROMPT,
+  TRACE_MANUAL_STATUS_MESSAGE,
+  TRACE_SOLVED_STATUS_MESSAGE,
+} from "./ui-status-model.js";
 import { resolveSessionRegistrationAffordances } from "./ui-registration-semantics.js";
 
 export const PANEL_FEEDBACK_ACTION = Object.freeze({
@@ -49,7 +56,7 @@ export function resolveRegistrationSolvePresentation(registration) {
     return {
       ...solveState,
       summaryLabel: "Pins changed; fit pending",
-      statusMessage: "Align mode: pins changed. Switch to Trace to fit the overlay from the current pins.",
+      statusMessage: DIRTY_PINS_STATUS_MESSAGE,
     };
   }
   if (solveState.kind === "ready") {
@@ -80,7 +87,7 @@ export function resolveOverlayRenderPresentation(state) {
       hasImage: false,
       source: renderState.source,
       label: "No image",
-      message: "Paste a screenshot to begin.",
+      message: EMPTY_SESSION_STATUS_MESSAGE,
     };
   }
   if (renderState.source === "solved") {
@@ -89,13 +96,13 @@ export function resolveOverlayRenderPresentation(state) {
           hasImage: true,
           source: renderState.source,
           label: "Solved transform active",
-          message: "Trace mode: the overlay follows the map using the solved transform.",
+          message: TRACE_SOLVED_STATUS_MESSAGE,
         }
       : {
           hasImage: true,
           source: renderState.source,
           label: "Solved transform preview active",
-          message: "Align mode: solved transform preview active. Switch to Trace to verify map-following, or adjust placement to refine and recompute.",
+          message: ALIGN_SOLVED_PREVIEW_STATUS_MESSAGE,
         };
   }
   return isTraceMode(state.mode)
@@ -103,7 +110,7 @@ export function resolveOverlayRenderPresentation(state) {
         hasImage: true,
         source: renderState.source,
         label: "Manual placement active",
-        message: "Trace mode: the overlay follows the map using the current manual placement.",
+        message: TRACE_MANUAL_STATUS_MESSAGE,
       }
     : {
         hasImage: true,

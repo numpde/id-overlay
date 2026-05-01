@@ -7,7 +7,11 @@ import { UI_ACTIVE_GESTURE_KIND, UI_INPUT_OVERRIDE_KIND } from "./ui-state-model
 export const MANUAL_PASTE_PROMPT = "Press Ctrl/Cmd+V to paste an image from your clipboard.";
 export const CLEAR_PINS_CONFIRMATION_MESSAGE = "Click Clear pins? again to remove the current registration pins.";
 export const CLEAR_IMAGE_CONFIRMATION_MESSAGE = "Click Clear image? again to remove the current screenshot, placement, and pins.";
+export const EMPTY_SESSION_STATUS_MESSAGE = "Paste a screenshot to begin.";
 export const DIRTY_PINS_STATUS_MESSAGE = "Align mode: pins changed. Switch to Trace to fit the overlay from the current pins.";
+export const TRACE_SOLVED_STATUS_MESSAGE = "Trace mode: the overlay follows the map using the solved transform.";
+export const ALIGN_SOLVED_PREVIEW_STATUS_MESSAGE = "Align mode: solved transform preview active. Switch to Trace to verify map-following, or adjust placement to refine and recompute.";
+export const TRACE_MANUAL_STATUS_MESSAGE = "Trace mode: the overlay follows the map using the current manual placement.";
 
 export function resolveUiStatusBaseline({ uiState }) {
   const intent = uiState.panel.intent;
@@ -22,7 +26,7 @@ export function resolveUiStatusBaseline({ uiState }) {
   }
 
   if (!uiState.session.image) {
-    return "Paste a screenshot to begin.";
+    return EMPTY_SESSION_STATUS_MESSAGE;
   }
 
   if (uiState.runtime.inputOverride === UI_INPUT_OVERRIDE_KIND.PASS_THROUGH) {
@@ -41,12 +45,12 @@ export function resolveUiStatusBaseline({ uiState }) {
   const renderState = resolveOverlayRenderState(uiState.session);
   if (renderState.source === "solved") {
     return isTraceMode(uiState.session.mode)
-      ? "Trace mode: the overlay follows the map using the solved transform."
-      : "Align mode: solved transform preview active. Switch to Trace to verify map-following, or adjust placement to refine and recompute.";
+      ? TRACE_SOLVED_STATUS_MESSAGE
+      : ALIGN_SOLVED_PREVIEW_STATUS_MESSAGE;
   }
 
   if (isTraceMode(uiState.session.mode)) {
-    return "Trace mode: the overlay follows the map using the current manual placement.";
+    return TRACE_MANUAL_STATUS_MESSAGE;
   }
 
   return describeAlignGestureContract();
