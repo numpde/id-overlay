@@ -4,9 +4,6 @@ import {
 import {
   resolveMainActionDescriptor,
 } from "./ui-main-action-transition.js";
-import {
-  resolveUiRegistrationFacts,
-} from "./ui-registration-semantics.js";
 
 export const PANEL_TITLE = "Reference Overlay";
 export const PANEL_REPO_URL = "https://github.com/numpde/id-overlay";
@@ -14,16 +11,15 @@ export const PANEL_REPO_URL = "https://github.com/numpde/id-overlay";
 export function resolveUiViewModel({
   uiState,
 }) {
-  const registrationFacts = resolveUiRegistrationFacts(uiState);
   const mainAction = resolveMainActionDescriptor(uiState);
 
   return {
     opacityValue: String(uiState.session.opacity),
     modeSwitch: resolveModeSwitchPresentation({
       mode: uiState.session.mode,
-      hasImage: registrationFacts.hasImage,
+      hasImage: mainAction.hasImage,
     }),
-    hasImage: registrationFacts.hasImage,
+    hasImage: mainAction.hasImage,
     mainAction,
   };
 }

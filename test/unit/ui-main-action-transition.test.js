@@ -5,7 +5,6 @@ import { UI_EFFECT_KIND } from "../../src/core/ui-effect-model.js";
 import { UI_EVENT_KIND } from "../../src/core/ui-event-model.js";
 import {
   resolveMainActionDescriptor,
-  resolveMainActionTarget,
   transitionMainAction,
   UI_MAIN_ACTION_PRESENTATION_KIND,
   UI_MAIN_ACTION_TARGET_KIND,
@@ -17,9 +16,9 @@ import {
 } from "../../src/core/ui-state-model.js";
 import { deepFreeze } from "../helpers/deep-freeze.js";
 
-test("main action target is derived from image and pins", () => {
+test("main action descriptor target is derived from image and pins", () => {
   const empty = createInitialUiState();
-  assert.equal(resolveMainActionTarget(empty), UI_MAIN_ACTION_TARGET_KIND.PASTE);
+  assert.equal(resolveMainActionDescriptor(empty).target, UI_MAIN_ACTION_TARGET_KIND.PASTE);
 
   const imageOnly = {
     ...empty,
@@ -29,7 +28,7 @@ test("main action target is derived from image and pins", () => {
       mode: UI_MODE_KIND.ALIGN,
     },
   };
-  assert.equal(resolveMainActionTarget(imageOnly), UI_MAIN_ACTION_TARGET_KIND.CLEAR_IMAGE);
+  assert.equal(resolveMainActionDescriptor(imageOnly).target, UI_MAIN_ACTION_TARGET_KIND.CLEAR_IMAGE);
 
   const withPins = {
     ...imageOnly,
@@ -42,7 +41,7 @@ test("main action target is derived from image and pins", () => {
       },
     },
   };
-  assert.equal(resolveMainActionTarget(withPins), UI_MAIN_ACTION_TARGET_KIND.CLEAR_PINS);
+  assert.equal(resolveMainActionDescriptor(withPins).target, UI_MAIN_ACTION_TARGET_KIND.CLEAR_PINS);
 });
 
 test("main action descriptor captures the local semantic distinctions", () => {
@@ -59,6 +58,8 @@ test("main action descriptor captures the local semantic distinctions", () => {
   };
 
   assert.deepEqual(resolveMainActionDescriptor(state), {
+    hasImage: true,
+    pinCount: 0,
     intent: UI_PANEL_INTENT_KIND.IDLE,
     target: UI_MAIN_ACTION_TARGET_KIND.CLEAR_IMAGE,
     canPasteImage: true,

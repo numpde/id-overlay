@@ -25,7 +25,7 @@ export const UI_MAIN_ACTION_PRESENTATION_KIND = Object.freeze({
   CONFIRM: "confirm",
 });
 
-export function resolveMainActionTarget(uiState) {
+function resolveMainActionTarget(uiState) {
   const registrationFacts = resolveUiRegistrationFacts(uiState);
   return registrationFacts.pinCount > 0
     ? UI_MAIN_ACTION_TARGET_KIND.CLEAR_PINS
@@ -36,6 +36,7 @@ export function resolveMainActionTarget(uiState) {
 
 export function resolveMainActionDescriptor(uiState) {
   const intent = uiState.panel.intent;
+  const registrationFacts = resolveUiRegistrationFacts(uiState);
   const target = resolveMainActionTarget(uiState);
   const canPasteImage = canPasteUiImage(uiState);
   const canClearPins = canClearUiPins(uiState);
@@ -45,10 +46,12 @@ export function resolveMainActionDescriptor(uiState) {
     canPasteImage,
     canClearPins,
   });
-  const pinCount = resolveUiRegistrationFacts(uiState).pinCount;
+  const { hasImage, pinCount } = registrationFacts;
 
   if (target === UI_MAIN_ACTION_TARGET_KIND.PASTE) {
     return {
+      hasImage,
+      pinCount,
       intent,
       target,
       shouldReset,
@@ -66,6 +69,8 @@ export function resolveMainActionDescriptor(uiState) {
 
   if (intent === UI_PANEL_INTENT_KIND.CLEAR_PINS_CONFIRM) {
     return {
+      hasImage,
+      pinCount,
       intent,
       target,
       shouldReset,
@@ -83,6 +88,8 @@ export function resolveMainActionDescriptor(uiState) {
 
   if (intent === UI_PANEL_INTENT_KIND.CLEAR_IMAGE_CONFIRM) {
     return {
+      hasImage,
+      pinCount,
       intent,
       target,
       shouldReset,
@@ -100,6 +107,8 @@ export function resolveMainActionDescriptor(uiState) {
 
   if (target === UI_MAIN_ACTION_TARGET_KIND.CLEAR_PINS) {
     return {
+      hasImage,
+      pinCount,
       intent,
       target,
       shouldReset,
@@ -116,6 +125,8 @@ export function resolveMainActionDescriptor(uiState) {
   }
 
   return {
+    hasImage,
+    pinCount,
     intent,
     target,
     shouldReset,

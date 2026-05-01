@@ -241,6 +241,8 @@ test("resolvePanelPresentation centralizes panel labels and enablement through t
     },
     hasImage: true,
     mainAction: {
+      hasImage: true,
+      pinCount: 2,
       intent: PANEL_ACTION_KIND.PASTE_ARMED,
       target: "clear-pins",
       canPasteImage: true,
