@@ -22,7 +22,6 @@ import {
   PIN_RESULT_ACTION,
   PIN_RESULT_REASON,
   resolveDragMode,
-  resolveModeSwitchPolicy,
   resolveKeyboardShortcut,
   resolveOverlayActivationPolicy,
   resolveOverlayPointerMovePolicy,
@@ -59,6 +58,10 @@ import {
   solveSimilarityTransform,
 } from "./transform.js";
 import { getOverlayImageLoadStats } from "./image-normalization.js";
+import { UI_EFFECT_KIND } from "./ui-effect-model.js";
+import { UI_EVENT_KIND } from "./ui-event-model.js";
+import { projectLiveUiState } from "./ui-live-state.js";
+import { transitionMode } from "./ui-mode-transition.js";
 
 export {
   canCaptureOverlayPointer,
@@ -81,7 +84,6 @@ export {
   PIN_RESULT_ACTION,
   PIN_RESULT_REASON,
   resolveDragMode,
-  resolveModeSwitchPolicy,
   resolveKeyboardShortcut,
   resolveOverlayActivationPolicy,
   resolveOverlayPointerMovePolicy,
@@ -95,7 +97,6 @@ export {
 } from "./interaction-policy.js";
 
 const DEFAULT_RUNTIME = Object.freeze({
-  canCapturePointer: false,
   isDragging: false,
   isPassThroughActive: false,
   isPointerInsideImage: false,
@@ -168,27 +169,18 @@ export function reduceInteractionRuntime(previousRuntime, action, state) {
       break;
   }
 
-  const normalized = {
-    ...next,
-    canCapturePointer: canCaptureOverlayPointer({
-      state,
-      runtime: next,
-    }),
-  };
-
   if (
-    previous.canCapturePointer === normalized.canCapturePointer &&
-    previous.isDragging === normalized.isDragging &&
-    previous.isPassThroughActive === normalized.isPassThroughActive &&
-    previous.isPointerInsideImage === normalized.isPointerInsideImage &&
-    previous.pointerScreenPx?.x === normalized.pointerScreenPx?.x &&
-    previous.pointerScreenPx?.y === normalized.pointerScreenPx?.y &&
-    previous.dragMode === normalized.dragMode
+    previous.isDragging === next.isDragging &&
+    previous.isPassThroughActive === next.isPassThroughActive &&
+    previous.isPointerInsideImage === next.isPointerInsideImage &&
+    previous.pointerScreenPx?.x === next.pointerScreenPx?.x &&
+    previous.pointerScreenPx?.y === next.pointerScreenPx?.y &&
+    previous.dragMode === next.dragMode
   ) {
     return previous;
   }
 
-  return normalized;
+  return next;
 }
 
 export function createInteractionController({
@@ -288,10 +280,6 @@ export function createInteractionController({
 
   function toggleMode() {
     applyMode(nextMode(store.getState().mode));
-  }
-
-  function setMode(mode) {
-    applyMode(mode);
   }
 
   function applyResolvedModeTransition({
@@ -430,7 +418,10 @@ export function createInteractionController({
 
   function handlePointerDown({ button, screenPoint, shiftKey, dragMode: explicitDragMode = null }) {
     return runInteractionBoundary("handle-pointer-down", () => {
-      if (button !== 0 || !runtimeStore.get().canCapturePointer) {
+      if (button !== 0 || !canCaptureOverlayPointer({
+        state: store.getState(),
+        runtime: runtimeStore.get(),
+      })) {
         return false;
       }
 
@@ -756,14 +747,18 @@ export function createInteractionController({
   }
 
   function applyMode(mode) {
-    const state = store.getState();
-    const modeSwitchPolicy = resolveModeSwitchPolicy({
-      state,
-      nextMode: mode,
+    const uiState = projectLiveUiState({
+      state: store.getState(),
+      panelActionState: null,
+      runtime: runtimeStore.get(),
+    });
+    const transitionResult = transitionMode(uiState, {
+      kind: UI_EVENT_KIND.MODE_SELECTED,
+      mode,
     });
     return applyResolvedModeTransition({
-      nextMode: modeSwitchPolicy.nextMode,
-      requestSolve: modeSwitchPolicy.shouldComputeTransform,
+      nextMode: transitionResult.state.session.mode,
+      requestSolve: transitionResult.effects.includes(UI_EFFECT_KIND.REQUEST_REGISTRATION_SOLVE),
     });
   }
 
@@ -895,7 +890,6 @@ export function createInteractionController({
     loadImage,
     clearImage,
     toggleMode,
-    setMode,
     applyResolvedModeTransition,
     setOpacity,
     computeTransform,

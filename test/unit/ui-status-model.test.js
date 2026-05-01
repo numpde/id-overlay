@@ -49,7 +49,6 @@ test("resolveUiStatusBaseline derives canonical panel prompts from panel intent"
         session: { mode: UI_MODE_KIND.ALIGN },
         panel: { intent: UI_PANEL_INTENT_KIND.PASTE_ARMED },
       }),
-      runtime: {},
     }),
     MANUAL_PASTE_PROMPT,
   );
@@ -63,7 +62,6 @@ test("resolveUiStatusBaseline derives canonical panel prompts from panel intent"
         },
         panel: { intent: UI_PANEL_INTENT_KIND.CLEAR_PINS_CONFIRM },
       }),
-      runtime: {},
     }),
     CLEAR_PINS_CONFIRMATION_MESSAGE,
   );
@@ -77,7 +75,6 @@ test("resolveUiStatusBaseline derives canonical panel prompts from panel intent"
         },
         panel: { intent: UI_PANEL_INTENT_KIND.CLEAR_IMAGE_CONFIRM },
       }),
-      runtime: {},
     }),
     CLEAR_IMAGE_CONFIRMATION_MESSAGE,
   );
@@ -87,7 +84,6 @@ test("resolveUiStatusBaseline derives steady workflow guidance from canonical st
   assert.equal(
     resolveUiStatusBaseline({
       uiState: createUiState(),
-      runtime: {},
     }),
     "Paste a screenshot to begin.",
   );
@@ -105,7 +101,6 @@ test("resolveUiStatusBaseline derives steady workflow guidance from canonical st
           },
         },
       }),
-      runtime: {},
     }),
     DIRTY_PINS_STATUS_MESSAGE,
   );
@@ -122,8 +117,10 @@ test("resolveUiStatusBaseline derives steady workflow guidance from canonical st
             dirty: false,
           },
         },
+        runtime: {
+          activeGesture: "map-pan",
+        },
       }),
-      runtime: { isDragging: true, dragMode: "map-pan", isPassThroughActive: false },
     }),
     "Panning the map while the overlay follows.",
   );

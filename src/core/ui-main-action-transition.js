@@ -8,6 +8,7 @@ import {
 import { createUiTransitionResult } from "./ui-transition-result.js";
 import {
   canPasteUiImage,
+  canClearUiPins,
   createClearedUiRegistration,
   resolveUiRegistrationFacts,
 } from "./ui-registration-semantics.js";
@@ -19,6 +20,11 @@ export const UI_MAIN_ACTION_TARGET_KIND = Object.freeze({
   CLEAR_IMAGE: "clear-image",
 });
 
+export const UI_MAIN_ACTION_PRESENTATION_KIND = Object.freeze({
+  NEUTRAL: "neutral",
+  CONFIRM: "confirm",
+});
+
 export function resolveMainActionTarget(uiState) {
   const registrationFacts = resolveUiRegistrationFacts(uiState);
   return registrationFacts.pinCount > 0
@@ -28,11 +34,85 @@ export function resolveMainActionTarget(uiState) {
       : UI_MAIN_ACTION_TARGET_KIND.PASTE;
 }
 
-export function resolveMainActionBasis(uiState) {
+export function resolveMainActionDescriptor(uiState) {
+  const intent = uiState.panel.intent;
+  const target = resolveMainActionTarget(uiState);
+  const canPasteImage = canPasteUiImage(uiState);
+  const canClearPins = canClearUiPins(uiState);
+  const shouldReset = shouldResetMainActionIntent({
+    intent,
+    target,
+    canPasteImage,
+    canClearPins,
+  });
+  const pinCount = resolveUiRegistrationFacts(uiState).pinCount;
+
+  if (target === UI_MAIN_ACTION_TARGET_KIND.PASTE) {
+    return {
+      intent,
+      target,
+      shouldReset,
+      disabled: !canPasteImage,
+      canPasteImage,
+      canClearPins,
+      label: intent === UI_PANEL_INTENT_KIND.PASTE_ARMED ? "Paste…" : "Paste",
+      presentationKind: UI_MAIN_ACTION_PRESENTATION_KIND.NEUTRAL,
+      nextIntent: UI_PANEL_INTENT_KIND.PASTE_ARMED,
+    };
+  }
+
+  if (intent === UI_PANEL_INTENT_KIND.CLEAR_PINS_CONFIRM) {
+    return {
+      intent,
+      target,
+      shouldReset,
+      disabled: !canClearPins,
+      canPasteImage,
+      canClearPins,
+      label: "Clear pins?",
+      presentationKind: UI_MAIN_ACTION_PRESENTATION_KIND.CONFIRM,
+      nextIntent: UI_PANEL_INTENT_KIND.CLEAR_PINS_CONFIRM,
+    };
+  }
+
+  if (intent === UI_PANEL_INTENT_KIND.CLEAR_IMAGE_CONFIRM) {
+    return {
+      intent,
+      target,
+      shouldReset,
+      disabled: false,
+      canPasteImage,
+      canClearPins,
+      label: "Clear image?",
+      presentationKind: UI_MAIN_ACTION_PRESENTATION_KIND.CONFIRM,
+      nextIntent: UI_PANEL_INTENT_KIND.CLEAR_IMAGE_CONFIRM,
+    };
+  }
+
+  if (target === UI_MAIN_ACTION_TARGET_KIND.CLEAR_PINS) {
+    return {
+      intent,
+      target,
+      shouldReset,
+      disabled: !canClearPins,
+      canPasteImage,
+      canClearPins,
+      label: resolveClearPinsLabel(pinCount),
+      presentationKind: UI_MAIN_ACTION_PRESENTATION_KIND.NEUTRAL,
+      nextIntent: UI_PANEL_INTENT_KIND.CLEAR_PINS_CONFIRM,
+    };
+  }
+
   return {
-    intent: uiState.panel.intent,
-    target: resolveMainActionTarget(uiState),
-    canPasteImage: canPasteUiImage(uiState),
+    intent,
+    target,
+    shouldReset,
+    disabled: false,
+    canPasteImage,
+    canClearPins,
+    label: "Clear image",
+    presentationKind: UI_MAIN_ACTION_PRESENTATION_KIND.NEUTRAL,
+    nextIntent: UI_PANEL_INTENT_KIND.CLEAR_IMAGE_CONFIRM,
   };
 }
 
@@ -40,13 +120,17 @@ export function shouldResetMainActionIntent({
   intent,
   target,
   canPasteImage,
+  canClearPins,
 }) {
   return (
     (intent === UI_PANEL_INTENT_KIND.PASTE_ARMED && (
       target !== UI_MAIN_ACTION_TARGET_KIND.PASTE ||
       !canPasteImage
     )) ||
-    (intent === UI_PANEL_INTENT_KIND.CLEAR_PINS_CONFIRM && target !== UI_MAIN_ACTION_TARGET_KIND.CLEAR_PINS) ||
+    (intent === UI_PANEL_INTENT_KIND.CLEAR_PINS_CONFIRM && (
+      target !== UI_MAIN_ACTION_TARGET_KIND.CLEAR_PINS ||
+      !canClearPins
+    )) ||
     (intent === UI_PANEL_INTENT_KIND.CLEAR_IMAGE_CONFIRM && target !== UI_MAIN_ACTION_TARGET_KIND.CLEAR_IMAGE)
   );
 }
@@ -68,35 +152,37 @@ export function transitionMainAction(uiState, event) {
 }
 
 function transitionMainActionTriggered(uiState) {
-  const basis = resolveMainActionBasis(uiState);
+  const action = resolveMainActionDescriptor(uiState);
 
-  if (shouldResetMainActionIntent(basis)) {
+  if (action.shouldReset) {
     return createUiTransitionResult(
       patchPanelIntent(uiState, UI_PANEL_INTENT_KIND.IDLE),
     );
   }
 
-  if (basis.intent === UI_PANEL_INTENT_KIND.PASTE_ARMED) {
+  if (action.intent === UI_PANEL_INTENT_KIND.PASTE_ARMED) {
     return createUiTransitionResult(
       patchPanelIntent(uiState, UI_PANEL_INTENT_KIND.IDLE),
+      [UI_EFFECT_KIND.SHOW_PASTE_CANCELLED_FEEDBACK],
     );
   }
 
-  if (basis.target === UI_MAIN_ACTION_TARGET_KIND.PASTE) {
-    if (!basis.canPasteImage) {
-      return createUiTransitionResult(uiState);
-    }
+  if (action.disabled) {
+    return createUiTransitionResult(uiState);
+  }
+
+  if (action.target === UI_MAIN_ACTION_TARGET_KIND.PASTE) {
     return createUiTransitionResult(
       patchPanelIntent(uiState, UI_PANEL_INTENT_KIND.PASTE_ARMED),
       [UI_EFFECT_KIND.REQUEST_PASTE_INPUT],
     );
   }
 
-  if (basis.intent === UI_PANEL_INTENT_KIND.CLEAR_PINS_CONFIRM) {
+  if (action.intent === UI_PANEL_INTENT_KIND.CLEAR_PINS_CONFIRM) {
     return transitionClearPins(uiState);
   }
 
-  if (basis.intent === UI_PANEL_INTENT_KIND.CLEAR_IMAGE_CONFIRM) {
+  if (action.intent === UI_PANEL_INTENT_KIND.CLEAR_IMAGE_CONFIRM) {
     return createUiTransitionResult(
       resetToClearedImageSession(uiState),
       [
@@ -106,12 +192,8 @@ function transitionMainActionTriggered(uiState) {
     );
   }
 
-  const nextIntent = basis.target === UI_MAIN_ACTION_TARGET_KIND.CLEAR_PINS
-    ? UI_PANEL_INTENT_KIND.CLEAR_PINS_CONFIRM
-    : UI_PANEL_INTENT_KIND.CLEAR_IMAGE_CONFIRM;
-
   return createUiTransitionResult(
-    patchPanelIntent(uiState, nextIntent),
+    patchPanelIntent(uiState, action.nextIntent),
     [UI_EFFECT_KIND.START_PANEL_TIMEOUT],
   );
 }
@@ -170,6 +252,16 @@ function patchPanelIntent(uiState, nextIntent) {
       intent: nextIntent,
     },
   };
+}
+
+function resolveClearPinsLabel(pinCount) {
+  if (pinCount === 1) {
+    return "Clear 1 pin";
+  }
+  if (pinCount > 1) {
+    return `Clear ${pinCount} pins`;
+  }
+  return "Clear pins";
 }
 
 function resetToClearedImageSession(uiState) {

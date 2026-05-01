@@ -23,7 +23,6 @@ import {
   syncPanelActionStateToUiIntent,
 } from "../core/ui-live-state.js";
 import {
-  UI_LIVE_FEEDBACK_KIND,
   transitionLiveUi,
 } from "../core/ui-live-transition.js";
 import {
@@ -222,6 +221,7 @@ export function createPanel({ shadow, store, interactions, statusController }) {
     return projectLiveUiState({
       state: store.getState(),
       panelActionState,
+      runtime: interactions.getRuntimeState(),
     });
   }
 
@@ -471,6 +471,7 @@ export function createPanel({ shadow, store, interactions, statusController }) {
     const liveTransition = transitionLiveUi({
       state: latestState,
       panelActionState,
+      runtime: interactions.getRuntimeState(),
       event,
     });
     await applyCanonicalUiTransition({
@@ -487,28 +488,31 @@ export function createPanel({ shadow, store, interactions, statusController }) {
     const {
       transitionResult,
       nextPanelActionState,
-      modeExecution,
-      feedbackKind,
+      nextUiState,
+      previousUiState,
     } = liveTransition;
 
     setPanelActionState(nextPanelActionState);
 
-    if (modeExecution) {
-      interactions.applyResolvedModeTransition(modeExecution);
-    }
-
-    if (feedbackKind === UI_LIVE_FEEDBACK_KIND.PASTE_CANCELLED) {
-      logger.info("Cancelled paste capture");
-      statusController.showTransient(
-        describePanelActionPresentation(PANEL_FEEDBACK_ACTION.PASTE_CANCELLED),
-      );
-    }
-
-    await runCanonicalUiEffects(transitionResult.effects, nextPanelActionState);
+    await runCanonicalUiEffects({
+      previousUiState,
+      nextUiState,
+      effects: transitionResult.effects,
+      nextPanelActionState,
+    });
   }
 
-  async function runCanonicalUiEffects(effects, nextPanelActionState) {
-    await runUiLiveEffects(effects, {
+  async function runCanonicalUiEffects({
+    previousUiState,
+    nextUiState,
+    effects,
+    nextPanelActionState,
+  }) {
+    await runUiLiveEffects({
+      previousUiState,
+      nextUiState,
+      effects,
+    }, {
       requestPasteInput: async () => {
         logger.info("Paste requested");
         const image = await tryLoadClipboardImageFromApi({
@@ -533,6 +537,12 @@ export function createPanel({ shadow, store, interactions, statusController }) {
           describePanelActionPresentation(PANEL_FEEDBACK_ACTION.CLEAR_IMAGE),
         );
       },
+      showPasteCancelledFeedback: async () => {
+        logger.info("Cancelled paste capture");
+        statusController.showTransient(
+          describePanelActionPresentation(PANEL_FEEDBACK_ACTION.PASTE_CANCELLED),
+        );
+      },
       startPanelTimeout: async () => {
         clearClearConfirmTimer();
         clearConfirmTimer = globalThis.setTimeout(() => {
@@ -544,6 +554,9 @@ export function createPanel({ shadow, store, interactions, statusController }) {
       },
       cancelPanelTimeout: async () => {
         clearClearConfirmTimer();
+      },
+      applyResolvedModeTransition: async (modeExecution) => {
+        interactions.applyResolvedModeTransition(modeExecution);
       },
     });
   }

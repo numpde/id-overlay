@@ -3,12 +3,9 @@ import {
   UI_PANEL_INTENT_KIND,
 } from "./ui-state-model.js";
 import {
-  resolveMainActionBasis,
-  shouldResetMainActionIntent,
+  resolveMainActionDescriptor,
 } from "./ui-main-action-transition.js";
 import {
-  canPasteUiImage,
-  canClearUiPins,
   resolveUiRegistrationFacts,
 } from "./ui-registration-semantics.js";
 
@@ -41,16 +38,15 @@ export function resolveUiViewModel({
 
 function resolveUiPanelActionSemantics(uiState) {
   const registrationFacts = resolveUiRegistrationFacts(uiState);
-  const canPasteImage = canPasteUiImage(uiState);
   const pasteArmed = uiState.panel.intent === UI_PANEL_INTENT_KIND.PASTE_ARMED;
   const clearPinsConfirming = uiState.panel.intent === UI_PANEL_INTENT_KIND.CLEAR_PINS_CONFIRM;
   const clearImageConfirming = uiState.panel.intent === UI_PANEL_INTENT_KIND.CLEAR_IMAGE_CONFIRM;
   const clearConfirming = clearPinsConfirming || clearImageConfirming;
-  const mainActionBasis = resolveMainActionBasis(uiState);
+  const mainAction = resolveMainActionDescriptor(uiState);
 
   return {
     hasImage: registrationFacts.hasImage,
-    canPasteImage,
+    canPasteImage: mainAction.canPasteImage,
     pinCount: registrationFacts.pinCount,
     isIdle: uiState.panel.intent === UI_PANEL_INTENT_KIND.IDLE,
     hasActiveAction: uiState.panel.intent !== UI_PANEL_INTENT_KIND.IDLE,
@@ -58,78 +54,18 @@ function resolveUiPanelActionSemantics(uiState) {
     clearPinsConfirming,
     clearImageConfirming,
     clearConfirming,
-    canClearPins: canClearUiPins(uiState),
-    shouldReset: shouldResetMainActionIntent(mainActionBasis),
+    canClearPins: mainAction.canClearPins,
+    shouldReset: mainAction.shouldReset,
     shouldAttachPasteListener: pasteArmed,
-  };
-}
-
-function resolveClearPinsLabel(pinCount) {
-  if (pinCount === 1) {
-    return "Clear 1 pin";
-  }
-  if (pinCount > 1) {
-    return `Clear ${pinCount} pins`;
-  }
-  return "Clear pins";
-}
-
-function resolveClearActionPresentation({
-  hasImage,
-  canPasteImage,
-  pasteArmed,
-  pinCount,
-  clearPinsConfirming,
-  clearImageConfirming,
-}) {
-  if (!hasImage) {
-    return {
-      label: pasteArmed ? "Paste…" : "Paste",
-      variant: "neutral",
-      disabled: !canPasteImage,
-    };
-  }
-  if (clearPinsConfirming) {
-    return {
-      label: "Clear pins?",
-      variant: "confirm",
-      disabled: false,
-    };
-  }
-  if (clearImageConfirming) {
-    return {
-      label: "Clear image?",
-      variant: "confirm",
-      disabled: false,
-    };
-  }
-  if (pinCount > 0) {
-    return {
-      label: resolveClearPinsLabel(pinCount),
-      variant: "neutral",
-      disabled: false,
-    };
-  }
-  return {
-    label: "Clear image",
-    variant: "neutral",
-    disabled: false,
+    mainAction,
   };
 }
 
 function resolvePanelActionPresentation({ actionSemantics }) {
-  const clearActionPresentation = resolveClearActionPresentation({
-    hasImage: actionSemantics.hasImage,
-    canPasteImage: actionSemantics.canPasteImage,
-    pasteArmed: actionSemantics.pasteArmed,
-    pinCount: actionSemantics.pinCount,
-    clearPinsConfirming: actionSemantics.clearPinsConfirming,
-    clearImageConfirming: actionSemantics.clearImageConfirming,
-  });
   return {
-    clearButtonLabel: clearActionPresentation.label,
-    clearButtonVariant: clearActionPresentation.variant,
-    clearButtonDisabled: clearActionPresentation.disabled,
+    clearButtonLabel: actionSemantics.mainAction.label,
+    clearButtonVariant: actionSemantics.mainAction.presentationKind,
+    clearButtonDisabled: actionSemantics.mainAction.disabled,
   };
 }
 

@@ -20,7 +20,6 @@ import {
   nextMode,
   reduceInteractionRuntime,
   resolveOverlayActivationPolicy,
-  resolveModeSwitchPolicy,
   resolveOverlayPointerMovePolicy,
   resolveOverlayPointerSequencePolicy,
   resolveOverlayWheelPolicy,
@@ -47,46 +46,6 @@ import {
 test("nextMode toggles between align and trace", () => {
   assert.equal(nextMode(INTERACTION_MODE.TRACE), INTERACTION_MODE.ALIGN);
   assert.equal(nextMode(INTERACTION_MODE.ALIGN), INTERACTION_MODE.TRACE);
-});
-
-test("mode switch policy isolates trace-entry solve triggering", () => {
-  const stateWithDirtyPins = createStateStore({
-    mode: "align",
-    image: {
-      src: "data:image/png;base64,abc",
-      width: 800,
-      height: 400,
-    },
-    registration: {
-      pins: [
-        { id: 1, imagePx: { x: 10, y: 20 }, mapLatLon: { lat: 0, lon: 0 } },
-        { id: 2, imagePx: { x: 30, y: 40 }, mapLatLon: { lat: 1, lon: 1 } },
-      ],
-      solvedTransform: null,
-      dirty: true,
-    },
-  }).getState();
-
-  assert.deepEqual(
-    resolveModeSwitchPolicy({
-      state: stateWithDirtyPins,
-      nextMode: "trace",
-    }),
-    {
-      nextMode: INTERACTION_MODE.TRACE,
-      shouldComputeTransform: true,
-    },
-  );
-  assert.deepEqual(
-    resolveModeSwitchPolicy({
-      state: stateWithDirtyPins,
-      nextMode: "align",
-    }),
-    {
-      nextMode: INTERACTION_MODE.ALIGN,
-      shouldComputeTransform: false,
-    },
-  );
 });
 
 test("loading an image seeds align mode and the current map center placement", () => {
@@ -312,7 +271,6 @@ test("interaction runtime transitions are single-source through the runtime redu
     },
   }).getState();
   const baseRuntime = {
-    canCapturePointer: false,
     isDragging: false,
     isPassThroughActive: false,
     isPointerInsideImage: false,
@@ -323,7 +281,6 @@ test("interaction runtime transitions are single-source through the runtime redu
   const synced = reduceInteractionRuntime(baseRuntime, {
     type: INTERACTION_RUNTIME_ACTION.SYNC_FROM_STATE,
   }, state);
-  assert.equal(synced.canCapturePointer, true);
   assert.equal(synced.isDragging, false);
 
   const dragging = reduceInteractionRuntime(synced, {
@@ -335,7 +292,6 @@ test("interaction runtime transitions are single-source through the runtime redu
   assert.deepEqual(dragging.pointerScreenPx, { x: 500, y: 300 });
   assert.equal(dragging.isDragging, true);
   assert.equal(dragging.dragMode, DRAG_MODE.MAP_PAN);
-  assert.equal(dragging.canCapturePointer, true);
 
   const reset = reduceInteractionRuntime(dragging, {
     type: INTERACTION_RUNTIME_ACTION.RESET,
@@ -346,7 +302,6 @@ test("interaction runtime transitions are single-source through the runtime redu
   assert.equal(reset.dragMode, null);
   assert.equal(reset.isPassThroughActive, false);
   assert.equal(reset.pointerScreenPx, null);
-  assert.equal(reset.canCapturePointer, true);
 
   const unchanged = reduceInteractionRuntime(reset, {
     type: INTERACTION_RUNTIME_ACTION.UPDATE_POINTER,
@@ -665,7 +620,7 @@ test("alt-wheel adjusts the overlay opacity in trace mode", () => {
     width: 800,
     height: 400,
   });
-  controller.setMode("trace");
+  controller.toggleMode();
 
   const initialOpacity = store.getState().opacity;
   const handled = controller.handleWheel({
@@ -1005,7 +960,7 @@ test("wheel capability is single-source across modes and modifiers", () => {
   assert.equal(
     canHandleWheelGesture({
       state: { mode: "align", image: { src: "x" } },
-      runtime: { isPassThroughActive: false, canCapturePointer: true },
+      runtime: { isPassThroughActive: false },
       wheelMode: "map-zoom",
     }),
     true,
@@ -1013,7 +968,7 @@ test("wheel capability is single-source across modes and modifiers", () => {
   assert.equal(
     canHandleWheelGesture({
       state: { mode: "trace", image: { src: "x" } },
-      runtime: { isPassThroughActive: false, canCapturePointer: false },
+      runtime: { isPassThroughActive: false },
       wheelMode: "map-zoom",
     }),
     false,
@@ -1021,7 +976,7 @@ test("wheel capability is single-source across modes and modifiers", () => {
   assert.equal(
     canHandleWheelGesture({
       state: { mode: "trace", image: { src: "x" } },
-      runtime: { isPassThroughActive: false, canCapturePointer: false },
+      runtime: { isPassThroughActive: false },
       wheelMode: "adjust-opacity",
     }),
     true,
@@ -1030,7 +985,7 @@ test("wheel capability is single-source across modes and modifiers", () => {
 
 test("overlay wheel policy is single-source", () => {
   const state = { mode: "align", image: { src: "x" }, opacity: 0.6 };
-  const runtime = { isPassThroughActive: false, canCapturePointer: true };
+  const runtime = { isPassThroughActive: false };
 
   assert.deepEqual(
     resolveOverlayWheelPolicy({
@@ -1063,7 +1018,7 @@ test("overlay wheel policy is single-source", () => {
 
 test("overlay pointer move policy is single-source", () => {
   const state = { mode: "align", image: { src: "x" } };
-  const runtime = { canCapturePointer: true, isPassThroughActive: false };
+  const runtime = { isPassThroughActive: false };
 
   assert.deepEqual(
     resolveOverlayPointerMovePolicy({
@@ -1102,7 +1057,7 @@ test("overlay pointer move policy is single-source", () => {
 
 test("overlay pointer sequence policy is single-source", () => {
   const state = { mode: "align", image: { src: "x" } };
-  const runtime = { canCapturePointer: true, isPassThroughActive: false };
+  const runtime = { isPassThroughActive: false };
 
   assert.deepEqual(
     resolveOverlayPointerSequencePolicy({
@@ -1163,7 +1118,7 @@ test("overlay pointer sequence policy is single-source", () => {
 
 test("overlay activation policy is single-source", () => {
   const state = { mode: "align", image: { src: "x" } };
-  const runtime = { canCapturePointer: true, isPassThroughActive: false };
+  const runtime = { isPassThroughActive: false };
 
   assert.deepEqual(
     resolveOverlayActivationPolicy({

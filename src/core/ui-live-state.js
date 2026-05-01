@@ -1,10 +1,8 @@
 import {
-  UI_EFFECT_KIND,
-} from "./ui-effect-model.js";
-import {
   UI_PANEL_INTENT_KIND,
   createInitialUiState,
-  UI_MODE_KIND,
+  UI_ACTIVE_GESTURE_KIND,
+  UI_INPUT_OVERRIDE_KIND,
 } from "./ui-state-model.js";
 import {
   syncPanelActionState,
@@ -13,6 +11,7 @@ import {
 export function projectLiveUiState({
   state,
   panelActionState,
+  runtime,
 }) {
   const initialUiState = createInitialUiState();
   return {
@@ -28,6 +27,7 @@ export function projectLiveUiState({
         ...state?.registration,
       },
     },
+    runtime: projectLiveUiRuntime(runtime),
     panel: {
       intent: panelActionState?.kind ?? UI_PANEL_INTENT_KIND.IDLE,
     },
@@ -41,20 +41,23 @@ export function syncPanelActionStateToUiIntent({
   return syncPanelActionState(previousPanelActionState, nextIntent);
 }
 
-export function resolveUiModeExecution({
-  previousUiState,
-  nextUiState,
-  effects,
-}) {
-  const requestSolve = effects.includes(UI_EFFECT_KIND.REQUEST_REGISTRATION_SOLVE);
-  const nextMode = nextUiState?.session?.mode ?? previousUiState?.session?.mode;
-  const previousMode = previousUiState?.session?.mode ?? UI_MODE_KIND.TRACE;
-  if (previousMode === nextMode && !requestSolve) {
-    return null;
-  }
+export function projectLiveUiRuntime(runtime) {
+  const activeGesture = (
+    runtime?.dragMode === "map-pan"
+      ? UI_ACTIVE_GESTURE_KIND.MAP_PAN
+      : runtime?.dragMode === "move-overlay"
+        ? UI_ACTIVE_GESTURE_KIND.MOVE_OVERLAY
+        : null
+  );
+  const inputOverride = runtime?.isPassThroughActive
+    ? UI_INPUT_OVERRIDE_KIND.PASS_THROUGH
+    : null;
 
   return {
-    nextMode,
-    requestSolve,
+    pointer: {
+      screenPx: runtime?.pointerScreenPx ?? null,
+    },
+    activeGesture,
+    inputOverride,
   };
 }

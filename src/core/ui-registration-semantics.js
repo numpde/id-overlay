@@ -9,24 +9,38 @@ export function createClearedUiRegistration() {
   return createDefaultRegistration();
 }
 
-export function resolveUiRegistrationFacts(uiState) {
-  const solveState = resolveRegistrationSolveState(uiState.session.registration);
+export function resolveSessionRegistrationAffordances(sessionState) {
+  const solveState = resolveRegistrationSolveState(sessionState.registration);
+  const registrationUi = resolveRegistrationUiPolicy(sessionState);
+  const hasImage = hasOverlayImageSession(sessionState);
   return {
-    hasImage: hasOverlayImageSession(uiState.session),
+    hasImage,
     pinCount: solveState.pinCount,
+    canPasteImage: registrationUi.canPasteImage,
+    canShowPins: registrationUi.canShowPins,
+    canClearPins: (
+      hasImage &&
+      registrationUi.registrationModeActive &&
+      solveState.pinCount > 0
+    ),
+  };
+}
+
+export function resolveUiRegistrationFacts(uiState) {
+  const {
+    hasImage,
+    pinCount,
+  } = resolveSessionRegistrationAffordances(uiState.session);
+  return {
+    hasImage,
+    pinCount,
   };
 }
 
 export function canPasteUiImage(uiState) {
-  return resolveRegistrationUiPolicy(uiState.session).canPasteImage;
+  return resolveSessionRegistrationAffordances(uiState.session).canPasteImage;
 }
 
 export function canClearUiPins(uiState) {
-  const { hasImage, pinCount } = resolveUiRegistrationFacts(uiState);
-  const registrationUi = resolveRegistrationUiPolicy(uiState.session);
-  return (
-    hasImage &&
-    registrationUi.canPasteImage &&
-    pinCount > 0
-  );
+  return resolveSessionRegistrationAffordances(uiState.session).canClearPins;
 }

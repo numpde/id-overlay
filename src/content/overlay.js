@@ -176,9 +176,13 @@ export function createOverlay({ pageAdapter, store, interactions }) {
     const state = store.getState();
     const viewportRect = latestSnapshot.viewportRect;
     const localViewportRect = latestSnapshot.localViewportRect ?? viewportRect;
+    const registrationUi = resolveRegistrationUiPolicy(state);
     overlayRoot.dataset.mode = state.mode;
     overlayRoot.dataset.passThrough = String(latestRuntime.isPassThroughActive);
-    overlayRoot.classList.toggle("id-overlay-viewport--interactive", latestRuntime.canCapturePointer);
+    overlayRoot.classList.toggle(
+      "id-overlay-viewport--interactive",
+      registrationUi.canShowPins && !latestRuntime.isPassThroughActive,
+    );
     overlayRoot.style.left = `${localViewportRect.left}px`;
     overlayRoot.style.top = `${localViewportRect.top}px`;
     overlayRoot.style.width = `${localViewportRect.width}px`;
@@ -229,7 +233,7 @@ export function createOverlay({ pageAdapter, store, interactions }) {
     overlayFrame.style.transformOrigin = "0 0";
     overlayFrame.style.transform = `rotate(${model.rotationDeg}deg)`;
 
-    if (!resolveRegistrationUiPolicy(state).canShowPins) {
+    if (!registrationUi.canShowPins) {
       mapPinLayer.replaceChildren();
       pinLayer.replaceChildren();
       return;

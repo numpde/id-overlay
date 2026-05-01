@@ -3,10 +3,7 @@ import assert from "node:assert/strict";
 
 import { UI_EFFECT_KIND } from "../../src/core/ui-effect-model.js";
 import { UI_EVENT_KIND } from "../../src/core/ui-event-model.js";
-import {
-  UI_LIVE_FEEDBACK_KIND,
-  transitionLiveUi,
-} from "../../src/core/ui-live-transition.js";
+import { transitionLiveUi } from "../../src/core/ui-live-transition.js";
 import {
   createInitialPanelActionState,
   syncPanelActionState,
@@ -28,6 +25,7 @@ test("transitionLiveUi projects, routes, and syncs panel intent for main-action 
   const result = transitionLiveUi({
     state: liveState,
     panelActionState,
+    runtime: null,
     event: {
       kind: UI_EVENT_KIND.MAIN_ACTION_TRIGGERED,
     },
@@ -37,11 +35,9 @@ test("transitionLiveUi projects, routes, and syncs panel intent for main-action 
   assert.equal(result.nextUiState.panel.intent, UI_PANEL_INTENT_KIND.PASTE_ARMED);
   assert.equal(result.nextPanelActionState.kind, UI_PANEL_INTENT_KIND.PASTE_ARMED);
   assert.deepEqual(result.transitionResult.effects, [UI_EFFECT_KIND.REQUEST_PASTE_INPUT]);
-  assert.equal(result.modeExecution, null);
-  assert.equal(result.feedbackKind, null);
 });
 
-test("transitionLiveUi resolves paste-cancel feedback when the main action disarms paste", () => {
+test("transitionLiveUi preserves paste-cancel feedback as a canonical effect", () => {
   const panelActionState = syncPanelActionState(
     createInitialPanelActionState(),
     PANEL_ACTION_KIND.PASTE_ARMED,
@@ -54,6 +50,7 @@ test("transitionLiveUi resolves paste-cancel feedback when the main action disar
   const result = transitionLiveUi({
     state: liveState,
     panelActionState,
+    runtime: null,
     event: {
       kind: UI_EVENT_KIND.MAIN_ACTION_TRIGGERED,
     },
@@ -61,10 +58,12 @@ test("transitionLiveUi resolves paste-cancel feedback when the main action disar
 
   assert.equal(result.nextUiState.panel.intent, UI_PANEL_INTENT_KIND.IDLE);
   assert.equal(result.nextPanelActionState.kind, UI_PANEL_INTENT_KIND.IDLE);
-  assert.equal(result.feedbackKind, UI_LIVE_FEEDBACK_KIND.PASTE_CANCELLED);
+  assert.deepEqual(result.transitionResult.effects, [
+    UI_EFFECT_KIND.SHOW_PASTE_CANCELLED_FEEDBACK,
+  ]);
 });
 
-test("transitionLiveUi resolves mode execution from canonical mode transitions", () => {
+test("transitionLiveUi preserves canonical mode transition effects for the live runner", () => {
   const liveState = {
     ...createInitialUiState().session,
     mode: UI_MODE_KIND.ALIGN,
@@ -79,15 +78,16 @@ test("transitionLiveUi resolves mode execution from canonical mode transitions",
   const result = transitionLiveUi({
     state: liveState,
     panelActionState: createInitialPanelActionState(),
+    runtime: null,
     event: {
       kind: UI_EVENT_KIND.MODE_SELECTED,
       mode: UI_MODE_KIND.TRACE,
     },
   });
 
-  assert.deepEqual(result.modeExecution, {
-    nextMode: UI_MODE_KIND.TRACE,
-    requestSolve: true,
-  });
-  assert.equal(result.feedbackKind, null);
+  assert.equal(result.previousUiState.session.mode, UI_MODE_KIND.ALIGN);
+  assert.equal(result.nextUiState.session.mode, UI_MODE_KIND.TRACE);
+  assert.deepEqual(result.transitionResult.effects, [
+    UI_EFFECT_KIND.REQUEST_REGISTRATION_SOLVE,
+  ]);
 });

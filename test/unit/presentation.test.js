@@ -261,7 +261,7 @@ test("resolvePanelPresentation disables registration actions outside align mode"
   assert.equal(viewModel.actionSemantics.canPasteImage, false);
   assert.equal(viewModel.actionSemantics.canClearPins, false);
   assert.equal(presentation.clearButtonLabel, "Clear 2 pins");
-  assert.equal(presentation.clearButtonDisabled, false);
+  assert.equal(presentation.clearButtonDisabled, true);
   assert.equal(presentation.modeSwitch.disabled, false);
 });
 

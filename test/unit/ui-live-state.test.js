@@ -6,15 +6,12 @@ import {
   createInitialPanelActionState,
   syncPanelActionState,
 } from "../../src/core/panel-state.js";
-import { UI_EFFECT_KIND } from "../../src/core/ui-effect-model.js";
 import {
   UI_PANEL_INTENT_KIND,
-  UI_MODE_KIND,
-  createInitialUiState,
 } from "../../src/core/ui-state-model.js";
 import {
   projectLiveUiState,
-  resolveUiModeExecution,
+  projectLiveUiRuntime,
   syncPanelActionStateToUiIntent,
 } from "../../src/core/ui-live-state.js";
 
@@ -30,6 +27,11 @@ test("projectLiveUiState maps current live session and panel facts into canonica
       dirty: true,
     },
   };
+  const runtime = {
+    pointerScreenPx: { x: 12, y: 34 },
+    dragMode: "move-overlay",
+    isPassThroughActive: true,
+  };
   const panelActionState = syncPanelActionState(
     createInitialPanelActionState(),
     PANEL_ACTION_KIND.CLEAR_PINS_CONFIRM,
@@ -39,6 +41,7 @@ test("projectLiveUiState maps current live session and panel facts into canonica
     projectLiveUiState({
       state: liveState,
       panelActionState,
+      runtime,
     }),
     {
       session: {
@@ -48,7 +51,13 @@ test("projectLiveUiState maps current live session and panel facts into canonica
         placement: liveState.placement,
         registration: liveState.registration,
       },
-      runtime: createInitialUiState().runtime,
+      runtime: {
+        pointer: {
+          screenPx: { x: 12, y: 34 },
+        },
+        activeGesture: "move-overlay",
+        inputOverride: "pass-through",
+      },
       panel: {
         intent: UI_PANEL_INTENT_KIND.CLEAR_PINS_CONFIRM,
       },
@@ -79,46 +88,34 @@ test("syncPanelActionStateToUiIntent preserves panel reducer session semantics",
   });
 });
 
-test("resolveUiModeExecution emits only the live mode command actually needed", () => {
-  const previousUiState = createInitialUiState();
-  const nextUiState = {
-    ...previousUiState,
-    session: {
-      ...previousUiState.session,
-      mode: UI_MODE_KIND.ALIGN,
-    },
-  };
-
+test("projectLiveUiRuntime maps interaction runtime into canonical runtime vocabulary", () => {
   assert.deepEqual(
-    resolveUiModeExecution({
-      previousUiState,
-      nextUiState,
-      effects: [],
+    projectLiveUiRuntime({
+      pointerScreenPx: { x: 5, y: 6 },
+      dragMode: "map-pan",
+      isPassThroughActive: false,
     }),
     {
-      nextMode: UI_MODE_KIND.ALIGN,
-      requestSolve: false,
+      pointer: {
+        screenPx: { x: 5, y: 6 },
+      },
+      activeGesture: "map-pan",
+      inputOverride: null,
     },
   );
 
   assert.deepEqual(
-    resolveUiModeExecution({
-      previousUiState: nextUiState,
-      nextUiState,
-      effects: [UI_EFFECT_KIND.REQUEST_REGISTRATION_SOLVE],
+    projectLiveUiRuntime({
+      pointerScreenPx: null,
+      dragMode: null,
+      isPassThroughActive: true,
     }),
     {
-      nextMode: UI_MODE_KIND.ALIGN,
-      requestSolve: true,
+      pointer: {
+        screenPx: null,
+      },
+      activeGesture: null,
+      inputOverride: "pass-through",
     },
-  );
-
-  assert.equal(
-    resolveUiModeExecution({
-      previousUiState: nextUiState,
-      nextUiState,
-      effects: [],
-    }),
-    null,
   );
 });

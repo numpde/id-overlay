@@ -68,10 +68,7 @@ export function createStatusController({ store, interactions }) {
 
   function resolveBaselineMessage() {
     if (uiStateSource) {
-      return resolveUiStatusBaseline({
-        uiState: uiStateSource(),
-        runtime: interactions.getRuntimeState(),
-      });
+      return resolveUiStatusBaseline({ uiState: uiStateSource() });
     }
     return resolveDefaultStatusMessage({
       state: store.getState(),

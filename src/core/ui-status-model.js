@@ -1,15 +1,15 @@
 import { isTraceMode } from "./interaction-mode.js";
-import { DRAG_MODE } from "./interaction-policy.js";
 import { UI_PANEL_INTENT_KIND } from "./ui-state-model.js";
 import { resolveOverlayRenderState } from "./transform.js";
 import { resolveRegistrationSolveState } from "./state.js";
+import { UI_ACTIVE_GESTURE_KIND, UI_INPUT_OVERRIDE_KIND } from "./ui-state-model.js";
 
 export const MANUAL_PASTE_PROMPT = "Press Ctrl/Cmd+V to paste an image from your clipboard.";
 export const CLEAR_PINS_CONFIRMATION_MESSAGE = "Click Clear pins? again to remove the current registration pins.";
 export const CLEAR_IMAGE_CONFIRMATION_MESSAGE = "Click Clear image? again to remove the current screenshot, placement, and pins.";
 export const DIRTY_PINS_STATUS_MESSAGE = "Align mode: pins changed. Switch to Trace to fit the overlay from the current pins.";
 
-export function resolveUiStatusBaseline({ uiState, runtime }) {
+export function resolveUiStatusBaseline({ uiState }) {
   const intent = uiState.panel.intent;
   if (intent === UI_PANEL_INTENT_KIND.PASTE_ARMED) {
     return MANUAL_PASTE_PROMPT;
@@ -25,12 +25,12 @@ export function resolveUiStatusBaseline({ uiState, runtime }) {
     return "Paste a screenshot to begin.";
   }
 
-  if (runtime?.isPassThroughActive) {
+  if (uiState.runtime.inputOverride === UI_INPUT_OVERRIDE_KIND.PASS_THROUGH) {
     return "Pass-through active: pan or zoom iD underneath, then release Space to continue registering.";
   }
 
-  if (runtime?.isDragging) {
-    return describeActiveAlignDrag(runtime.dragMode) ?? "Dragging overlay.";
+  if (uiState.runtime.activeGesture) {
+    return describeActiveAlignDrag(uiState.runtime.activeGesture) ?? "Dragging overlay.";
   }
 
   const solveState = resolveRegistrationSolveState(uiState.session.registration);
@@ -57,10 +57,10 @@ export function describeAlignGestureContract() {
 }
 
 export function describeActiveAlignDrag(dragMode) {
-  if (dragMode === DRAG_MODE.MAP_PAN) {
+  if (dragMode === UI_ACTIVE_GESTURE_KIND.MAP_PAN) {
     return "Panning the map while the overlay follows.";
   }
-  if (dragMode === DRAG_MODE.MOVE_OVERLAY) {
+  if (dragMode === UI_ACTIVE_GESTURE_KIND.MOVE_OVERLAY) {
     return "Dragging overlay only. Release to keep this placement.";
   }
   return null;

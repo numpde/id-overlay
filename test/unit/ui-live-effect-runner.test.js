@@ -3,18 +3,36 @@ import assert from "node:assert/strict";
 
 import { UI_EFFECT_KIND } from "../../src/core/ui-effect-model.js";
 import { runUiLiveEffects } from "../../src/core/ui-live-effect-runner.js";
+import { createInitialUiState, UI_MODE_KIND } from "../../src/core/ui-state-model.js";
 
 test("runUiLiveEffects executes semantic handlers in order and ignores unknown effects", async () => {
   const seen = [];
+  const previousUiState = createInitialUiState();
+  const nextUiState = {
+    ...previousUiState,
+    session: {
+      ...previousUiState.session,
+      mode: UI_MODE_KIND.ALIGN,
+    },
+  };
 
   await runUiLiveEffects(
-    [
+    {
+      previousUiState,
+      nextUiState,
+      effects: [
       UI_EFFECT_KIND.REQUEST_PASTE_INPUT,
+      UI_EFFECT_KIND.REQUEST_REGISTRATION_SOLVE,
+      UI_EFFECT_KIND.SHOW_PASTE_CANCELLED_FEEDBACK,
       UI_EFFECT_KIND.CLEAR_PINS,
       "unknown-effect",
       UI_EFFECT_KIND.CANCEL_PANEL_TIMEOUT,
-    ],
+      ],
+    },
     {
+      applyResolvedModeTransition: async ({ nextMode, requestSolve }) => {
+        seen.push(`mode:${nextMode}:${requestSolve}`);
+      },
       requestPasteInput: async () => {
         seen.push("paste");
       },
@@ -23,6 +41,9 @@ test("runUiLiveEffects executes semantic handlers in order and ignores unknown e
       },
       clearImage: async () => {
         seen.push("clear-image");
+      },
+      showPasteCancelledFeedback: async () => {
+        seen.push("paste-cancelled");
       },
       startPanelTimeout: async () => {
         seen.push("start-timeout");
@@ -34,7 +55,9 @@ test("runUiLiveEffects executes semantic handlers in order and ignores unknown e
   );
 
   assert.deepEqual(seen, [
+    "mode:align:true",
     "paste",
+    "paste-cancelled",
     "clear-pins",
     "cancel-timeout",
   ]);

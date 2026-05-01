@@ -5,7 +5,6 @@ import { resolveOverlayRenderState } from "./transform.js";
 import {
   INTERACTION_EVENT,
   PIN_RESULT_REASON,
-  resolveRegistrationUiPolicy,
   SOLVE_RESULT_REASON,
 } from "./interaction-policy.js";
 import { RUNTIME_ERROR_SOURCE } from "./runtime-error.js";
@@ -15,6 +14,7 @@ import {
 } from "./ui-status-model.js";
 import { projectLiveUiState } from "./ui-live-state.js";
 import { UI_PANEL_INTENT_KIND } from "./ui-state-model.js";
+import { resolveSessionRegistrationAffordances } from "./ui-registration-semantics.js";
 
 export const PANEL_FEEDBACK_ACTION = Object.freeze({
   PASTE_CANCELLED: "paste-cancelled",
@@ -28,14 +28,14 @@ export const PANEL_FEEDBACK_ACTION = Object.freeze({
 export function resolveOverlaySessionPresentation(state) {
   const solvePresentation = resolveRegistrationSolvePresentation(state.registration);
   const renderPresentation = resolveOverlayRenderPresentation(state);
-  const registrationUi = resolveRegistrationUiPolicy(state);
+  const registrationUi = resolveSessionRegistrationAffordances(state);
 
   return {
     hasImage: renderPresentation.hasImage,
     canPasteImage: registrationUi.canPasteImage,
     canShowPins: registrationUi.canShowPins,
     pinCount: solvePresentation.pinCount,
-    canClearPins: registrationUi.registrationModeActive && solvePresentation.canClearPins,
+    canClearPins: registrationUi.canClearPins,
     solve: solvePresentation,
     render: renderPresentation,
   };
@@ -126,11 +126,11 @@ export function resolveDefaultStatusMessage({ state, runtime }) {
   return resolveUiStatusBaseline({
     uiState: projectLiveUiState({
       state,
+      runtime,
       panelActionState: {
         kind: UI_PANEL_INTENT_KIND.IDLE,
       },
     }),
-    runtime,
   });
 }
 

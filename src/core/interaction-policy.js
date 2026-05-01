@@ -1,4 +1,4 @@
-import { hasOverlayImageSession, needsSolveRecompute } from "./state.js";
+import { hasOverlayImageSession } from "./state.js";
 import {
   INTERACTION_MODE,
   isAlignMode,
@@ -64,18 +64,6 @@ export function resolveRegistrationUiPolicy(state) {
     registrationModeActive,
     canPasteImage: !hasImage || registrationModeActive,
     canShowPins: registrationModeActive && hasImage,
-  };
-}
-
-export function resolveModeSwitchPolicy({ state, nextMode }) {
-  const normalizedNextMode = normalizeInteractionMode(nextMode);
-  return {
-    nextMode: normalizedNextMode,
-    shouldComputeTransform: (
-      normalizedNextMode === INTERACTION_MODE.TRACE &&
-      hasOverlayImageSession(state) &&
-      needsSolveRecompute(state.registration)
-    ),
   };
 }
 

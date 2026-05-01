@@ -112,6 +112,6 @@ test("resolveUiViewModel keeps trace-mode registration affordances disabled with
   assert.equal(viewModel.actionSemantics.canPasteImage, false);
   assert.equal(viewModel.actionSemantics.canClearPins, false);
   assert.equal(viewModel.presentation.clearButtonLabel, "Clear 2 pins");
-  assert.equal(viewModel.presentation.clearButtonDisabled, false);
+  assert.equal(viewModel.presentation.clearButtonDisabled, true);
   assert.equal(viewModel.presentation.modeSwitch.disabled, false);
 });

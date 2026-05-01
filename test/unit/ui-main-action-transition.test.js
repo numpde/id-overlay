@@ -4,9 +4,10 @@ import assert from "node:assert/strict";
 import { UI_EFFECT_KIND } from "../../src/core/ui-effect-model.js";
 import { UI_EVENT_KIND } from "../../src/core/ui-event-model.js";
 import {
-  resolveMainActionBasis,
+  resolveMainActionDescriptor,
   resolveMainActionTarget,
   transitionMainAction,
+  UI_MAIN_ACTION_PRESENTATION_KIND,
   UI_MAIN_ACTION_TARGET_KIND,
 } from "../../src/core/ui-main-action-transition.js";
 import {
@@ -44,7 +45,7 @@ test("main action target is derived from image and pins", () => {
   assert.equal(resolveMainActionTarget(withPins), UI_MAIN_ACTION_TARGET_KIND.CLEAR_PINS);
 });
 
-test("main action basis captures only the local semantic distinctions", () => {
+test("main action descriptor captures the local semantic distinctions", () => {
   const state = {
     ...createInitialUiState(),
     session: {
@@ -57,10 +58,16 @@ test("main action basis captures only the local semantic distinctions", () => {
     },
   };
 
-  assert.deepEqual(resolveMainActionBasis(state), {
+  assert.deepEqual(resolveMainActionDescriptor(state), {
     intent: UI_PANEL_INTENT_KIND.IDLE,
     target: UI_MAIN_ACTION_TARGET_KIND.CLEAR_IMAGE,
     canPasteImage: true,
+    canClearPins: false,
+    shouldReset: false,
+    disabled: false,
+    label: "Clear image",
+    presentationKind: UI_MAIN_ACTION_PRESENTATION_KIND.NEUTRAL,
+    nextIntent: UI_PANEL_INTENT_KIND.CLEAR_IMAGE_CONFIRM,
   });
 });
 
@@ -106,7 +113,9 @@ test("main action cancels paste arming on second click", () => {
   });
 
   assert.equal(result.state.panel.intent, UI_PANEL_INTENT_KIND.IDLE);
-  assert.deepEqual(result.effects, []);
+  assert.deepEqual(result.effects, [
+    UI_EFFECT_KIND.SHOW_PASTE_CANCELLED_FEEDBACK,
+  ]);
 });
 
 test("paste success loads an image session and enters align", () => {
@@ -232,6 +241,33 @@ test("stale clear-pins confirmation resets back to idle instead of escalating", 
       image: { id: "image" },
       registration: {
         pins: [],
+        solvedTransform: null,
+        dirty: false,
+      },
+    },
+    panel: {
+      intent: UI_PANEL_INTENT_KIND.CLEAR_PINS_CONFIRM,
+    },
+  };
+
+  const result = transitionMainAction(state, {
+    kind: UI_EVENT_KIND.MAIN_ACTION_TRIGGERED,
+  });
+
+  assert.equal(result.state.panel.intent, UI_PANEL_INTENT_KIND.IDLE);
+  assert.deepEqual(result.effects, []);
+});
+
+test("clear-pins confirmation in trace mode resets back to idle when pins are hidden", () => {
+  const base = createInitialUiState();
+  const state = {
+    ...base,
+    session: {
+      ...base.session,
+      mode: UI_MODE_KIND.TRACE,
+      image: { id: "image" },
+      registration: {
+        pins: [{ id: 1 }],
         solvedTransform: null,
         dirty: false,
       },

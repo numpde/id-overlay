@@ -32,7 +32,6 @@ test("overlay double-click toggles pins through the interaction controller", asy
     });
 
     const runtimeStore = createValueStore({
-      canCapturePointer: true,
       isDragging: false,
       isPointerInsideImage: true,
       isPassThroughActive: false,
@@ -149,7 +148,6 @@ test("handled overlay wheel gestures do not bubble into the underlying map", asy
       }),
     });
     const runtimeStore = createValueStore({
-      canCapturePointer: true,
       isDragging: false,
       isPointerInsideImage: true,
       isPassThroughActive: false,
@@ -260,7 +258,6 @@ test("plain wheel over the overlay in align mode stays native to the map", async
       }),
     });
     const runtimeStore = createValueStore({
-      canCapturePointer: true,
       isDragging: false,
       isPointerInsideImage: true,
       isPassThroughActive: false,
@@ -372,7 +369,6 @@ test("alt-wheel in trace mode is captured from the map layer when the pointer is
       }),
     });
     const runtimeStore = createValueStore({
-      canCapturePointer: false,
       isDragging: false,
       isPointerInsideImage: false,
       isPassThroughActive: false,
@@ -492,7 +488,6 @@ test("align-mode overlay pointerdown owns the click sequence and does not bubble
       }),
     });
     const runtimeStore = createValueStore({
-      canCapturePointer: true,
       isDragging: false,
       isPointerInsideImage: true,
       isPassThroughActive: false,
@@ -596,7 +591,6 @@ test("plain pointerdown over the overlay in align mode owns the click sequence w
       }),
     });
     const runtimeStore = createValueStore({
-      canCapturePointer: true,
       isDragging: false,
       isPointerInsideImage: true,
       isPassThroughActive: false,
@@ -714,7 +708,6 @@ test("trace-mode solved transform follows map view changes from the page adapter
     });
 
     const runtimeStore = createValueStore({
-      canCapturePointer: false,
       isDragging: false,
       isPointerInsideImage: false,
       isPassThroughActive: false,
@@ -840,7 +833,6 @@ test("trace-mode overlay applies live surface motion from the page adapter", asy
     });
 
     const runtimeStore = createValueStore({
-      canCapturePointer: false,
       isDragging: false,
       isPointerInsideImage: false,
       isPassThroughActive: false,

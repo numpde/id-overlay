@@ -23,6 +23,9 @@ export const UI_EFFECT_MODEL = Object.freeze({
   CLEAR_IMAGE: defineUiEffect(
     "clear-image",
   ),
+  SHOW_PASTE_CANCELLED_FEEDBACK: defineUiEffect(
+    "show-paste-cancelled-feedback",
+  ),
   START_PANEL_TIMEOUT: defineUiEffect(
     "start-panel-timeout",
   ),
