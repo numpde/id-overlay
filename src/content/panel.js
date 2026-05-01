@@ -306,7 +306,7 @@ export function createPanel({ shadow, store, interactions, statusController }) {
   }
 
   async function handleWindowPaste(event) {
-    if (!getMainAction().pasteArmed) {
+    if (getMainAction().intent !== UI_PANEL_INTENT_KIND.PASTE_ARMED) {
       return;
     }
 
@@ -418,19 +418,19 @@ export function createPanel({ shadow, store, interactions, statusController }) {
   }
 
   function syncPanelActionSideEffects(mainAction = getMainAction()) {
-    if (!mainAction.clearConfirming) {
+    if (mainAction.presentationKind !== "confirm") {
       clearClearConfirmTimer();
     }
     syncPasteListener(mainAction);
   }
 
   function syncPasteListener(mainAction) {
-    if (mainAction.pasteArmed && !isPasteListenerAttached) {
+    if (mainAction.intent === UI_PANEL_INTENT_KIND.PASTE_ARMED && !isPasteListenerAttached) {
       window.addEventListener("paste", handleWindowPaste, true);
       isPasteListenerAttached = true;
       return;
     }
-    if (!mainAction.pasteArmed && isPasteListenerAttached) {
+    if (mainAction.intent !== UI_PANEL_INTENT_KIND.PASTE_ARMED && isPasteListenerAttached) {
       detachPasteListener();
     }
   }

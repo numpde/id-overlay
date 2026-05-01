@@ -241,15 +241,10 @@ test("resolvePanelPresentation centralizes panel labels and enablement through t
       pinCount: 2,
       intent: UI_PANEL_INTENT_KIND.IDLE,
       target: "clear-pins",
-      canPasteImage: true,
-      canClearPins: true,
       shouldReset: true,
       disabled: false,
       label: "Clear 2 pins",
       presentationKind: "neutral",
-      nextIntent: UI_PANEL_INTENT_KIND.CLEAR_PINS_CONFIRM,
-      pasteArmed: false,
-      clearConfirming: false,
     },
   });
 });
@@ -274,8 +269,6 @@ test("resolvePanelPresentation advances the primary action to clear-image when p
       sessionId: 0,
     },
   });
-  assert.equal(viewModel.mainAction.canPasteImage, false);
-  assert.equal(viewModel.mainAction.canClearPins, false);
   assert.equal(viewModel.mainAction.target, "clear-image");
   assert.equal(viewModel.mainAction.label, "Clear image");
   assert.equal(viewModel.mainAction.disabled, false);
@@ -303,7 +296,6 @@ test("resolvePanelViewModel keeps panel semantics and presentation on one has-im
   assert.equal(viewModel.hasImage, false);
   assert.equal(viewModel.mainAction.disabled, false);
   assert.equal(viewModel.mainAction.label, "Paste");
-  assert.equal(viewModel.mainAction.canPasteImage, true);
   assert.equal(viewModel.mainAction.shouldReset, true);
   assert.equal(viewModel.modeSwitch.disabled, true);
 });

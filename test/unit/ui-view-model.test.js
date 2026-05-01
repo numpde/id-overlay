@@ -45,8 +45,6 @@ test("resolveUiViewModel reflects the empty trace state without panel semantics 
 
   assert.equal(viewModel.mainAction.label, "Paste");
   assert.equal(viewModel.mainAction.disabled, false);
-  assert.equal(viewModel.mainAction.canPasteImage, true);
-  assert.equal(viewModel.mainAction.canClearPins, false);
   assert.equal(viewModel.mainAction.shouldReset, false);
   assert.equal(viewModel.modeSwitch.disabled, true);
 });
@@ -66,7 +64,6 @@ test("resolveUiViewModel resets stale clear-image confirmation back onto the pas
   assert.equal(viewModel.mainAction.label, "Paste");
   assert.equal(viewModel.mainAction.disabled, false);
   assert.equal(viewModel.mainAction.shouldReset, true);
-  assert.equal(viewModel.mainAction.canPasteImage, true);
   assert.equal(viewModel.modeSwitch.disabled, true);
 });
 
@@ -90,10 +87,7 @@ test("resolveUiViewModel exposes stale paste intent through the same canonical m
 
   assert.equal(viewModel.mainAction.intent, UI_PANEL_INTENT_KIND.IDLE);
   assert.equal(viewModel.mainAction.label, "Clear 2 pins");
-  assert.equal(viewModel.mainAction.canPasteImage, true);
-  assert.equal(viewModel.mainAction.canClearPins, true);
   assert.equal(viewModel.mainAction.shouldReset, true);
-  assert.equal(viewModel.mainAction.pasteArmed, false);
 });
 
 test("resolveUiViewModel advances the primary action to clear-image when pins are not clearable", () => {
@@ -111,8 +105,6 @@ test("resolveUiViewModel advances the primary action to clear-image when pins ar
     }),
   });
 
-  assert.equal(viewModel.mainAction.canPasteImage, false);
-  assert.equal(viewModel.mainAction.canClearPins, false);
   assert.equal(viewModel.mainAction.intent, UI_PANEL_INTENT_KIND.IDLE);
   assert.equal(viewModel.mainAction.target, "clear-image");
   assert.equal(viewModel.mainAction.label, "Clear image");

@@ -69,15 +69,10 @@ test("main action descriptor captures the local semantic distinctions", () => {
     pinCount: 0,
     intent: UI_PANEL_INTENT_KIND.IDLE,
     target: "clear-image",
-    canPasteImage: true,
-    canClearPins: false,
     shouldReset: false,
     disabled: false,
     label: "Clear image",
     presentationKind: "neutral",
-    nextIntent: UI_PANEL_INTENT_KIND.CLEAR_IMAGE_CONFIRM,
-    pasteArmed: false,
-    clearConfirming: false,
   });
 });
 

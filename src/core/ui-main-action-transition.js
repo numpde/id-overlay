@@ -23,6 +23,12 @@ const UI_MAIN_ACTION_PRESENTATION_KIND = Object.freeze({
   CONFIRM: "confirm",
 });
 
+const UI_MAIN_ACTION_CONFIRM_INTENT = Object.freeze({
+  [UI_MAIN_ACTION_TARGET_KIND.PASTE]: UI_PANEL_INTENT_KIND.PASTE_ARMED,
+  [UI_MAIN_ACTION_TARGET_KIND.CLEAR_PINS]: UI_PANEL_INTENT_KIND.CLEAR_PINS_CONFIRM,
+  [UI_MAIN_ACTION_TARGET_KIND.CLEAR_IMAGE]: UI_PANEL_INTENT_KIND.CLEAR_IMAGE_CONFIRM,
+});
+
 function resolveMainActionTarget(registrationUi) {
   return registrationUi.canClearPins
     ? UI_MAIN_ACTION_TARGET_KIND.CLEAR_PINS
@@ -57,13 +63,8 @@ export function resolveMainActionDescriptor(uiState) {
       target,
       shouldReset,
       disabled: !canPasteImage,
-      canPasteImage,
-      canClearPins,
       label: effectiveIntent === UI_PANEL_INTENT_KIND.PASTE_ARMED ? "Paste…" : "Paste",
       presentationKind: UI_MAIN_ACTION_PRESENTATION_KIND.NEUTRAL,
-      nextIntent: UI_PANEL_INTENT_KIND.PASTE_ARMED,
-      pasteArmed: effectiveIntent === UI_PANEL_INTENT_KIND.PASTE_ARMED,
-      clearConfirming: false,
     };
   }
 
@@ -75,13 +76,8 @@ export function resolveMainActionDescriptor(uiState) {
       target,
       shouldReset,
       disabled: !canClearPins,
-      canPasteImage,
-      canClearPins,
       label: "Clear pins?",
       presentationKind: UI_MAIN_ACTION_PRESENTATION_KIND.CONFIRM,
-      nextIntent: UI_PANEL_INTENT_KIND.CLEAR_PINS_CONFIRM,
-      pasteArmed: false,
-      clearConfirming: true,
     };
   }
 
@@ -93,13 +89,8 @@ export function resolveMainActionDescriptor(uiState) {
       target,
       shouldReset,
       disabled: false,
-      canPasteImage,
-      canClearPins,
       label: "Clear image?",
       presentationKind: UI_MAIN_ACTION_PRESENTATION_KIND.CONFIRM,
-      nextIntent: UI_PANEL_INTENT_KIND.CLEAR_IMAGE_CONFIRM,
-      pasteArmed: false,
-      clearConfirming: true,
     };
   }
 
@@ -111,13 +102,8 @@ export function resolveMainActionDescriptor(uiState) {
       target,
       shouldReset,
       disabled: !canClearPins,
-      canPasteImage,
-      canClearPins,
       label: resolveClearPinsLabel(pinCount),
       presentationKind: UI_MAIN_ACTION_PRESENTATION_KIND.NEUTRAL,
-      nextIntent: UI_PANEL_INTENT_KIND.CLEAR_PINS_CONFIRM,
-      pasteArmed: false,
-      clearConfirming: false,
     };
   }
 
@@ -128,13 +114,8 @@ export function resolveMainActionDescriptor(uiState) {
     target,
     shouldReset,
     disabled: false,
-    canPasteImage,
-    canClearPins,
     label: "Clear image",
     presentationKind: UI_MAIN_ACTION_PRESENTATION_KIND.NEUTRAL,
-    nextIntent: UI_PANEL_INTENT_KIND.CLEAR_IMAGE_CONFIRM,
-    pasteArmed: false,
-    clearConfirming: false,
   };
 }
 
@@ -215,7 +196,7 @@ function transitionMainActionTriggered(uiState) {
   }
 
   return createUiTransitionResult(
-    patchPanelIntent(uiState, action.nextIntent),
+    patchPanelIntent(uiState, UI_MAIN_ACTION_CONFIRM_INTENT[action.target]),
     [UI_EFFECT_KIND.START_PANEL_TIMEOUT],
   );
 }
