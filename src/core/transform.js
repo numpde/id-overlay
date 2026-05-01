@@ -1,6 +1,6 @@
 import { hasCleanSolvedTransform, hasOverlayImageSession } from "./state.js";
+import { DEFAULT_SESSION_OPACITY } from "./session-defaults.js";
 
-const DEFAULT_OPACITY = 0.6;
 const DEFAULT_SCREEN_SCALE = 1;
 const DEFAULT_ROTATION_RAD = 0;
 const MIN_SCREEN_SCALE = 0.1;
@@ -11,7 +11,7 @@ const TILE_SIZE = 256;
 
 export function clampOpacity(value) {
   if (!Number.isFinite(value)) {
-    return DEFAULT_OPACITY;
+    return DEFAULT_SESSION_OPACITY;
   }
   return Math.min(1, Math.max(0, value));
 }
@@ -119,15 +119,6 @@ export function scaleFromWheelDelta(scale, deltaY) {
 
 export function rotationFromWheelDelta(rotationRad, deltaY) {
   return rotationRad - deltaY * WHEEL_ROTATION_STEP;
-}
-
-export function rotateVector(vector, rotationRad) {
-  const cos = Math.cos(rotationRad);
-  const sin = Math.sin(rotationRad);
-  return {
-    x: vector.x * cos - vector.y * sin,
-    y: vector.x * sin + vector.y * cos,
-  };
 }
 
 export function createPlacementTransform({

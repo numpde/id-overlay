@@ -21,6 +21,10 @@
 // do not belong here.
 
 import { INTERACTION_MODE } from "./interaction-mode.js";
+import {
+  DEFAULT_SESSION_MODE,
+  DEFAULT_SESSION_OPACITY,
+} from "./session-defaults.js";
 
 export const UI_MODE_KIND = INTERACTION_MODE;
 
@@ -44,8 +48,8 @@ export function createInitialUiState() {
   return {
     // Durable overlay/session reality.
     session: {
-      mode: UI_MODE_KIND.TRACE,
-      opacity: 0.6,
+      mode: DEFAULT_SESSION_MODE,
+      opacity: DEFAULT_SESSION_OPACITY,
       image: null,
       placement: null,
       registration: {

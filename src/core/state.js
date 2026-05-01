@@ -7,10 +7,14 @@ import {
   INTERACTION_MODE,
   normalizeInteractionMode,
 } from "./interaction-mode.js";
+import {
+  DEFAULT_SESSION_MODE,
+  DEFAULT_SESSION_OPACITY,
+} from "./session-defaults.js";
 
 const DEFAULT_STATE = Object.freeze({
-  mode: INTERACTION_MODE.TRACE,
-  opacity: 0.6,
+  mode: DEFAULT_SESSION_MODE,
+  opacity: DEFAULT_SESSION_OPACITY,
   image: null,
   placement: null,
   registration: {

@@ -33,6 +33,8 @@ import { INTERACTION_MODE, normalizeInteractionMode } from "../core/interaction-
 import { formatBuildLabel, createLogger } from "../core/logger.js";
 
 const PANEL_MARGIN_PX = 8;
+const PANEL_FALLBACK_WIDTH_PX = 280;
+const PANEL_FALLBACK_HEIGHT_PX = 200;
 const SVG_NS = "http://www.w3.org/2000/svg";
 
 export function createPanel({ shadow, store, interactions, statusController }) {
@@ -435,8 +437,12 @@ export function createPanel({ shadow, store, interactions, statusController }) {
 
   function clampPanelPosition(position) {
     const rect = root.getBoundingClientRect();
-    const panelWidth = rect.width || root.offsetWidth || 280;
-    const panelHeight = rect.height || root.offsetHeight || 200;
+    const panelWidth = rect.width || root.offsetWidth || readCssPixelVariable(
+      root,
+      "--id-overlay-panel-width",
+      PANEL_FALLBACK_WIDTH_PX,
+    );
+    const panelHeight = rect.height || root.offsetHeight || PANEL_FALLBACK_HEIGHT_PX;
     const maxLeft = Math.max(PANEL_MARGIN_PX, window.innerWidth - panelWidth - PANEL_MARGIN_PX);
     const maxTop = Math.max(PANEL_MARGIN_PX, window.innerHeight - panelHeight - PANEL_MARGIN_PX);
     return {
@@ -567,6 +573,13 @@ function createGithubIcon() {
 
 function clampNumber(value, min, max) {
   return Math.min(Math.max(value, min), max);
+}
+
+function readCssPixelVariable(element, name, fallbackValue) {
+  const value = Number.parseFloat(
+    window.getComputedStyle(element).getPropertyValue(name),
+  );
+  return Number.isFinite(value) ? value : fallbackValue;
 }
 
 function createButton(label) {
