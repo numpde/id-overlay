@@ -52,6 +52,15 @@ export function createStatusController({ store, interactions }) {
     }, durationMs);
   }
 
+  function clearTransient() {
+    if (transientMessage === null && !transientTimer) {
+      return;
+    }
+    transientMessage = null;
+    clearTransientTimer();
+    syncMessage();
+  }
+
   function destroy() {
     clearTransientTimer();
     panelActionStateSource = null;
@@ -90,6 +99,7 @@ export function createStatusController({ store, interactions }) {
     subscribe,
     getMessage,
     showTransient,
+    clearTransient,
     setPanelActionStateSource,
     refresh,
     destroy,

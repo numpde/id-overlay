@@ -20,6 +20,8 @@ test("ui event kind vocabulary is semantic and compact", () => {
     MAIN_ACTION_TRIGGERED: "main-action-triggered",
     MODE_SELECTED: "mode-selected",
     CLEAR_PINS_TRIGGERED: "clear-pins-triggered",
+    UNDO_TRIGGERED: "undo-triggered",
+    REDO_TRIGGERED: "redo-triggered",
     PASTE_SUCCEEDED: "paste-succeeded",
     PASTE_CANCELLED: "paste-cancelled",
     PASTE_FAILED: "paste-failed",
@@ -44,6 +46,12 @@ test("ui event model exposes family and payload-key shapes", () => {
 
   assert.deepEqual(UI_EVENT_MODEL.CLEAR_PINS_TRIGGERED, {
     kind: UI_EVENT_KIND.CLEAR_PINS_TRIGGERED,
+    family: UI_EVENT_FAMILY_KIND.INTENT,
+    payloadKeys: [],
+  });
+
+  assert.deepEqual(UI_EVENT_MODEL.UNDO_TRIGGERED, {
+    kind: UI_EVENT_KIND.UNDO_TRIGGERED,
     family: UI_EVENT_FAMILY_KIND.INTENT,
     payloadKeys: [],
   });

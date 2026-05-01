@@ -1,0 +1,32 @@
+import { UI_EFFECT_KIND } from "./ui-effect-model.js";
+import { UI_EVENT_KIND } from "./ui-event-model.js";
+import { UI_PANEL_INTENT_KIND } from "./ui-state-model.js";
+import { createUiTransitionResult } from "./ui-transition-result.js";
+
+export function transitionHistory(uiState, event) {
+  switch (event?.kind) {
+    case UI_EVENT_KIND.UNDO_TRIGGERED:
+      return transitionHistoryCommand(uiState, UI_EFFECT_KIND.UNDO_SESSION);
+    case UI_EVENT_KIND.REDO_TRIGGERED:
+      return transitionHistoryCommand(uiState, UI_EFFECT_KIND.REDO_SESSION);
+    default:
+      return createUiTransitionResult(uiState);
+  }
+}
+
+function transitionHistoryCommand(uiState, effectKind) {
+  const nextState = uiState.panel.intent === UI_PANEL_INTENT_KIND.IDLE
+    ? uiState
+    : {
+      ...uiState,
+      panel: {
+        ...uiState.panel,
+        intent: UI_PANEL_INTENT_KIND.IDLE,
+      },
+    };
+
+  return createUiTransitionResult(nextState, [
+    UI_EFFECT_KIND.CANCEL_PANEL_TIMEOUT,
+    effectKind,
+  ]);
+}

@@ -278,6 +278,14 @@ export function createInteractionController({
     });
   }
 
+  function undoSessionHistory() {
+    return restoreSessionHistory("undo");
+  }
+
+  function redoSessionHistory() {
+    return restoreSessionHistory("redo");
+  }
+
   function toggleMode() {
     applyMode(nextMode(store.getState().mode));
   }
@@ -806,6 +814,22 @@ export function createInteractionController({
     return result;
   }
 
+  function restoreSessionHistory(direction) {
+    return runInteractionBoundary(`${direction}-session-history`, () => {
+      resetInteractionState({
+        endPointerScreenPx: runtimeStore.get().pointerScreenPx,
+        pointerScreenPx: null,
+        isPointerInsideImage: false,
+      });
+      const changed = direction === "undo" ? store.undo() : store.redo();
+      if (changed) {
+        logger.info(`${direction === "undo" ? "Undid" : "Redid"} session history`);
+        syncRuntimeFromState();
+      }
+      return changed;
+    }, { fallbackValue: false });
+  }
+
   function resetInteractionState({
     endPointerScreenPx = runtimeStore.get().pointerScreenPx,
     pointerScreenPx = runtimeStore.get().pointerScreenPx,
@@ -889,6 +913,8 @@ export function createInteractionController({
     getRuntimeState,
     loadImage,
     clearImage,
+    undoSessionHistory,
+    redoSessionHistory,
     toggleMode,
     applyResolvedModeTransition,
     setOpacity,

@@ -29,6 +29,12 @@ export async function runUiLiveEffects({
       case UI_EFFECT_KIND.CLEAR_IMAGE:
         await handlers.clearImage();
         break;
+      case UI_EFFECT_KIND.UNDO_SESSION:
+        await handlers.undoSession();
+        break;
+      case UI_EFFECT_KIND.REDO_SESSION:
+        await handlers.redoSession();
+        break;
       case UI_EFFECT_KIND.SHOW_PASTE_CANCELLED_FEEDBACK:
         await handlers.showPasteCancelledFeedback();
         break;

@@ -18,6 +18,8 @@ import {
 export const PANEL_FEEDBACK_ACTION = Object.freeze({
   PASTE_CANCELLED: "paste-cancelled",
   CLEAR_IMAGE: "clear-image",
+  UNDO: "undo",
+  REDO: "redo",
   CLIPBOARD_MISSING_IMAGE: "clipboard-missing-image",
   CLIPBOARD_IMAGE_UNREADABLE: "clipboard-image-unreadable",
   CLIPBOARD_MISSING_IMAGE_WITH_PROMPT: "clipboard-missing-image-with-prompt",
@@ -135,6 +137,10 @@ export function describePanelActionPresentation(action, payload = {}) {
       return "Paste cancelled.";
     case PANEL_FEEDBACK_ACTION.CLEAR_IMAGE:
       return "Cleared the current screenshot.";
+    case PANEL_FEEDBACK_ACTION.UNDO:
+      return "Undid change.";
+    case PANEL_FEEDBACK_ACTION.REDO:
+      return "Redid change.";
     case PANEL_FEEDBACK_ACTION.CLIPBOARD_MISSING_IMAGE:
       return "Clipboard does not contain an image.";
     case PANEL_FEEDBACK_ACTION.CLIPBOARD_IMAGE_UNREADABLE:

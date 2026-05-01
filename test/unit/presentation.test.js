@@ -382,6 +382,14 @@ test("presentation centralizes panel action feedback copy", () => {
     "Cleared the current screenshot.",
   );
   assert.equal(
+    describePanelActionPresentation(PANEL_FEEDBACK_ACTION.UNDO),
+    "Undid change.",
+  );
+  assert.equal(
+    describePanelActionPresentation(PANEL_FEEDBACK_ACTION.REDO),
+    "Redid change.",
+  );
+  assert.equal(
     describePanelActionPresentation(PANEL_FEEDBACK_ACTION.CLIPBOARD_MISSING_IMAGE),
     "Clipboard does not contain an image.",
   );

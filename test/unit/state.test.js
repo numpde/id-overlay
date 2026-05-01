@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  isHistoryCheckpointAction,
   STATE_ACTION,
   canSolveRegistration,
   createDefaultState,
@@ -273,6 +274,72 @@ test("registration and image-session no-op transitions do not notify", () => {
 
   store.clearImage();
   assert.equal(calls, 2);
+});
+
+test("history checkpoint policy stays on committed session edits only", () => {
+  assert.equal(isHistoryCheckpointAction({ type: STATE_ACTION.LOAD_IMAGE_SESSION }), true);
+  assert.equal(isHistoryCheckpointAction({ type: STATE_ACTION.ADD_PIN }), true);
+  assert.equal(isHistoryCheckpointAction({ type: STATE_ACTION.REMOVE_PIN }), true);
+  assert.equal(isHistoryCheckpointAction({ type: STATE_ACTION.CLEAR_PINS }), true);
+  assert.equal(isHistoryCheckpointAction({ type: STATE_ACTION.CLEAR_IMAGE }), true);
+  assert.equal(isHistoryCheckpointAction({ type: STATE_ACTION.SET_MODE }), false);
+  assert.equal(isHistoryCheckpointAction({ type: STATE_ACTION.SET_OPACITY }), false);
+  assert.equal(isHistoryCheckpointAction({ type: STATE_ACTION.SET_PLACEMENT }), false);
+  assert.equal(isHistoryCheckpointAction({ type: STATE_ACTION.SET_SOLVED_TRANSFORM }), false);
+});
+
+test("state history restores committed session snapshots and clears redo after a new edit", () => {
+  const image = { src: "data:image/png;base64,abc", width: 1200, height: 800 };
+  const placement = createPlacementTransform({
+    image,
+    centerMapLatLon: { lat: -1.23, lon: 36.84 },
+    scale: 1,
+    rotationRad: 0,
+    zoom: 16,
+  });
+  const store = createStateStore();
+
+  assert.equal(store.canUndo(), false);
+  assert.equal(store.canRedo(), false);
+
+  store.loadImageSession(image, placement);
+  store.addPin({
+    imagePx: { x: 100, y: 120 },
+    mapLatLon: { lat: -1.2, lon: 36.8 },
+  });
+
+  assert.equal(store.canUndo(), true);
+  assert.equal(store.canRedo(), false);
+  assert.equal(store.getState().registration.pins.length, 1);
+
+  assert.equal(store.undo(), true);
+  assert.equal(store.getState().registration.pins.length, 0);
+  assert.equal(store.getState().image.src, image.src);
+  assert.equal(store.canRedo(), true);
+
+  assert.equal(store.undo(), true);
+  assert.equal(store.getState().image, null);
+  assert.equal(store.getState().mode, "trace");
+
+  assert.equal(store.redo(), true);
+  assert.equal(store.getState().image.src, image.src);
+  assert.equal(store.getState().registration.pins.length, 0);
+
+  store.clearImage();
+  assert.equal(store.canRedo(), false);
+  assert.equal(store.getState().image, null);
+});
+
+test("undo and redo are no-ops when history is empty", () => {
+  const store = createStateStore();
+  let calls = 0;
+  store.subscribe(() => {
+    calls += 1;
+  }, { emitCurrent: false });
+
+  assert.equal(store.undo(), false);
+  assert.equal(store.redo(), false);
+  assert.equal(calls, 0);
 });
 
 test("adding and removing pins invalidates solved transforms", () => {

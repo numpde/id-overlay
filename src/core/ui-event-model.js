@@ -42,6 +42,14 @@ export const UI_EVENT_MODEL = Object.freeze({
     "clear-pins-triggered",
     UI_EVENT_FAMILY_KIND.INTENT,
   ),
+  UNDO_TRIGGERED: defineUiEvent(
+    "undo-triggered",
+    UI_EVENT_FAMILY_KIND.INTENT,
+  ),
+  REDO_TRIGGERED: defineUiEvent(
+    "redo-triggered",
+    UI_EVENT_FAMILY_KIND.INTENT,
+  ),
 
   // External outcomes that feed back into canonical UI state.
   PASTE_SUCCEEDED: defineUiEvent(

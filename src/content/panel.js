@@ -75,6 +75,17 @@ export function createPanel({ shadow, store, interactions, statusController }) {
   const mainActionButton = createButton("Clear");
   mainActionButton.classList.add("id-overlay-panel__main-action-button");
 
+  const historyActions = document.createElement("div");
+  historyActions.className = "id-overlay-panel__history-actions";
+
+  const undoButton = createButton("Undo");
+  undoButton.classList.add("id-overlay-panel__history-button");
+
+  const redoButton = createButton("Redo");
+  redoButton.classList.add("id-overlay-panel__history-button");
+
+  historyActions.append(undoButton, redoButton);
+
   const modeSwitch = document.createElement("label");
   modeSwitch.className = "id-overlay-mode-switch";
 
@@ -127,7 +138,7 @@ export function createPanel({ shadow, store, interactions, statusController }) {
 
   statusWrap.append(statusElement, statusDetail);
 
-  root.append(header, modeSwitch, opacityGroup, mainActionButton, statusWrap);
+  root.append(header, modeSwitch, opacityGroup, historyActions, mainActionButton, statusWrap);
   shadow.append(root);
 
   let latestState = store.getState();
@@ -177,6 +188,22 @@ export function createPanel({ shadow, store, interactions, statusController }) {
   mainActionButton.addEventListener("click", async () => {
     await dispatchCanonicalUiEvent({
       kind: UI_EVENT_KIND.MAIN_ACTION_TRIGGERED,
+    });
+  });
+  undoButton.addEventListener("click", async () => {
+    if (undoButton.disabled) {
+      return;
+    }
+    await dispatchCanonicalUiEvent({
+      kind: UI_EVENT_KIND.UNDO_TRIGGERED,
+    });
+  });
+  redoButton.addEventListener("click", async () => {
+    if (redoButton.disabled) {
+      return;
+    }
+    await dispatchCanonicalUiEvent({
+      kind: UI_EVENT_KIND.REDO_TRIGGERED,
     });
   });
 
@@ -246,6 +273,8 @@ export function createPanel({ shadow, store, interactions, statusController }) {
       panelViewModel.mainAction.presentationKind === "confirm",
     );
     opacityInput.disabled = !panelViewModel.mainAction.hasImage;
+    undoButton.disabled = !store.canUndo();
+    redoButton.disabled = !store.canRedo();
   }
 
   function applyModeSelection(mode) {
@@ -523,6 +552,24 @@ export function createPanel({ shadow, store, interactions, statusController }) {
         statusController.showTransient(
           describePanelActionPresentation(PANEL_FEEDBACK_ACTION.CLEAR_IMAGE),
         );
+      },
+      undoSession: async () => {
+        statusController.clearTransient();
+        const changed = interactions.undoSessionHistory();
+        if (changed) {
+          statusController.showTransient(
+            describePanelActionPresentation(PANEL_FEEDBACK_ACTION.UNDO),
+          );
+        }
+      },
+      redoSession: async () => {
+        statusController.clearTransient();
+        const changed = interactions.redoSessionHistory();
+        if (changed) {
+          statusController.showTransient(
+            describePanelActionPresentation(PANEL_FEEDBACK_ACTION.REDO),
+          );
+        }
       },
       showPasteCancelledFeedback: async () => {
         logger.info("Cancelled paste capture");

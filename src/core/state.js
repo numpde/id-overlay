@@ -37,8 +37,18 @@ export const STATE_ACTION = Object.freeze({
   CLEAR_IMAGE: "clear-image",
 });
 
+const HISTORY_CHECKPOINT_ACTIONS = new Set([
+  STATE_ACTION.LOAD_IMAGE_SESSION,
+  STATE_ACTION.ADD_PIN,
+  STATE_ACTION.REMOVE_PIN,
+  STATE_ACTION.CLEAR_PINS,
+  STATE_ACTION.CLEAR_IMAGE,
+]);
+
 export function createStateStore(initialState = {}) {
   let state = normalizeState(initialState);
+  let past = [];
+  let future = [];
   const listeners = new Set();
 
   function getState() {
@@ -135,13 +145,52 @@ export function createStateStore(initialState = {}) {
     });
   }
 
-  function dispatch(action) {
-    return replaceState(reduceState(state, action));
+  function canUndo() {
+    return past.length > 0;
   }
 
-  function replaceState(nextState) {
+  function canRedo() {
+    return future.length > 0;
+  }
+
+  function undo() {
+    if (!canUndo()) {
+      return false;
+    }
+    const nextPast = past.slice(0, -1);
+    const previousState = past.at(-1);
+    future = [state, ...future];
+    past = nextPast;
+    state = previousState;
+    notify();
+    return true;
+  }
+
+  function redo() {
+    if (!canRedo()) {
+      return false;
+    }
+    const [nextState, ...nextFuture] = future;
+    past = [...past, state];
+    future = nextFuture;
+    state = nextState;
+    notify();
+    return true;
+  }
+
+  function dispatch(action) {
+    return replaceState(reduceState(state, action), {
+      checkpoint: isHistoryCheckpointAction(action),
+    });
+  }
+
+  function replaceState(nextState, { checkpoint = false } = {}) {
     if (nextState === state) {
       return state;
+    }
+    if (checkpoint) {
+      past = [...past, state];
+      future = [];
     }
     state = nextState;
     notify();
@@ -168,7 +217,15 @@ export function createStateStore(initialState = {}) {
     setSolvedTransform,
     invalidateSolvedTransform,
     clearImage,
+    canUndo,
+    canRedo,
+    undo,
+    redo,
   };
+}
+
+export function isHistoryCheckpointAction(action) {
+  return HISTORY_CHECKPOINT_ACTIONS.has(action?.type);
 }
 
 export function reduceState(state, action) {

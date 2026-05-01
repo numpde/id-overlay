@@ -23,6 +23,12 @@ export const UI_EFFECT_MODEL = Object.freeze({
   CLEAR_IMAGE: defineUiEffect(
     "clear-image",
   ),
+  UNDO_SESSION: defineUiEffect(
+    "undo-session",
+  ),
+  REDO_SESSION: defineUiEffect(
+    "redo-session",
+  ),
   SHOW_PASTE_CANCELLED_FEEDBACK: defineUiEffect(
     "show-paste-cancelled-feedback",
   ),

@@ -12,6 +12,8 @@ test("ui effect vocabulary stays minimal and semantic", () => {
     REQUEST_REGISTRATION_SOLVE: "request-registration-solve",
     CLEAR_PINS: "clear-pins",
     CLEAR_IMAGE: "clear-image",
+    UNDO_SESSION: "undo-session",
+    REDO_SESSION: "redo-session",
     SHOW_PASTE_CANCELLED_FEEDBACK: "show-paste-cancelled-feedback",
     START_PANEL_TIMEOUT: "start-panel-timeout",
     CANCEL_PANEL_TIMEOUT: "cancel-panel-timeout",
@@ -33,6 +35,14 @@ test("ui effect model exposes payload-key shapes", () => {
   });
   assert.deepEqual(UI_EFFECT_MODEL.CLEAR_IMAGE, {
     kind: UI_EFFECT_KIND.CLEAR_IMAGE,
+    payloadKeys: [],
+  });
+  assert.deepEqual(UI_EFFECT_MODEL.UNDO_SESSION, {
+    kind: UI_EFFECT_KIND.UNDO_SESSION,
+    payloadKeys: [],
+  });
+  assert.deepEqual(UI_EFFECT_MODEL.REDO_SESSION, {
+    kind: UI_EFFECT_KIND.REDO_SESSION,
     payloadKeys: [],
   });
   assert.deepEqual(UI_EFFECT_MODEL.SHOW_PASTE_CANCELLED_FEEDBACK, {

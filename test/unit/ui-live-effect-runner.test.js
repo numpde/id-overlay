@@ -25,6 +25,8 @@ test("runUiLiveEffects executes semantic handlers in order and ignores unknown e
       UI_EFFECT_KIND.REQUEST_REGISTRATION_SOLVE,
       UI_EFFECT_KIND.SHOW_PASTE_CANCELLED_FEEDBACK,
       UI_EFFECT_KIND.CLEAR_PINS,
+      UI_EFFECT_KIND.UNDO_SESSION,
+      UI_EFFECT_KIND.REDO_SESSION,
       "unknown-effect",
       UI_EFFECT_KIND.CANCEL_PANEL_TIMEOUT,
       ],
@@ -41,6 +43,12 @@ test("runUiLiveEffects executes semantic handlers in order and ignores unknown e
       },
       clearImage: async () => {
         seen.push("clear-image");
+      },
+      undoSession: async () => {
+        seen.push("undo");
+      },
+      redoSession: async () => {
+        seen.push("redo");
       },
       showPasteCancelledFeedback: async () => {
         seen.push("paste-cancelled");
@@ -59,6 +67,8 @@ test("runUiLiveEffects executes semantic handlers in order and ignores unknown e
     "paste",
     "paste-cancelled",
     "clear-pins",
+    "undo",
+    "redo",
     "cancel-timeout",
   ]);
 });

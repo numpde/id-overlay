@@ -71,6 +71,26 @@ test("ui transition routes registration events to the registration family", () =
   ]);
 });
 
+test("ui transition routes history events to the history family", () => {
+  const base = createInitialUiState();
+  const state = {
+    ...base,
+    panel: {
+      intent: UI_PANEL_INTENT_KIND.CLEAR_PINS_CONFIRM,
+    },
+  };
+
+  const result = transitionUiState(state, {
+    kind: UI_EVENT_KIND.UNDO_TRIGGERED,
+  });
+
+  assert.equal(result.state.panel.intent, UI_PANEL_INTENT_KIND.IDLE);
+  assert.deepEqual(result.effects, [
+    UI_EFFECT_KIND.CANCEL_PANEL_TIMEOUT,
+    UI_EFFECT_KIND.UNDO_SESSION,
+  ]);
+});
+
 test("ui transition leaves unsupported events as a pure no-op", () => {
   const state = createInitialUiState();
 

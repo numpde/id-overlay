@@ -231,10 +231,15 @@ test("trace mode hides registration pins and disables registration controls", as
     await bootstrapIdOverlay();
 
     const shadow = env.document.getElementById("id-overlay-root").shadowRoot;
-    const buttons = [...shadow.querySelectorAll(".id-overlay-button")];
-    assert.equal(buttons.length, 1);
-    assert.equal(buttons[0].textContent, "Clear image");
-    assert.equal(buttons[0].disabled, false);
+    const mainActionButton = shadow.querySelector(".id-overlay-panel__main-action-button");
+    const historyButtons = [...shadow.querySelectorAll(".id-overlay-panel__history-button")];
+    assert.equal(mainActionButton.textContent, "Clear image");
+    assert.equal(mainActionButton.disabled, false);
+    assert.equal(historyButtons.length, 2);
+    assert.equal(historyButtons[0].textContent, "Undo");
+    assert.equal(historyButtons[0].disabled, true);
+    assert.equal(historyButtons[1].textContent, "Redo");
+    assert.equal(historyButtons[1].disabled, true);
     assert.equal(env.document.querySelectorAll(".id-overlay-pin").length, 0);
     assert.equal(env.document.querySelectorAll(".id-overlay-map-pin").length, 0);
   } finally {
@@ -476,11 +481,15 @@ test("main action button drives the canonical paste flow when no image is presen
 
     const shadow = env.document.getElementById("id-overlay-root").shadowRoot;
     const mainActionButton = shadow.querySelector(".id-overlay-panel__main-action-button");
+    const undoButton = shadow.querySelectorAll(".id-overlay-panel__history-button")[0];
+    const redoButton = shadow.querySelectorAll(".id-overlay-panel__history-button")[1];
     const modeInput = shadow.querySelector(".id-overlay-mode-switch__input");
     const image = env.document.querySelector(".id-overlay-image");
 
     assert.equal(mainActionButton.textContent, "Paste");
     assert.equal(mainActionButton.disabled, false);
+    assert.equal(undoButton.disabled, true);
+    assert.equal(redoButton.disabled, true);
     assert.equal(modeInput.disabled, true);
 
     mainActionButton.click();
@@ -489,7 +498,83 @@ test("main action button drives the canonical paste flow when no image is presen
     assert.equal(image.style.display, "block");
     assert.equal(image.style.width, "640px");
     assert.equal(mainActionButton.textContent, "Clear image");
+    assert.equal(undoButton.disabled, false);
+    assert.equal(redoButton.disabled, true);
     assert.equal(modeInput.disabled, false);
+  } finally {
+    env.cleanup();
+  }
+});
+
+test("panel undo and redo restore committed session state and reset confirmation intent", async () => {
+  const env = createDomEnvironment({
+    storageState: {
+      "id-overlay/state": {
+        mode: "trace",
+        opacity: 0.6,
+        image: null,
+        registration: {
+          pins: [],
+          solvedTransform: null,
+          dirty: false,
+        },
+      },
+    },
+  });
+  installImageReadStubs(env.window);
+  env.window.navigator.clipboard = {
+    async read() {
+      return [
+        {
+          types: ["image/png"],
+          async getType() {
+            return { name: "clipboard-image.png" };
+          },
+        },
+      ];
+    },
+  };
+
+  try {
+    const { bootstrapIdOverlay } = await import(`${repoFileUrl("src/content/main.js")}?undoredo=${Date.now()}`);
+    await bootstrapIdOverlay();
+
+    const shadow = env.document.getElementById("id-overlay-root").shadowRoot;
+    const mainActionButton = shadow.querySelector(".id-overlay-panel__main-action-button");
+    const [undoButton, redoButton] = shadow.querySelectorAll(".id-overlay-panel__history-button");
+    const status = shadow.querySelector(".id-overlay-panel__status");
+    const image = env.document.querySelector(".id-overlay-image");
+
+    assert.equal(mainActionButton.textContent, "Paste");
+    assert.equal(undoButton.disabled, true);
+    assert.equal(redoButton.disabled, true);
+
+    mainActionButton.click();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    assert.equal(mainActionButton.textContent, "Clear image");
+    assert.equal(undoButton.disabled, false);
+
+    mainActionButton.click();
+    assert.equal(mainActionButton.textContent, "Clear image?");
+
+    undoButton.click();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    assert.equal(image.style.display, "none");
+    assert.equal(mainActionButton.textContent, "Paste");
+    assert.equal(mainActionButton.classList.contains("id-overlay-button--confirm"), false);
+    assert.equal(status.textContent, "Undid change.");
+    assert.equal(undoButton.disabled, true);
+    assert.equal(redoButton.disabled, false);
+
+    redoButton.click();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    assert.equal(image.style.display, "block");
+    assert.equal(mainActionButton.textContent, "Clear image");
+    assert.equal(status.textContent, "Redid change.");
+    assert.equal(undoButton.disabled, false);
+    assert.equal(redoButton.disabled, true);
   } finally {
     env.cleanup();
   }
