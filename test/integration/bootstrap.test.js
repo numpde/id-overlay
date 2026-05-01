@@ -242,10 +242,12 @@ test("trace mode hides registration pins and disables registration controls", as
     assert.equal(modeRow.contains(historyButtons[0]), true);
     assert.equal(modeRow.contains(historyButtons[1]), true);
     assert.equal(historyButtons[0].textContent, "↶");
-    assert.equal(historyButtons[0].getAttribute("aria-label"), "Undo");
+    assert.equal(historyButtons[0].getAttribute("aria-label"), null);
+    assert.equal(historyButtons[0].title, "");
     assert.equal(historyButtons[0].disabled, true);
     assert.equal(historyButtons[1].textContent, "↷");
-    assert.equal(historyButtons[1].getAttribute("aria-label"), "Redo");
+    assert.equal(historyButtons[1].getAttribute("aria-label"), null);
+    assert.equal(historyButtons[1].title, "");
     assert.equal(historyButtons[1].disabled, true);
     assert.equal(env.document.querySelectorAll(".id-overlay-pin").length, 0);
     assert.equal(env.document.querySelectorAll(".id-overlay-map-pin").length, 0);
@@ -497,6 +499,8 @@ test("main action button drives the canonical paste flow when no image is presen
     assert.equal(mainActionButton.disabled, false);
     assert.equal(undoButton.disabled, true);
     assert.equal(redoButton.disabled, true);
+    assert.equal(undoButton.title, "");
+    assert.equal(redoButton.title, "");
     assert.equal(modeInput.disabled, true);
 
     mainActionButton.click();
@@ -506,7 +510,9 @@ test("main action button drives the canonical paste flow when no image is presen
     assert.equal(image.style.width, "640px");
     assert.equal(mainActionButton.textContent, "Clear image");
     assert.equal(undoButton.disabled, false);
+    assert.equal(undoButton.title, "Undo: Loaded screenshot");
     assert.equal(redoButton.disabled, true);
+    assert.equal(redoButton.title, "");
     assert.equal(modeInput.disabled, false);
   } finally {
     env.cleanup();
@@ -555,11 +561,15 @@ test("panel undo and redo restore committed session state and reset confirmation
     assert.equal(mainActionButton.textContent, "Paste");
     assert.equal(undoButton.disabled, true);
     assert.equal(redoButton.disabled, true);
+    assert.equal(undoButton.title, "");
+    assert.equal(redoButton.title, "");
 
     mainActionButton.click();
     await new Promise((resolve) => setTimeout(resolve, 0));
     assert.equal(mainActionButton.textContent, "Clear image");
     assert.equal(undoButton.disabled, false);
+    assert.equal(undoButton.title, "Undo: Loaded screenshot");
+    assert.equal(redoButton.title, "");
 
     mainActionButton.click();
     assert.equal(mainActionButton.textContent, "Clear image?");
@@ -573,6 +583,8 @@ test("panel undo and redo restore committed session state and reset confirmation
     assert.equal(status.textContent, "Undid: Loaded screenshot.");
     assert.equal(undoButton.disabled, true);
     assert.equal(redoButton.disabled, false);
+    assert.equal(undoButton.title, "");
+    assert.equal(redoButton.title, "Redo: Loaded screenshot");
 
     redoButton.click();
     await new Promise((resolve) => setTimeout(resolve, 0));
@@ -582,6 +594,8 @@ test("panel undo and redo restore committed session state and reset confirmation
     assert.equal(status.textContent, "Redid: Loaded screenshot.");
     assert.equal(undoButton.disabled, false);
     assert.equal(redoButton.disabled, true);
+    assert.equal(undoButton.title, "Undo: Loaded screenshot");
+    assert.equal(redoButton.title, "");
   } finally {
     env.cleanup();
   }

@@ -190,6 +190,14 @@ export function createStateStore(initialState = {}) {
     return future.length > 0;
   }
 
+  function getUndoDescriptor() {
+    return past.at(-1)?.descriptor ?? null;
+  }
+
+  function getRedoDescriptor() {
+    return future[0]?.descriptor ?? null;
+  }
+
   function beginHistoryBatch(descriptor = null) {
     historyBatchDepth += 1;
     if (descriptor && historyBatchDepth === 1) {
@@ -289,6 +297,8 @@ export function createStateStore(initialState = {}) {
     clearImage,
     canUndo,
     canRedo,
+    getUndoDescriptor,
+    getRedoDescriptor,
     beginHistoryBatch,
     endHistoryBatch,
     undo,

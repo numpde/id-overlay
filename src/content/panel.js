@@ -80,13 +80,9 @@ export function createPanel({ shadow, store, interactions, statusController }) {
 
   const undoButton = createButton("↶");
   undoButton.classList.add("id-overlay-panel__history-button");
-  undoButton.setAttribute("aria-label", "Undo");
-  undoButton.title = "Undo";
 
   const redoButton = createButton("↷");
   redoButton.classList.add("id-overlay-panel__history-button");
-  redoButton.setAttribute("aria-label", "Redo");
-  redoButton.title = "Redo";
 
   const historyActions = document.createElement("div");
   historyActions.className = "id-overlay-panel__history-actions";
@@ -283,6 +279,26 @@ export function createPanel({ shadow, store, interactions, statusController }) {
     opacityInput.disabled = !panelViewModel.mainAction.hasImage;
     undoButton.disabled = !store.canUndo();
     redoButton.disabled = !store.canRedo();
+    applyHistoryButtonPresentation({
+      button: undoButton,
+      descriptor: store.getUndoDescriptor(),
+      prefix: "Undo",
+    });
+    applyHistoryButtonPresentation({
+      button: redoButton,
+      descriptor: store.getRedoDescriptor(),
+      prefix: "Redo",
+    });
+  }
+
+  function applyHistoryButtonPresentation({ button, descriptor, prefix }) {
+    const label = descriptor?.label ? `${prefix}: ${descriptor.label}` : "";
+    button.title = label;
+    if (label) {
+      button.setAttribute("aria-label", label);
+    } else {
+      button.removeAttribute("aria-label");
+    }
   }
 
   function applyModeSelection(mode) {

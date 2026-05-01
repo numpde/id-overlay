@@ -311,6 +311,8 @@ test("state history restores committed session snapshots and clears redo after a
 
   assert.equal(store.canUndo(), false);
   assert.equal(store.canRedo(), false);
+  assert.equal(store.getUndoDescriptor(), null);
+  assert.equal(store.getRedoDescriptor(), null);
 
   store.loadImageSession(image, placement);
   store.addPin({
@@ -320,6 +322,11 @@ test("state history restores committed session snapshots and clears redo after a
 
   assert.equal(store.canUndo(), true);
   assert.equal(store.canRedo(), false);
+  assert.deepEqual(store.getUndoDescriptor(), {
+    kind: "add-pin",
+    label: "Added pin",
+  });
+  assert.equal(store.getRedoDescriptor(), null);
   assert.equal(store.getState().registration.pins.length, 1);
 
   assert.deepEqual(store.undo(), {
@@ -329,6 +336,14 @@ test("state history restores committed session snapshots and clears redo after a
   assert.equal(store.getState().registration.pins.length, 0);
   assert.equal(store.getState().image.src, image.src);
   assert.equal(store.canRedo(), true);
+  assert.deepEqual(store.getUndoDescriptor(), {
+    kind: "load-image",
+    label: "Loaded screenshot",
+  });
+  assert.deepEqual(store.getRedoDescriptor(), {
+    kind: "add-pin",
+    label: "Added pin",
+  });
 
   assert.deepEqual(store.undo(), {
     kind: "load-image",
