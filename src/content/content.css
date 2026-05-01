@@ -12,6 +12,7 @@
 .id-overlay-panel {
   --id-overlay-panel-status-line-height: 1.4em;
   --id-overlay-panel-status-detail-max-height: min(10em, calc(100vh - 120px));
+  --id-overlay-panel-control-height: 32px;
   position: fixed;
   left: 16px;
   bottom: 16px;
@@ -116,7 +117,7 @@
   display: inline-flex;
   align-items: center;
   width: 42px;
-  height: 24px;
+  height: var(--id-overlay-panel-control-height);
   padding: 2px;
   border: 1px solid rgba(15, 23, 42, 0.16);
   border-radius: 999px;
@@ -126,8 +127,8 @@
 }
 
 .id-overlay-mode-switch__thumb {
-  width: 18px;
-  height: 18px;
+  width: 26px;
+  height: 26px;
   border-radius: 999px;
   background: #ffffff;
   box-shadow: 0 1px 3px rgba(15, 23, 42, 0.24);
@@ -140,11 +141,11 @@
 }
 
 .id-overlay-mode-switch[data-mode="align"] .id-overlay-mode-switch__thumb {
-  transform: translateX(18px);
+  transform: translateX(10px);
 }
 
 .id-overlay-button {
-  min-height: 36px;
+  min-height: var(--id-overlay-panel-control-height);
   padding: 0 12px;
   border: 1px solid rgba(15, 23, 42, 0.16);
   border-radius: 10px;
@@ -168,13 +169,13 @@
 
 .id-overlay-panel__history-actions {
   display: grid;
-  grid-template-columns: repeat(2, 32px);
+  grid-template-columns: repeat(2, var(--id-overlay-panel-control-height));
   gap: 6px;
 }
 
 .id-overlay-panel__history-button {
-  min-width: 32px;
-  min-height: 32px;
+  min-width: var(--id-overlay-panel-control-height);
+  min-height: var(--id-overlay-panel-control-height);
   padding: 0;
   font-size: 18px;
   line-height: 1;
