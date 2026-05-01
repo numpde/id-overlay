@@ -3,6 +3,7 @@ import {
   describeInteractionEventPresentation,
   resolveDefaultStatusMessage,
 } from "../core/presentation.js";
+import { resolveUiStatusBaseline } from "../core/ui-status-model.js";
 
 const DEFAULT_TRANSIENT_MS = 1800;
 
@@ -10,6 +11,7 @@ export function createStatusController({ store, interactions }) {
   const messageStore = createValueStore("");
   let transientMessage = null;
   let transientTimer = null;
+  let uiStateSource = null;
 
   const unsubscribeStore = store.subscribe(syncMessage, { emitCurrent: false });
   const unsubscribeInteractions = interactions.subscribe(syncMessage, { emitCurrent: false });
@@ -30,6 +32,15 @@ export function createStatusController({ store, interactions }) {
     return messageStore.get();
   }
 
+  function setUiStateSource(source) {
+    uiStateSource = source;
+    syncMessage();
+  }
+
+  function refresh() {
+    syncMessage();
+  }
+
   function showTransient(message, { durationMs = DEFAULT_TRANSIENT_MS } = {}) {
     transientMessage = message;
     syncMessage();
@@ -42,6 +53,7 @@ export function createStatusController({ store, interactions }) {
 
   function destroy() {
     clearTransientTimer();
+    uiStateSource = null;
     unsubscribeStore();
     unsubscribeInteractions();
     unsubscribeInteractionEvents?.();
@@ -50,11 +62,21 @@ export function createStatusController({ store, interactions }) {
   function syncMessage() {
     messageStore.set(
       transientMessage ??
-        resolveDefaultStatusMessage({
-          state: store.getState(),
-          runtime: interactions.getRuntimeState(),
-        }),
+        resolveBaselineMessage(),
     );
+  }
+
+  function resolveBaselineMessage() {
+    if (uiStateSource) {
+      return resolveUiStatusBaseline({
+        uiState: uiStateSource(),
+        runtime: interactions.getRuntimeState(),
+      });
+    }
+    return resolveDefaultStatusMessage({
+      state: store.getState(),
+      runtime: interactions.getRuntimeState(),
+    });
   }
 
   function clearTransientTimer() {
@@ -68,6 +90,8 @@ export function createStatusController({ store, interactions }) {
     subscribe,
     getMessage,
     showTransient,
+    setUiStateSource,
+    refresh,
     destroy,
   };
 }

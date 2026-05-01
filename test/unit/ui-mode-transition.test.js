@@ -59,14 +59,14 @@ test("selecting an unknown mode is a pure no-op", () => {
   assert.deepEqual(result.effects, []);
 });
 
-test("selecting align updates mode without requesting solve", () => {
+test("selecting align with no image is a no-op", () => {
   const state = createInitialUiState();
   const result = transitionMode(state, {
     kind: UI_EVENT_KIND.MODE_SELECTED,
     mode: UI_MODE_KIND.ALIGN,
   });
 
-  assert.equal(result.state.session.mode, UI_MODE_KIND.ALIGN);
+  assert.equal(result.state, state);
   assert.deepEqual(result.effects, []);
 });
 

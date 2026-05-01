@@ -1,18 +1,20 @@
 import { getOverlayImageLoadStats } from "./image-normalization.js";
 import { INTERACTION_MODE, isTraceMode } from "./interaction-mode.js";
-import {
-  MANUAL_PASTE_PROMPT,
-} from "./ui-view-model.js";
 import { resolveRegistrationSolveState } from "./state.js";
 import { resolveOverlayRenderState } from "./transform.js";
 import {
-  DRAG_MODE,
   INTERACTION_EVENT,
   PIN_RESULT_REASON,
   resolveRegistrationUiPolicy,
   SOLVE_RESULT_REASON,
 } from "./interaction-policy.js";
 import { RUNTIME_ERROR_SOURCE } from "./runtime-error.js";
+import {
+  MANUAL_PASTE_PROMPT,
+  resolveUiStatusBaseline,
+} from "./ui-status-model.js";
+import { projectLiveUiState } from "./ui-live-state.js";
+import { UI_PANEL_INTENT_KIND } from "./ui-state-model.js";
 
 export const PANEL_FEEDBACK_ACTION = Object.freeze({
   PASTE_CANCELLED: "paste-cancelled",
@@ -121,24 +123,15 @@ export function resolveOverlayRenderPresentation(state) {
 }
 
 export function resolveDefaultStatusMessage({ state, runtime }) {
-  const sessionPresentation = resolveOverlaySessionPresentation(state);
-  if (!sessionPresentation.hasImage) {
-    return sessionPresentation.render.message;
-  }
-
-  if (runtime.isPassThroughActive) {
-    return "Pass-through active: pan or zoom iD underneath, then release Space to continue registering.";
-  }
-
-  if (runtime.isDragging) {
-    return describeActiveAlignDrag(runtime.dragMode) ?? "Dragging overlay.";
-  }
-
-  if (sessionPresentation.solve.statusMessage) {
-    return sessionPresentation.solve.statusMessage;
-  }
-
-  return sessionPresentation.render.message ?? describeAlignGestureContract();
+  return resolveUiStatusBaseline({
+    uiState: projectLiveUiState({
+      state,
+      panelActionState: {
+        kind: UI_PANEL_INTENT_KIND.IDLE,
+      },
+    }),
+    runtime,
+  });
 }
 
 export function describePinResultPresentation(result) {
@@ -232,18 +225,4 @@ export function describeLoadedImagePresentation(image) {
     return `Loaded screenshot ${stats.workingWidth}×${stats.workingHeight} from ${stats.originalWidth}×${stats.originalHeight}.`;
   }
   return `Loaded screenshot ${stats.workingWidth}×${stats.workingHeight}.`;
-}
-
-export function describeAlignGestureContract() {
-  return "Align mode: drag to move map and overlay together, Shift+drag to move only the overlay, wheel to zoom both, Shift+wheel to scale only the overlay, Ctrl+wheel to rotate the overlay, Alt+wheel to adjust opacity, double-click to add/remove pins, then compute the transform.";
-}
-
-export function describeActiveAlignDrag(dragMode) {
-  if (dragMode === DRAG_MODE.MAP_PAN) {
-    return "Panning the map while the overlay follows.";
-  }
-  if (dragMode === DRAG_MODE.MOVE_OVERLAY) {
-    return "Dragging overlay only. Release to keep this placement.";
-  }
-  return null;
 }

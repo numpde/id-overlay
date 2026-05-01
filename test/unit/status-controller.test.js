@@ -14,6 +14,7 @@ import { createStateStore } from "../../src/core/state.js";
 import { createValueStore } from "../../src/core/value-store.js";
 import { projectLiveUiState } from "../../src/core/ui-live-state.js";
 import { createInitialPanelActionState } from "../../src/core/panel-state.js";
+import { UI_PANEL_INTENT_KIND } from "../../src/core/ui-state-model.js";
 
 test("resolveDefaultStatusMessage explains the current registration workflow", () => {
   assert.equal(
@@ -100,25 +101,25 @@ test("resolveUiViewModel describes the current mode state for the panel switch",
       state: { image: null, mode: "trace", opacity: 0.6, registration: { pins: [], solvedTransform: null, dirty: false } },
       panelActionState: createInitialPanelActionState(),
     }),
-    statusMessage: "Paste a screenshot to begin.",
   });
   assert.deepEqual(traceViewModel.presentation.modeSwitch, {
     checked: false,
     label: "Trace",
     ariaLabel: "Mode: Trace",
+    disabled: true,
   });
 
   const alignViewModel = resolveUiViewModel({
     uiState: projectLiveUiState({
-      state: { image: null, mode: "align", opacity: 0.6, registration: { pins: [], solvedTransform: null, dirty: false } },
+      state: { image: { src: "x", width: 1, height: 1 }, mode: "align", opacity: 0.6, registration: { pins: [], solvedTransform: null, dirty: false } },
       panelActionState: createInitialPanelActionState(),
     }),
-    statusMessage: "Ready.",
   });
   assert.deepEqual(alignViewModel.presentation.modeSwitch, {
     checked: true,
     label: "Align",
     ariaLabel: "Mode: Align",
+    disabled: false,
   });
 });
 
@@ -250,6 +251,45 @@ test("status controller reacts to pin and solve events", () => {
     listener({ type: INTERACTION_EVENT.PINS_CLEARED });
   }
   assert.equal(controller.getMessage(), "Cleared all registration pins.");
+
+  controller.destroy();
+});
+
+test("status controller uses canonical ui-state source for baseline panel prompts", () => {
+  const store = createStateStore();
+  const runtime = createValueStore({
+    isDragging: false,
+    isPassThroughActive: false,
+    dragMode: null,
+  });
+  const interactions = {
+    getRuntimeState() {
+      return runtime.get();
+    },
+    subscribe(listener, options) {
+      return runtime.subscribe(listener, options);
+    },
+  };
+
+  const controller = createStatusController({ store, interactions });
+  controller.setUiStateSource(() =>
+    projectLiveUiState({
+      state: {
+        image: null,
+        mode: "align",
+        opacity: 0.6,
+        registration: { pins: [], solvedTransform: null, dirty: false },
+      },
+      panelActionState: {
+        kind: UI_PANEL_INTENT_KIND.PASTE_ARMED,
+      },
+    }),
+  );
+
+  assert.equal(
+    controller.getMessage(),
+    "Press Ctrl/Cmd+V to paste an image from your clipboard.",
+  );
 
   controller.destroy();
 });

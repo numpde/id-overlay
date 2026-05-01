@@ -64,16 +64,17 @@ test("main action basis captures only the local semantic distinctions", () => {
   });
 });
 
-test("main action does nothing from empty trace while paste is unavailable", () => {
+test("main action arms paste from empty trace when no image is present", () => {
   const state = createInitialUiState();
   const result = transitionMainAction(state, {
     kind: UI_EVENT_KIND.MAIN_ACTION_TRIGGERED,
   });
-  assert.equal(result.state, state);
-  assert.deepEqual(result.effects, []);
+
+  assert.equal(result.state.panel.intent, UI_PANEL_INTENT_KIND.PASTE_ARMED);
+  assert.deepEqual(result.effects, [UI_EFFECT_KIND.REQUEST_PASTE_INPUT]);
 });
 
-test("main action arms paste from empty align and requests paste input", () => {
+test("main action also arms paste from empty align and requests paste input", () => {
   const state = {
     ...createInitialUiState(),
     session: {

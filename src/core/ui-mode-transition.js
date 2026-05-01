@@ -31,6 +31,9 @@ export function transitionMode(uiState, event) {
 
 function transitionModeSelected(uiState, nextMode) {
   const basis = resolveModeTransitionBasis(uiState, nextMode);
+  if (!basis.hasImage && basis.nextMode === UI_MODE_KIND.ALIGN) {
+    return createUiTransitionResult(uiState);
+  }
   if (!isKnownMode(basis.nextMode) || basis.currentMode === basis.nextMode) {
     return createUiTransitionResult(uiState);
   }

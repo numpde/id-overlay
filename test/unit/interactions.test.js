@@ -34,7 +34,7 @@ import { RUNTIME_ERROR_SOURCE } from "../../src/core/runtime-error.js";
 import {
   describeActiveAlignDrag,
   describeAlignGestureContract,
-} from "../../src/core/presentation.js";
+} from "../../src/core/ui-status-model.js";
 import { createStateStore } from "../../src/core/state.js";
 import {
   createPlacementScreenTransform,

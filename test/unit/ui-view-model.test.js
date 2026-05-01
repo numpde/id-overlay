@@ -2,7 +2,6 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  MANUAL_PASTE_PROMPT,
   resolveUiViewModel,
 } from "../../src/core/ui-view-model.js";
 import {
@@ -42,14 +41,14 @@ function createUiState(overrides = {}) {
 test("resolveUiViewModel reflects the empty trace state without panel semantics drift", () => {
   const viewModel = resolveUiViewModel({
     uiState: createInitialUiState(),
-    statusMessage: "Paste a screenshot to begin.",
   });
 
   assert.equal(viewModel.presentation.clearButtonLabel, "Paste");
-  assert.equal(viewModel.presentation.clearButtonDisabled, true);
-  assert.equal(viewModel.actionSemantics.canPasteImage, false);
+  assert.equal(viewModel.presentation.clearButtonDisabled, false);
+  assert.equal(viewModel.actionSemantics.canPasteImage, true);
   assert.equal(viewModel.actionSemantics.canClearPins, false);
   assert.equal(viewModel.actionSemantics.shouldReset, false);
+  assert.equal(viewModel.presentation.modeSwitch.disabled, true);
 });
 
 test("resolveUiViewModel resets stale clear-image confirmation back onto the paste action", () => {
@@ -62,13 +61,13 @@ test("resolveUiViewModel resets stale clear-image confirmation back onto the pas
         intent: UI_PANEL_INTENT_KIND.CLEAR_IMAGE_CONFIRM,
       },
     }),
-    statusMessage: "Ready.",
   });
 
   assert.equal(viewModel.presentation.clearButtonLabel, "Paste");
   assert.equal(viewModel.presentation.clearButtonDisabled, false);
   assert.equal(viewModel.actionSemantics.shouldReset, true);
   assert.equal(viewModel.actionSemantics.canPasteImage, true);
+  assert.equal(viewModel.presentation.modeSwitch.disabled, true);
 });
 
 test("resolveUiViewModel keeps paste arming and destructive labels on the same canonical basis", () => {
@@ -87,13 +86,11 @@ test("resolveUiViewModel keeps paste arming and destructive labels on the same c
         intent: UI_PANEL_INTENT_KIND.PASTE_ARMED,
       },
     }),
-    statusMessage: "Ready.",
   });
 
   assert.equal(viewModel.presentation.clearButtonLabel, "Clear 2 pins");
   assert.equal(viewModel.actionSemantics.canPasteImage, true);
   assert.equal(viewModel.actionSemantics.canClearPins, true);
-  assert.equal(viewModel.presentation.statusMessage, MANUAL_PASTE_PROMPT);
   assert.equal(viewModel.actionSemantics.shouldAttachPasteListener, true);
 });
 
@@ -110,20 +107,11 @@ test("resolveUiViewModel keeps trace-mode registration affordances disabled with
         },
       },
     }),
-    statusMessage: "Ready.",
   });
 
   assert.equal(viewModel.actionSemantics.canPasteImage, false);
   assert.equal(viewModel.actionSemantics.canClearPins, false);
   assert.equal(viewModel.presentation.clearButtonLabel, "Clear 2 pins");
   assert.equal(viewModel.presentation.clearButtonDisabled, false);
-});
-
-test("resolveUiViewModel uses the supplied fallback status text when the canonical panel state does not override it", () => {
-  const viewModel = resolveUiViewModel({
-    uiState: createUiState(),
-    statusMessage: "Ready.",
-  });
-
-  assert.equal(viewModel.presentation.statusMessage, "Ready.");
+  assert.equal(viewModel.presentation.modeSwitch.disabled, false);
 });

@@ -14,13 +14,9 @@ import {
 
 export const PANEL_TITLE = "Reference Overlay";
 export const PANEL_REPO_URL = "https://github.com/numpde/id-overlay";
-export const MANUAL_PASTE_PROMPT = "Press Ctrl/Cmd+V to paste an image from your clipboard.";
-export const CLEAR_PINS_CONFIRMATION_MESSAGE = "Click Clear pins? again to remove the current registration pins.";
-export const CLEAR_IMAGE_CONFIRMATION_MESSAGE = "Click Clear image? again to remove the current screenshot, placement, and pins.";
 
 export function resolveUiViewModel({
   uiState,
-  statusMessage,
 }) {
   const actionSemantics = resolveUiPanelActionSemantics(uiState);
   const panelActionPresentation = resolvePanelActionPresentation({
@@ -31,15 +27,14 @@ export function resolveUiViewModel({
     actionSemantics,
     presentation: {
       opacityValue: String(uiState.session.opacity),
-      modeSwitch: resolveModeSwitchPresentation(uiState.session.mode),
+      modeSwitch: resolveModeSwitchPresentation({
+        mode: uiState.session.mode,
+        hasImage: actionSemantics.hasImage,
+      }),
       hasImage: actionSemantics.hasImage,
       clearButtonLabel: panelActionPresentation.clearButtonLabel,
       clearButtonVariant: panelActionPresentation.clearButtonVariant,
       clearButtonDisabled: panelActionPresentation.clearButtonDisabled,
-      statusMessage: (
-        panelActionPresentation.statusMessage ??
-        statusMessage
-      ),
     },
   };
 }
@@ -92,7 +87,6 @@ function resolveClearActionPresentation({
       label: pasteArmed ? "Paste…" : "Paste",
       variant: "neutral",
       disabled: !canPasteImage,
-      statusMessage: null,
     };
   }
   if (clearPinsConfirming) {
@@ -100,7 +94,6 @@ function resolveClearActionPresentation({
       label: "Clear pins?",
       variant: "confirm",
       disabled: false,
-      statusMessage: CLEAR_PINS_CONFIRMATION_MESSAGE,
     };
   }
   if (clearImageConfirming) {
@@ -108,7 +101,6 @@ function resolveClearActionPresentation({
       label: "Clear image?",
       variant: "confirm",
       disabled: false,
-      statusMessage: CLEAR_IMAGE_CONFIRMATION_MESSAGE,
     };
   }
   if (pinCount > 0) {
@@ -116,23 +108,12 @@ function resolveClearActionPresentation({
       label: resolveClearPinsLabel(pinCount),
       variant: "neutral",
       disabled: false,
-      statusMessage: null,
     };
   }
   return {
     label: "Clear image",
     variant: "neutral",
     disabled: false,
-    statusMessage: null,
-  };
-}
-
-function resolveClearImagePresentation({ hasImage, isConfirming }) {
-  return {
-    label: isConfirming ? "Clear image?" : "Clear image",
-    variant: isConfirming ? "confirm" : "neutral",
-    disabled: !hasImage,
-    statusMessage: isConfirming ? CLEAR_IMAGE_CONFIRMATION_MESSAGE : null,
   };
 }
 
@@ -149,16 +130,14 @@ function resolvePanelActionPresentation({ actionSemantics }) {
     clearButtonLabel: clearActionPresentation.label,
     clearButtonVariant: clearActionPresentation.variant,
     clearButtonDisabled: clearActionPresentation.disabled,
-    statusMessage: actionSemantics.pasteArmed
-      ? MANUAL_PASTE_PROMPT
-      : clearActionPresentation.statusMessage,
   };
 }
 
-function resolveModeSwitchPresentation(mode) {
+function resolveModeSwitchPresentation({ mode, hasImage }) {
   return {
     checked: mode === UI_MODE_KIND.ALIGN,
     label: mode === UI_MODE_KIND.ALIGN ? "Align" : "Trace",
     ariaLabel: `Mode: ${mode === UI_MODE_KIND.ALIGN ? "Align" : "Trace"}`,
+    disabled: !hasImage,
   };
 }

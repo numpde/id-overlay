@@ -62,7 +62,7 @@ export function resolveRegistrationUiPolicy(state) {
   const hasImage = hasOverlayImageSession(state);
   return {
     registrationModeActive,
-    canPasteImage: registrationModeActive,
+    canPasteImage: !hasImage || registrationModeActive,
     canShowPins: registrationModeActive && hasImage,
   };
 }

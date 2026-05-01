@@ -36,7 +36,7 @@ test("ui transition routes mode events to the mode family", () => {
     mode: UI_MODE_KIND.ALIGN,
   });
 
-  assert.equal(result.state.session.mode, UI_MODE_KIND.ALIGN);
+  assert.equal(result.state.session.mode, UI_MODE_KIND.TRACE);
   assert.deepEqual(result.effects, []);
 });
 

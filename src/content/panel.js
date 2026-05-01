@@ -132,7 +132,6 @@ export function createPanel({ shadow, store, interactions, statusController }) {
   shadow.append(root);
 
   let latestState = store.getState();
-  let latestStatusMessage = statusController.getMessage();
   let isPasteListenerAttached = false;
   let panelPosition = captureInitialPanelPosition();
   let activePanelDrag = null;
@@ -145,11 +144,17 @@ export function createPanel({ shadow, store, interactions, statusController }) {
   header.addEventListener("mousedown", handlePanelDragStart);
 
   modeInput.addEventListener("change", () => {
+    if (modeInput.disabled) {
+      return;
+    }
     applyModeSelection(
       modeInput.checked ? INTERACTION_MODE.ALIGN : INTERACTION_MODE.TRACE,
     );
   });
   modeSwitch.addEventListener("wheel", (event) => {
+    if (modeInput.disabled) {
+      return;
+    }
     event.preventDefault();
     event.stopPropagation();
     applyModeSelection(
@@ -176,6 +181,8 @@ export function createPanel({ shadow, store, interactions, statusController }) {
     });
   });
 
+  statusController.setUiStateSource(resolveCurrentUiState);
+
   const unsubscribeStore = store.subscribe((state) => {
     latestState = state;
     const panelViewModel = resolveCurrentPanelViewModel();
@@ -191,17 +198,19 @@ export function createPanel({ shadow, store, interactions, statusController }) {
     applyPanelViewModel(panelViewModel);
   });
   const unsubscribeStatus = statusController.subscribe((message) => {
-    latestStatusMessage = message;
-    applyPanelViewModel(resolveCurrentPanelViewModel());
+    statusElement.textContent = message;
+    statusDetailSurface.textContent = message;
   });
 
   applyPanelViewModel(resolveCurrentPanelViewModel());
+  statusController.refresh();
 
   return {
     destroy() {
       detachPasteListener();
       endPanelDrag();
       clearClearConfirmTimer();
+      statusController.setUiStateSource(null);
       window.removeEventListener("resize", handleWindowResize);
       unsubscribeStore();
       unsubscribeStatus();
@@ -209,13 +218,16 @@ export function createPanel({ shadow, store, interactions, statusController }) {
     },
   };
 
+  function resolveCurrentUiState() {
+    return projectLiveUiState({
+      state: store.getState(),
+      panelActionState,
+    });
+  }
+
   function resolveCurrentPanelViewModel() {
     return resolveUiViewModel({
-      uiState: projectLiveUiState({
-        state: latestState,
-        panelActionState,
-      }),
-      statusMessage: latestStatusMessage,
+      uiState: resolveCurrentUiState(),
     });
   }
 
@@ -224,6 +236,7 @@ export function createPanel({ shadow, store, interactions, statusController }) {
     const { presentation } = panelViewModel;
     opacityInput.value = presentation.opacityValue;
     modeInput.checked = presentation.modeSwitch.checked;
+    modeInput.disabled = presentation.modeSwitch.disabled;
     modeInput.setAttribute("aria-label", presentation.modeSwitch.ariaLabel);
     modeSwitch.dataset.mode = presentation.modeSwitch.label.toLowerCase();
     clearButton.textContent = presentation.clearButtonLabel;
@@ -233,8 +246,6 @@ export function createPanel({ shadow, store, interactions, statusController }) {
       presentation.clearButtonVariant === "confirm",
     );
     opacityInput.disabled = !presentation.hasImage;
-    statusElement.textContent = presentation.statusMessage;
-    statusDetailSurface.textContent = presentation.statusMessage;
   }
 
   function applyModeSelection(mode) {
@@ -368,6 +379,7 @@ export function createPanel({ shadow, store, interactions, statusController }) {
     const panelViewModel = resolveCurrentPanelViewModel();
     syncPanelActionSideEffects(panelViewModel.actionSemantics);
     applyPanelViewModel(panelViewModel);
+    statusController.refresh();
   }
 
   function getPanelActionSemantics() {

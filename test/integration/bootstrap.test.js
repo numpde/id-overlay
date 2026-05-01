@@ -444,7 +444,7 @@ test("clear button drives the canonical paste flow when no image is present", as
   const env = createDomEnvironment({
     storageState: {
       "id-overlay/state": {
-        mode: "align",
+        mode: "trace",
         opacity: 0.6,
         image: null,
         registration: {
@@ -475,9 +475,12 @@ test("clear button drives the canonical paste flow when no image is present", as
 
     const shadow = env.document.getElementById("id-overlay-root").shadowRoot;
     const clearButton = shadow.querySelector(".id-overlay-panel__clear-button");
+    const modeInput = shadow.querySelector(".id-overlay-mode-switch__input");
     const image = env.document.querySelector(".id-overlay-image");
 
     assert.equal(clearButton.textContent, "Paste");
+    assert.equal(clearButton.disabled, false);
+    assert.equal(modeInput.disabled, true);
 
     clearButton.click();
     await new Promise((resolve) => setTimeout(resolve, 0));
@@ -485,6 +488,7 @@ test("clear button drives the canonical paste flow when no image is present", as
     assert.equal(image.style.display, "block");
     assert.equal(image.style.width, "640px");
     assert.equal(clearButton.textContent, "Clear image");
+    assert.equal(modeInput.disabled, false);
   } finally {
     env.cleanup();
   }
@@ -780,6 +784,47 @@ test("scrolling the mode switch selects align on wheel-up and trace on wheel-dow
 
     assert.equal(modeInput.checked, false);
     assert.equal(overlay.dataset.mode, "trace");
+  } finally {
+    env.cleanup();
+  }
+});
+
+test("mode switch stays disabled while no image session is present", async () => {
+  const env = createDomEnvironment({
+    storageState: {
+      "id-overlay/state": {
+        mode: "trace",
+        opacity: 0.6,
+        image: null,
+        registration: {
+          pins: [],
+          solvedTransform: null,
+          dirty: false,
+        },
+      },
+    },
+  });
+
+  try {
+    const { bootstrapIdOverlay } = await import(`${repoFileUrl("src/content/main.js")}?modewheel-empty=${Date.now()}`);
+    await bootstrapIdOverlay();
+
+    const shadow = env.document.getElementById("id-overlay-root").shadowRoot;
+    const modeSwitch = shadow.querySelector(".id-overlay-mode-switch");
+    const modeInput = shadow.querySelector(".id-overlay-mode-switch__input");
+
+    assert.equal(modeInput.checked, false);
+    assert.equal(modeInput.disabled, true);
+
+    modeSwitch.dispatchEvent(new env.window.WheelEvent("wheel", {
+      bubbles: true,
+      cancelable: true,
+      deltaY: -100,
+    }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    assert.equal(modeInput.checked, false);
+    assert.equal(modeInput.disabled, true);
   } finally {
     env.cleanup();
   }

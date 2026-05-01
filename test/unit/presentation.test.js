@@ -20,16 +20,15 @@ import {
   CLEAR_PINS_CONFIRMATION_MESSAGE,
   CLEAR_IMAGE_CONFIRMATION_MESSAGE,
   MANUAL_PASTE_PROMPT,
-  resolveUiViewModel,
-} from "../../src/core/ui-view-model.js";
+} from "../../src/core/ui-status-model.js";
+import { resolveUiViewModel } from "../../src/core/ui-view-model.js";
 
-function resolvePanelViewModel({ state, statusMessage, panelActionState }) {
+function resolvePanelViewModel({ state, panelActionState }) {
   return resolveUiViewModel({
     uiState: projectLiveUiState({
       state,
       panelActionState,
     }),
-    statusMessage,
   });
 }
 
@@ -49,7 +48,7 @@ test("resolveOverlaySessionPresentation centralizes session labels and enablemen
   });
 
   assert.equal(empty.hasImage, false);
-  assert.equal(empty.canPasteImage, false);
+  assert.equal(empty.canPasteImage, true);
   assert.equal(empty.canShowPins, false);
   assert.equal(empty.pinCount, 0);
   assert.equal(empty.canClearPins, false);
@@ -216,7 +215,6 @@ test("resolvePanelPresentation centralizes panel labels and enablement", () => {
         dirty: false,
       },
     },
-    statusMessage: "Ready.",
     panelActionState: {
       kind: PANEL_ACTION_KIND.PASTE_ARMED,
       sessionId: 1,
@@ -229,12 +227,12 @@ test("resolvePanelPresentation centralizes panel labels and enablement", () => {
       checked: true,
       label: "Align",
       ariaLabel: "Mode: Align",
+      disabled: false,
     },
     hasImage: true,
     clearButtonLabel: "Clear 2 pins",
     clearButtonVariant: "neutral",
     clearButtonDisabled: false,
-    statusMessage: MANUAL_PASTE_PROMPT,
   });
 });
 
@@ -253,7 +251,6 @@ test("resolvePanelPresentation disables registration actions outside align mode"
         dirty: false,
       },
     },
-    statusMessage: "Ready.",
     panelActionState: {
       kind: PANEL_ACTION_KIND.IDLE,
       sessionId: 0,
@@ -265,6 +262,7 @@ test("resolvePanelPresentation disables registration actions outside align mode"
   assert.equal(viewModel.actionSemantics.canClearPins, false);
   assert.equal(presentation.clearButtonLabel, "Clear 2 pins");
   assert.equal(presentation.clearButtonDisabled, false);
+  assert.equal(presentation.modeSwitch.disabled, false);
 });
 
 test("resolvePanelViewModel keeps panel semantics and presentation on one has-image source", () => {
@@ -279,7 +277,6 @@ test("resolvePanelViewModel keeps panel semantics and presentation on one has-im
         dirty: false,
       },
     },
-    statusMessage: "Ready.",
     panelActionState: {
       kind: PANEL_ACTION_KIND.CLEAR_IMAGE_CONFIRM,
       sessionId: 0,
@@ -292,9 +289,10 @@ test("resolvePanelViewModel keeps panel semantics and presentation on one has-im
   assert.equal(viewModel.actionSemantics.hasImage, false);
   assert.equal(viewModel.actionSemantics.canPasteImage, true);
   assert.equal(viewModel.actionSemantics.shouldReset, true);
+  assert.equal(viewModel.presentation.modeSwitch.disabled, true);
 });
 
-test("resolvePanelPresentation gives clear-confirmation copy priority over steady status", () => {
+test("resolvePanelPresentation keeps confirmation labels aligned with canonical status prompts", () => {
   const pinsPresentation = resolvePanelPresentation({
     state: {
       image: { src: "x", width: 1, height: 1 },
@@ -306,7 +304,6 @@ test("resolvePanelPresentation gives clear-confirmation copy priority over stead
         dirty: false,
       },
     },
-    statusMessage: "Ready.",
     panelActionState: {
       kind: PANEL_ACTION_KIND.CLEAR_PINS_CONFIRM,
       sessionId: 0,
@@ -315,7 +312,6 @@ test("resolvePanelPresentation gives clear-confirmation copy priority over stead
 
   assert.equal(pinsPresentation.clearButtonLabel, "Clear pins?");
   assert.equal(pinsPresentation.clearButtonVariant, "confirm");
-  assert.equal(pinsPresentation.statusMessage, CLEAR_PINS_CONFIRMATION_MESSAGE);
 
   const imagePresentation = resolvePanelPresentation({
     state: {
@@ -328,7 +324,6 @@ test("resolvePanelPresentation gives clear-confirmation copy priority over stead
         dirty: false,
       },
     },
-    statusMessage: "Ready.",
     panelActionState: {
       kind: PANEL_ACTION_KIND.CLEAR_IMAGE_CONFIRM,
       sessionId: 0,
@@ -337,7 +332,8 @@ test("resolvePanelPresentation gives clear-confirmation copy priority over stead
 
   assert.equal(imagePresentation.clearButtonLabel, "Clear image?");
   assert.equal(imagePresentation.clearButtonVariant, "confirm");
-  assert.equal(imagePresentation.statusMessage, CLEAR_IMAGE_CONFIRMATION_MESSAGE);
+  assert.notEqual(CLEAR_PINS_CONFIRMATION_MESSAGE, CLEAR_IMAGE_CONFIRMATION_MESSAGE);
+  assert.equal(MANUAL_PASTE_PROMPT.startsWith("Press"), true);
 });
 
 test("presentation helpers centralize pin and solve feedback copy", () => {
