@@ -133,9 +133,9 @@ export function createPanel({ shadow, store, interactions, statusController }) {
 
   statusWrap.append(statusElement, statusDetail);
 
-  modeRow.append(modeSwitch, historyActions);
+  modeRow.append(modeSwitch, mainActionButton, historyActions);
 
-  root.append(header, modeRow, opacityGroup, mainActionButton, statusWrap);
+  root.append(header, modeRow, opacityGroup, statusWrap);
   shadow.append(root);
 
   let latestState = store.getState();
