@@ -1,6 +1,5 @@
 import { getOverlayImageLoadStats } from "./image-normalization.js";
 import { INTERACTION_MODE, isTraceMode } from "./interaction-mode.js";
-import { resolveRegistrationSolveState } from "./state.js";
 import { resolveOverlayRenderState } from "./transform.js";
 import {
   INTERACTION_EVENT,
@@ -10,7 +9,6 @@ import {
 import { RUNTIME_ERROR_SOURCE } from "./runtime-error.js";
 import {
   ALIGN_SOLVED_PREVIEW_STATUS_MESSAGE,
-  DIRTY_PINS_STATUS_MESSAGE,
   EMPTY_SESSION_STATUS_MESSAGE,
   MANUAL_PASTE_PROMPT,
   TRACE_MANUAL_STATUS_MESSAGE,
@@ -26,41 +24,20 @@ export const PANEL_FEEDBACK_ACTION = Object.freeze({
   CLIPBOARD_IMAGE_LOADED: "clipboard-image-loaded",
 });
 
-export function resolveRegistrationSolvePresentation(registration) {
-  const solveState = resolveRegistrationSolveState(registration);
+export function describeRegistrationSolveSummary(solveState) {
   if (solveState.kind === "solved") {
-    return {
-      ...solveState,
-      summaryLabel: `Solved from ${solveState.solvedPinCount} pin(s)`,
-      statusMessage: null,
-    };
+    return `Solved from ${solveState.solvedPinCount} pin(s)`;
   }
   if (solveState.kind === "dirty") {
-    return {
-      ...solveState,
-      summaryLabel: "Pins changed; fit pending",
-      statusMessage: DIRTY_PINS_STATUS_MESSAGE,
-    };
+    return "Pins changed; fit pending";
   }
   if (solveState.kind === "ready") {
-    return {
-      ...solveState,
-      summaryLabel: "Ready to fit",
-      statusMessage: null,
-    };
+    return "Ready to fit";
   }
   if (solveState.kind === "insufficient-pins") {
-    return {
-      ...solveState,
-      summaryLabel: "Collect at least 2 pins",
-      statusMessage: null,
-    };
+    return "Collect at least 2 pins";
   }
-  return {
-    ...solveState,
-    summaryLabel: "No pins yet",
-    statusMessage: null,
-  };
+  return "No pins yet";
 }
 
 export function resolveOverlayRenderPresentation(state) {

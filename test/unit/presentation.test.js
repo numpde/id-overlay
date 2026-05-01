@@ -4,18 +4,20 @@ import assert from "node:assert/strict";
 import {
   PANEL_FEEDBACK_ACTION,
   describePanelActionPresentation,
+  describeRegistrationSolveSummary,
   describeRuntimeErrorPresentation,
   describeInteractionEventPresentation,
   describePinResultPresentation,
   describeSolveResultPresentation,
   resolveOverlayRenderPresentation,
-  resolveRegistrationSolvePresentation,
 } from "../../src/core/presentation.js";
 import { RUNTIME_ERROR_SOURCE } from "../../src/core/runtime-error.js";
+import { resolveRegistrationSolveState } from "../../src/core/state.js";
 import { projectLiveUiState } from "../../src/core/ui-live-state.js";
 import {
   CLEAR_PINS_CONFIRMATION_MESSAGE,
   CLEAR_IMAGE_CONFIRMATION_MESSAGE,
+  DIRTY_PINS_STATUS_MESSAGE,
   MANUAL_PASTE_PROMPT,
   resolveUiStatusBaseline,
 } from "../../src/core/ui-status-model.js";
@@ -46,7 +48,7 @@ function resolveStatusBaseline({ state, runtime, panelActionState = { kind: UI_P
 }
 
 test("presentation centralizes solve and render copy from semantic state", () => {
-  assert.deepEqual(resolveRegistrationSolvePresentation({
+  assert.deepEqual(resolveRegistrationSolveState({
     pins: [],
     solvedTransform: null,
     dirty: false,
@@ -55,11 +57,17 @@ test("presentation centralizes solve and render copy from semantic state", () =>
     pinCount: 0,
     solvedPinCount: 0,
     canCompute: false,
-    summaryLabel: "No pins yet",
-    statusMessage: null,
   });
+  assert.equal(
+    describeRegistrationSolveSummary(resolveRegistrationSolveState({
+      pins: [],
+      solvedTransform: null,
+      dirty: false,
+    })),
+    "No pins yet",
+  );
 
-  assert.deepEqual(resolveRegistrationSolvePresentation({
+  assert.deepEqual(resolveRegistrationSolveState({
     pins: [{ id: 1 }],
     solvedTransform: null,
     dirty: true,
@@ -68,11 +76,17 @@ test("presentation centralizes solve and render copy from semantic state", () =>
     pinCount: 1,
     solvedPinCount: 1,
     canCompute: false,
-    summaryLabel: "Collect at least 2 pins",
-    statusMessage: null,
   });
+  assert.equal(
+    describeRegistrationSolveSummary(resolveRegistrationSolveState({
+      pins: [{ id: 1 }],
+      solvedTransform: null,
+      dirty: true,
+    })),
+    "Collect at least 2 pins",
+  );
 
-  assert.deepEqual(resolveRegistrationSolvePresentation({
+  assert.deepEqual(resolveRegistrationSolveState({
     pins: [{ id: 1 }, { id: 2 }],
     solvedTransform: null,
     dirty: true,
@@ -81,11 +95,18 @@ test("presentation centralizes solve and render copy from semantic state", () =>
     pinCount: 2,
     solvedPinCount: 2,
     canCompute: true,
-    summaryLabel: "Pins changed; fit pending",
-    statusMessage: "Align mode: pins changed. Switch to Trace to fit the overlay from the current pins.",
   });
+  assert.equal(
+    describeRegistrationSolveSummary(resolveRegistrationSolveState({
+      pins: [{ id: 1 }, { id: 2 }],
+      solvedTransform: null,
+      dirty: true,
+    })),
+    "Pins changed; fit pending",
+  );
+  assert.equal(DIRTY_PINS_STATUS_MESSAGE, "Align mode: pins changed. Switch to Trace to fit the overlay from the current pins.");
 
-  assert.deepEqual(resolveRegistrationSolvePresentation({
+  assert.deepEqual(resolveRegistrationSolveState({
     pins: [{ id: 1 }, { id: 2 }],
     solvedTransform: { type: "similarity", a: 1, b: 0, tx: 0, ty: 0, pinCount: 3 },
     dirty: false,
@@ -94,9 +115,15 @@ test("presentation centralizes solve and render copy from semantic state", () =>
     pinCount: 2,
     solvedPinCount: 3,
     canCompute: true,
-    summaryLabel: "Solved from 3 pin(s)",
-    statusMessage: null,
   });
+  assert.equal(
+    describeRegistrationSolveSummary(resolveRegistrationSolveState({
+      pins: [{ id: 1 }, { id: 2 }],
+      solvedTransform: { type: "similarity", a: 1, b: 0, tx: 0, ty: 0, pinCount: 3 },
+      dirty: false,
+    })),
+    "Solved from 3 pin(s)",
+  );
 
   assert.deepEqual(resolveOverlayRenderPresentation({
     image: null,
