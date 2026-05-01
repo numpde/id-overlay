@@ -36,6 +36,10 @@ import { formatBuildLabel, createLogger } from "../core/logger.js";
 
 const PANEL_MARGIN_PX = 8;
 const SVG_NS = "http://www.w3.org/2000/svg";
+const HISTORY_CONTROL_FALLBACK_LABELS = Object.freeze({
+  undo: "Undo",
+  redo: "Redo",
+});
 
 export function createPanel({ shadow, store, interactions, statusController }) {
   const logger = createLogger("panel");
@@ -287,11 +291,10 @@ export function createPanel({ shadow, store, interactions, statusController }) {
   function applyHistoryButtonPresentation({ button, descriptor, direction }) {
     const label = describePendingHistoryControl({ direction, descriptor });
     button.title = label;
-    if (label) {
-      button.setAttribute("aria-label", label);
-    } else {
-      button.removeAttribute("aria-label");
-    }
+    button.setAttribute(
+      "aria-label",
+      label || HISTORY_CONTROL_FALLBACK_LABELS[direction] || "",
+    );
   }
 
   function applyModeSelection(mode) {

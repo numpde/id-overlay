@@ -243,11 +243,11 @@ test("trace mode hides registration pins and disables registration controls", as
     assert.equal(controlsRow.contains(historyButtons[0]), true);
     assert.equal(controlsRow.contains(historyButtons[1]), true);
     assert.equal(historyButtons[0].textContent, "↶");
-    assert.equal(historyButtons[0].getAttribute("aria-label"), null);
+    assert.equal(historyButtons[0].getAttribute("aria-label"), "Undo");
     assert.equal(historyButtons[0].title, "");
     assert.equal(historyButtons[0].disabled, true);
     assert.equal(historyButtons[1].textContent, "↷");
-    assert.equal(historyButtons[1].getAttribute("aria-label"), null);
+    assert.equal(historyButtons[1].getAttribute("aria-label"), "Redo");
     assert.equal(historyButtons[1].title, "");
     assert.equal(historyButtons[1].disabled, true);
     assert.equal(env.document.querySelectorAll(".id-overlay-pin").length, 0);
@@ -512,8 +512,10 @@ test("main action button drives the canonical paste flow when no image is presen
     assert.equal(mainActionButton.textContent, "Clear image");
     assert.equal(undoButton.disabled, false);
     assert.equal(undoButton.title, "Remove image");
+    assert.equal(undoButton.getAttribute("aria-label"), "Remove image");
     assert.equal(redoButton.disabled, true);
     assert.equal(redoButton.title, "");
+    assert.equal(redoButton.getAttribute("aria-label"), "Redo");
     assert.equal(modeInput.disabled, false);
   } finally {
     env.cleanup();
@@ -570,7 +572,9 @@ test("panel undo and redo restore committed session state and reset confirmation
     assert.equal(mainActionButton.textContent, "Clear image");
     assert.equal(undoButton.disabled, false);
     assert.equal(undoButton.title, "Remove image");
+    assert.equal(undoButton.getAttribute("aria-label"), "Remove image");
     assert.equal(redoButton.title, "");
+    assert.equal(redoButton.getAttribute("aria-label"), "Redo");
 
     mainActionButton.click();
     assert.equal(mainActionButton.textContent, "Clear image?");
@@ -586,6 +590,8 @@ test("panel undo and redo restore committed session state and reset confirmation
     assert.equal(redoButton.disabled, false);
     assert.equal(undoButton.title, "");
     assert.equal(redoButton.title, "Reload image");
+    assert.equal(undoButton.getAttribute("aria-label"), "Undo");
+    assert.equal(redoButton.getAttribute("aria-label"), "Reload image");
 
     redoButton.click();
     await new Promise((resolve) => setTimeout(resolve, 0));
@@ -597,6 +603,8 @@ test("panel undo and redo restore committed session state and reset confirmation
     assert.equal(redoButton.disabled, true);
     assert.equal(undoButton.title, "Remove image");
     assert.equal(redoButton.title, "");
+    assert.equal(undoButton.getAttribute("aria-label"), "Remove image");
+    assert.equal(redoButton.getAttribute("aria-label"), "Redo");
   } finally {
     env.cleanup();
   }
