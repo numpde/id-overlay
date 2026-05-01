@@ -40,44 +40,30 @@ export function describeRegistrationSolveSummary(solveState) {
   return "No pins yet";
 }
 
-export function resolveOverlayRenderPresentation(state) {
-  const renderState = resolveOverlayRenderState(state);
+export function describeOverlayRenderLabel({ renderState, mode }) {
   if (renderState.source === "none") {
-    return {
-      hasImage: false,
-      source: renderState.source,
-      label: "No image",
-      message: EMPTY_SESSION_STATUS_MESSAGE,
-    };
+    return "No image";
   }
   if (renderState.source === "solved") {
-    return isTraceMode(state.mode)
-      ? {
-          hasImage: true,
-          source: renderState.source,
-          label: "Solved transform active",
-          message: TRACE_SOLVED_STATUS_MESSAGE,
-        }
-      : {
-          hasImage: true,
-          source: renderState.source,
-          label: "Solved transform preview active",
-          message: ALIGN_SOLVED_PREVIEW_STATUS_MESSAGE,
-        };
+    return isTraceMode(mode)
+      ? "Solved transform active"
+      : "Solved transform preview active";
   }
-  return isTraceMode(state.mode)
-    ? {
-        hasImage: true,
-        source: renderState.source,
-        label: "Manual placement active",
-        message: TRACE_MANUAL_STATUS_MESSAGE,
-      }
-    : {
-        hasImage: true,
-        source: renderState.source,
-        label: "Manual placement active",
-        message: null,
-      };
+  return "Manual placement active";
+}
+
+export function describeOverlayRenderMessage({ renderState, mode }) {
+  if (renderState.source === "none") {
+    return EMPTY_SESSION_STATUS_MESSAGE;
+  }
+  if (renderState.source === "solved") {
+    return isTraceMode(mode)
+      ? TRACE_SOLVED_STATUS_MESSAGE
+      : ALIGN_SOLVED_PREVIEW_STATUS_MESSAGE;
+  }
+  return isTraceMode(mode)
+    ? TRACE_MANUAL_STATUS_MESSAGE
+    : null;
 }
 
 export function describePinResultPresentation(result) {

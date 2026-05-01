@@ -3,16 +3,18 @@ import assert from "node:assert/strict";
 
 import {
   PANEL_FEEDBACK_ACTION,
+  describeOverlayRenderLabel,
+  describeOverlayRenderMessage,
   describePanelActionPresentation,
   describeRegistrationSolveSummary,
   describeRuntimeErrorPresentation,
   describeInteractionEventPresentation,
   describePinResultPresentation,
   describeSolveResultPresentation,
-  resolveOverlayRenderPresentation,
 } from "../../src/core/presentation.js";
 import { RUNTIME_ERROR_SOURCE } from "../../src/core/runtime-error.js";
 import { resolveRegistrationSolveState } from "../../src/core/state.js";
+import { resolveOverlayRenderState } from "../../src/core/transform.js";
 import { projectLiveUiState } from "../../src/core/ui-live-state.js";
 import {
   CLEAR_PINS_CONFIRMATION_MESSAGE,
@@ -23,19 +25,6 @@ import {
 } from "../../src/core/ui-status-model.js";
 import { resolveUiViewModel } from "../../src/core/ui-view-model.js";
 import { UI_PANEL_INTENT_KIND } from "../../src/core/ui-state-model.js";
-
-function resolvePanelViewModel({ state, panelActionState }) {
-  return resolveUiViewModel({
-    uiState: projectLiveUiState({
-      state,
-      panelActionState,
-    }),
-  });
-}
-
-function resolvePanelPresentation(input) {
-  return resolvePanelViewModel(input);
-}
 
 function resolveStatusBaseline({ state, runtime, panelActionState = { kind: UI_PANEL_INTENT_KIND.IDLE } }) {
   return resolveUiStatusBaseline({
@@ -125,27 +114,38 @@ test("presentation centralizes solve and render copy from semantic state", () =>
     "Solved from 3 pin(s)",
   );
 
-  assert.deepEqual(resolveOverlayRenderPresentation({
+  const emptyRenderState = resolveOverlayRenderState({
     image: null,
     mode: "trace",
     registration: { solvedTransform: null, dirty: false },
-  }), {
-    hasImage: false,
-    source: "none",
-    label: "No image",
-    message: "Paste a screenshot to begin.",
   });
+  assert.deepEqual(emptyRenderState, {
+    source: "none",
+    similarityTransform: null,
+  });
+  assert.equal(
+    describeOverlayRenderLabel({ renderState: emptyRenderState, mode: "trace" }),
+    "No image",
+  );
+  assert.equal(
+    describeOverlayRenderMessage({ renderState: emptyRenderState, mode: "trace" }),
+    "Paste a screenshot to begin.",
+  );
 
-  assert.deepEqual(resolveOverlayRenderPresentation({
+  const solvedRenderState = resolveOverlayRenderState({
     image: { width: 1, height: 1 },
     mode: "trace",
     registration: { solvedTransform: { type: "similarity", a: 1, b: 0, tx: 0, ty: 0 }, dirty: false },
-  }), {
-    hasImage: true,
-    source: "solved",
-    label: "Solved transform active",
-    message: "Trace mode: the overlay follows the map using the solved transform.",
   });
+  assert.equal(solvedRenderState.source, "solved");
+  assert.equal(
+    describeOverlayRenderLabel({ renderState: solvedRenderState, mode: "trace" }),
+    "Solved transform active",
+  );
+  assert.equal(
+    describeOverlayRenderMessage({ renderState: solvedRenderState, mode: "trace" }),
+    "Trace mode: the overlay follows the map using the solved transform.",
+  );
 });
 
 test("resolveUiStatusBaseline centralizes runtime-aware status copy", () => {
@@ -185,24 +185,26 @@ test("resolveUiStatusBaseline centralizes runtime-aware status copy", () => {
 });
 
 test("resolvePanelPresentation centralizes panel labels and enablement through the canonical main-action descriptor", () => {
-  const presentation = resolvePanelPresentation({
-    state: {
-      image: { src: "x", width: 1, height: 1 },
-      mode: "align",
-      opacity: 0.75,
-      registration: {
-        pins: [
-          { id: 1, imagePx: { x: 1, y: 2 }, mapLatLon: { lat: 1, lon: 2 } },
-          { id: 2, imagePx: { x: 3, y: 4 }, mapLatLon: { lat: 3, lon: 4 } },
-        ],
-        solvedTransform: null,
-        dirty: false,
+  const presentation = resolveUiViewModel({
+    uiState: projectLiveUiState({
+      state: {
+        image: { src: "x", width: 1, height: 1 },
+        mode: "align",
+        opacity: 0.75,
+        registration: {
+          pins: [
+            { id: 1, imagePx: { x: 1, y: 2 }, mapLatLon: { lat: 1, lon: 2 } },
+            { id: 2, imagePx: { x: 3, y: 4 }, mapLatLon: { lat: 3, lon: 4 } },
+          ],
+          solvedTransform: null,
+          dirty: false,
+        },
       },
-    },
-    panelActionState: {
-      kind: UI_PANEL_INTENT_KIND.PASTE_ARMED,
-      sessionId: 1,
-    },
+      panelActionState: {
+        kind: UI_PANEL_INTENT_KIND.PASTE_ARMED,
+        sessionId: 1,
+      },
+    }),
   });
 
   assert.deepEqual(presentation, {
@@ -225,24 +227,26 @@ test("resolvePanelPresentation centralizes panel labels and enablement through t
 });
 
 test("resolvePanelPresentation advances the primary action to clear-image when pins are not clearable", () => {
-  const viewModel = resolvePanelViewModel({
-    state: {
-      image: { src: "x", width: 1, height: 1 },
-      mode: "trace",
-      opacity: 0.6,
-      registration: {
-        pins: [
-          { id: 1, imagePx: { x: 1, y: 2 }, mapLatLon: { lat: 1, lon: 2 } },
-          { id: 2, imagePx: { x: 3, y: 4 }, mapLatLon: { lat: 3, lon: 4 } },
-        ],
-        solvedTransform: null,
-        dirty: false,
+  const viewModel = resolveUiViewModel({
+    uiState: projectLiveUiState({
+      state: {
+        image: { src: "x", width: 1, height: 1 },
+        mode: "trace",
+        opacity: 0.6,
+        registration: {
+          pins: [
+            { id: 1, imagePx: { x: 1, y: 2 }, mapLatLon: { lat: 1, lon: 2 } },
+            { id: 2, imagePx: { x: 3, y: 4 }, mapLatLon: { lat: 3, lon: 4 } },
+          ],
+          solvedTransform: null,
+          dirty: false,
+        },
       },
-    },
-    panelActionState: {
-      kind: UI_PANEL_INTENT_KIND.IDLE,
-      sessionId: 0,
-    },
+      panelActionState: {
+        kind: UI_PANEL_INTENT_KIND.IDLE,
+        sessionId: 0,
+      },
+    }),
   });
   assert.equal(viewModel.mainAction.target, "clear-image");
   assert.equal(viewModel.mainAction.label, "Clear image");
@@ -251,21 +255,23 @@ test("resolvePanelPresentation advances the primary action to clear-image when p
 });
 
 test("resolvePanelViewModel keeps panel semantics on the main-action image source", () => {
-  const viewModel = resolvePanelViewModel({
-    state: {
-      image: null,
-      mode: "align",
-      opacity: 0.6,
-      registration: {
-        pins: [],
-        solvedTransform: null,
-        dirty: false,
+  const viewModel = resolveUiViewModel({
+    uiState: projectLiveUiState({
+      state: {
+        image: null,
+        mode: "align",
+        opacity: 0.6,
+        registration: {
+          pins: [],
+          solvedTransform: null,
+          dirty: false,
+        },
       },
-    },
-    panelActionState: {
-      kind: UI_PANEL_INTENT_KIND.CLEAR_IMAGE_CONFIRM,
-      sessionId: 0,
-    },
+      panelActionState: {
+        kind: UI_PANEL_INTENT_KIND.CLEAR_IMAGE_CONFIRM,
+        sessionId: 0,
+      },
+    }),
   });
 
   assert.equal(viewModel.mainAction.hasImage, false);
@@ -276,41 +282,45 @@ test("resolvePanelViewModel keeps panel semantics on the main-action image sourc
 });
 
 test("resolvePanelPresentation keeps confirmation labels aligned with canonical status prompts", () => {
-  const pinsPresentation = resolvePanelPresentation({
-    state: {
-      image: { src: "x", width: 1, height: 1 },
-      mode: "align",
-      opacity: 0.6,
-      registration: {
-        pins: [{ id: 1 }],
-        solvedTransform: null,
-        dirty: false,
+  const pinsPresentation = resolveUiViewModel({
+    uiState: projectLiveUiState({
+      state: {
+        image: { src: "x", width: 1, height: 1 },
+        mode: "align",
+        opacity: 0.6,
+        registration: {
+          pins: [{ id: 1 }],
+          solvedTransform: null,
+          dirty: false,
+        },
       },
-    },
-    panelActionState: {
-      kind: UI_PANEL_INTENT_KIND.CLEAR_PINS_CONFIRM,
-      sessionId: 0,
-    },
+      panelActionState: {
+        kind: UI_PANEL_INTENT_KIND.CLEAR_PINS_CONFIRM,
+        sessionId: 0,
+      },
+    }),
   });
 
   assert.equal(pinsPresentation.mainAction.label, "Clear pins?");
   assert.equal(pinsPresentation.mainAction.presentationKind, "confirm");
 
-  const imagePresentation = resolvePanelPresentation({
-    state: {
-      image: { src: "x", width: 1, height: 1 },
-      mode: "align",
-      opacity: 0.6,
-      registration: {
-        pins: [],
-        solvedTransform: null,
-        dirty: false,
+  const imagePresentation = resolveUiViewModel({
+    uiState: projectLiveUiState({
+      state: {
+        image: { src: "x", width: 1, height: 1 },
+        mode: "align",
+        opacity: 0.6,
+        registration: {
+          pins: [],
+          solvedTransform: null,
+          dirty: false,
+        },
       },
-    },
-    panelActionState: {
-      kind: UI_PANEL_INTENT_KIND.CLEAR_IMAGE_CONFIRM,
-      sessionId: 0,
-    },
+      panelActionState: {
+        kind: UI_PANEL_INTENT_KIND.CLEAR_IMAGE_CONFIRM,
+        sessionId: 0,
+      },
+    }),
   });
 
   assert.equal(imagePresentation.mainAction.label, "Clear image?");
