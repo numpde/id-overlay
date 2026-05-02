@@ -238,7 +238,7 @@ test("trace mode hides registration pins and disables registration controls", as
     const historyButtons = [...shadow.querySelectorAll(".id-overlay-panel__history-button")];
     assert.equal(mainActionButton.textContent, "Clear image");
     assert.equal(mainActionButton.disabled, false);
-    assert.deepEqual([...controlsRow.children], [modeSwitch, mainActionButton, historyActions]);
+    assert.deepEqual([...controlsRow.children], [mainActionButton, historyActions, modeSwitch]);
     assert.equal(historyButtons.length, 2);
     assert.equal(controlsRow.contains(historyButtons[0]), true);
     assert.equal(controlsRow.contains(historyButtons[1]), true);

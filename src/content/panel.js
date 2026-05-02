@@ -133,7 +133,7 @@ export function createPanel({ shadow, store, interactions, statusController }) {
 
   statusWrap.append(statusElement, statusDetail);
 
-  controlsRow.append(modeSwitch, mainActionButton, historyActions);
+  controlsRow.append(mainActionButton, historyActions, modeSwitch);
 
   root.append(header, controlsRow, opacityGroup, statusWrap);
   shadow.append(root);
