@@ -3,7 +3,9 @@ import assert from "node:assert/strict";
 
 import {
   createInitialPanelActionState,
+  isClearConfirmationPanelIntent,
   isPanelActionSessionActive,
+  isPasteArmedPanelIntent,
   syncPanelActionState,
 } from "../../src/core/panel-state.js";
 import { UI_PANEL_INTENT_KIND } from "../../src/core/ui-state-model.js";
@@ -54,6 +56,14 @@ test("clear confirmation and reset preserve the current paste session id", () =>
     kind: UI_PANEL_INTENT_KIND.IDLE,
     sessionId: idle.sessionId,
   });
+});
+
+test("panel intent predicates centralize transient intent semantics", () => {
+  assert.equal(isPasteArmedPanelIntent(UI_PANEL_INTENT_KIND.PASTE_ARMED), true);
+  assert.equal(isPasteArmedPanelIntent(UI_PANEL_INTENT_KIND.IDLE), false);
+  assert.equal(isClearConfirmationPanelIntent(UI_PANEL_INTENT_KIND.CLEAR_PINS_CONFIRM), true);
+  assert.equal(isClearConfirmationPanelIntent(UI_PANEL_INTENT_KIND.CLEAR_IMAGE_CONFIRM), true);
+  assert.equal(isClearConfirmationPanelIntent(UI_PANEL_INTENT_KIND.PASTE_ARMED), false);
 });
 
 test("unknown panel action kinds are a no-op", () => {

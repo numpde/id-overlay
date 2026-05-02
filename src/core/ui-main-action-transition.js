@@ -7,6 +7,10 @@ import {
 } from "./ui-state-model.js";
 import { createUiTransitionResult } from "./ui-transition-result.js";
 import {
+  isClearConfirmationPanelIntent,
+  isPasteArmedPanelIntent,
+} from "./panel-state.js";
+import {
   resolveSessionRegistrationAffordances,
 } from "./ui-registration-semantics.js";
 import { transitionClearPins } from "./ui-registration-transition.js";
@@ -163,7 +167,7 @@ function transitionMainActionTriggered(uiState) {
     );
   }
 
-  if (action.intent === UI_PANEL_INTENT_KIND.PASTE_ARMED) {
+  if (isPasteArmedPanelIntent(action.intent)) {
     return createUiTransitionResult(
       patchPanelIntent(uiState, UI_PANEL_INTENT_KIND.IDLE),
       [UI_EFFECT_KIND.SHOW_PASTE_CANCELLED_FEEDBACK],
@@ -203,10 +207,7 @@ function transitionMainActionTriggered(uiState) {
 
 function transitionPanelTimeoutElapsed(uiState) {
   const intent = uiState.panel.intent;
-  if (
-    intent !== UI_PANEL_INTENT_KIND.CLEAR_PINS_CONFIRM &&
-    intent !== UI_PANEL_INTENT_KIND.CLEAR_IMAGE_CONFIRM
-  ) {
+  if (!isClearConfirmationPanelIntent(intent)) {
     return createUiTransitionResult(uiState);
   }
   return createUiTransitionResult(
@@ -215,7 +216,7 @@ function transitionPanelTimeoutElapsed(uiState) {
 }
 
 function transitionPasteSucceeded(uiState, event) {
-  if (uiState.panel.intent !== UI_PANEL_INTENT_KIND.PASTE_ARMED) {
+  if (!isPasteArmedPanelIntent(uiState.panel.intent)) {
     return createUiTransitionResult(uiState);
   }
 
@@ -236,7 +237,7 @@ function transitionPasteSucceeded(uiState, event) {
 }
 
 function transitionPasteEnded(uiState) {
-  if (uiState.panel.intent !== UI_PANEL_INTENT_KIND.PASTE_ARMED) {
+  if (!isPasteArmedPanelIntent(uiState.panel.intent)) {
     return createUiTransitionResult(uiState);
   }
   return createUiTransitionResult(

@@ -35,19 +35,26 @@ export function syncPanelActionState(state, nextKind) {
     case UI_PANEL_INTENT_KIND.IDLE:
       return createPanelActionState(
         UI_PANEL_INTENT_KIND.IDLE,
-        isPasteArmed(state) ? state.sessionId + 1 : state.sessionId,
+        isPasteArmedPanelIntent(state.kind) ? state.sessionId + 1 : state.sessionId,
       );
     default:
       return state;
   }
 }
 
-function isPasteArmed(state) {
-  return state.kind === UI_PANEL_INTENT_KIND.PASTE_ARMED;
+export function isPanelActionSessionActive(state, sessionId) {
+  return isPasteArmedPanelIntent(state.kind) && state.sessionId === sessionId;
 }
 
-export function isPanelActionSessionActive(state, sessionId) {
-  return isPasteArmed(state) && state.sessionId === sessionId;
+export function isPasteArmedPanelIntent(intent) {
+  return intent === UI_PANEL_INTENT_KIND.PASTE_ARMED;
+}
+
+export function isClearConfirmationPanelIntent(intent) {
+  return (
+    intent === UI_PANEL_INTENT_KIND.CLEAR_PINS_CONFIRM ||
+    intent === UI_PANEL_INTENT_KIND.CLEAR_IMAGE_CONFIRM
+  );
 }
 
 function createPanelActionState(kind, sessionId) {

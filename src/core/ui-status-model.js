@@ -13,16 +13,16 @@ export const TRACE_SOLVED_STATUS_MESSAGE = "Trace mode: the overlay follows the 
 export const ALIGN_SOLVED_PREVIEW_STATUS_MESSAGE = "Align mode: solved transform preview active. Switch to Trace to verify map-following, or adjust placement to refine and recompute.";
 export const TRACE_MANUAL_STATUS_MESSAGE = "Trace mode: the overlay follows the map using the current manual placement.";
 
+const STATUS_MESSAGE_BY_PANEL_INTENT = Object.freeze({
+  [UI_PANEL_INTENT_KIND.PASTE_ARMED]: MANUAL_PASTE_PROMPT,
+  [UI_PANEL_INTENT_KIND.CLEAR_PINS_CONFIRM]: CLEAR_PINS_CONFIRMATION_MESSAGE,
+  [UI_PANEL_INTENT_KIND.CLEAR_IMAGE_CONFIRM]: CLEAR_IMAGE_CONFIRMATION_MESSAGE,
+});
+
 export function resolveUiStatusBaseline({ uiState }) {
-  const intent = uiState.panel.intent;
-  if (intent === UI_PANEL_INTENT_KIND.PASTE_ARMED) {
-    return MANUAL_PASTE_PROMPT;
-  }
-  if (intent === UI_PANEL_INTENT_KIND.CLEAR_PINS_CONFIRM) {
-    return CLEAR_PINS_CONFIRMATION_MESSAGE;
-  }
-  if (intent === UI_PANEL_INTENT_KIND.CLEAR_IMAGE_CONFIRM) {
-    return CLEAR_IMAGE_CONFIRMATION_MESSAGE;
+  const panelIntentStatusMessage = STATUS_MESSAGE_BY_PANEL_INTENT[uiState.panel.intent];
+  if (panelIntentStatusMessage) {
+    return panelIntentStatusMessage;
   }
 
   if (!uiState.session.image) {
