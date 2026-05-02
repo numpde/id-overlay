@@ -1,4 +1,5 @@
 import { hasOverlayImageSession } from "./state.js";
+import { isRuntimePassThroughActive } from "./interaction-runtime.js";
 import {
   INTERACTION_MODE,
   isAlignMode,
@@ -72,7 +73,7 @@ export function canEditRegistration(state) {
 }
 
 export function canCaptureOverlayPointer({ state, runtime }) {
-  return canEditRegistration(state) && !runtime?.isPassThroughActive;
+  return canEditRegistration(state) && !isRuntimePassThroughActive(runtime);
 }
 
 export function canTrackOverlayPointer({ state, runtime }) {
@@ -119,7 +120,7 @@ export function resolveWheelMode({ shiftKey, altKey, ctrlKey }) {
 }
 
 export function canHandleWheelGesture({ state, runtime, wheelMode }) {
-  if (!hasOverlayImageSession(state) || runtime?.isPassThroughActive) {
+  if (!hasOverlayImageSession(state) || isRuntimePassThroughActive(runtime)) {
     return false;
   }
   if (wheelMode === WHEEL_MODE.ADJUST_OPACITY) {
@@ -128,7 +129,7 @@ export function canHandleWheelGesture({ state, runtime, wheelMode }) {
   if (wheelMode === WHEEL_MODE.MAP_ZOOM) {
     return canCaptureOverlayPointer({ state, runtime });
   }
-  return canEditRegistration(state) && !runtime?.isPassThroughActive;
+  return canEditRegistration(state) && !isRuntimePassThroughActive(runtime);
 }
 
 export function resolveOverlayWheelPolicy({
@@ -244,7 +245,7 @@ export function resolveKeyboardShortcut({ event, state }) {
 export function shouldReleasePassThrough({ event, state, runtime }) {
   return (
     event.code === "Space" &&
-    (isAlignMode(state.mode) || runtime.isPassThroughActive)
+    (isAlignMode(state.mode) || isRuntimePassThroughActive(runtime))
   );
 }
 

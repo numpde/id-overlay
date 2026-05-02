@@ -35,6 +35,7 @@
         "src/core/logger.js",
         "src/core/runtime-error.js",
         "src/core/session-defaults.js",
+        "src/core/interaction-runtime.js",
         "src/core/interaction-mode.js",
         "src/core/interaction-policy.js",
         "src/core/panel-state.js",

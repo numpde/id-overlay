@@ -2,24 +2,26 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  createInteractionController,
+  INTERACTION_HISTORY_DESCRIPTOR,
+} from "../../src/core/interactions.js";
+import {
+  INTERACTION_RUNTIME_ACTION,
+  reduceInteractionRuntime,
+} from "../../src/core/interaction-runtime.js";
+import {
   canHandleWheelGesture,
   canCaptureOverlayPointer,
   canEditRegistration,
   canTrackOverlayPointer,
   canToggleOverlayPin,
-  createInteractionController,
   doesDragEditPlacement,
   doesWheelEditOpacity,
   doesWheelEditPlacement,
   DRAG_MODE,
-  INTERACTION_HISTORY_DESCRIPTOR,
-  INTERACTION_RUNTIME_ACTION,
   INTERACTION_EVENT,
-  INTERACTION_MODE,
   isMapPanDragMode,
   KEYBOARD_SHORTCUT_ACTION,
-  nextMode,
-  reduceInteractionRuntime,
   resolveOverlayActivationPolicy,
   resolveOverlayPointerMovePolicy,
   resolveOverlayPointerSequencePolicy,
@@ -29,7 +31,8 @@ import {
   resolveWheelMode,
   shouldReleasePassThrough,
   WHEEL_MODE,
-} from "../../src/core/interactions.js";
+} from "../../src/core/interaction-policy.js";
+import { INTERACTION_MODE, nextMode } from "../../src/core/interaction-mode.js";
 import { RUNTIME_ERROR_SOURCE } from "../../src/core/runtime-error.js";
 import {
   describeActiveAlignDrag,

@@ -2,6 +2,11 @@ import { createValueStore } from "./value-store.js";
 import { createLogger } from "./logger.js";
 import { createRuntimeError, RUNTIME_ERROR_SOURCE } from "./runtime-error.js";
 import {
+  DEFAULT_INTERACTION_RUNTIME,
+  INTERACTION_RUNTIME_ACTION,
+  reduceInteractionRuntime,
+} from "./interaction-runtime.js";
+import {
   canCaptureOverlayPointer,
   canEditRegistration,
   canHandleWheelGesture,
@@ -63,56 +68,6 @@ import { UI_EVENT_KIND } from "./ui-event-model.js";
 import { projectLiveUiState } from "./ui-live-state.js";
 import { transitionMode } from "./ui-mode-transition.js";
 
-export {
-  canCaptureOverlayPointer,
-  canEditRegistration,
-  canHandleWheelGesture,
-  canTrackOverlayPointer,
-  canToggleOverlayPin,
-  doesDragEditPlacement,
-  doesWheelEditOpacity,
-  doesWheelEditPlacement,
-  DRAG_MODE,
-  INTERACTION_EVENT,
-  INTERACTION_MODE,
-  isAlignMode,
-  isMapPanDragMode,
-  isTraceMode,
-  KEYBOARD_SHORTCUT_ACTION,
-  normalizeInteractionMode,
-  nextMode,
-  PIN_RESULT_ACTION,
-  PIN_RESULT_REASON,
-  resolveDragMode,
-  resolveKeyboardShortcut,
-  resolveOverlayActivationPolicy,
-  resolveOverlayPointerMovePolicy,
-  resolveOverlayPointerSequencePolicy,
-  resolveOverlayWheelPolicy,
-  resolveWheelMode,
-  shouldIgnoreKeyboardShortcut,
-  shouldReleasePassThrough,
-  SOLVE_RESULT_REASON,
-  WHEEL_MODE,
-} from "./interaction-policy.js";
-
-const DEFAULT_RUNTIME = Object.freeze({
-  isDragging: false,
-  isPassThroughActive: false,
-  isPointerInsideImage: false,
-  pointerScreenPx: null,
-  dragMode: null,
-});
-
-export const INTERACTION_RUNTIME_ACTION = Object.freeze({
-  SYNC_FROM_STATE: "sync-from-state",
-  UPDATE_POINTER: "update-pointer",
-  START_DRAG: "start-drag",
-  END_DRAG: "end-drag",
-  SET_PASS_THROUGH: "set-pass-through",
-  RESET: "reset",
-});
-
 export const INTERACTION_HISTORY_DESCRIPTOR = Object.freeze({
   MOVE_OVERLAY: Object.freeze({
     kind: "move-overlay",
@@ -128,76 +83,6 @@ export const INTERACTION_HISTORY_DESCRIPTOR = Object.freeze({
   }),
 });
 
-export function reduceInteractionRuntime(previousRuntime, action, state) {
-  const previous = previousRuntime ?? DEFAULT_RUNTIME;
-  let next = previous;
-
-  switch (action?.type) {
-    case INTERACTION_RUNTIME_ACTION.SYNC_FROM_STATE:
-      next = {
-        ...previous,
-      };
-      break;
-    case INTERACTION_RUNTIME_ACTION.UPDATE_POINTER:
-      next = {
-        ...previous,
-        pointerScreenPx: action.pointerScreenPx,
-        isPointerInsideImage: action.isPointerInsideImage,
-      };
-      break;
-    case INTERACTION_RUNTIME_ACTION.START_DRAG:
-      next = {
-        ...previous,
-        pointerScreenPx: action.pointerScreenPx,
-        isPointerInsideImage: action.isPointerInsideImage,
-        isDragging: true,
-        dragMode: action.dragMode,
-      };
-      break;
-    case INTERACTION_RUNTIME_ACTION.END_DRAG:
-      next = {
-        ...previous,
-        pointerScreenPx: action.pointerScreenPx,
-        isPointerInsideImage: action.isPointerInsideImage,
-        isDragging: false,
-        dragMode: null,
-      };
-      break;
-    case INTERACTION_RUNTIME_ACTION.SET_PASS_THROUGH:
-      next = {
-        ...previous,
-        isPassThroughActive: action.isActive,
-      };
-      break;
-    case INTERACTION_RUNTIME_ACTION.RESET:
-      next = {
-        ...previous,
-        isPassThroughActive: false,
-        isDragging: false,
-        dragMode: null,
-        pointerScreenPx: action.pointerScreenPx,
-        isPointerInsideImage: action.isPointerInsideImage,
-      };
-      break;
-    default:
-      next = previous;
-      break;
-  }
-
-  if (
-    previous.isDragging === next.isDragging &&
-    previous.isPassThroughActive === next.isPassThroughActive &&
-    previous.isPointerInsideImage === next.isPointerInsideImage &&
-    previous.pointerScreenPx?.x === next.pointerScreenPx?.x &&
-    previous.pointerScreenPx?.y === next.pointerScreenPx?.y &&
-    previous.dragMode === next.dragMode
-  ) {
-    return previous;
-  }
-
-  return next;
-}
-
 export function createInteractionController({
   store,
   pageAdapter,
@@ -205,7 +90,7 @@ export function createInteractionController({
   keyboardGateway = null,
 }) {
   const logger = createLogger("interactions");
-  const runtimeStore = createValueStore(DEFAULT_RUNTIME);
+  const runtimeStore = createValueStore(DEFAULT_INTERACTION_RUNTIME);
   const eventListeners = new Set();
   let dragState = null;
 

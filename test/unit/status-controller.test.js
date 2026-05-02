@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { createStatusController } from "../../src/content/status-controller.js";
-import { INTERACTION_EVENT } from "../../src/core/interactions.js";
+import { INTERACTION_EVENT } from "../../src/core/interaction-policy.js";
 import {
   PANEL_FEEDBACK_ACTION,
   describeInteractionEventPresentation,

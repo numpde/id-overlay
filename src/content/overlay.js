@@ -12,6 +12,12 @@ import {
 } from "../core/transform.js";
 import { getOverlayImage, hasOverlayImageSession } from "../core/state.js";
 import {
+  getRuntimePointerScreenPx,
+  isRuntimeDragging,
+  isRuntimePassThroughActive,
+  isRuntimePointerInsideImage,
+} from "../core/interaction-runtime.js";
+import {
   resolveRegistrationUiPolicy,
   resolveOverlayActivationPolicy,
   resolveOverlayPointerMovePolicy,
@@ -183,7 +189,7 @@ export function createOverlay({ pageAdapter, store, interactions }) {
       registrationUi,
     });
     overlayRoot.dataset.mode = state.mode;
-    overlayRoot.dataset.passThrough = String(latestRuntime.isPassThroughActive);
+    overlayRoot.dataset.passThrough = String(isRuntimePassThroughActive(latestRuntime));
     overlayRoot.style.left = `${localViewportRect.left}px`;
     overlayRoot.style.top = `${localViewportRect.top}px`;
     overlayRoot.style.width = `${localViewportRect.width}px`;
@@ -362,7 +368,7 @@ export function createOverlay({ pageAdapter, store, interactions }) {
         return;
       }
       const screenPoint = toGlobalScreenPoint(event);
-      if (latestRuntime.isDragging) {
+      if (isRuntimeDragging(latestRuntime)) {
         interactions.handlePointerMove?.(screenPoint);
         consumeOverlayEvent(event);
         return;
@@ -378,7 +384,7 @@ export function createOverlay({ pageAdapter, store, interactions }) {
         interactions.handlePointerMove?.(screenPoint);
         return;
       }
-      if (latestRuntime.pointerScreenPx || latestRuntime.isPointerInsideImage) {
+      if (getRuntimePointerScreenPx(latestRuntime) || isRuntimePointerInsideImage(latestRuntime)) {
         interactions.handlePointerLeave?.();
       }
     });
@@ -386,7 +392,7 @@ export function createOverlay({ pageAdapter, store, interactions }) {
 
   function handleMountedPointerLeave() {
     runOverlayBoundary("mounted-pointer-leave", null, () => {
-      if (latestRuntime.isDragging) {
+      if (isRuntimeDragging(latestRuntime)) {
         return;
       }
       interactions.handlePointerLeave?.();
@@ -547,7 +553,7 @@ export function createOverlay({ pageAdapter, store, interactions }) {
         }
         setPendingPointerSequence(clearOverlayPointerSequence());
       }
-      if (!latestRuntime.isDragging) {
+      if (!isRuntimeDragging(latestRuntime)) {
         syncGlobalPointerListeners();
         return;
       }
@@ -566,7 +572,7 @@ export function createOverlay({ pageAdapter, store, interactions }) {
         consumeOverlayEvent(event);
         return;
       }
-      if (!latestRuntime.isDragging) {
+      if (!isRuntimeDragging(latestRuntime)) {
         syncGlobalPointerListeners();
         return;
       }
@@ -632,7 +638,7 @@ export function createOverlay({ pageAdapter, store, interactions }) {
   function syncGlobalPointerListeners() {
     const shouldListenGlobally = (
       hasPendingOverlayPointerSequence(pendingPointerSequence) ||
-      latestRuntime.isDragging
+      isRuntimeDragging(latestRuntime)
     );
     if (shouldListenGlobally) {
       attachGlobalPointerListeners();
@@ -664,5 +670,5 @@ function consumeOverlayEvent(event) {
 
 function doesOverlayOwnPointerHitTesting({ state, runtime, registrationUi = null }) {
   const resolvedRegistrationUi = registrationUi ?? resolveRegistrationUiPolicy(state);
-  return resolvedRegistrationUi.canShowPins && !runtime?.isPassThroughActive;
+  return resolvedRegistrationUi.canShowPins && !isRuntimePassThroughActive(runtime);
 }

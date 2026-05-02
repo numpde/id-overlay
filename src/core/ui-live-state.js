@@ -4,6 +4,11 @@ import {
   UI_ACTIVE_GESTURE_KIND,
   UI_INPUT_OVERRIDE_KIND,
 } from "./ui-state-model.js";
+import {
+  getRuntimeDragMode,
+  getRuntimePointerScreenPx,
+  isRuntimePassThroughActive,
+} from "./interaction-runtime.js";
 
 export function projectLiveUiState({
   state,
@@ -33,19 +38,19 @@ export function projectLiveUiState({
 
 export function projectLiveUiRuntime(runtime) {
   const activeGesture = (
-    runtime?.dragMode === "map-pan"
+    getRuntimeDragMode(runtime) === "map-pan"
       ? UI_ACTIVE_GESTURE_KIND.MAP_PAN
-      : runtime?.dragMode === "move-overlay"
+      : getRuntimeDragMode(runtime) === "move-overlay"
         ? UI_ACTIVE_GESTURE_KIND.MOVE_OVERLAY
         : null
   );
-  const inputOverride = runtime?.isPassThroughActive
+  const inputOverride = isRuntimePassThroughActive(runtime)
     ? UI_INPUT_OVERRIDE_KIND.PASS_THROUGH
     : null;
 
   return {
     pointer: {
-      screenPx: runtime?.pointerScreenPx ?? null,
+      screenPx: getRuntimePointerScreenPx(runtime),
     },
     activeGesture,
     inputOverride,
