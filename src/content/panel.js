@@ -153,7 +153,7 @@ export function createPanel({ shadow, store, interactions, statusController }) {
       return;
     }
     applyModeSelection(
-      modeInput.checked ? INTERACTION_MODE.ALIGN : INTERACTION_MODE.TRACE,
+      modeInput.checked ? INTERACTION_MODE.TRACE : INTERACTION_MODE.ALIGN,
     );
   });
   modeSwitch.addEventListener("wheel", (event) => {

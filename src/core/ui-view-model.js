@@ -54,10 +54,10 @@ function resolveHistoryButtonPresentation({ direction, disabled, descriptor }) {
 }
 
 function resolveModeSwitchPresentation({ mode, hasImage }) {
-  const isAlign = mode === UI_MODE_KIND.ALIGN;
-  const label = isAlign ? "Align" : "Trace";
+  const isTrace = mode === UI_MODE_KIND.TRACE;
+  const label = isTrace ? "Trace" : "Align";
   return {
-    checked: isAlign,
+    checked: isTrace,
     disabled: !hasImage,
     accessibleLabel: `Mode: ${label}`,
     mode: label.toLowerCase(),

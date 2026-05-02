@@ -215,7 +215,7 @@ test("resolvePanelPresentation centralizes panel labels and enablement through t
       disabled: false,
     },
     modeSwitch: {
-      checked: true,
+      checked: false,
       disabled: false,
       accessibleLabel: "Mode: Align",
       mode: "align",

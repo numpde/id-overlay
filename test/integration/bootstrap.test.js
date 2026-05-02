@@ -888,7 +888,7 @@ test("scrolling the mode switch selects align on wheel-up and trace on wheel-dow
     const overlay = env.document.querySelector(".id-overlay-viewport");
 
     assert.equal(shadow.querySelectorAll(".id-overlay-mode-switch__label").length, 0);
-    assert.equal(modeInput.checked, false);
+    assert.equal(modeInput.checked, true);
     assert.equal(modeInput.getAttribute("aria-label"), "Mode: Trace");
     assert.equal(overlay.dataset.mode, "trace");
 
@@ -899,7 +899,7 @@ test("scrolling the mode switch selects align on wheel-up and trace on wheel-dow
     }));
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    assert.equal(modeInput.checked, true);
+    assert.equal(modeInput.checked, false);
     assert.equal(modeInput.getAttribute("aria-label"), "Mode: Align");
     assert.equal(overlay.dataset.mode, "align");
 
@@ -910,7 +910,7 @@ test("scrolling the mode switch selects align on wheel-up and trace on wheel-dow
     }));
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    assert.equal(modeInput.checked, false);
+    assert.equal(modeInput.checked, true);
     assert.equal(overlay.dataset.mode, "trace");
   } finally {
     env.cleanup();
@@ -941,7 +941,7 @@ test("mode switch stays disabled while no image session is present", async () =>
     const modeSwitch = shadow.querySelector(".id-overlay-mode-switch");
     const modeInput = shadow.querySelector(".id-overlay-mode-switch__input");
 
-    assert.equal(modeInput.checked, false);
+    assert.equal(modeInput.checked, true);
     assert.equal(modeInput.disabled, true);
 
     modeSwitch.dispatchEvent(new env.window.WheelEvent("wheel", {
@@ -951,7 +951,7 @@ test("mode switch stays disabled while no image session is present", async () =>
     }));
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    assert.equal(modeInput.checked, false);
+    assert.equal(modeInput.checked, true);
     assert.equal(modeInput.disabled, true);
   } finally {
     env.cleanup();
