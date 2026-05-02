@@ -2,11 +2,15 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  ALIGN_REGISTRATION_NEEDS_FIT_STATUS_MESSAGE,
   CLEAR_IMAGE_CONFIRMATION_MESSAGE,
   CLEAR_PINS_CONFIRMATION_MESSAGE,
-  DIRTY_PINS_STATUS_MESSAGE,
+  describeUiStatusCase,
   MANUAL_PASTE_PROMPT,
   resolveUiStatusBaseline,
+  resolveUiStatusCase,
+  TRACE_REGISTRATION_NEEDS_FIT_STATUS_MESSAGE,
+  UI_STATUS_CASE,
 } from "../../src/core/ui-status-model.js";
 import {
   createInitialUiState,
@@ -80,6 +84,43 @@ test("resolveUiStatusBaseline derives canonical panel prompts from panel intent"
   );
 });
 
+test("resolveUiStatusCase derives canonical semantic status cases", () => {
+  assert.equal(
+    resolveUiStatusCase(createUiState()),
+    UI_STATUS_CASE.EMPTY_SESSION,
+  );
+
+  assert.equal(
+    resolveUiStatusCase(createUiState({
+      session: {
+        mode: UI_MODE_KIND.ALIGN,
+        image: { src: "x", width: 1, height: 1 },
+        registration: {
+          pins: [{ id: 1 }, { id: 2 }],
+          solvedTransform: null,
+          dirty: true,
+        },
+      },
+    })),
+    UI_STATUS_CASE.ALIGN_REGISTRATION_NEEDS_FIT,
+  );
+
+  assert.equal(
+    resolveUiStatusCase(createUiState({
+      session: {
+        mode: UI_MODE_KIND.TRACE,
+        image: { src: "x", width: 1, height: 1 },
+        registration: {
+          pins: [{ id: 1 }, { id: 2 }],
+          solvedTransform: null,
+          dirty: true,
+        },
+      },
+    })),
+    UI_STATUS_CASE.TRACE_REGISTRATION_NEEDS_FIT,
+  );
+});
+
 test("resolveUiStatusBaseline derives steady workflow guidance from canonical state and runtime", () => {
   assert.equal(
     resolveUiStatusBaseline({
@@ -102,7 +143,24 @@ test("resolveUiStatusBaseline derives steady workflow guidance from canonical st
         },
       }),
     }),
-    DIRTY_PINS_STATUS_MESSAGE,
+    ALIGN_REGISTRATION_NEEDS_FIT_STATUS_MESSAGE,
+  );
+
+  assert.equal(
+    resolveUiStatusBaseline({
+      uiState: createUiState({
+        session: {
+          mode: UI_MODE_KIND.TRACE,
+          image: { src: "x", width: 1, height: 1 },
+          registration: {
+            pins: [{ id: 1 }, { id: 2 }],
+            solvedTransform: null,
+            dirty: true,
+          },
+        },
+      }),
+    }),
+    TRACE_REGISTRATION_NEEDS_FIT_STATUS_MESSAGE,
   );
 
   assert.equal(
@@ -124,4 +182,16 @@ test("resolveUiStatusBaseline derives steady workflow guidance from canonical st
     }),
     "Panning the map while the overlay follows.",
   );
+});
+
+test("describeUiStatusCase is the single source for status copy", () => {
+  assert.equal(
+    describeUiStatusCase(UI_STATUS_CASE.ALIGN_REGISTRATION_NEEDS_FIT),
+    ALIGN_REGISTRATION_NEEDS_FIT_STATUS_MESSAGE,
+  );
+  assert.equal(
+    describeUiStatusCase(UI_STATUS_CASE.TRACE_REGISTRATION_NEEDS_FIT),
+    TRACE_REGISTRATION_NEEDS_FIT_STATUS_MESSAGE,
+  );
+  assert.equal(describeUiStatusCase("unknown-case"), "");
 });

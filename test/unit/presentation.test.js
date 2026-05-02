@@ -21,7 +21,7 @@ import { projectLiveUiState } from "../../src/core/ui-live-state.js";
 import {
   CLEAR_PINS_CONFIRMATION_MESSAGE,
   CLEAR_IMAGE_CONFIRMATION_MESSAGE,
-  DIRTY_PINS_STATUS_MESSAGE,
+  ALIGN_REGISTRATION_NEEDS_FIT_STATUS_MESSAGE,
   MANUAL_PASTE_PROMPT,
   resolveUiStatusBaseline,
 } from "../../src/core/ui-status-model.js";
@@ -95,7 +95,7 @@ test("presentation centralizes solve and render copy from semantic state", () =>
     })),
     "Pins changed; fit pending",
   );
-  assert.equal(DIRTY_PINS_STATUS_MESSAGE, "Align mode: pins changed. Switch to Trace to fit the overlay from the current pins.");
+  assert.equal(ALIGN_REGISTRATION_NEEDS_FIT_STATUS_MESSAGE, "Switch to Trace to fit the overlay from the current pins.");
 
   assert.deepEqual(resolveRegistrationSolveState({
     pins: [{ id: 1 }, { id: 2 }],
