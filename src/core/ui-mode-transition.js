@@ -39,6 +39,9 @@ function transitionModeSelected(uiState, nextMode) {
   }
 
   const nextState = patchMode(uiState, basis.nextMode);
+  // Final semantic-history shape: when selecting Trace with computable unsolved
+  // pins, this should become a fit-overlay transition with a history record,
+  // not "set mode plus request solve". Pure mode switches remain non-history.
   return createUiTransitionResult(
     nextState,
     shouldRequestSolveOnTraceSwitch(basis)
@@ -48,6 +51,9 @@ function transitionModeSelected(uiState, nextMode) {
 }
 
 function transitionSolveSucceeded(uiState, event) {
+  // Final semantic-history shape: a successful solve caused by fit-overlay
+  // should commit that semantic transition, including undo/redo events. This
+  // outcome should not remain an untracked registration mutation.
   if (!hasImage(uiState)) {
     return createUiTransitionResult(uiState);
   }

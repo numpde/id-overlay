@@ -54,6 +54,10 @@ export const UI_EVENT_MODEL = Object.freeze({
     UI_EVENT_FAMILY_KIND.INTENT,
     UI_EVENT_TRANSITION_KIND.REGISTRATION,
   ),
+  // Final semantic-history shape: these remain user intents, but they should
+  // be resolved by the state machine into the stored record's undoEvent or
+  // redoEvent. They should not emit an effect that bypasses transition
+  // semantics to restore a raw store snapshot.
   UNDO_TRIGGERED: defineUiEvent(
     "undo-triggered",
     UI_EVENT_FAMILY_KIND.INTENT,
@@ -83,6 +87,9 @@ export const UI_EVENT_MODEL = Object.freeze({
     UI_EVENT_TRANSITION_KIND.MAIN_ACTION,
     ["reason"],
   ),
+  // Final semantic-history shape: fit-overlay should be a first-class
+  // state-machine transition. If solving remains external, this outcome should
+  // commit that transition's history record, not act as an untracked mutation.
   SOLVE_SUCCEEDED: defineUiEvent(
     "solve-succeeded",
     UI_EVENT_FAMILY_KIND.OUTCOME,

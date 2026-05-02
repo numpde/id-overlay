@@ -16,6 +16,10 @@ export async function runUiLiveEffects({
   nextUiState,
   effects,
 }, handlers) {
+  // Final semantic-history shape: mode changes and fit-overlay commits should
+  // already be represented by transition state/results. This bridge should not
+  // infer "apply mode" by comparing previous/next state, and undo/redo should
+  // not leave the reducer path through handler effects.
   const requestSolve = effects.includes(UI_EFFECT_KIND.REQUEST_REGISTRATION_SOLVE);
   const previousMode = previousUiState?.session?.mode ?? null;
   const nextMode = nextUiState?.session?.mode ?? previousMode;

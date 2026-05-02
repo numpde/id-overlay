@@ -24,6 +24,9 @@ export const PANEL_FEEDBACK_ACTION = Object.freeze({
 });
 
 const PENDING_HISTORY_CONTROL_LABELS_BY_KIND = Object.freeze({
+  // Final semantic-history shape: undo/redo tooltip copy should come from the
+  // pending semantic history record emitted by the transition. This table
+  // should disappear or become a thin formatter over transition-owned labels.
   "load-image": Object.freeze({
     undo: "Remove image",
     redo: "Reload image",

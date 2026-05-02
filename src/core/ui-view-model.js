@@ -32,6 +32,9 @@ export function resolveUiViewModel({
 }
 
 function resolveHistoryControlsPresentation(history) {
+  // Final semantic-history shape: history input should expose pending
+  // transition records, not store-level descriptors. Button presentation
+  // should reflect the semantic undoEvent/redoEvent that will run.
   return {
     undo: resolveHistoryButtonPresentation({
       direction: "undo",

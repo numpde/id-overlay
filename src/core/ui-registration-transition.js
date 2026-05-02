@@ -21,6 +21,10 @@ export function transitionClearPins(uiState) {
     return createUiTransitionResult(uiState);
   }
 
+  // Final semantic-history shape: clear-pins should be committed here as the
+  // semantic transition, with undo/redo events that restore/clear pins through
+  // this reducer. The CLEAR_PINS effect and imperative interaction duplicate
+  // should disappear.
   return createUiTransitionResult(
     {
       ...uiState,

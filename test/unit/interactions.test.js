@@ -715,6 +715,9 @@ test("opacity changes do not create undo steps and survive placement undo", () =
 });
 
 test("toggleing to trace auto-computes a dirty transform when enough pins exist", () => {
+  // Final semantic-history shape: keep the visible solve behavior, but assert
+  // it as an undoable fit-overlay transition rather than an untracked side
+  // effect of toggling mode.
   const { controller, store } = createHarness();
   controller.loadImage({
     src: "data:image/png;base64,abc",

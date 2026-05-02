@@ -69,6 +69,9 @@ import { projectLiveUiState } from "./ui-live-state.js";
 import { transitionMode } from "./ui-mode-transition.js";
 
 export const INTERACTION_HISTORY_DESCRIPTOR = Object.freeze({
+  // Final semantic-history shape: these descriptors should move into the
+  // state-machine transition records that create history. Interaction code
+  // should dispatch semantic edit events, not supply presentation descriptors.
   MOVE_OVERLAY: Object.freeze({
     kind: "move-overlay",
     label: "Moved overlay",
@@ -194,6 +197,10 @@ export function createInteractionController({
     nextMode,
     requestSolve = false,
   }) {
+    // Final semantic-history shape: fit-overlay should be a normal semantic
+    // transition. This bridge currently performs "solve then set mode" outside
+    // the reducer path, which prevents fit from becoming a coherent undoable
+    // transition.
     return runInteractionBoundary("apply-mode", () => {
       const normalizedNextMode = normalizeInteractionMode(nextMode);
       if (requestSolve) {
@@ -680,6 +687,10 @@ export function createInteractionController({
   }
 
   function solveRegistrationFromCurrentState() {
+    // Final semantic-history shape: if solving is pure from pins, fit-overlay
+    // should compute and commit solvedTransform inside the state-machine
+    // transition. This imperative helper should remain only for explicit,
+    // non-history "compute now" flows, or disappear.
     const state = store.getState();
     const solveState = resolveRegistrationSolveState(state.registration);
     if (!solveState.canCompute) {
@@ -724,6 +735,9 @@ export function createInteractionController({
   }
 
   function restoreSessionHistory(direction) {
+    // Final semantic-history shape: this should disappear. Undo/redo should be
+    // state-machine events that consume semantic history records; interaction
+    // code should not call store.undo()/store.redo() directly.
     return runInteractionBoundary(`${direction}-session-history`, () => {
       resetInteractionState({
         endPointerScreenPx: runtimeStore.get().pointerScreenPx,

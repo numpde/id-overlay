@@ -41,6 +41,10 @@ export const STATE_ACTION = Object.freeze({
   CLEAR_IMAGE: "clear-image",
 });
 
+// Final semantic-history shape: this low-level checkpoint table should
+// disappear. History records should be emitted by the semantic state-machine
+// transition that interprets the user action, not inferred from reducer action
+// names here.
 const HISTORY_ACTIONS = Object.freeze({
   [STATE_ACTION.LOAD_IMAGE_SESSION]: Object.freeze({
     defaultDescriptor: Object.freeze({
@@ -230,6 +234,10 @@ export function createStateStore(initialState = {}) {
   }
 
   function undo() {
+    // Final semantic-history shape: undo should not restore a raw projected
+    // snapshot here. It should dispatch the stored history record's undoEvent
+    // through the state machine, so mode/effects/presentation are authored by
+    // the transition itself.
     if (!canUndo()) {
       return null;
     }
@@ -243,6 +251,8 @@ export function createStateStore(initialState = {}) {
   }
 
   function redo() {
+    // Final semantic-history shape: redo should replay the stored redoEvent
+    // through the same transition path instead of restoring undoableState.
     if (!canRedo()) {
       return null;
     }
@@ -339,6 +349,10 @@ function freezeHistoryDescriptor(descriptor) {
 }
 
 function projectUndoableSessionState(state) {
+  // Final semantic-history shape: this generic projection should disappear.
+  // It is the source of accidental field restoration. Undoable records should
+  // contain semantic inverse/replay events, with only the domain facts those
+  // events need.
   return {
     mode: state.mode,
     image: state.image,
@@ -348,6 +362,8 @@ function projectUndoableSessionState(state) {
 }
 
 function restoreUndoableSessionState(currentState, undoableState) {
+  // Final semantic-history shape: this raw merge should disappear with
+  // snapshot history. Restores must go through reducer transitions.
   if (!undoableState) {
     return currentState;
   }

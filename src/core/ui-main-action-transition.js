@@ -177,6 +177,10 @@ function transitionMainActionTriggered(uiState) {
   }
 
   if (action.intent === UI_PANEL_INTENT_KIND.CLEAR_IMAGE_CONFIRM) {
+    // Final semantic-history shape: clear-image should be a semantic history
+    // transition here, including undo/redo events for restoring/removing the
+    // image session. The CLEAR_IMAGE effect should not be the authority for
+    // durable state mutation.
     return createUiTransitionResult(
       resetToClearedImageSession(uiState),
       [
@@ -207,6 +211,9 @@ function transitionPasteSucceeded(uiState, event) {
     return createUiTransitionResult(uiState);
   }
 
+  // Final semantic-history shape: paste/load-image should emit the load-image
+  // history record from this transition. The interaction/store layer should
+  // not infer that record from a low-level LOAD_IMAGE_SESSION action.
   return createUiTransitionResult({
     ...uiState,
     session: {

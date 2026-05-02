@@ -13,6 +13,9 @@ export const UI_EFFECT_MODEL = Object.freeze({
   REQUEST_PASTE_INPUT: defineUiEffect(
     "request-paste-input",
   ),
+  // Final semantic-history shape: Trace-entry fitting should be a first-class
+  // transition such as fit-overlay. This effect should disappear if the solve
+  // can remain a pure synchronous transition over current pins.
   REQUEST_REGISTRATION_SOLVE: defineUiEffect(
     "request-registration-solve",
   ),
@@ -22,6 +25,9 @@ export const UI_EFFECT_MODEL = Object.freeze({
   CLEAR_IMAGE: defineUiEffect(
     "clear-image",
   ),
+  // Final semantic-history shape: undo/redo should dispatch the stored
+  // transition record's inverse/replay event through the state machine. These
+  // effects should disappear with the snapshot-based store history path.
   UNDO_SESSION: defineUiEffect(
     "undo-session",
   ),

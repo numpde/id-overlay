@@ -12,6 +12,9 @@ const TRANSITION_BY_KIND = Object.freeze({
   [UI_EVENT_TRANSITION_KIND.MAIN_ACTION]: transitionMainAction,
   [UI_EVENT_TRANSITION_KIND.MODE]: transitionMode,
   [UI_EVENT_TRANSITION_KIND.REGISTRATION]: transitionRegistration,
+  // Final semantic-history shape: history remains a reducer family, but it
+  // should route undo/redo to stored transition events instead of emitting
+  // side-effect commands that call store.undo()/store.redo().
   [UI_EVENT_TRANSITION_KIND.HISTORY]: transitionHistory,
 });
 

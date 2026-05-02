@@ -89,6 +89,9 @@ test("trace switch with no image updates mode without requesting solve", () => {
 });
 
 test("trace switch with dirty solvable registration requests solve and still switches mode", () => {
+  // Final semantic-history shape: this should become a fit-overlay transition
+  // assertion. It should emit a history record, not merely request a solve
+  // effect after patching mode.
   const base = createInitialUiState();
   const state = {
     ...base,
@@ -139,6 +142,9 @@ test("trace switch with insufficient pins does not request solve", () => {
 });
 
 test("trace switch with ready registration does not request solve", () => {
+  // Final semantic-history shape: this assertion should reverse. Ready
+  // computable pins with no solved transform are user-meaningfully fit-able,
+  // so Trace selection should become a fit-overlay transition.
   const base = createInitialUiState();
   const state = {
     ...base,

@@ -277,6 +277,9 @@ test("registration and image-session no-op transitions do not notify", () => {
 });
 
 test("history checkpoint policy stays on committed session edits only", () => {
+  // Final semantic-history shape: this test should disappear. Checkpoint
+  // ownership should move from low-level state actions to semantic transition
+  // records emitted by the state machine.
   assert.equal(isHistoryCheckpointAction({ type: STATE_ACTION.LOAD_IMAGE_SESSION }), true);
   assert.equal(isHistoryCheckpointAction({ type: STATE_ACTION.SET_OPACITY }), false);
   assert.equal(isHistoryCheckpointAction({ type: STATE_ACTION.SET_PLACEMENT }), true);
@@ -299,6 +302,9 @@ test("opacity-only edits do not create undo or redo history", () => {
 });
 
 test("state history restores committed session snapshots and clears redo after a new edit", () => {
+  // Final semantic-history shape: replace this with tests that undo/redo
+  // dispatch inverse/replay events. Raw snapshot restoration should no longer
+  // be the contract.
   const image = { src: "data:image/png;base64,abc", width: 1200, height: 800 };
   const placement = createPlacementTransform({
     image,
