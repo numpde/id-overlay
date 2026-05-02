@@ -10,10 +10,10 @@ import {
   createEmptyRegistration,
   createIdlePanel,
   createInitialMachineState,
+  isKnownMachineMode,
+  isKnownPanelIntent,
   isValidPanelRequestId,
   normalizeMachineState,
-  normalizeMode,
-  normalizePanelIntent,
   replaceHistory,
   replacePanel,
   replaceRegistration,
@@ -128,7 +128,7 @@ function loadImage(state, event) {
   // TODO(machine-cutover): If LOAD_IMAGE remains request-bound, validate
   // event.requestId here. The effect runner may defensively ignore stale async
   // reads, but the transition must be the authority for valid state changes.
-  if (!event.image) {
+  if (!event.image || !canLoadImageForRequest(state, event)) {
     return createTransitionResult({
       state,
       feedback: createFeedback(MACHINE_FEEDBACK_KIND.NONE),
@@ -209,7 +209,13 @@ function selectMode(state, event) {
   // TODO(machine-cutover): Unknown event modes should be explicit no-ops.
   // Normalization is appropriate at persistence/hydration boundaries, not as a
   // substitute for transition validity.
-  const mode = normalizeMode(event.mode);
+  if (!isKnownMachineMode(event.mode)) {
+    return createTransitionResult({
+      state,
+      feedback: createFeedback(MACHINE_FEEDBACK_KIND.NONE),
+    });
+  }
+  const mode = event.mode;
   if (!state.session.image && mode === MACHINE_MODE.ALIGN) {
     return createTransitionResult({
       state,
@@ -445,7 +451,13 @@ function setPlacement(state, event) {
 function requestPanelIntent(state, event) {
   // TODO(machine-cutover): Unknown panel intents should be explicit no-ops, not
   // coerced into IDLE/cancel. The machine should allow only valid transitions.
-  const intent = normalizePanelIntent(event.intent);
+  if (!isKnownPanelIntent(event.intent)) {
+    return createTransitionResult({
+      state,
+      feedback: createFeedback(MACHINE_FEEDBACK_KIND.NONE),
+    });
+  }
+  const intent = event.intent;
   if (intent === MACHINE_PANEL_INTENT.IDLE) {
     return cancelPanelIntent(state);
   }
@@ -474,6 +486,17 @@ function canCancelPanelIntent(state, event) {
     return true;
   }
   return isValidPanelRequestId(event.requestId) && state.panel.requestId === event.requestId;
+}
+
+function canLoadImageForRequest(state, event) {
+  if (event.requestId == null) {
+    return true;
+  }
+  return (
+    state.panel.intent === MACHINE_PANEL_INTENT.PASTE_ARMED &&
+    isValidPanelRequestId(event.requestId) &&
+    state.panel.requestId === event.requestId
+  );
 }
 
 function setStatusOverride(state, message) {

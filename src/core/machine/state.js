@@ -86,9 +86,13 @@ export function normalizePanel(panel = {}) {
 }
 
 export function normalizePanelIntent(intent) {
-  return Object.values(MACHINE_PANEL_INTENT).includes(intent)
+  return isKnownPanelIntent(intent)
     ? intent
     : MACHINE_PANEL_INTENT.IDLE;
+}
+
+export function isKnownPanelIntent(intent) {
+  return Object.values(MACHINE_PANEL_INTENT).includes(intent);
 }
 
 export function isValidPanelRequestId(requestId) {
@@ -107,7 +111,11 @@ export function normalizeRegistration(registration = {}) {
 // Transition predicates should validate event payloads instead of relying on
 // default coercion to produce a legal state.
 export function normalizeMode(mode) {
-  return mode === MACHINE_MODE.ALIGN ? MACHINE_MODE.ALIGN : MACHINE_MODE.TRACE;
+  return isKnownMachineMode(mode) ? mode : MACHINE_MODE.TRACE;
+}
+
+export function isKnownMachineMode(mode) {
+  return Object.values(MACHINE_MODE).includes(mode);
 }
 
 export function normalizeOpacity(opacity) {

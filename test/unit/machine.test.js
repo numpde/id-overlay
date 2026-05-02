@@ -89,6 +89,19 @@ test("pure mode switches are not history and do not clear redo", () => {
   assert.equal(selectPanelView(result.state).redoTooltip, "Add pin");
 });
 
+test("invalid mode selection is a pure no-op", () => {
+  const state = loadImage();
+
+  const result = transitionMachine(state, {
+    type: MACHINE_EVENT_KIND.SELECT_MODE,
+    mode: "invalid",
+  });
+
+  assert.deepEqual(result.state, state);
+  assert.deepEqual(result.effects, []);
+  assert.equal(result.historyRecord, null);
+});
+
 test("Trace switch with dirty computable pins is an undoable fit transition", () => {
   let state = loadImage();
   state = addTwoPins(state);

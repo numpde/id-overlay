@@ -109,6 +109,22 @@ test("requesting paste again cancels the old request and arms a new one", () => 
   ]);
 });
 
+test("requesting unknown panel intent is a pure no-op", () => {
+  const state = transitionMachine(createInitialMachineState(), {
+    type: MACHINE_EVENT_KIND.REQUEST_PANEL_INTENT,
+    intent: MACHINE_PANEL_INTENT.PASTE_ARMED,
+  }).state;
+
+  const result = transitionMachine(state, {
+    type: MACHINE_EVENT_KIND.REQUEST_PANEL_INTENT,
+    intent: "invalid",
+  });
+
+  assert.deepEqual(result.state, state);
+  assert.deepEqual(result.effects, []);
+  assert.equal(result.historyRecord, null);
+});
+
 test("cancelling panel intent clears request id and emits cancel-timeout effect", () => {
   const state = transitionMachine(createInitialMachineState(), {
     type: MACHINE_EVENT_KIND.REQUEST_PANEL_INTENT,
@@ -243,6 +259,24 @@ test("confirmed clear-pins cancels timeout and records clear-pins history", () =
   assert.equal(result.historyRecord.kind, MACHINE_HISTORY_KIND.CLEAR_PINS);
 });
 
+test("stale request-bound image load is a pure no-op", () => {
+  const state = transitionMachine(createInitialMachineState(), {
+    type: MACHINE_EVENT_KIND.REQUEST_PANEL_INTENT,
+    intent: MACHINE_PANEL_INTENT.PASTE_ARMED,
+  }).state;
+
+  const result = transitionMachine(state, {
+    type: MACHINE_EVENT_KIND.LOAD_IMAGE,
+    image: IMAGE,
+    placement: PLACEMENT,
+    requestId: state.panel.requestId + 1,
+  });
+
+  assert.deepEqual(result.state, state);
+  assert.deepEqual(result.effects, []);
+  assert.equal(result.historyRecord, null);
+});
+
 test("restoring image session cancels active panel timeout", () => {
   let state = loadImageState();
   const session = state.session;
@@ -297,6 +331,7 @@ test("loading image after paste cancels timeout and records load-image history",
     type: MACHINE_EVENT_KIND.LOAD_IMAGE,
     image: IMAGE,
     placement: PLACEMENT,
+    requestId: state.panel.requestId,
   });
 
   assert.equal(result.state.session.mode, MACHINE_MODE.ALIGN);
