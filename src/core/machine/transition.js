@@ -21,6 +21,11 @@ import {
   moveUndoRecordToFuture,
 } from "./history.js";
 import { solveSimilarityTransform } from "./geometry.js";
+import {
+  createCancelPanelTimeoutEffect,
+  createReadPasteImageEffect,
+  createStartPanelTimeoutEffect,
+} from "./effects.js";
 
 export function transitionMachine(state = createInitialMachineState(), event = {}) {
   const currentState = normalizeMachineState(state);
@@ -123,8 +128,10 @@ function loadImage(state, event) {
     registration: createEmptyRegistration(),
   };
   const nextState = replaceSession(state, nextSession);
+  const panelEffects = createCancelPanelTimeoutEffects(state);
   return createTransitionResult({
     state: resetPanel(nextState),
+    effects: panelEffects,
     feedback: createFeedback(MACHINE_FEEDBACK_KIND.IMAGE_LOADED, "Loaded image."),
     historyRecord: {
       kind: MACHINE_HISTORY_KIND.LOAD_IMAGE,
@@ -148,6 +155,7 @@ function clearImage(state) {
     });
   }
   const previousSession = state.session;
+  const panelEffects = createCancelPanelTimeoutEffects(state);
   const nextState = resetPanel(replaceSession(state, {
     mode: MACHINE_MODE.TRACE,
     image: null,
@@ -156,6 +164,7 @@ function clearImage(state) {
   }));
   return createTransitionResult({
     state: nextState,
+    effects: panelEffects,
     feedback: createFeedback(MACHINE_FEEDBACK_KIND.IMAGE_CLEARED, "Cleared image."),
     historyRecord: {
       kind: MACHINE_HISTORY_KIND.CLEAR_IMAGE,
@@ -294,10 +303,12 @@ function clearPins(state) {
     });
   }
   const nextRegistration = createEmptyRegistration();
+  const panelEffects = createCancelPanelTimeoutEffects(state);
   return createTransitionResult({
-    state: replaceSession(replaceRegistration(state, nextRegistration), {
+    state: resetPanel(replaceSession(replaceRegistration(state, nextRegistration), {
       mode: MACHINE_MODE.ALIGN,
-    }),
+    })),
+    effects: panelEffects,
     feedback: createFeedback(MACHINE_FEEDBACK_KIND.PINS_CLEARED, "Cleared pins."),
     historyRecord: {
       kind: MACHINE_HISTORY_KIND.CLEAR_PINS,
@@ -410,19 +421,42 @@ function setPlacement(state, event) {
 }
 
 function requestPanelIntent(state, event) {
-  return setPanelIntent(state, event.intent);
-}
-
-function setPanelIntent(state, intent) {
+  const intent = normalizePanelIntent(event.intent);
+  if (intent === MACHINE_PANEL_INTENT.IDLE) {
+    return setPanelIntent(state, intent);
+  }
+  const requestId = nextPanelRequestId(state);
   return createTransitionResult({
     state: {
       ...state,
       panel: {
-        intent: Object.values(MACHINE_PANEL_INTENT).includes(intent)
-          ? intent
-          : MACHINE_PANEL_INTENT.IDLE,
+        intent,
+        requestId,
       },
     },
+    effects: [
+      ...createCancelPanelTimeoutEffects(state),
+      ...createPanelIntentEffects({ intent, requestId }),
+    ],
+    feedback: createFeedback(MACHINE_FEEDBACK_KIND.PANEL_INTENT_CHANGED),
+  });
+}
+
+function setPanelIntent(state, intent) {
+  const nextIntent = normalizePanelIntent(intent);
+  return createTransitionResult({
+    state: {
+      ...state,
+      panel: {
+        intent: nextIntent,
+        requestId: nextIntent === MACHINE_PANEL_INTENT.IDLE
+          ? null
+          : state.panel.requestId,
+      },
+    },
+    effects: nextIntent === MACHINE_PANEL_INTENT.IDLE
+      ? createCancelPanelTimeoutEffects(state)
+      : [],
     feedback: createFeedback(MACHINE_FEEDBACK_KIND.PANEL_INTENT_CHANGED),
   });
 }
@@ -481,8 +515,41 @@ function resetPanel(state) {
     ...state,
     panel: {
       intent: MACHINE_PANEL_INTENT.IDLE,
+      requestId: null,
     },
   };
+}
+
+function normalizePanelIntent(intent) {
+  return Object.values(MACHINE_PANEL_INTENT).includes(intent)
+    ? intent
+    : MACHINE_PANEL_INTENT.IDLE;
+}
+
+function nextPanelRequestId(state) {
+  return state.panel.requestId === null ? 1 : state.panel.requestId + 1;
+}
+
+function createCancelPanelTimeoutEffects(state) {
+  if (state.panel.requestId === null) {
+    return [];
+  }
+  return [
+    createCancelPanelTimeoutEffect({
+      requestId: state.panel.requestId,
+    }),
+  ];
+}
+
+function createPanelIntentEffects({ intent, requestId }) {
+  const timeoutEffect = createStartPanelTimeoutEffect({ intent, requestId });
+  if (intent !== MACHINE_PANEL_INTENT.PASTE_ARMED) {
+    return [timeoutEffect];
+  }
+  return [
+    createReadPasteImageEffect({ requestId }),
+    timeoutEffect,
+  ];
 }
 
 function shouldFitOnTrace(state) {

@@ -20,6 +20,7 @@ export function createInitialMachineState(overrides = {}) {
     },
     panel: {
       intent: MACHINE_PANEL_INTENT.IDLE,
+      requestId: null,
     },
     status: {
       messageOverride: null,
@@ -66,6 +67,7 @@ export function normalizeMachineState(state = {}) {
       intent: Object.values(MACHINE_PANEL_INTENT).includes(panel.intent)
         ? panel.intent
         : MACHINE_PANEL_INTENT.IDLE,
+      requestId: normalizeRequestId(panel.requestId),
     },
     status: {
       messageOverride: status.messageOverride ?? null,
@@ -124,4 +126,8 @@ function normalizePoint(point) {
     return null;
   }
   return { x: point.x, y: point.y };
+}
+
+function normalizeRequestId(requestId) {
+  return Number.isInteger(requestId) && requestId > 0 ? requestId : null;
 }
