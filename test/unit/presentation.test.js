@@ -5,7 +5,6 @@ import {
   PANEL_FEEDBACK_ACTION,
   describePendingHistoryControl,
   describeOverlayRenderLabel,
-  describeOverlayRenderMessage,
   describePanelActionPresentation,
   describeRegistrationSolveSummary,
   describeRuntimeErrorPresentation,
@@ -36,7 +35,7 @@ function resolveStatusBaseline({ state, runtime, panelActionState = { kind: UI_P
   });
 }
 
-test("presentation centralizes solve and render copy from semantic state", () => {
+test("presentation centralizes solve summary and render labels from semantic state", () => {
   assert.deepEqual(resolveRegistrationSolveState({
     pins: [],
     solvedTransform: null,
@@ -130,10 +129,6 @@ test("presentation centralizes solve and render copy from semantic state", () =>
     describeOverlayRenderLabel({ renderState: emptyRenderState, mode: "trace" }),
     "No image",
   );
-  assert.equal(
-    describeOverlayRenderMessage({ renderState: emptyRenderState, mode: "trace" }),
-    "Paste a screenshot to begin.",
-  );
 
   const solvedRenderState = resolveOverlayRenderState({
     image: { width: 1, height: 1 },
@@ -145,10 +140,6 @@ test("presentation centralizes solve and render copy from semantic state", () =>
     describeOverlayRenderLabel({ renderState: solvedRenderState, mode: "trace" }),
     "Solved transform active",
   );
-  assert.equal(
-    describeOverlayRenderMessage({ renderState: solvedRenderState, mode: "trace" }),
-    "Trace mode: the overlay follows the map using the solved transform.",
-  );
 });
 
 test("resolveUiStatusBaseline centralizes runtime-aware status copy", () => {
@@ -157,7 +148,7 @@ test("resolveUiStatusBaseline centralizes runtime-aware status copy", () => {
       state: { image: null, mode: "trace", registration: { pins: [], solvedTransform: null, dirty: false } },
       runtime: {},
     }),
-    "Paste a screenshot to begin.",
+    describeUiStatusCase(UI_STATUS_CASE.EMPTY_SESSION),
   );
 
   const solvedAlignState = {
@@ -175,7 +166,7 @@ test("resolveUiStatusBaseline centralizes runtime-aware status copy", () => {
       state: solvedAlignState,
       runtime: { isPassThroughActive: true, pointerScreenPx: null, dragMode: null },
     }),
-    "Pass-through active: pan or zoom iD underneath, then release Space to continue registering.",
+    describeUiStatusCase(UI_STATUS_CASE.PASS_THROUGH),
   );
 
   assert.equal(
@@ -183,7 +174,7 @@ test("resolveUiStatusBaseline centralizes runtime-aware status copy", () => {
       state: solvedAlignState,
       runtime: { isPassThroughActive: false, pointerScreenPx: null, dragMode: "map-pan" },
     }),
-    "Panning the map while the overlay follows.",
+    describeUiStatusCase(UI_STATUS_CASE.ACTIVE_MAP_PAN),
   );
 });
 

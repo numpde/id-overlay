@@ -92,12 +92,8 @@ export function describeUiStatusCase(statusCase) {
   return STATUS_MESSAGE_BY_CASE[statusCase] ?? "";
 }
 
-export function describeAlignGestureContract() {
+function describeAlignGestureContract() {
   return "Align mode: drag to move map and overlay together, Shift+drag to move only the overlay, wheel to zoom both, Shift+wheel to scale only the overlay, Ctrl+wheel to rotate the overlay, Alt+wheel to adjust opacity, double-click to add/remove pins, then switch to Trace to fit the overlay.";
-}
-
-export function describeActiveGestureStatus(activeGesture) {
-  return describeUiStatusCase(resolveActiveGestureStatusCase(activeGesture)) || null;
 }
 
 function resolveActiveGestureStatusCase(activeGesture) {

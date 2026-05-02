@@ -15,7 +15,11 @@ import { createValueStore } from "../../src/core/value-store.js";
 import { projectLiveUiState } from "../../src/core/ui-live-state.js";
 import { createInitialPanelActionState } from "../../src/core/panel-state.js";
 import { UI_PANEL_INTENT_KIND } from "../../src/core/ui-state-model.js";
-import { resolveUiStatusBaseline } from "../../src/core/ui-status-model.js";
+import {
+  UI_STATUS_CASE,
+  describeUiStatusCase,
+  resolveUiStatusBaseline,
+} from "../../src/core/ui-status-model.js";
 
 test("resolveUiStatusBaseline explains the current registration workflow", () => {
   assert.equal(
@@ -26,7 +30,7 @@ test("resolveUiStatusBaseline explains the current registration workflow", () =>
         panelActionState: { kind: UI_PANEL_INTENT_KIND.IDLE },
       }),
     }),
-    "Paste a screenshot to begin.",
+    describeUiStatusCase(UI_STATUS_CASE.EMPTY_SESSION),
   );
 
   assert.equal(
@@ -41,7 +45,7 @@ test("resolveUiStatusBaseline explains the current registration workflow", () =>
         panelActionState: { kind: UI_PANEL_INTENT_KIND.IDLE },
       }),
     }),
-    "Trace mode: the overlay follows the map using the current manual placement.",
+    describeUiStatusCase(UI_STATUS_CASE.TRACE_MANUAL),
   );
 
   assert.equal(
@@ -59,7 +63,7 @@ test("resolveUiStatusBaseline explains the current registration workflow", () =>
         panelActionState: { kind: UI_PANEL_INTENT_KIND.IDLE },
       }),
     }),
-    "Align mode: solved transform preview active. Switch to Trace to verify map-following, or adjust placement to refine and recompute.",
+    describeUiStatusCase(UI_STATUS_CASE.ALIGN_SOLVED_PREVIEW),
   );
 
   assert.equal(
@@ -77,7 +81,7 @@ test("resolveUiStatusBaseline explains the current registration workflow", () =>
         panelActionState: { kind: UI_PANEL_INTENT_KIND.IDLE },
       }),
     }),
-    "Trace mode: the overlay follows the map using the solved transform.",
+    describeUiStatusCase(UI_STATUS_CASE.TRACE_SOLVED),
   );
 });
 
@@ -99,7 +103,7 @@ test("resolveUiStatusBaseline prioritizes live interaction state over static ren
         panelActionState: { kind: UI_PANEL_INTENT_KIND.IDLE },
       }),
     }),
-    "Pass-through active: pan or zoom iD underneath, then release Space to continue registering.",
+    describeUiStatusCase(UI_STATUS_CASE.PASS_THROUGH),
   );
 
   assert.equal(
@@ -110,7 +114,7 @@ test("resolveUiStatusBaseline prioritizes live interaction state over static ren
         panelActionState: { kind: UI_PANEL_INTENT_KIND.IDLE },
       }),
     }),
-    "Panning the map while the overlay follows.",
+    describeUiStatusCase(UI_STATUS_CASE.ACTIVE_MAP_PAN),
   );
 });
 
@@ -219,7 +223,7 @@ test("status controller falls back to derived status after a transient", async (
   controller.showTransient("Loaded screenshot.", { durationMs: 0 });
   await new Promise((resolve) => setTimeout(resolve, 0));
 
-  assert.equal(messages.at(-1), "Paste a screenshot to begin.");
+  assert.equal(messages.at(-1), describeUiStatusCase(UI_STATUS_CASE.EMPTY_SESSION));
 
   unsubscribe();
   controller.destroy();

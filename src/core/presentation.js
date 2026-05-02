@@ -1,5 +1,5 @@
 import { getOverlayImageLoadStats } from "./image-normalization.js";
-import { INTERACTION_MODE, isTraceMode } from "./interaction-mode.js";
+import { isTraceMode } from "./interaction-mode.js";
 import { resolveOverlayRenderState } from "./transform.js";
 import {
   INTERACTION_EVENT,
@@ -91,11 +91,6 @@ export function describeOverlayRenderLabel({ renderState, mode }) {
   return "Manual placement active";
 }
 
-export function describeOverlayRenderMessage({ renderState, mode }) {
-  const statusCase = resolveOverlayRenderStatusCase({ renderState, mode });
-  return statusCase ? describeUiStatusCase(statusCase) : null;
-}
-
 export function describePinResultPresentation(result) {
   if (result?.ok && result.action === "added") {
     return `Added pin ${result.pin.id}.`;
@@ -184,20 +179,6 @@ export function describePanelActionPresentation(action, payload = {}) {
     default:
       return null;
   }
-}
-
-function resolveOverlayRenderStatusCase({ renderState, mode }) {
-  if (renderState.source === "none") {
-    return UI_STATUS_CASE.EMPTY_SESSION;
-  }
-  if (renderState.source === "solved") {
-    return isTraceMode(mode)
-      ? UI_STATUS_CASE.TRACE_SOLVED
-      : UI_STATUS_CASE.ALIGN_SOLVED_PREVIEW;
-  }
-  return isTraceMode(mode)
-    ? UI_STATUS_CASE.TRACE_MANUAL
-    : null;
 }
 
 export function describePendingHistoryControl({ direction, descriptor } = {}) {

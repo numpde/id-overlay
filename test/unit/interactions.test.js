@@ -34,10 +34,6 @@ import {
 } from "../../src/core/interaction-policy.js";
 import { INTERACTION_MODE, nextMode } from "../../src/core/interaction-mode.js";
 import { RUNTIME_ERROR_SOURCE } from "../../src/core/runtime-error.js";
-import {
-  describeActiveGestureStatus,
-  describeAlignGestureContract,
-} from "../../src/core/ui-status-model.js";
 import { createStateStore } from "../../src/core/state.js";
 import {
   createPlacementScreenTransform,
@@ -952,33 +948,6 @@ test("wheel mode resolution is single-source and modifier-aware", () => {
   assert.equal(
     resolveWheelMode({ shiftKey: true, altKey: true, ctrlKey: true }),
     "adjust-opacity",
-  );
-});
-
-test("gesture status descriptions stay sourced from the interaction contract", () => {
-  assert.equal(
-    describeActiveGestureStatus(DRAG_MODE.MAP_PAN),
-    "Panning the map while the overlay follows.",
-  );
-  assert.equal(
-    describeActiveGestureStatus(DRAG_MODE.MOVE_OVERLAY),
-    "Dragging overlay only. Release to keep this placement.",
-  );
-  assert.match(
-    describeAlignGestureContract(),
-    /Shift\+drag to move only the overlay/,
-  );
-  assert.match(
-    describeAlignGestureContract(),
-    /Shift\+wheel to scale only the overlay/,
-  );
-  assert.match(
-    describeAlignGestureContract(),
-    /Ctrl\+wheel to rotate the overlay/,
-  );
-  assert.match(
-    describeAlignGestureContract(),
-    /Alt\+wheel to adjust opacity/,
   );
 });
 

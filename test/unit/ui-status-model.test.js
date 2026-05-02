@@ -114,6 +114,32 @@ test("resolveUiStatusCase derives canonical semantic status cases", () => {
     })),
     UI_STATUS_CASE.TRACE_REGISTRATION_NEEDS_FIT,
   );
+
+  assert.equal(
+    resolveUiStatusCase(createUiState({
+      session: {
+        mode: UI_MODE_KIND.ALIGN,
+        image: { src: "x", width: 1, height: 1 },
+      },
+      runtime: {
+        activeGesture: "map-pan",
+      },
+    })),
+    UI_STATUS_CASE.ACTIVE_MAP_PAN,
+  );
+
+  assert.equal(
+    resolveUiStatusCase(createUiState({
+      session: {
+        mode: UI_MODE_KIND.ALIGN,
+        image: { src: "x", width: 1, height: 1 },
+      },
+      runtime: {
+        activeGesture: "move-overlay",
+      },
+    })),
+    UI_STATUS_CASE.ACTIVE_OVERLAY_DRAG,
+  );
 });
 
 test("resolveUiStatusBaseline derives steady workflow guidance from canonical state and runtime", () => {
@@ -191,6 +217,30 @@ test("describeUiStatusCase is the single source for status copy", () => {
   assert.equal(
     describeUiStatusCase(UI_STATUS_CASE.TRACE_REGISTRATION_NEEDS_FIT),
     "Fitting overlay from pins…",
+  );
+  assert.equal(
+    describeUiStatusCase(UI_STATUS_CASE.ACTIVE_MAP_PAN),
+    "Panning the map while the overlay follows.",
+  );
+  assert.equal(
+    describeUiStatusCase(UI_STATUS_CASE.ACTIVE_OVERLAY_DRAG),
+    "Dragging overlay only. Release to keep this placement.",
+  );
+  assert.match(
+    describeUiStatusCase(UI_STATUS_CASE.ALIGN_READY),
+    /Shift\+drag to move only the overlay/,
+  );
+  assert.match(
+    describeUiStatusCase(UI_STATUS_CASE.ALIGN_READY),
+    /Shift\+wheel to scale only the overlay/,
+  );
+  assert.match(
+    describeUiStatusCase(UI_STATUS_CASE.ALIGN_READY),
+    /Ctrl\+wheel to rotate the overlay/,
+  );
+  assert.match(
+    describeUiStatusCase(UI_STATUS_CASE.ALIGN_READY),
+    /Alt\+wheel to adjust opacity/,
   );
   assert.equal(describeUiStatusCase("unknown-case"), "");
 });
