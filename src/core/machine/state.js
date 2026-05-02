@@ -18,10 +18,7 @@ export function createInitialMachineState(overrides = {}) {
       activeGesture: null,
       inputOverride: null,
     },
-    panel: {
-      intent: MACHINE_PANEL_INTENT.IDLE,
-      requestId: null,
-    },
+    panel: createIdlePanel(),
     status: {
       messageOverride: null,
     },
@@ -38,6 +35,13 @@ export function createEmptyRegistration() {
     pins: [],
     solvedTransform: null,
     dirty: false,
+  };
+}
+
+export function createIdlePanel() {
+  return {
+    intent: MACHINE_PANEL_INTENT.IDLE,
+    requestId: null,
   };
 }
 
@@ -63,12 +67,7 @@ export function normalizeMachineState(state = {}) {
       activeGesture: runtime.activeGesture ?? null,
       inputOverride: runtime.inputOverride ?? null,
     },
-    panel: {
-      intent: Object.values(MACHINE_PANEL_INTENT).includes(panel.intent)
-        ? panel.intent
-        : MACHINE_PANEL_INTENT.IDLE,
-      requestId: normalizeRequestId(panel.requestId),
-    },
+    panel: normalizePanel(panel),
     status: {
       messageOverride: status.messageOverride ?? null,
     },
@@ -77,6 +76,23 @@ export function normalizeMachineState(state = {}) {
       future: Array.isArray(history.future) ? history.future : [],
     },
   };
+}
+
+export function normalizePanel(panel = {}) {
+  return {
+    intent: normalizePanelIntent(panel.intent),
+    requestId: normalizeRequestId(panel.requestId),
+  };
+}
+
+export function normalizePanelIntent(intent) {
+  return Object.values(MACHINE_PANEL_INTENT).includes(intent)
+    ? intent
+    : MACHINE_PANEL_INTENT.IDLE;
+}
+
+export function isValidPanelRequestId(requestId) {
+  return Number.isInteger(requestId) && requestId > 0;
 }
 
 export function normalizeRegistration(registration = {}) {
@@ -111,6 +127,16 @@ export function replaceRegistration(state, registration) {
   });
 }
 
+export function replacePanel(state, panel) {
+  return {
+    ...state,
+    panel: normalizePanel({
+      ...state.panel,
+      ...panel,
+    }),
+  };
+}
+
 export function replaceHistory(state, history) {
   return {
     ...state,
@@ -129,5 +155,5 @@ function normalizePoint(point) {
 }
 
 function normalizeRequestId(requestId) {
-  return Number.isInteger(requestId) && requestId > 0 ? requestId : null;
+  return isValidPanelRequestId(requestId) ? requestId : null;
 }

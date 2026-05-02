@@ -7,7 +7,11 @@ import {
   MACHINE_HISTORY_KIND,
   MACHINE_MODE,
   MACHINE_PANEL_INTENT,
+  createIdlePanel,
   createInitialMachineState,
+  isValidPanelRequestId,
+  normalizePanel,
+  replacePanel,
   transitionMachine,
 } from "../../src/core/machine/index.js";
 
@@ -27,8 +31,31 @@ const PLACEMENT = Object.freeze({
   rotationRad: 0,
 });
 
-test("initial panel request id is null", () => {
-  assert.equal(createInitialMachineState().panel.requestId, null);
+test("initial panel is idle", () => {
+  assert.deepEqual(createInitialMachineState().panel, createIdlePanel());
+});
+
+test("panel helpers centralize intent normalization and request id validity", () => {
+  assert.deepEqual(normalizePanel({
+    intent: "invalid",
+    requestId: 0,
+  }), createIdlePanel());
+  assert.deepEqual(normalizePanel({
+    intent: MACHINE_PANEL_INTENT.CLEAR_IMAGE_CONFIRM,
+    requestId: 3,
+  }), {
+    intent: MACHINE_PANEL_INTENT.CLEAR_IMAGE_CONFIRM,
+    requestId: 3,
+  });
+  assert.equal(isValidPanelRequestId(null), false);
+  assert.equal(isValidPanelRequestId(3), true);
+  assert.deepEqual(replacePanel(createInitialMachineState(), {
+    intent: MACHINE_PANEL_INTENT.PASTE_ARMED,
+    requestId: 4,
+  }).panel, {
+    intent: MACHINE_PANEL_INTENT.PASTE_ARMED,
+    requestId: 4,
+  });
 });
 
 test("requesting paste arms intent and emits read-paste plus timeout effects", () => {
@@ -92,10 +119,7 @@ test("cancelling panel intent clears request id and emits cancel-timeout effect"
     type: MACHINE_EVENT_KIND.CANCEL_PANEL_INTENT,
   });
 
-  assert.deepEqual(result.state.panel, {
-    intent: MACHINE_PANEL_INTENT.IDLE,
-    requestId: null,
-  });
+  assert.deepEqual(result.state.panel, createIdlePanel());
   assert.deepEqual(result.effects, [
     {
       kind: MACHINE_EFFECT_KIND.CANCEL_PANEL_TIMEOUT,
@@ -153,10 +177,7 @@ test("confirmed clear-image cancels timeout and records clear-image history", ()
     type: MACHINE_EVENT_KIND.CLEAR_IMAGE,
   });
 
-  assert.deepEqual(result.state.panel, {
-    intent: MACHINE_PANEL_INTENT.IDLE,
-    requestId: null,
-  });
+  assert.deepEqual(result.state.panel, createIdlePanel());
   assert.deepEqual(result.effects, [
     {
       kind: MACHINE_EFFECT_KIND.CANCEL_PANEL_TIMEOUT,
@@ -177,10 +198,7 @@ test("confirmed clear-pins cancels timeout and records clear-pins history", () =
     type: MACHINE_EVENT_KIND.CLEAR_PINS,
   });
 
-  assert.deepEqual(result.state.panel, {
-    intent: MACHINE_PANEL_INTENT.IDLE,
-    requestId: null,
-  });
+  assert.deepEqual(result.state.panel, createIdlePanel());
   assert.deepEqual(result.effects, [
     {
       kind: MACHINE_EFFECT_KIND.CANCEL_PANEL_TIMEOUT,
@@ -203,10 +221,7 @@ test("loading image after paste cancels timeout and records load-image history",
   });
 
   assert.equal(result.state.session.mode, MACHINE_MODE.ALIGN);
-  assert.deepEqual(result.state.panel, {
-    intent: MACHINE_PANEL_INTENT.IDLE,
-    requestId: null,
-  });
+  assert.deepEqual(result.state.panel, createIdlePanel());
   assert.deepEqual(result.effects, [
     {
       kind: MACHINE_EFFECT_KIND.CANCEL_PANEL_TIMEOUT,

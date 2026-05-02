@@ -4,6 +4,7 @@ import {
   MACHINE_PANEL_INTENT,
 } from "./events.js";
 import { peekRedoRecord, peekUndoRecord } from "./history.js";
+import { isValidPanelRequestId } from "./state.js";
 
 export function selectCanUndo(state) {
   return Boolean(peekUndoRecord(state));
@@ -14,7 +15,7 @@ export function selectCanRedo(state) {
 }
 
 export function selectIsCurrentPanelRequest(state, requestId) {
-  return Number.isInteger(requestId) && requestId > 0 && state.panel.requestId === requestId;
+  return isValidPanelRequestId(requestId) && state.panel.requestId === requestId;
 }
 
 export function selectUndoTooltip(state) {

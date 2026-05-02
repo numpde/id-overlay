@@ -8,10 +8,13 @@ import {
 } from "./events.js";
 import {
   createEmptyRegistration,
+  createIdlePanel,
   createInitialMachineState,
   normalizeMachineState,
   normalizeMode,
+  normalizePanelIntent,
   replaceHistory,
+  replacePanel,
   replaceRegistration,
   replaceSession,
 } from "./state.js";
@@ -427,13 +430,7 @@ function requestPanelIntent(state, event) {
   }
   const requestId = nextPanelRequestId(state);
   return createTransitionResult({
-    state: {
-      ...state,
-      panel: {
-        intent,
-        requestId,
-      },
-    },
+    state: replacePanel(state, { intent, requestId }),
     effects: [
       ...createCancelPanelTimeoutEffects(state),
       ...createPanelIntentEffects({ intent, requestId }),
@@ -445,15 +442,12 @@ function requestPanelIntent(state, event) {
 function setPanelIntent(state, intent) {
   const nextIntent = normalizePanelIntent(intent);
   return createTransitionResult({
-    state: {
-      ...state,
-      panel: {
-        intent: nextIntent,
-        requestId: nextIntent === MACHINE_PANEL_INTENT.IDLE
-          ? null
-          : state.panel.requestId,
-      },
-    },
+    state: replacePanel(state, {
+      intent: nextIntent,
+      requestId: nextIntent === MACHINE_PANEL_INTENT.IDLE
+        ? null
+        : state.panel.requestId,
+    }),
     effects: nextIntent === MACHINE_PANEL_INTENT.IDLE
       ? createCancelPanelTimeoutEffects(state)
       : [],
@@ -511,19 +505,7 @@ function createFeedback(kind, message = "") {
 }
 
 function resetPanel(state) {
-  return {
-    ...state,
-    panel: {
-      intent: MACHINE_PANEL_INTENT.IDLE,
-      requestId: null,
-    },
-  };
-}
-
-function normalizePanelIntent(intent) {
-  return Object.values(MACHINE_PANEL_INTENT).includes(intent)
-    ? intent
-    : MACHINE_PANEL_INTENT.IDLE;
+  return replacePanel(state, createIdlePanel());
 }
 
 function nextPanelRequestId(state) {
