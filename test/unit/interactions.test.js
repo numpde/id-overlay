@@ -35,7 +35,7 @@ import {
 import { INTERACTION_MODE, nextMode } from "../../src/core/interaction-mode.js";
 import { RUNTIME_ERROR_SOURCE } from "../../src/core/runtime-error.js";
 import {
-  describeActiveAlignDrag,
+  describeActiveGestureStatus,
   describeAlignGestureContract,
 } from "../../src/core/ui-status-model.js";
 import { createStateStore } from "../../src/core/state.js";
@@ -955,13 +955,13 @@ test("wheel mode resolution is single-source and modifier-aware", () => {
   );
 });
 
-test("align gesture descriptions stay sourced from the interaction contract", () => {
+test("gesture status descriptions stay sourced from the interaction contract", () => {
   assert.equal(
-    describeActiveAlignDrag(DRAG_MODE.MAP_PAN),
+    describeActiveGestureStatus(DRAG_MODE.MAP_PAN),
     "Panning the map while the overlay follows.",
   );
   assert.equal(
-    describeActiveAlignDrag(DRAG_MODE.MOVE_OVERLAY),
+    describeActiveGestureStatus(DRAG_MODE.MOVE_OVERLAY),
     "Dragging overlay only. Release to keep this placement.",
   );
   assert.match(

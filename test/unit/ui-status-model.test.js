@@ -2,14 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  ALIGN_REGISTRATION_NEEDS_FIT_STATUS_MESSAGE,
-  CLEAR_IMAGE_CONFIRMATION_MESSAGE,
-  CLEAR_PINS_CONFIRMATION_MESSAGE,
   describeUiStatusCase,
-  MANUAL_PASTE_PROMPT,
   resolveUiStatusBaseline,
   resolveUiStatusCase,
-  TRACE_REGISTRATION_NEEDS_FIT_STATUS_MESSAGE,
   UI_STATUS_CASE,
 } from "../../src/core/ui-status-model.js";
 import {
@@ -54,7 +49,7 @@ test("resolveUiStatusBaseline derives canonical panel prompts from panel intent"
         panel: { intent: UI_PANEL_INTENT_KIND.PASTE_ARMED },
       }),
     }),
-    MANUAL_PASTE_PROMPT,
+    describeUiStatusCase(UI_STATUS_CASE.PANEL_PASTE_ARMED),
   );
 
   assert.equal(
@@ -67,7 +62,7 @@ test("resolveUiStatusBaseline derives canonical panel prompts from panel intent"
         panel: { intent: UI_PANEL_INTENT_KIND.CLEAR_PINS_CONFIRM },
       }),
     }),
-    CLEAR_PINS_CONFIRMATION_MESSAGE,
+    describeUiStatusCase(UI_STATUS_CASE.PANEL_CLEAR_PINS_CONFIRM),
   );
 
   assert.equal(
@@ -80,7 +75,7 @@ test("resolveUiStatusBaseline derives canonical panel prompts from panel intent"
         panel: { intent: UI_PANEL_INTENT_KIND.CLEAR_IMAGE_CONFIRM },
       }),
     }),
-    CLEAR_IMAGE_CONFIRMATION_MESSAGE,
+    describeUiStatusCase(UI_STATUS_CASE.PANEL_CLEAR_IMAGE_CONFIRM),
   );
 });
 
@@ -143,7 +138,7 @@ test("resolveUiStatusBaseline derives steady workflow guidance from canonical st
         },
       }),
     }),
-    ALIGN_REGISTRATION_NEEDS_FIT_STATUS_MESSAGE,
+    describeUiStatusCase(UI_STATUS_CASE.ALIGN_REGISTRATION_NEEDS_FIT),
   );
 
   assert.equal(
@@ -160,7 +155,7 @@ test("resolveUiStatusBaseline derives steady workflow guidance from canonical st
         },
       }),
     }),
-    TRACE_REGISTRATION_NEEDS_FIT_STATUS_MESSAGE,
+    describeUiStatusCase(UI_STATUS_CASE.TRACE_REGISTRATION_NEEDS_FIT),
   );
 
   assert.equal(
@@ -185,13 +180,17 @@ test("resolveUiStatusBaseline derives steady workflow guidance from canonical st
 });
 
 test("describeUiStatusCase is the single source for status copy", () => {
+  for (const statusCase of Object.values(UI_STATUS_CASE)) {
+    assert.notEqual(describeUiStatusCase(statusCase), "");
+  }
+
   assert.equal(
     describeUiStatusCase(UI_STATUS_CASE.ALIGN_REGISTRATION_NEEDS_FIT),
-    ALIGN_REGISTRATION_NEEDS_FIT_STATUS_MESSAGE,
+    "Switch to Trace to fit the overlay from the current pins.",
   );
   assert.equal(
     describeUiStatusCase(UI_STATUS_CASE.TRACE_REGISTRATION_NEEDS_FIT),
-    TRACE_REGISTRATION_NEEDS_FIT_STATUS_MESSAGE,
+    "Fitting overlay from pins…",
   );
   assert.equal(describeUiStatusCase("unknown-case"), "");
 });

@@ -19,11 +19,9 @@ import { resolveRegistrationSolveState } from "../../src/core/state.js";
 import { resolveOverlayRenderState } from "../../src/core/transform.js";
 import { projectLiveUiState } from "../../src/core/ui-live-state.js";
 import {
-  CLEAR_PINS_CONFIRMATION_MESSAGE,
-  CLEAR_IMAGE_CONFIRMATION_MESSAGE,
-  ALIGN_REGISTRATION_NEEDS_FIT_STATUS_MESSAGE,
-  MANUAL_PASTE_PROMPT,
+  describeUiStatusCase,
   resolveUiStatusBaseline,
+  UI_STATUS_CASE,
 } from "../../src/core/ui-status-model.js";
 import { resolveUiViewModel } from "../../src/core/ui-view-model.js";
 import { UI_PANEL_INTENT_KIND } from "../../src/core/ui-state-model.js";
@@ -95,7 +93,10 @@ test("presentation centralizes solve and render copy from semantic state", () =>
     })),
     "Pins changed; fit pending",
   );
-  assert.equal(ALIGN_REGISTRATION_NEEDS_FIT_STATUS_MESSAGE, "Switch to Trace to fit the overlay from the current pins.");
+  assert.equal(
+    describeUiStatusCase(UI_STATUS_CASE.ALIGN_REGISTRATION_NEEDS_FIT),
+    "Switch to Trace to fit the overlay from the current pins.",
+  );
 
   assert.deepEqual(resolveRegistrationSolveState({
     pins: [{ id: 1 }, { id: 2 }],
@@ -344,8 +345,11 @@ test("resolvePanelPresentation keeps confirmation labels aligned with canonical 
 
   assert.equal(imagePresentation.mainAction.label, "Clear image?");
   assert.equal(imagePresentation.mainAction.presentationKind, "confirm");
-  assert.notEqual(CLEAR_PINS_CONFIRMATION_MESSAGE, CLEAR_IMAGE_CONFIRMATION_MESSAGE);
-  assert.equal(MANUAL_PASTE_PROMPT.startsWith("Press"), true);
+  assert.notEqual(
+    describeUiStatusCase(UI_STATUS_CASE.PANEL_CLEAR_PINS_CONFIRM),
+    describeUiStatusCase(UI_STATUS_CASE.PANEL_CLEAR_IMAGE_CONFIRM),
+  );
+  assert.equal(describeUiStatusCase(UI_STATUS_CASE.PANEL_PASTE_ARMED).startsWith("Press"), true);
 });
 
 test("presentation helpers centralize pin and solve feedback copy", () => {
@@ -430,7 +434,7 @@ test("presentation centralizes panel action feedback copy", () => {
   );
   assert.equal(
     describePanelActionPresentation(PANEL_FEEDBACK_ACTION.CLIPBOARD_MISSING_IMAGE_WITH_PROMPT),
-    `Clipboard does not contain an image. ${MANUAL_PASTE_PROMPT}`,
+    `Clipboard does not contain an image. ${describeUiStatusCase(UI_STATUS_CASE.PANEL_PASTE_ARMED)}`,
   );
   assert.equal(
     describePanelActionPresentation(PANEL_FEEDBACK_ACTION.CLIPBOARD_IMAGE_LOADED, {

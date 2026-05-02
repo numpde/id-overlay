@@ -8,11 +8,8 @@ import {
 } from "./interaction-policy.js";
 import { RUNTIME_ERROR_SOURCE } from "./runtime-error.js";
 import {
-  ALIGN_SOLVED_PREVIEW_STATUS_MESSAGE,
-  EMPTY_SESSION_STATUS_MESSAGE,
-  MANUAL_PASTE_PROMPT,
-  TRACE_MANUAL_STATUS_MESSAGE,
-  TRACE_SOLVED_STATUS_MESSAGE,
+  UI_STATUS_CASE,
+  describeUiStatusCase,
 } from "./ui-status-model.js";
 
 export const PANEL_FEEDBACK_ACTION = Object.freeze({
@@ -95,17 +92,8 @@ export function describeOverlayRenderLabel({ renderState, mode }) {
 }
 
 export function describeOverlayRenderMessage({ renderState, mode }) {
-  if (renderState.source === "none") {
-    return EMPTY_SESSION_STATUS_MESSAGE;
-  }
-  if (renderState.source === "solved") {
-    return isTraceMode(mode)
-      ? TRACE_SOLVED_STATUS_MESSAGE
-      : ALIGN_SOLVED_PREVIEW_STATUS_MESSAGE;
-  }
-  return isTraceMode(mode)
-    ? TRACE_MANUAL_STATUS_MESSAGE
-    : null;
+  const statusCase = resolveOverlayRenderStatusCase({ renderState, mode });
+  return statusCase ? describeUiStatusCase(statusCase) : null;
 }
 
 export function describePinResultPresentation(result) {
@@ -190,12 +178,26 @@ export function describePanelActionPresentation(action, payload = {}) {
     case PANEL_FEEDBACK_ACTION.CLIPBOARD_IMAGE_UNREADABLE:
       return "Clipboard image could not be read.";
     case PANEL_FEEDBACK_ACTION.CLIPBOARD_MISSING_IMAGE_WITH_PROMPT:
-      return `Clipboard does not contain an image. ${MANUAL_PASTE_PROMPT}`;
+      return `Clipboard does not contain an image. ${describeUiStatusCase(UI_STATUS_CASE.PANEL_PASTE_ARMED)}`;
     case PANEL_FEEDBACK_ACTION.CLIPBOARD_IMAGE_LOADED:
       return describeLoadedImagePresentation(payload);
     default:
       return null;
   }
+}
+
+function resolveOverlayRenderStatusCase({ renderState, mode }) {
+  if (renderState.source === "none") {
+    return UI_STATUS_CASE.EMPTY_SESSION;
+  }
+  if (renderState.source === "solved") {
+    return isTraceMode(mode)
+      ? UI_STATUS_CASE.TRACE_SOLVED
+      : UI_STATUS_CASE.ALIGN_SOLVED_PREVIEW;
+  }
+  return isTraceMode(mode)
+    ? UI_STATUS_CASE.TRACE_MANUAL
+    : null;
 }
 
 export function describePendingHistoryControl({ direction, descriptor } = {}) {
