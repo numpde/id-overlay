@@ -131,6 +131,8 @@ test("resolveUiViewModel advances the primary action to clear-image when pins ar
 });
 
 test("resolveUiViewModel centralizes history control presentation", () => {
+  // Final semantic-history shape: history controls should be presented from
+  // pending semantic transition records, not store-level descriptors.
   const viewModel = resolveUiViewModel({
     uiState: createUiState(),
     history: {

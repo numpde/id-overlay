@@ -134,6 +134,9 @@ export function createInteractionController({
   }
 
   function subscribeEvents(listener) {
+    // Final semantic-history shape: interaction events are currently a parallel
+    // outcome bus for status. Prefer canonical UI outcome events for anything
+    // user-visible.
     eventListeners.add(listener);
     return () => eventListeners.delete(listener);
   }
@@ -143,6 +146,9 @@ export function createInteractionController({
   }
 
   function loadImage(image) {
+    // Final semantic-history shape: this should become adapter support for a
+    // canonical paste/load-image outcome, not an imperative session mutation
+    // that authors mode/placement/history below the UI machine.
     return runInteractionBoundary("load-image", () => {
       const snapshot = pageAdapter.getSnapshot();
       const placement = createPlacementTransform({
@@ -164,6 +170,9 @@ export function createInteractionController({
   }
 
   function clearImage() {
+    // Final semantic-history shape: clear-image should enter through the
+    // semantic transition pipeline. Interaction cleanup can remain here, but
+    // durable session mutation should not.
     return runInteractionBoundary("clear-image", () => {
       resetInteractionState({
         endPointerScreenPx: runtimeStore.get().pointerScreenPx,
@@ -182,14 +191,21 @@ export function createInteractionController({
   }
 
   function undoSessionHistory() {
+    // Final semantic-history shape: this public interaction API should be
+    // removed. Undo is a UI event consumed by the transition machine.
     return restoreSessionHistory("undo");
   }
 
   function redoSessionHistory() {
+    // Final semantic-history shape: this public interaction API should be
+    // removed alongside snapshot redo.
     return restoreSessionHistory("redo");
   }
 
   function toggleMode() {
+    // Final semantic-history shape: keyboard mode toggles should dispatch the
+    // same canonical MODE_SELECTED event as the panel switch. This direct path
+    // through applyMode should not remain a separate transition authority.
     applyMode(nextMode(store.getState().mode));
   }
 
@@ -218,10 +234,16 @@ export function createInteractionController({
   }
 
   function setOpacity(opacity) {
+    // Final semantic-history shape: opacity remains non-history, but this is
+    // still a direct store mutation from UI controls. Prefer a canonical event
+    // if opacity needs to participate in shared transition effects.
     store.setOpacity(opacity);
   }
 
   function computeTransform() {
+    // Final semantic-history shape: explicit solve/fit should be represented
+    // as a semantic fit-overlay transition, with feedback and history posture
+    // owned by that transition.
     return runInteractionBoundary("compute-transform", () => {
       const result = solveRegistrationFromCurrentState();
       syncRuntimeFromState();
@@ -230,6 +252,9 @@ export function createInteractionController({
   }
 
   function requestTogglePinAtCurrentPointer() {
+    // Final semantic-history shape: pin toggles should be canonical
+    // registration events once pointer context is resolved. Interaction events
+    // should not be the user-visible feedback authority.
     const result = togglePinAtCurrentPointer();
     emitEvent({
       type: INTERACTION_EVENT.PIN_RESULT,
@@ -288,6 +313,9 @@ export function createInteractionController({
   }
 
   function clearPins() {
+    // Final semantic-history shape: clear-pins is a semantic registration
+    // transition. This method should shrink to adapter/runtime cleanup or
+    // disappear.
     return runInteractionBoundary("clear-pins", () => {
       preserveRenderedPlacementForRegistrationEdit(() => {
         const changed = store.clearPins();
@@ -332,6 +360,9 @@ export function createInteractionController({
   }
 
   function handlePointerDown({ button, screenPoint, shiftKey, dragMode: explicitDragMode = null }) {
+    // Final semantic-history shape: pointer handlers should translate raw DOM
+    // input into gesture events. Starting a semantic move-overlay edit and its
+    // history record should not be embedded in this handler.
     return runInteractionBoundary("handle-pointer-down", () => {
       if (button !== 0 || !canCaptureOverlayPointer({
         state: store.getState(),
@@ -377,6 +408,9 @@ export function createInteractionController({
           startPointerScreenPx: screenPoint,
           startCenterScreenPx: centerScreenPx,
         };
+        // Final semantic-history shape: dragging may still batch many pointer
+        // moves into one user edit, but the batch should be owned by the
+        // semantic transition record, not by a store descriptor checkpoint.
         store.beginHistoryBatch(INTERACTION_HISTORY_DESCRIPTOR.MOVE_OVERLAY);
       }
       startDragRuntime(screenPoint, {
@@ -396,6 +430,9 @@ export function createInteractionController({
       if (isMapPanDragMode(dragState.mode)) {
         pageAdapter.endMapPan?.(screenPoint);
       } else {
+        // Final semantic-history shape: ending a drag should finalize the
+        // pending transition record; it should not directly close store-local
+        // snapshot history.
         store.endHistoryBatch();
       }
       dragState = null;
@@ -418,6 +455,9 @@ export function createInteractionController({
   }
 
   function handleWheel({ deltaY, shiftKey, altKey, ctrlKey, screenPoint }) {
+    // Final semantic-history shape: wheel handlers should classify/forward
+    // adapter input, then dispatch canonical opacity/rotate/scale/map-zoom
+    // events. Semantic overlay edits should not be committed here.
     return runInteractionBoundary("handle-wheel", () => {
       const state = store.getState();
       const runtime = runtimeStore.get();
@@ -470,6 +510,9 @@ export function createInteractionController({
           anchorScreenPx: screenPoint,
           rotationRad: nextRotationRad,
         });
+        // Final semantic-history shape: wheel rotation should be reported to
+        // the transition machine as a semantic edit; interactions should not
+        // attach presentation descriptors to store writes.
         store.setPlacement(nextPlacement, {
           historyDescriptor: INTERACTION_HISTORY_DESCRIPTOR.ROTATE_OVERLAY,
         });
@@ -483,6 +526,9 @@ export function createInteractionController({
           anchorScreenPx: screenPoint,
           screenScale: nextScale,
         });
+        // Final semantic-history shape: wheel scaling should commit through a
+        // semantic transition record with undo/redo events, not through a
+        // store-local descriptor.
         store.setPlacement(nextPlacement, {
           historyDescriptor: INTERACTION_HISTORY_DESCRIPTOR.SCALE_OVERLAY,
         });
@@ -494,6 +540,9 @@ export function createInteractionController({
   }
 
   function handleDoubleClick(screenPoint) {
+    // Final semantic-history shape: double-click is adapter input. It should
+    // dispatch a pin-toggle intent after resolving pointer context, not perform
+    // the semantic registration mutation directly.
     return runInteractionBoundary("handle-double-click", () => {
       updatePointer(screenPoint, { isPointerInsideImage: true });
       return requestTogglePinAtCurrentPointer();
@@ -501,6 +550,9 @@ export function createInteractionController({
   }
 
   function handleKeyDown(event) {
+    // Final semantic-history shape: keyboard handling should resolve to
+    // canonical UI events. This function currently jumps from shortcuts to
+    // imperative interaction methods.
     const state = store.getState();
     if (!hasOverlayImageSession(state)) {
       return;
@@ -530,23 +582,32 @@ export function createInteractionController({
       logger.info("Keyboard pin toggle requested", {
         pointerScreenPx: runtimeStore.get().pointerScreenPx,
       });
+      // Final semantic-history shape: KeyP should dispatch the same semantic
+      // pin-toggle event as double-click after pointer context is resolved.
       requestTogglePinAtCurrentPointer();
       return;
     }
 
     if (shortcutAction === KEYBOARD_SHORTCUT_ACTION.SWITCH_TO_TRACE) {
       logger.info("Keyboard trace escape requested");
+      // Final semantic-history shape: this should dispatch MODE_SELECTED so a
+      // keyboard Trace switch has the same fit-overlay/history semantics as
+      // the panel switch.
       applyMode(INTERACTION_MODE.TRACE);
       return;
     }
 
     if (shortcutAction === KEYBOARD_SHORTCUT_ACTION.ENABLE_PASS_THROUGH) {
       logger.info("Keyboard pass-through activated");
+      // Final semantic-history shape: pass-through is raw input override state;
+      // keep it out of history, but project it through canonical UI runtime.
       setPassThrough(true);
     }
   }
 
   function handleKeyUp(event) {
+    // Final semantic-history shape: release remains keyboard/runtime plumbing.
+    // User-visible status should observe canonical runtime projection.
     if (!shouldReleasePassThrough({
       event,
       state: store.getState(),
@@ -592,12 +653,18 @@ export function createInteractionController({
       snapshot,
       centerScreenPx: nextCenterScreenPx,
     });
+    // Final semantic-history shape: drag movement should finalize as a
+    // transition-machine edit record. Store placement updates should be plain
+    // durable session writes.
     store.setPlacement(nextPlacement, {
       historyDescriptor: INTERACTION_HISTORY_DESCRIPTOR.MOVE_OVERLAY,
     });
   }
 
   function syncPlacementBaselineToCurrentRenderTransform(state = store.getState()) {
+    // Final semantic-history shape: this solved-render-to-manual-placement
+    // baseline sync is an important domain operation. It should be an explicit
+    // semantic transition step, not an invisible prelude inside interactions.
     const nextPlacement = derivePlacementFromCurrentRenderTransform(state);
     if (!nextPlacement) {
       return state;
@@ -607,6 +674,9 @@ export function createInteractionController({
   }
 
   function preserveRenderedPlacementForRegistrationEdit(mutateRegistration) {
+    // Final semantic-history shape: preserving visible placement across pin
+    // edits should be stated in registration transition semantics, not hidden
+    // as an imperative wrapper around store mutation.
     syncPlacementBaselineToCurrentRenderTransform();
     return mutateRegistration();
   }
@@ -671,6 +741,9 @@ export function createInteractionController({
   }
 
   function applyMode(mode) {
+    // Final semantic-history shape: this is a local reconstruction of UI state
+    // just to run a partial transition. Mode selection should enter through the
+    // canonical UI event dispatcher instead.
     const uiState = projectLiveUiState({
       state: store.getState(),
       panelActionState: null,
@@ -772,6 +845,9 @@ export function createInteractionController({
   }
 
   function emitEvent(event) {
+    // Final semantic-history shape: do not add new user-facing outcomes here.
+    // User-visible results should be transition results or canonical outcome
+    // events consumed by the same presentation path.
     for (const listener of eventListeners) {
       listener(event);
     }

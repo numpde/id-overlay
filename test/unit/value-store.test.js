@@ -4,6 +4,8 @@ import assert from "node:assert/strict";
 import { createValueStore } from "../../src/core/value-store.js";
 
 test("value store emits current value by default", () => {
+  // Final semantic-history shape: keep this generic store adapter-level. Do
+  // not use value-store instances to split canonical UI state ownership.
   const store = createValueStore("a");
   let received = null;
   store.subscribe((value) => {

@@ -16,6 +16,9 @@ export function transitionLiveUi({
     runtime,
   });
   const transitionResult = transitionUiState(previousUiState, event);
+  // Final semantic-history shape: once panel intent lives in canonical UI
+  // state, this reconciliation step should disappear. transitionUiState should
+  // return the complete next machine state directly.
   const nextPanelActionState = syncPanelActionState(
     panelActionState,
     transitionResult.state.panel.intent,

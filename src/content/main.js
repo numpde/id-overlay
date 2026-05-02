@@ -60,6 +60,11 @@ export async function bootstrapIdOverlay({ keyboardGateway = null } = {}) {
   });
 
   const unsubscribe = store.subscribe((state) => {
+    // Final semantic-history shape: persist an explicit durable-session
+    // projection here, not the whole store object. Undo/redo stacks should
+    // either be intentionally persisted as transition records or intentionally
+    // dropped at this boundary; raw snapshot history should not leak through
+    // storage by accident.
     storage.save(state).catch((error) => {
       logger.error("Failed to persist state", error);
     });
@@ -81,6 +86,9 @@ export async function bootstrapIdOverlay({ keyboardGateway = null } = {}) {
 }
 
 function migratePersistedStateForCurrentMap(persistedState, snapshot) {
+  // Final semantic-history shape: persisted-state migrations should produce
+  // canonical durable session data before store creation. They should not need
+  // to understand UI history records or transition internals.
   if (!persistedState?.image) {
     return persistedState ?? {};
   }

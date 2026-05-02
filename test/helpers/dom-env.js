@@ -3,6 +3,9 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 
 export function createDomEnvironment({ url, storageState = {}, viewportHtml = '<div id="map"></div>' } = {}) {
+  // Final semantic-history shape: storageState fixtures are persisted-session
+  // boundary data. Tests that exercise user transitions should prefer
+  // canonical UI-machine setup rather than raw stored snapshots.
   const dom = new JSDOM(`<!doctype html><html><body>${viewportHtml}</body></html>`, {
     url: url ?? "https://www.openstreetmap.org/edit",
     pretendToBeVisual: true,

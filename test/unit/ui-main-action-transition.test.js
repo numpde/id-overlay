@@ -15,6 +15,9 @@ import {
 import { deepFreeze } from "../helpers/deep-freeze.js";
 
 test("main action descriptor target is derived from actionable registration affordances", () => {
+  // Final semantic-history shape: descriptor target derivation can remain as a
+  // selector, but stale-intent repair belongs in transition tests, not in this
+  // presentation descriptor contract.
   const empty = createInitialUiState();
   assert.equal(resolveMainActionDescriptor(empty).target, "paste");
 
@@ -143,6 +146,8 @@ test("paste success loads an image session and enters align", () => {
     placement,
   });
 
+  // Final semantic-history shape: this should assert the emitted load-image
+  // history record, not only the session mutation.
   assert.deepEqual(result.state.session, {
     ...state.session,
     mode: UI_MODE_KIND.ALIGN,
@@ -202,6 +207,9 @@ test("main action arms clear-pins confirmation when pins exist", () => {
 });
 
 test("main action clears pins after confirmation", () => {
+  // Final semantic-history shape: this transition should commit a clear-pins
+  // record with undo/redo events. Emitting CLEAR_PINS after mutating state
+  // duplicates authority between reducer and live effects.
   const base = createInitialUiState();
   const state = {
     ...base,
@@ -361,6 +369,9 @@ test("main action arms clear-image confirmation when image exists without pins",
 });
 
 test("main action clears image after confirmation and returns to cleared trace session", () => {
+  // Final semantic-history shape: clear-image should be a full semantic record
+  // whose redo lands in native Trace/no-image and whose undo restores the
+  // authored image context. The CLEAR_IMAGE effect should disappear.
   const base = createInitialUiState();
   const state = {
     ...base,
@@ -419,6 +430,9 @@ test("panel timeout is a pure no-op while idle", () => {
 });
 
 test("paste cancellation and failure both reset paste arming only", () => {
+  // Final semantic-history shape: cancellation/failure should carry canonical
+  // feedback identity in the transition result instead of relying on panel.js
+  // to call status presentation directly.
   const state = {
     ...createInitialUiState(),
     panel: {

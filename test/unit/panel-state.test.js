@@ -10,6 +10,9 @@ import {
 } from "../../src/core/panel-state.js";
 import { UI_PANEL_INTENT_KIND } from "../../src/core/ui-state-model.js";
 
+// Final semantic-history shape: this whole module should shrink or disappear
+// once panel intent/session tokens are canonical UI state rather than panel
+// adapter state.
 test("panel action state has a single initial source of truth", () => {
   assert.deepEqual(createInitialPanelActionState(), {
     kind: UI_PANEL_INTENT_KIND.IDLE,

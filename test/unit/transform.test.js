@@ -153,6 +153,9 @@ test("resolveOverlayRenderSource exposes whether rendering uses solved or manual
 });
 
 test("resolveOverlayRenderState centralizes the active render source and transform", () => {
+  // Final semantic-history shape: keep this as render-source coverage. Mode
+  // semantics and fit-overlay history should be tested at the UI transition
+  // layer, not inferred from render source here.
   assert.deepEqual(resolveOverlayRenderState({
     image: null,
     placement: { type: "similarity", a: 1, b: 0, tx: 0, ty: 0 },

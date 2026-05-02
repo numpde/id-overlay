@@ -167,6 +167,9 @@ export function createSolvedScreenTransform({ snapshot, solvedTransform }) {
 }
 
 export function resolveOverlayRenderState(state) {
+  // Final semantic-history shape: this is the render-source selector only. It
+  // should not be used as a proxy for mode, fit-overlay history, or whether a
+  // transition is undoable.
   if (!hasOverlayImageSession(state)) {
     return {
       source: "none",

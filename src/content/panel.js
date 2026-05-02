@@ -141,6 +141,10 @@ export function createPanel({ shadow, store, interactions, statusController }) {
   let isPasteListenerAttached = false;
   let panelPosition = captureInitialPanelPosition();
   let activePanelDrag = null;
+  // Final semantic-history shape: panel intent is currently panel-local and
+  // then projected back into uiState. The clean cut-over should make this a
+  // single canonical UI-machine state value, with only DOM listener handles
+  // remaining local.
   let panelActionState = createInitialPanelActionState();
   let panelIntentTimer = null;
   applyPanelPosition();
@@ -149,6 +153,8 @@ export function createPanel({ shadow, store, interactions, statusController }) {
   header.addEventListener("mousedown", handlePanelDragStart);
 
   modeInput.addEventListener("change", () => {
+    // Final semantic-history shape: disabled checks are DOM affordance guards
+    // only. The state machine must still reject invalid mode transitions.
     if (modeInput.disabled) {
       return;
     }
@@ -171,6 +177,9 @@ export function createPanel({ shadow, store, interactions, statusController }) {
     interactions.setOpacity(clampOpacity(Number(opacityInput.value)));
   });
   opacityInput.addEventListener("wheel", (event) => {
+    // Final semantic-history shape: opacity remains adapter/UI input plumbing
+    // unless promoted to a canonical event. Do not treat this DOM guard as
+    // semantic validity.
     if (opacityInput.disabled) {
       return;
     }
@@ -186,6 +195,8 @@ export function createPanel({ shadow, store, interactions, statusController }) {
     });
   });
   undoButton.addEventListener("click", async () => {
+    // Final semantic-history shape: button disabled state is presentation. The
+    // history reducer must be safe for empty undo/redo stacks independently.
     if (undoButton.disabled) {
       return;
     }
@@ -194,6 +205,8 @@ export function createPanel({ shadow, store, interactions, statusController }) {
     });
   });
   redoButton.addEventListener("click", async () => {
+    // Final semantic-history shape: redo availability should be enforced by
+    // canonical history state, not only by this DOM guard.
     if (redoButton.disabled) {
       return;
     }
@@ -207,6 +220,9 @@ export function createPanel({ shadow, store, interactions, statusController }) {
   const unsubscribeStore = store.subscribe(() => {
     const panelViewModel = resolveCurrentPanelViewModel();
     if (panelViewModel.mainAction.shouldReset) {
+      // Final semantic-history shape: stale intent reset should be produced by
+      // the state transition that invalidated the intent, not repaired here
+      // after view-model derivation.
       setPanelActionState(
         syncPanelActionState(
           panelActionState,
@@ -249,6 +265,8 @@ export function createPanel({ shadow, store, interactions, statusController }) {
   function resolveCurrentPanelViewModel() {
     return resolveUiViewModel({
       uiState: resolveCurrentUiState(),
+      // Final semantic-history shape: this should come from machine-level
+      // semantic history records, not store snapshot-history descriptors.
       history: {
         canUndo: store.canUndo(),
         canRedo: store.canRedo(),
@@ -259,6 +277,9 @@ export function createPanel({ shadow, store, interactions, statusController }) {
   }
 
   function applyPanelViewModel(panelViewModel) {
+    // Final semantic-history shape: keep this as a dumb DOM projection. If any
+    // branching or repair logic appears here, it belongs back in canonical UI
+    // selectors/transitions.
     opacityInput.value = panelViewModel.opacityControl.value;
     opacityInput.disabled = panelViewModel.opacityControl.disabled;
     modeInput.checked = panelViewModel.modeSwitch.checked;
@@ -345,6 +366,10 @@ export function createPanel({ shadow, store, interactions, statusController }) {
     }
 
     event.preventDefault();
+    // Final semantic-history shape: cancelling paste capture before knowing
+    // whether the paste succeeds is a UI-machine policy. Keep the external
+    // paste event listener, but route success/failure/cancel as explicit
+    // transition events rather than imperative status calls below.
     await dispatchCanonicalUiEvent({
       kind: UI_EVENT_KIND.PASTE_CANCELLED,
     });
@@ -409,6 +434,9 @@ export function createPanel({ shadow, store, interactions, statusController }) {
       return;
     }
     panelActionState = nextState;
+    // Final semantic-history shape: this should only sync external listener
+    // handles. Recomputing view-model/status here is a symptom of panel intent
+    // being outside the canonical machine state.
     const panelViewModel = resolveCurrentPanelViewModel();
     syncPanelActionSideEffects(panelViewModel.mainAction);
     applyPanelViewModel(panelViewModel);
@@ -452,6 +480,8 @@ export function createPanel({ shadow, store, interactions, statusController }) {
   }
 
   function syncPanelActionSideEffects(mainAction) {
+    // Final semantic-history shape: derive these listener/timer effects from
+    // transition effects, not from the already-rendered main-action view model.
     if (mainAction.presentationKind !== "confirm") {
       clearClearConfirmTimer();
     }
@@ -459,6 +489,8 @@ export function createPanel({ shadow, store, interactions, statusController }) {
   }
 
   function syncPasteListener(mainAction) {
+    // Final semantic-history shape: paste listener attachment is an external
+    // effect of entering/leaving Paste Armed, not view-model presentation work.
     if (mainAction.intent === UI_PANEL_INTENT_KIND.PASTE_ARMED && !isPasteListenerAttached) {
       window.addEventListener("paste", handleWindowPaste, true);
       isPasteListenerAttached = true;
@@ -488,6 +520,10 @@ export function createPanel({ shadow, store, interactions, statusController }) {
   async function loadClipboardImage(source, sourceLabel) {
     const image = await normalizeOverlayImageBlob(source, imageNormalizationDeps);
     const imageStats = getOverlayImageLoadStats(image);
+    // Final semantic-history shape: image load should enter through the
+    // canonical PASTE_SUCCEEDED/LOAD_IMAGE transition so it can emit the
+    // semantic load-image history record. Direct durable mutation here should
+    // disappear.
     interactions.loadImage(image);
     logger.info("Loaded clipboard image", {
       source: sourceLabel,
@@ -511,6 +547,9 @@ export function createPanel({ shadow, store, interactions, statusController }) {
 
     setPanelActionState(nextPanelActionState);
 
+    // Final semantic-history shape: transitionResult should include semantic
+    // history metadata and any feedback identity. Running effects should not be
+    // responsible for durable undo/redo state changes.
     await runCanonicalUiEffects({
       previousUiState,
       nextUiState: transitionResult.state,
@@ -538,6 +577,10 @@ export function createPanel({ shadow, store, interactions, statusController }) {
       readPasteInput: tryLoadClipboardImageFromApi,
       dispatchCanonicalUiEvent,
       startPanelTimeout: async () => {
+        // Final semantic-history shape: the timer handle is external, but the
+        // timeout lifecycle should be owned by transition effects for entering
+        // and leaving confirmation states. Avoid coupling it to panel-local
+        // action state.
         clearClearConfirmTimer();
         panelIntentTimer = globalThis.setTimeout(() => {
           panelIntentTimer = null;

@@ -14,6 +14,9 @@ import {
 } from "../../src/core/ui-live-state.js";
 
 test("projectLiveUiState maps current live session and panel facts into canonical uiState", () => {
+  // Final semantic-history shape: this projection should shrink once canonical
+  // UI state owns panel intent/history directly. It should not remain a place
+  // where missing state shape is reassembled from unrelated stores.
   const liveState = {
     mode: "align",
     opacity: 0.75,

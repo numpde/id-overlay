@@ -119,6 +119,9 @@ test("resolveUiStatusBaseline prioritizes live interaction state over static ren
 });
 
 test("resolveUiViewModel describes the current mode state for the panel switch", () => {
+  // Final semantic-history shape: keep testing switch presentation, but source
+  // disabled/checked facts from canonical UI state selectors after panel-local
+  // projection disappears.
   const traceViewModel = resolveUiViewModel({
     uiState: projectLiveUiState({
       state: { image: null, mode: "trace", opacity: 0.6, registration: { pins: [], solvedTransform: null, dirty: false } },
@@ -173,6 +176,9 @@ test("describeSolveResultPresentation is the single source of truth for solve fe
 });
 
 test("describeInteractionEventPresentation centralizes interaction event feedback", () => {
+  // Final semantic-history shape: replace or narrow this if interaction events
+  // become canonical UI outcome events. Avoid preserving a second user-facing
+  // feedback taxonomy.
   assert.equal(
     describeInteractionEventPresentation({
       type: INTERACTION_EVENT.PIN_RESULT,
@@ -251,6 +257,9 @@ test("status controller renders semantic panel feedback through presentation", (
     messages.push(message);
   });
 
+  // Final semantic-history shape: status feedback should be driven by the
+  // consumed transition record/presentation, not by snapshot undo returning a
+  // historyDescriptor.
   controller.showPanelFeedback(PANEL_FEEDBACK_ACTION.UNDO, {
     historyDescriptor: { kind: "move-overlay", label: "Moved overlay" },
   }, { durationMs: 0 });
@@ -284,6 +293,8 @@ test("status controller reacts to pin and solve events", () => {
 
   const controller = createStatusController({ store, interactions });
   for (const listener of eventListeners) {
+    // Final semantic-history shape: status should receive canonical
+    // transition/outcome feedback instead of raw interaction events.
     listener({
       type: INTERACTION_EVENT.PIN_RESULT,
       result: { ok: true, action: "added", pin: { id: 1 } },

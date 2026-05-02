@@ -7,6 +7,9 @@ import { PANEL_FEEDBACK_ACTION } from "../../src/core/presentation.js";
 import { createInitialUiState, UI_MODE_KIND } from "../../src/core/ui-state-model.js";
 
 test("runPanelLiveEffects maps semantic effects to panel side effects", async () => {
+  // Final semantic-history shape: this test should stop expecting durable
+  // clear/undo/redo/mode mutations to leave the reducer path as effects. Keep
+  // only genuinely external effects such as paste input, timers, and feedback.
   const calls = [];
   const transients = [];
   const previousUiState = createInitialUiState();
@@ -67,6 +70,9 @@ test("runPanelLiveEffects maps semantic effects to panel side effects", async ()
       },
     },
     async readPasteInput({ sessionId }) {
+      // Final semantic-history shape: paste read can remain an effect, but this
+      // test should eventually assert only PASTE_SUCCEEDED dispatch, not any
+      // downstream load-image mutation.
       calls.push(`read-paste:${sessionId}`);
       return image;
     },

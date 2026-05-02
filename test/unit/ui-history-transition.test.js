@@ -10,6 +10,9 @@ import {
 import { transitionHistory } from "../../src/core/ui-history-transition.js";
 
 test("undo and redo reset transient panel intent and emit one canonical history effect", () => {
+  // Final semantic-history shape: this implementation-shaped test should be
+  // replaced. Undo/redo should consume semantic history records and dispatch
+  // inverse/replay events, not emit UNDO_SESSION/REDO_SESSION effects.
   const base = createInitialUiState();
   const state = {
     ...base,

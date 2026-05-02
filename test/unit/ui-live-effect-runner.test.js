@@ -6,6 +6,9 @@ import { runUiLiveEffects } from "../../src/core/ui-live-effect-runner.js";
 import { createInitialUiState, UI_MODE_KIND } from "../../src/core/ui-state-model.js";
 
 test("runUiLiveEffects executes semantic handlers in order and ignores unknown effects", async () => {
+  // Final semantic-history shape: this should stop asserting mode inference and
+  // undo/redo side-effect dispatch. Those should be reducer-owned semantic
+  // transitions rather than live-effect responsibilities.
   const seen = [];
   const previousUiState = createInitialUiState();
   const nextUiState = {
@@ -36,6 +39,8 @@ test("runUiLiveEffects executes semantic handlers in order and ignores unknown e
         seen.push(`mode:${nextMode}:${requestSolve}`);
       },
       requestPasteInput: async () => {
+        // Final semantic-history shape: keep paste as an external effect; avoid
+        // using this runner to perform durable session changes.
         seen.push("paste");
       },
       clearPins: async () => {

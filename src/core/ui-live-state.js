@@ -16,6 +16,9 @@ export function projectLiveUiState({
   runtime,
 }) {
   const initialUiState = createInitialUiState();
+  // Final semantic-history shape: if undo/redo records live in UI state, this
+  // projection should receive them explicitly from the transition machine.
+  // Do not derive pending history controls from store snapshot descriptors.
   return {
     ...initialUiState,
     session: {

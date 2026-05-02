@@ -16,6 +16,8 @@ test("overlay pointer sequence has a single initial idle state", () => {
 });
 
 test("overlay pointer sequence starts pending and activates after the drag threshold", () => {
+  // Final semantic-history shape: this remains adapter-only coverage. Do not
+  // couple pending pointer sequence state to semantic history records.
   const pending = beginOverlayPointerSequence({
     button: 0,
     dragMode: "map-pan",

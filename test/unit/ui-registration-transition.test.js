@@ -34,6 +34,9 @@ test("clear-pins trigger clears registration and resets panel intent when availa
     kind: UI_EVENT_KIND.CLEAR_PINS_TRIGGERED,
   });
 
+  // Final semantic-history shape: reducer state change and undoable clear-pins
+  // record should be one transition result. CLEAR_PINS as a live effect is the
+  // current duplication seam.
   assert.deepEqual(result.state.session.registration, {
     pins: [],
     solvedTransform: null,

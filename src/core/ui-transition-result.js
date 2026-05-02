@@ -6,6 +6,9 @@
 // dispatching their events through the same transition path.
 
 export function createUiTransitionResult(state, effects = []) {
+  // Final semantic-history shape: when this grows a history-record field,
+  // update call sites in one cut-over. Avoid parallel ad hoc return channels
+  // for labels, feedback, or undo/redo events.
   return {
     state,
     effects: Object.freeze([...effects]),

@@ -1,4 +1,7 @@
 export function createValueStore(initialValue) {
+  // Final semantic-history shape: this generic observable is fine for adapter
+  // state, but avoid using it to create additional sources of canonical UI
+  // truth outside the transition machine.
   let value = initialValue;
   const listeners = new Set();
 

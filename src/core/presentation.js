@@ -13,6 +13,9 @@ import {
 } from "./ui-status-model.js";
 
 export const PANEL_FEEDBACK_ACTION = Object.freeze({
+  // Final semantic-history shape: panel feedback should be a presentation of
+  // semantic transition/event outcomes. Keep this vocabulary only if it stays
+  // a thin formatting layer, not a second action taxonomy parallel to UI events.
   PASTE_CANCELLED: "paste-cancelled",
   CLEAR_IMAGE: "clear-image",
   UNDO: "undo",
@@ -126,6 +129,9 @@ export function describeSolveResultPresentation(result) {
 }
 
 export function describeInteractionEventPresentation(event) {
+  // Final semantic-history shape: interaction events should either become
+  // canonical UI outcome events or remain purely low-level telemetry. Avoid a
+  // parallel feedback path that bypasses transition-result presentation.
   switch (event?.type) {
     case INTERACTION_EVENT.PIN_RESULT:
       return describePinResultPresentation(event.result);
@@ -164,10 +170,15 @@ export function describePanelActionPresentation(action, payload = {}) {
     case PANEL_FEEDBACK_ACTION.CLEAR_IMAGE:
       return "Cleared the current screenshot.";
     case PANEL_FEEDBACK_ACTION.UNDO:
+      // Final semantic-history shape: this payload should be the consumed
+      // transition record or its presentation, not a store historyDescriptor
+      // returned by snapshot undo.
       return payload.historyDescriptor?.label
         ? `Undid: ${payload.historyDescriptor.label}.`
         : "Undid change.";
     case PANEL_FEEDBACK_ACTION.REDO:
+      // Final semantic-history shape: redo feedback should use the same
+      // semantic transition record that produced the redo event.
       return payload.historyDescriptor?.label
         ? `Redid: ${payload.historyDescriptor.label}.`
         : "Redid change.";
@@ -185,6 +196,8 @@ export function describePanelActionPresentation(action, payload = {}) {
 }
 
 export function describePendingHistoryControl({ direction, descriptor } = {}) {
+  // Final semantic-history shape: this should accept pending semantic history
+  // record presentation, not low-level descriptors keyed by store history.
   if (!descriptor?.kind) {
     return "";
   }
@@ -192,6 +205,8 @@ export function describePendingHistoryControl({ direction, descriptor } = {}) {
 }
 
 export function resolveHistoryControlPresentation({ direction, descriptor } = {}) {
+  // Final semantic-history shape: accessibility copy should describe the exact
+  // semantic undo/redo event that will run.
   const title = describePendingHistoryControl({ direction, descriptor });
   return {
     title,

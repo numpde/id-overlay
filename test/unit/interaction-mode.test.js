@@ -10,6 +10,8 @@ import {
 } from "../../src/core/interaction-mode.js";
 
 test("interaction mode vocabulary and transitions are centralized", () => {
+  // Final semantic-history shape: keep boundary-normalization coverage, but do
+  // not let this imply that reducer events may silently coerce invalid modes.
   assert.equal(normalizeInteractionMode(INTERACTION_MODE.ALIGN), INTERACTION_MODE.ALIGN);
   assert.equal(normalizeInteractionMode(INTERACTION_MODE.TRACE), INTERACTION_MODE.TRACE);
   assert.equal(normalizeInteractionMode("anything-else"), INTERACTION_MODE.TRACE);

@@ -65,6 +65,9 @@ test("ui transition routes registration events to the registration family", () =
     solvedTransform: null,
     dirty: false,
   });
+  // Final semantic-history shape: this should keep CANCEL_PANEL_TIMEOUT if the
+  // timer remains external, but CLEAR_PINS should disappear as a durable live
+  // mutation effect.
   assert.deepEqual(result.effects, [
     UI_EFFECT_KIND.CANCEL_PANEL_TIMEOUT,
     UI_EFFECT_KIND.CLEAR_PINS,
@@ -72,6 +75,8 @@ test("ui transition routes registration events to the registration family", () =
 });
 
 test("ui transition routes history events to the history family", () => {
+  // Final semantic-history shape: this should assert reducer-owned history
+  // record consumption rather than an UNDO_SESSION effect.
   const base = createInitialUiState();
   const state = {
     ...base,

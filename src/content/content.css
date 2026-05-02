@@ -143,6 +143,8 @@
   transition: transform 120ms ease;
 }
 
+/* Final semantic-history shape: data-mode is presentation input only. Mode
+   validity/history semantics must stay in the UI state machine. */
 .id-overlay-mode-switch[data-mode="trace"] .id-overlay-mode-switch__track {
   background: rgba(22, 163, 74, 0.9);
 }

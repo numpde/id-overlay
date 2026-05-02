@@ -83,6 +83,9 @@ const HISTORY_ACTIONS = Object.freeze({
 
 export function createStateStore(initialState = {}) {
   let state = normalizeState(initialState);
+  // Final semantic-history shape: past/future/batch fields should move out of
+  // this durable session store. This store should not own user-facing undo
+  // policy or semantic history labels.
   let past = [];
   let future = [];
   let historyBatchDepth = 0;
@@ -117,6 +120,8 @@ export function createStateStore(initialState = {}) {
   }
 
   function loadImageSession(image, placement, options = {}) {
+    // Final semantic-history shape: this may remain as a compatibility wrapper,
+    // but it should not accept historyDescriptor or create history itself.
     return dispatch({
       type: STATE_ACTION.LOAD_IMAGE_SESSION,
       image,
@@ -126,6 +131,9 @@ export function createStateStore(initialState = {}) {
   }
 
   function setPlacement(nextPlacement, options = {}) {
+    // Final semantic-history shape: placement history should be emitted by the
+    // semantic move/rotate/scale transition, not passed into this low-level
+    // setter as a descriptor.
     return dispatch({
       type: STATE_ACTION.SET_PLACEMENT,
       placement: nextPlacement,
@@ -141,6 +149,9 @@ export function createStateStore(initialState = {}) {
   }
 
   function addPin({ imagePx, mapLatLon }, options = {}) {
+    // Final semantic-history shape: pin history belongs to registration
+    // transitions. This store method should become a pure state mutation helper
+    // or disappear behind machine events.
     const previousRegistration = state.registration;
     const nextState = dispatch({
       type: STATE_ACTION.ADD_PIN,
@@ -184,6 +195,8 @@ export function createStateStore(initialState = {}) {
   }
 
   function clearImage(options = {}) {
+    // Final semantic-history shape: image lifecycle history should come from
+    // paste/load/clear transitions, not this low-level method option.
     return dispatch({
       type: STATE_ACTION.CLEAR_IMAGE,
       historyDescriptor: options.historyDescriptor ?? null,
@@ -199,14 +212,21 @@ export function createStateStore(initialState = {}) {
   }
 
   function getUndoDescriptor() {
+    // Final semantic-history shape: expose pending semantic history records
+    // instead of presentation descriptors.
     return past.at(-1)?.descriptor ?? null;
   }
 
   function getRedoDescriptor() {
+    // Final semantic-history shape: expose pending semantic history records
+    // instead of presentation descriptors.
     return future[0]?.descriptor ?? null;
   }
 
   function beginHistoryBatch(descriptor = null) {
+    // Final semantic-history shape: batching should be modeled by the semantic
+    // drag/edit transition record. Descriptor-based store batching should
+    // disappear.
     historyBatchDepth += 1;
     if (descriptor && historyBatchDepth === 1) {
       historyBatchDescriptor = freezeHistoryDescriptor(descriptor);
@@ -265,12 +285,18 @@ export function createStateStore(initialState = {}) {
   }
 
   function dispatch(action) {
+    // Final semantic-history shape: state dispatch should no longer decide
+    // whether an action is a history checkpoint. The transition machine should
+    // explicitly return semantic history records for undoable user edits.
     return replaceState(reduceState(state, action), {
       checkpointAction: isHistoryCheckpointAction(action) ? action : null,
     });
   }
 
   function replaceState(nextState, { checkpointAction = null } = {}) {
+    // Final semantic-history shape: replacement may remain the notification
+    // boundary, but checkpoint handling should be deleted with store-owned
+    // snapshot history.
     if (nextState === state) {
       return state;
     }
@@ -332,6 +358,9 @@ function createHistoryEntry(state, descriptor = null) {
 }
 
 function resolveHistoryDescriptor(action) {
+  // Final semantic-history shape: this resolver should disappear with
+  // descriptor-based snapshot checkpoints. Labels and undo/redo events belong
+  // to the semantic transition record that authored the change.
   if (action?.historyDescriptor) {
     return freezeHistoryDescriptor(action.historyDescriptor);
   }
@@ -374,6 +403,9 @@ function restoreUndoableSessionState(currentState, undoableState) {
 }
 
 export function reduceState(state, action) {
+  // Final semantic-history shape: keep this reducer focused on durable session
+  // mutations. User-intent validation, history records, and feedback should be
+  // authored by the UI state machine before reaching this layer.
   switch (action?.type) {
     case STATE_ACTION.SET_MODE:
       return commitModeState(state, action.mode);
@@ -417,6 +449,9 @@ export function reduceState(state, action) {
 }
 
 export function normalizeState(candidate = {}) {
+  // Final semantic-history shape: normalization is a persistence boundary, not
+  // a transition-validity mechanism. The state machine should not rely on
+  // normalization to repair impossible in-memory states.
   const legacyFit = candidate.fit ?? null;
   const placementCandidate = candidate.placement ?? createLegacyPlacement(legacyFit);
   const baseState = createClearedSessionState();
@@ -453,6 +488,9 @@ function commitOpacityState(state, opacity) {
 }
 
 function commitImageSessionState(state, { image, placement }) {
+  // Final semantic-history shape: loading an image currently bakes in the
+  // Align-mode context here. That user-facing mode choice should be visible in
+  // the semantic load-image transition.
   const nextSessionState = createLoadedImageSessionState({ image, placement });
   if (
     state.mode === nextSessionState.mode &&
@@ -469,6 +507,9 @@ function commitImageSessionState(state, { image, placement }) {
 }
 
 function commitPlacementState(state, nextPlacement, { preserveRegistration }) {
+  // Final semantic-history shape: placement writes may still invalidate solved
+  // registration, but whether that is undoable and how mode is restored should
+  // be decided by the semantic edit transition.
   const normalizedPlacement = normalizePlacement(nextPlacement);
   if (placementsEqual(normalizedPlacement, state.placement)) {
     return state;
@@ -520,6 +561,9 @@ function commitRemovePinState(state, pinId) {
 }
 
 function commitClearedImageState(state) {
+  // Final semantic-history shape: clearing to native Trace/no-image is correct
+  // durable state, but the user-visible clear-image transition should own the
+  // undo/redo record and feedback.
   const nextSessionState = createClearedSessionState();
   if (
     state.mode === nextSessionState.mode &&
@@ -821,6 +865,9 @@ function createClearedSessionState() {
 }
 
 function createLoadedImageSessionState({ image, placement }) {
+  // Final semantic-history shape: loading an image may still author Align as
+  // the image-load context, but that choice should be part of the load-image
+  // semantic transition record, not hidden in a low-level session helper.
   return {
     mode: INTERACTION_MODE.ALIGN,
     image: normalizeImage(image),
@@ -830,10 +877,16 @@ function createLoadedImageSessionState({ image, placement }) {
 }
 
 function createInvalidatedRegistration(registration) {
+  // Final semantic-history shape: pin edits invalidating solved transforms is
+  // domain state logic, but the edit's history/mode posture belongs outside
+  // this helper.
   return createDirtyRegistration(registration, { clearSolvedTransform: true });
 }
 
 function createPlacementEditedRegistration(registration) {
+  // Final semantic-history shape: preserving solvedTransform while marking it
+  // dirty is render-domain logic. Do not use this as an implicit signal for
+  // history or fit-overlay transitions.
   return createDirtyRegistration(registration, { clearSolvedTransform: false });
 }
 

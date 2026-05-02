@@ -17,6 +17,9 @@ export {
 } from "./interaction-mode.js";
 
 export const KEYBOARD_SHORTCUT_ACTION = Object.freeze({
+  // Final semantic-history shape: shortcut actions are adapter vocabulary.
+  // They should map to canonical UI events before causing user-visible state
+  // changes.
   TOGGLE_PIN_CURRENT_POINTER: "toggle-pin-current-pointer",
   SWITCH_TO_TRACE: "switch-to-trace",
   ENABLE_PASS_THROUGH: "enable-pass-through",
@@ -59,6 +62,9 @@ export const WHEEL_MODE = Object.freeze({
 });
 
 export function resolveRegistrationUiPolicy(state) {
+  // Final semantic-history shape: keep this as low-level interaction policy,
+  // but avoid letting panel affordances fork from it. Panel-visible actions
+  // should use the canonical UI selectors over machine state.
   const registrationModeActive = isAlignMode(state?.mode);
   const hasImage = hasOverlayImageSession(state);
   return {
@@ -73,6 +79,9 @@ export function canEditRegistration(state) {
 }
 
 export function canCaptureOverlayPointer({ state, runtime }) {
+  // Final semantic-history shape: this is currently a raw-state policy used by
+  // overlay and interactions. Prefer a canonical UI affordance selector so all
+  // consumers agree on Align/Trace/pass-through semantics.
   return canEditRegistration(state) && !isRuntimePassThroughActive(runtime);
 }
 
@@ -139,6 +148,9 @@ export function resolveOverlayWheelPolicy({
   altKey,
   ctrlKey,
 }) {
+  // Final semantic-history shape: keep wheel gesture classification here, but
+  // route resulting semantic edits through UI events instead of imperative
+  // interaction methods.
   const wheelMode = resolveWheelMode({ shiftKey, altKey, ctrlKey });
   return {
     wheelMode,
@@ -184,6 +196,8 @@ export function resolveOverlayPointerSequencePolicy({
   button = 0,
   shiftKey = false,
 }) {
+  // Final semantic-history shape: this should decide adapter ownership only.
+  // It should not be the final source of semantic drag/edit eligibility.
   const shouldOwnPointerSequence = (
     isPointerOverOverlay &&
     hasOverlayImageSession(state) &&
@@ -224,6 +238,8 @@ export function shouldIgnoreKeyboardShortcut(event) {
 }
 
 export function resolveKeyboardShortcut({ event, state }) {
+  // Final semantic-history shape: keep keyboard filtering here, but do not let
+  // this replace transition validity checks for pin/mode/pass-through events.
   if (shouldIgnoreKeyboardShortcut(event)) {
     return null;
   }
@@ -243,6 +259,8 @@ export function resolveKeyboardShortcut({ event, state }) {
 }
 
 export function shouldReleasePassThrough({ event, state, runtime }) {
+  // Final semantic-history shape: pass-through release policy is raw input
+  // plumbing; canonical UI state should only see the projected override.
   return (
     event.code === "Space" &&
     (isAlignMode(state.mode) || isRuntimePassThroughActive(runtime))

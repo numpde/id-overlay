@@ -14,6 +14,9 @@ import {
   UI_PANEL_INTENT_KIND,
 } from "../../src/core/ui-state-model.js";
 
+// Final semantic-history shape: these live-transition tests should stop
+// expecting projection plus panel-intent reconciliation. The canonical UI
+// machine should already contain the complete panel intent state.
 test("transitionLiveUi projects, routes, and syncs panel intent for main-action paste arming", () => {
   const liveState = {
     ...createInitialUiState().session,
@@ -63,6 +66,9 @@ test("transitionLiveUi preserves paste-cancel feedback as a canonical effect", (
 });
 
 test("transitionLiveUi preserves canonical mode transition effects for the live runner", () => {
+  // Final semantic-history shape: Trace selection with computable pins should
+  // produce/commit a fit-overlay transition record instead of preserving a
+  // solve request for the live-effect runner.
   const liveState = {
     ...createInitialUiState().session,
     mode: UI_MODE_KIND.ALIGN,

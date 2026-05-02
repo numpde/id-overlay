@@ -8,6 +8,9 @@ import { createPlacementTransform } from "../../src/core/transform.js";
 import { createValueStore } from "../../src/core/value-store.js";
 
 test("overlay double-click toggles pins through the interaction controller", async () => {
+  // Final semantic-history shape: this should assert adapter routing from
+  // double-click to a canonical pin-toggle event, not an imperative
+  // interaction-controller method.
   const env = createDomEnvironment();
 
   try {
@@ -124,6 +127,9 @@ test("overlay double-click toggles pins through the interaction controller", asy
 });
 
 test("handled overlay wheel gestures do not bubble into the underlying map", async () => {
+  // Final semantic-history shape: this is adapter boundary coverage. Keep DOM
+  // non-bubbling assertions, but do not let handleWheel remain the semantic
+  // edit API.
   const env = createDomEnvironment({
     viewportHtml: '<div id="map"></div>',
   });
@@ -131,6 +137,9 @@ test("handled overlay wheel gestures do not bubble into the underlying map", asy
   try {
     const { createOverlay } = await import(`${repoFileUrl("src/content/overlay.js")}?ow=${Date.now()}`);
     const map = env.document.getElementById("map");
+    // Final semantic-history shape: direct raw store fixtures are acceptable
+    // for render tests, but semantic state setup should move to UI-machine
+    // fixtures when testing transitions.
     const store = createStateStore({
       mode: "align",
       opacity: 0.6,
@@ -241,6 +250,9 @@ test("plain wheel over the overlay in align mode is forwarded manually and does 
   try {
     const { createOverlay } = await import(`${repoFileUrl("src/content/overlay.js")}?own=${Date.now()}`);
     const map = env.document.getElementById("map");
+    // Final semantic-history shape: this render fixture intentionally bypasses
+    // transitions. Keep it scoped to render output; do not use this pattern for
+    // user-action semantics.
     const store = createStateStore({
       mode: "align",
       opacity: 0.6,
@@ -912,6 +924,8 @@ test("trace-mode overlay applies live surface motion from the page adapter", asy
     assert.equal(env.document.querySelectorAll(".id-overlay-map-pin").length, 0);
     assert.equal(env.document.querySelectorAll(".id-overlay-pin").length, 0);
 
+    // Final semantic-history shape: integration tests should not bypass the
+    // state machine with direct store mutation for semantic user actions.
     store.clearPins();
     await new Promise((resolve) => setTimeout(resolve, 0));
     assert.equal(env.document.querySelectorAll(".id-overlay-map-pin").length, 0);

@@ -19,6 +19,10 @@ export function transitionHistory(uiState, event) {
 }
 
 function transitionHistoryCommand(uiState, effectKind) {
+  // Final semantic-history shape: clearing transient panel intent before
+  // history execution is valid, but it should be expressed as part of the
+  // semantic undo/redo transition record consumption, not as a generic command
+  // effect wrapper.
   const nextState = uiState.panel.intent === UI_PANEL_INTENT_KIND.IDLE
     ? uiState
     : {

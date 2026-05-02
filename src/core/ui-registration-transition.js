@@ -38,6 +38,8 @@ export function transitionClearPins(uiState) {
       },
     },
     [
+      // Final semantic-history shape: timer cancellation is still an external
+      // scheduling effect, but the durable clear must not also be a live effect.
       UI_EFFECT_KIND.CANCEL_PANEL_TIMEOUT,
       UI_EFFECT_KIND.CLEAR_PINS,
     ],

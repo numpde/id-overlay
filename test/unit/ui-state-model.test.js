@@ -10,6 +10,9 @@ import {
 } from "../../src/core/ui-state-model.js";
 
 test("ui state model exposes the intended initial shape", () => {
+  // Final semantic-history shape: when semantic history records move into
+  // canonical UI state, this shape test should change first. Avoid threading
+  // history around as ad hoc view-model input instead.
   assert.deepEqual(createInitialUiState(), {
     session: {
       mode: UI_MODE_KIND.TRACE,

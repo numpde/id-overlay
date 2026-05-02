@@ -12,6 +12,9 @@ export function createInitialPanelActionState() {
 }
 
 export function syncPanelActionState(state, nextKind) {
+  // Final semantic-history shape: this adapter should disappear when panel
+  // intent/sessionId are part of canonical UI state. Paste cancellation tokens
+  // should be authored by the transition that arms/cancels paste.
   if (state.kind === nextKind) {
     return state;
   }

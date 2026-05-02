@@ -45,6 +45,9 @@ const STATUS_MESSAGE_BY_CASE = Object.freeze({
 });
 
 export function resolveUiStatusCase(uiState) {
+  // Final semantic-history shape: status remains a pure selector over
+  // canonical UI state. It should describe the current state only; transition
+  // instructions/history labels should come from transition records.
   const panelIntentStatusCase = STATUS_CASE_BY_PANEL_INTENT[uiState.panel.intent];
   if (panelIntentStatusCase) {
     return panelIntentStatusCase;
@@ -71,6 +74,8 @@ export function resolveUiStatusCase(uiState) {
   }
 
   const renderState = resolveOverlayRenderState(uiState.session);
+  // Final semantic-history shape: render source can inform copy, but it must
+  // not become the authority for semantic mode/history decisions.
   if (renderState.source === "solved") {
     return isTrace
       ? UI_STATUS_CASE.TRACE_SOLVED

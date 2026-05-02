@@ -74,6 +74,9 @@ test("overlay image session presence is single-source", () => {
 });
 
 test("normalizeState clamps opacity, drops invalid image, and discards unsupported legacy fit state", () => {
+  // Final semantic-history shape: keep this as persisted-state compatibility
+  // coverage only. Transition tests should assert valid state evolution
+  // without relying on normalizeState to repair impossible states.
   const state = normalizeState({
     mode: "align",
     opacity: 99,
@@ -92,6 +95,9 @@ test("normalizeState clamps opacity, drops invalid image, and discards unsupport
 });
 
 test("normalizeState upgrades legacy image metadata into the canonical working-image model", () => {
+  // Final semantic-history shape: legacy image upgrades belong at load/storage
+  // boundaries. The state machine should operate on already-normalized image
+  // payloads from paste/load transitions.
   const state = normalizeState({
     image: {
       src: "data:image/png;base64,abc",
@@ -396,6 +402,9 @@ test("history batches coalesce placement edits into one undo step", () => {
   store.loadImageSession(image, placement);
   const loadedPlacement = store.getState().placement;
 
+  // Final semantic-history shape: batch semantics should be tested at the
+  // transition-machine layer as one drag/edit record, not as store-local
+  // snapshot batching.
   store.beginHistoryBatch({
     kind: "move-overlay",
     label: "Moved overlay",
@@ -447,6 +456,9 @@ test("opacity stays outside history while placement remains undoable", () => {
     tx: initialPlacement.tx + 25,
   };
 
+  // Final semantic-history shape: placement writes should be durable state
+  // updates only. The semantic move-overlay record should author the history
+  // label and undo/redo events outside the store.
   store.setPlacement(updatedPlacement, {
     historyDescriptor: {
       kind: "move-overlay",
@@ -717,6 +729,9 @@ test("registration state helpers are the single source of truth for solve readin
 });
 
 test("reduceState is the single source of truth for store transitions", () => {
+  // Final semantic-history shape: this should become "durable session
+  // mutations" coverage. The single source of truth for user transitions
+  // should be the canonical UI machine, not this lower-level reducer.
   const baseState = createDefaultState();
 
   const loaded = reduceState(baseState, {

@@ -2,6 +2,8 @@ import { UI_EFFECT_KIND } from "./ui-effect-model.js";
 
 const HANDLER_BY_EFFECT_KIND = Object.freeze({
   [UI_EFFECT_KIND.REQUEST_PASTE_INPUT]: "requestPasteInput",
+  // Final semantic-history shape: reducer-owned durable mutations should not
+  // appear in this live-effect dispatch table.
   [UI_EFFECT_KIND.CLEAR_PINS]: "clearPins",
   [UI_EFFECT_KIND.CLEAR_IMAGE]: "clearImage",
   [UI_EFFECT_KIND.UNDO_SESSION]: "undoSession",

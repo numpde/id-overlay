@@ -202,6 +202,10 @@ test("new semantic edits clear redo, but pure mode switches do not", () => {
 });
 
 function createHarness({ initialState = {} } = {}) {
+  // Final semantic-history shape: this target battery currently drives the old
+  // interaction controller because the clean state-machine API does not exist
+  // yet. During cut-over, replace this with direct transition-machine events
+  // so the tests describe the intended architecture as well as the UX.
   const store = createStateStore(initialState);
   const pageAdapter = createPageAdapter();
   const controller = createInteractionController({
@@ -214,10 +218,14 @@ function createHarness({ initialState = {} } = {}) {
 }
 
 function loadImage(controller) {
+  // Final semantic-history shape: helper names should become semantic events
+  // like paste/load-image succeeded, not imperative controller calls.
   controller.loadImage(IMAGE);
 }
 
 function addPin(controller) {
+  // Final semantic-history shape: this should be a pin-toggle/add-pin event
+  // after pointer context resolution, not a double-click interaction shortcut.
   controller.handleDoubleClick({ x: 500, y: 300 });
 }
 
@@ -227,6 +235,8 @@ function addTwoPins(controller) {
 }
 
 function dragOverlay(controller) {
+  // Final semantic-history shape: this helper should dispatch one semantic
+  // move-overlay edit, with adapter pointer sequencing tested elsewhere.
   controller.handlePointerDown({
     button: 0,
     screenPoint: { x: 500, y: 300 },
@@ -267,6 +277,8 @@ function createTwoPins() {
 }
 
 function expectHistory(descriptor, kind, label = null) {
+  // Final semantic-history shape: replace descriptor assertions with semantic
+  // transition records that include undoEvent/redoEvent and presentation.
   assert.equal(descriptor?.kind, kind);
   if (label !== null) {
     assert.equal(descriptor?.label, label);

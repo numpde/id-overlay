@@ -101,6 +101,9 @@ test("shift-dragging updates placement through the adapter only", () => {
     transform: nextTransform,
   }), { x: 560, y: 280 });
 
+  // Final semantic-history shape: this should assert that the move-overlay
+  // transition record is consumed, not that interactions calls store undo and
+  // receives a descriptor.
   assert.deepEqual(controller.undoSessionHistory(), INTERACTION_HISTORY_DESCRIPTOR.MOVE_OVERLAY);
   const undoneTransform = createPlacementScreenTransform({
     snapshot: {
@@ -114,6 +117,8 @@ test("shift-dragging updates placement through the adapter only", () => {
     transform: undoneTransform,
   }), { x: 500, y: 300 });
 
+  // Final semantic-history shape: redo should replay the stored move-overlay
+  // event through the transition machine.
   assert.deepEqual(controller.redoSessionHistory(), INTERACTION_HISTORY_DESCRIPTOR.MOVE_OVERLAY);
   const redoneTransform = createPlacementScreenTransform({
     snapshot: {
@@ -297,6 +302,9 @@ test("interaction runtime transitions are single-source through the runtime redu
     },
   }).getState();
   const baseRuntime = {
+    // Final semantic-history shape: this fixture is raw interaction runtime.
+    // Keep tests here focused on adapter/input state; UI runtime projection
+    // belongs in ui-live-state tests.
     isDragging: false,
     isPassThroughActive: false,
     isPointerInsideImage: false,
@@ -452,6 +460,9 @@ test("ctrl-wheel rotates the overlay only and marks a solved transform dirty aga
   assert.equal(store.getState().registration.dirty, true);
   assert.ok(store.getState().registration.solvedTransform);
 
+  // Final semantic-history shape: rotation undo/redo belongs in semantic
+  // transition tests, not interaction tests that exercise store snapshot
+  // restore through controller.undoSessionHistory().
   assert.deepEqual(controller.undoSessionHistory(), INTERACTION_HISTORY_DESCRIPTOR.ROTATE_OVERLAY);
   assert.equal(store.getState().placement.rotationRad, 0);
   assert.equal(store.getState().registration.dirty, false);
@@ -563,6 +574,8 @@ test("shift-wheel scales around the image point under the mouse", () => {
   assert.ok(Math.abs(afterAnchorScreenPoint.y - anchorScreenPoint.y) < 1e-9);
 
   const scaledPlacement = store.getState().placement;
+  // Final semantic-history shape: scale undo/redo should consume scale-overlay
+  // transition records, preserving user-mode semantics outside interactions.
   assert.deepEqual(controller.undoSessionHistory(), INTERACTION_HISTORY_DESCRIPTOR.SCALE_OVERLAY);
   assert.deepEqual(store.getState().placement, initialPlacement);
 
@@ -710,6 +723,8 @@ test("opacity changes do not create undo steps and survive placement undo", () =
   controller.handlePointerUp({ x: 560, y: 280 });
 
   assert.ok(adjustedOpacity > initialOpacity);
+  // Final semantic-history shape: this should prove opacity is excluded from
+  // the move-overlay semantic edit record without depending on snapshot undo.
   assert.deepEqual(controller.undoSessionHistory(), INTERACTION_HISTORY_DESCRIPTOR.MOVE_OVERLAY);
   assert.equal(store.getState().opacity, adjustedOpacity);
 });
@@ -737,6 +752,9 @@ test("toggleing to trace auto-computes a dirty transform when enough pins exist"
 });
 
 test("clearing pins emits no event when nothing changed", () => {
+  // Final semantic-history shape: if pin clearing becomes a canonical
+  // transition outcome, this interaction event assertion should disappear with
+  // the parallel subscribeEvents feedback bus.
   const { controller } = createHarness();
   const events = [];
   controller.subscribeEvents((event) => {
@@ -749,6 +767,9 @@ test("clearing pins emits no event when nothing changed", () => {
 });
 
 test("switching mode clears pass-through and ends any active map pan through one transition path", () => {
+  // Final semantic-history shape: keep the low-level runtime reset guarantee,
+  // but mode switching itself should be triggered through canonical
+  // MODE_SELECTED events, not controller.toggleMode().
   const keyTarget = createKeyTarget();
   const { controller, adapterCalls } = createHarness({ keyTarget });
   controller.loadImage({
@@ -775,6 +796,9 @@ test("switching mode clears pass-through and ends any active map pan through one
 });
 
 test("clearing the image resets runtime and ends any active map pan through one transition path", () => {
+  // Final semantic-history shape: runtime cleanup can remain interaction-side,
+  // but clear-image semantics and history should be reducer-owned rather than
+  // driven by controller.clearImage().
   const { controller, adapterCalls, store } = createHarness();
   controller.loadImage({
     src: "data:image/png;base64,abc",
@@ -800,6 +824,9 @@ test("clearing the image resets runtime and ends any active map pan through one 
 });
 
 test("space activates temporary pass-through while aligning", () => {
+  // Final semantic-history shape: this remains keyboard/runtime plumbing
+  // coverage. User-visible pass-through status should be asserted through
+  // canonical UI runtime projection.
   const keyTarget = createKeyTarget();
   const { controller } = createHarness({ keyTarget });
   controller.loadImage({
@@ -819,6 +846,9 @@ test("space activates temporary pass-through while aligning", () => {
 });
 
 test("pressing P toggles a pin at the current pointer location", () => {
+  // Final semantic-history shape: KeyP should eventually assert dispatch of a
+  // semantic pin-toggle event, not direct mutation through the interaction
+  // controller.
   const keyTarget = createKeyTarget();
   const { controller, store } = createHarness({ keyTarget });
   controller.loadImage({
@@ -865,6 +895,8 @@ test("pressing P still toggles when focus is on an extension button", () => {
 });
 
 test("keyboard shortcuts can be delivered through the early keyboard gateway", () => {
+  // Final semantic-history shape: keep this as delivery/wiring coverage only.
+  // The gateway should not define shortcut semantics.
   const keyboardGateway = createKeyboardGatewayHarness();
   const { controller, store } = createHarness({ keyboardGateway });
   controller.loadImage({
@@ -881,6 +913,8 @@ test("keyboard shortcuts can be delivered through the early keyboard gateway", (
 });
 
 test("keyboard shortcut resolution is single-source and mode-aware", () => {
+  // Final semantic-history shape: shortcut resolution is adapter policy. The
+  // canonical transition must still validate the resulting event.
   const state = createStateStore({
     mode: "align",
     image: {
@@ -1038,6 +1072,9 @@ test("wheel capability is single-source across modes and modifiers", () => {
 });
 
 test("overlay wheel policy is single-source", () => {
+  // Final semantic-history shape: wheel policy should stay an adapter
+  // ownership/classification selector; semantic edit authorization should come
+  // from canonical UI affordances.
   const state = { mode: "align", image: { src: "x" }, opacity: 0.6 };
   const runtime = { isPassThroughActive: false };
 
@@ -1110,6 +1147,8 @@ test("overlay pointer move policy is single-source", () => {
 });
 
 test("overlay pointer sequence policy is single-source", () => {
+  // Final semantic-history shape: this should assert pointer-sequence
+  // ownership only, not become a parallel source of edit validity.
   const state = { mode: "align", image: { src: "x" } };
   const runtime = { isPassThroughActive: false };
 
@@ -1268,6 +1307,9 @@ test("map zoom does nothing when the page adapter cannot forward it", () => {
 });
 
 test("pass-through release stays active until the runtime says it can be released", () => {
+  // Final semantic-history shape: pass-through release policy should remain
+  // raw input/runtime policy, but any user-visible affordance derived from it
+  // should come from canonical UI runtime selectors.
   assert.equal(
     shouldReleasePassThrough({
       event: createKeyEvent({ code: "Space" }),

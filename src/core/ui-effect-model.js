@@ -37,6 +37,9 @@ export const UI_EFFECT_MODEL = Object.freeze({
   SHOW_PASTE_CANCELLED_FEEDBACK: defineUiEffect(
     "show-paste-cancelled-feedback",
   ),
+  // Final semantic-history shape: timer effects may remain external commands,
+  // but their only job should be scheduling PANEL_TIMEOUT_ELAPSED. They should
+  // not imply panel-local confirmation ownership.
   START_PANEL_TIMEOUT: defineUiEffect(
     "start-panel-timeout",
   ),

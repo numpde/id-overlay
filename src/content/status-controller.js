@@ -11,6 +11,10 @@ const DEFAULT_TRANSIENT_MS = 1800;
 
 export function createStatusController({ store, interactions }) {
   const messageStore = createValueStore("");
+  // Final semantic-history shape: transient timing may remain an external
+  // display concern, but the transient message identity should come from the
+  // consumed semantic transition/event presentation, not from imperative
+  // effect handlers composing fallback text.
   let transientMessage = null;
   let transientTimer = null;
   let panelActionStateSource = null;
@@ -18,6 +22,9 @@ export function createStatusController({ store, interactions }) {
   const unsubscribeStore = store.subscribe(syncMessage, { emitCurrent: false });
   const unsubscribeInteractions = interactions.subscribe(syncMessage, { emitCurrent: false });
   const unsubscribeInteractionEvents = interactions.subscribeEvents?.((event) => {
+    // Final semantic-history shape: this is a second feedback channel beside
+    // transition-result feedback. Either lift interaction events into
+    // canonical UI outcomes or keep them strictly adapter-local.
     const eventMessage = describeInteractionEventPresentation(event);
     if (eventMessage) {
       showTransient(eventMessage);
@@ -85,6 +92,9 @@ export function createStatusController({ store, interactions }) {
   }
 
   function resolveBaselineMessage() {
+    // Final semantic-history shape: baseline status should remain a pure
+    // projection of canonical UI state. Avoid reintroducing panel-local prompt
+    // composition here when undo/redo records move into the state machine.
     return resolveUiStatusBaseline({
       uiState: projectLiveUiState({
         state: store.getState(),

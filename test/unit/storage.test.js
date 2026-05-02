@@ -3,6 +3,10 @@ import assert from "node:assert/strict";
 
 import { createExtensionStorage } from "../../src/core/storage.js";
 
+// Final semantic-history shape: storage tests should pin down the persistence
+// boundary explicitly: durable session data only unless semantic history
+// records are deliberately added to the stored schema.
+
 test("storage wrapper loads and saves with callback-style chrome storage", async () => {
   const previousChrome = globalThis.chrome;
   const records = {};
@@ -26,6 +30,8 @@ test("storage wrapper loads and saves with callback-style chrome storage", async
   try {
     const storage = createExtensionStorage();
     assert.equal(await storage.load(), null);
+    // Final semantic-history shape: replace this toy shape with the explicit
+    // durable persisted schema once the state-machine cut-over lands.
     await storage.save({ mode: "trace" });
     assert.deepEqual(await storage.load(), { mode: "trace" });
   } finally {

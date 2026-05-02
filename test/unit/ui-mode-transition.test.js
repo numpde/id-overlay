@@ -202,6 +202,9 @@ test("trace switch with solved registration does not request solve", () => {
 });
 
 test("solve success stores solved transform and clears registration dirtiness", () => {
+  // Final semantic-history shape: solve success should be tied to the
+  // fit-overlay transition that requested/computed it, so the history record
+  // and feedback are authored with the solved transform.
   const base = createInitialUiState();
   const state = {
     ...base,
@@ -281,6 +284,9 @@ test("solve success with the same solved transform is a no-op", () => {
 });
 
 test("solve failed does not mutate canonical state", () => {
+  // Final semantic-history shape: solve failure should carry canonical feedback
+  // identity if it remains an outcome event. It should not be handled only by
+  // the interaction event bus.
   const state = {
     ...createInitialUiState(),
     session: {

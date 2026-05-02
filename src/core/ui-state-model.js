@@ -82,5 +82,10 @@ export function createInitialUiState() {
     panel: {
       intent: UI_PANEL_INTENT_KIND.IDLE,
     },
+
+    // Final semantic-history shape: canonical undo/redo records likely belong
+    // in this machine state shape, not in the lower-level session store. Add
+    // them here during the cut-over rather than threading descriptor inputs
+    // through view-model calls.
   };
 }

@@ -1,4 +1,7 @@
 export const DEFAULT_INTERACTION_RUNTIME = Object.freeze({
+  // Final semantic-history shape: this is low-level input runtime, not the
+  // canonical UI runtime shape. Keep fields here only if they are raw adapter
+  // facts; user-visible runtime facts should be projected once into uiState.
   isDragging: false,
   isPassThroughActive: false,
   isPointerInsideImage: false,
@@ -16,6 +19,9 @@ export const INTERACTION_RUNTIME_ACTION = Object.freeze({
 });
 
 export function reduceInteractionRuntime(previousRuntime, action) {
+  // Final semantic-history shape: runtime transitions that affect user-visible
+  // affordances should eventually enter the same UI-machine projection path as
+  // session transitions. Avoid adding more panel/status policy here.
   const previous = previousRuntime ?? DEFAULT_INTERACTION_RUNTIME;
   let next = previous;
 
@@ -104,4 +110,3 @@ function areInteractionRuntimesEqual(previous, next) {
     getRuntimeDragMode(previous) === getRuntimeDragMode(next)
   );
 }
-

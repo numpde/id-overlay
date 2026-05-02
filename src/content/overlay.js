@@ -156,6 +156,9 @@ export function createOverlay({ pageAdapter, store, interactions }) {
     scheduleRender();
   });
   const unsubscribeInteractions = interactions.subscribe((runtime) => {
+    // Final semantic-history shape: overlay may subscribe to raw input runtime
+    // for event plumbing, but visible affordances should come from canonical
+    // UI runtime projection rather than this raw store.
     latestRuntime = runtime;
     syncGlobalPointerListeners();
     scheduleRender();
@@ -182,12 +185,18 @@ export function createOverlay({ pageAdapter, store, interactions }) {
     const state = store.getState();
     const viewportRect = latestSnapshot.viewportRect;
     const localViewportRect = latestSnapshot.localViewportRect ?? viewportRect;
+    // Final semantic-history shape: overlay rendering should consume canonical
+    // UI affordance/selectors rather than recomputing panel/registration
+    // policy from raw store state in parallel with ui-view-model.
     const registrationUi = resolveRegistrationUiPolicy(state);
     const overlayOwnsPointerHitTesting = doesOverlayOwnPointerHitTesting({
       state,
       runtime: latestRuntime,
       registrationUi,
     });
+    // Final semantic-history shape: this dataset is presentation of canonical
+    // mode. Keep it as a DOM projection only; do not let tests treat it as a
+    // separate source of mode truth.
     overlayRoot.dataset.mode = state.mode;
     overlayRoot.dataset.passThrough = String(isRuntimePassThroughActive(latestRuntime));
     overlayRoot.style.left = `${localViewportRect.left}px`;
@@ -241,6 +250,9 @@ export function createOverlay({ pageAdapter, store, interactions }) {
     overlayFrame.style.transform = `rotate(${model.rotationDeg}deg)`;
     overlayFrame.style.pointerEvents = overlayOwnsPointerHitTesting ? "auto" : "none";
 
+    // Final semantic-history shape: pin visibility should be projected from
+    // canonical UI state. This direct policy check should not diverge from the
+    // main-action and status affordance selectors.
     if (!registrationUi.canShowPins) {
       mapPinLayer.replaceChildren();
       pinLayer.replaceChildren();
@@ -331,6 +343,9 @@ export function createOverlay({ pageAdapter, store, interactions }) {
   };
 
   function attachWheelListener() {
+    // Final semantic-history shape: listener attachment is adapter plumbing.
+    // It should remain independent from semantic mode/history decisions, which
+    // belong in transition handlers.
     if (!mountElement || wheelTarget === mountElement) {
       return;
     }
@@ -361,6 +376,9 @@ export function createOverlay({ pageAdapter, store, interactions }) {
 
   function handleMountedPointerMove(event) {
     runOverlayBoundary("mounted-pointer-move", event, () => {
+      // Final semantic-history shape: this handler should only translate DOM
+      // input into canonical pointer/gesture events. Policy decisions should
+      // be delegated to shared selectors over canonical state.
       if (isForwardedMapGestureEvent(event)) {
         return;
       }
@@ -467,6 +485,9 @@ export function createOverlay({ pageAdapter, store, interactions }) {
 
   function handleMountedWheel(event) {
     runOverlayBoundary("mounted-wheel", event, () => {
+      // Final semantic-history shape: wheel handling currently mixes DOM
+      // interception policy with semantic overlay edits. Keep interception in
+      // the adapter and route edits through canonical events.
       if (isForwardedMapGestureEvent(event)) {
         return;
       }
@@ -505,6 +526,9 @@ export function createOverlay({ pageAdapter, store, interactions }) {
   }
 
   function attachGlobalPointerListeners() {
+    // Final semantic-history shape: global listener ownership should be driven
+    // by raw drag runtime only. It should not become another semantic drag
+    // state outside the UI machine.
     const nextWindow = mountElement?.ownerDocument?.defaultView ?? globalThis.window;
     if (!nextWindow || dragEventWindow === nextWindow) {
       return;
@@ -663,12 +687,18 @@ function ensureOverlayStyles(targetDocument) {
 }
 
 function consumeOverlayEvent(event) {
+  // Final semantic-history shape: event consumption is adapter output. Tests
+  // should assert semantic ownership decisions, not these DOM calls directly
+  // except at the adapter boundary.
   event?.preventDefault?.();
   event?.stopPropagation?.();
   event?.stopImmediatePropagation?.();
 }
 
 function doesOverlayOwnPointerHitTesting({ state, runtime, registrationUi = null }) {
+  // Final semantic-history shape: overlay hit-testing ownership should be a
+  // canonical affordance derived once from UI state/runtime, not a local
+  // recomposition of registration policy plus pass-through.
   const resolvedRegistrationUi = registrationUi ?? resolveRegistrationUiPolicy(state);
   return resolvedRegistrationUi.canShowPins && !isRuntimePassThroughActive(runtime);
 }

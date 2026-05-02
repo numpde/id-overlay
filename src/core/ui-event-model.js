@@ -54,6 +54,9 @@ export const UI_EVENT_MODEL = Object.freeze({
     UI_EVENT_FAMILY_KIND.INTENT,
     UI_EVENT_TRANSITION_KIND.REGISTRATION,
   ),
+  // Final semantic-history shape: add explicit semantic edit events here
+  // rather than continuing to encode edits as interaction-controller methods
+  // such as handleWheel/handleDoubleClick/handlePointerDown.
   // Final semantic-history shape: these remain user intents, but they should
   // be resolved by the state machine into the stored record's undoEvent or
   // redoEvent. They should not emit an effect that bypasses transition

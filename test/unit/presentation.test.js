@@ -387,6 +387,9 @@ test("runtime error presentation is centralized", () => {
 });
 
 test("presentation centralizes panel action feedback copy", () => {
+  // Final semantic-history shape: this should format transition/outcome
+  // presentations. It should not preserve a panel-only action vocabulary that
+  // duplicates canonical UI events.
   assert.equal(
     describePanelActionPresentation(PANEL_FEEDBACK_ACTION.PASTE_CANCELLED),
     "Paste cancelled.",
@@ -401,6 +404,8 @@ test("presentation centralizes panel action feedback copy", () => {
   );
   assert.equal(
     describePanelActionPresentation(PANEL_FEEDBACK_ACTION.UNDO, {
+      // Final semantic-history shape: action feedback should receive semantic
+      // undo/redo record presentation, not a store historyDescriptor.
       historyDescriptor: { kind: "rotate-overlay", label: "Rotated overlay" },
     }),
     "Undid: Rotated overlay.",
@@ -411,6 +416,8 @@ test("presentation centralizes panel action feedback copy", () => {
   );
   assert.equal(
     describePanelActionPresentation(PANEL_FEEDBACK_ACTION.REDO, {
+      // Final semantic-history shape: this should mirror the redo transition
+      // record that was consumed, including user-first copy.
       historyDescriptor: { kind: "rotate-overlay", label: "Rotated overlay" },
     }),
     "Redid: Rotated overlay.",
@@ -466,6 +473,9 @@ test("presentation centralizes panel action feedback copy", () => {
 });
 
 test("presentation describes pending history controls by their result", () => {
+  // Final semantic-history shape: pending history control copy should be
+  // derived from semantic transition records. Descriptor-kind lookup should
+  // disappear or become a formatter over transition-owned labels.
   assert.equal(
     describePendingHistoryControl({
       direction: "undo",
@@ -512,6 +522,8 @@ test("presentation describes pending history controls by their result", () => {
 });
 
 test("presentation resolves complete history control DOM copy", () => {
+  // Final semantic-history shape: this should exercise pending undo/redo
+  // transition records, not store descriptors.
   assert.deepEqual(
     resolveHistoryControlPresentation({
       direction: "undo",

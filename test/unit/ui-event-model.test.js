@@ -27,6 +27,8 @@ test("ui event transition vocabulary matches reducer ownership boundaries", () =
 });
 
 test("ui event kind vocabulary is semantic and compact", () => {
+  // Final semantic-history shape: this vocabulary should grow only with
+  // canonical semantic events. Do not add DOM/input names or store action names.
   assert.deepEqual(UI_EVENT_KIND, {
     MAIN_ACTION_TRIGGERED: "main-action-triggered",
     MODE_SELECTED: "mode-selected",
@@ -43,6 +45,9 @@ test("ui event kind vocabulary is semantic and compact", () => {
 });
 
 test("ui event model exposes family and payload-key shapes", () => {
+  // Final semantic-history shape: when move/rotate/scale/pin/fit events are
+  // added, assert their payloads here so transition records can refer to
+  // stable event shapes.
   assert.deepEqual(UI_EVENT_MODEL.MAIN_ACTION_TRIGGERED, {
     kind: UI_EVENT_KIND.MAIN_ACTION_TRIGGERED,
     family: UI_EVENT_FAMILY_KIND.INTENT,

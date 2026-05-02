@@ -42,6 +42,9 @@ function resolveMainActionTarget(registrationUi) {
 }
 
 export function resolveMainActionDescriptor(uiState) {
+  // Final semantic-history shape: this remains a pure selector, but it should
+  // not be responsible for detecting and repairing stale panel intents via
+  // shouldReset. Validity should be enforced by transitions.
   const intent = uiState.panel.intent;
   const registrationUi = resolveSessionRegistrationAffordances(uiState.session);
   const target = resolveMainActionTarget(registrationUi);
@@ -116,6 +119,9 @@ function shouldResetMainActionIntent({
   canPasteImage,
   canClearPins,
 }) {
+  // Final semantic-history shape: remove this repair selector. The machine
+  // should never expose a stale confirmation/paste intent after a session
+  // transition invalidates it.
   return (
     (intent === UI_PANEL_INTENT_KIND.PASTE_ARMED && (
       target !== UI_MAIN_ACTION_TARGET_KIND.PASTE ||
@@ -231,6 +237,9 @@ function transitionPasteSucceeded(uiState, event) {
 }
 
 function transitionPasteEnded(uiState) {
+  // Final semantic-history shape: paste failure/cancel should return any
+  // user-facing feedback identity from the transition result. Panel code
+  // should not compose clipboard feedback imperatively after the fact.
   if (!isPasteArmedPanelIntent(uiState.panel.intent)) {
     return createUiTransitionResult(uiState);
   }
