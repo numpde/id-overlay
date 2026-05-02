@@ -63,6 +63,11 @@ test("machine host persists durable session after state changes only", () => {
     mode: MACHINE_MODE.TRACE,
   });
   assert.deepEqual(saves, []);
+  host.dispatch({
+    type: MACHINE_EVENT_KIND.REQUEST_PANEL_INTENT,
+    intent: MACHINE_PANEL_INTENT.CLEAR_IMAGE_CONFIRM,
+  });
+  assert.deepEqual(saves, []);
 
   host.dispatch({
     type: MACHINE_EVENT_KIND.LOAD_IMAGE,

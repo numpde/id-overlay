@@ -8,6 +8,7 @@ import {
   createInitialMachineState,
   fromPersistedMachineSession,
   toPersistedMachineSession,
+  toPersistedMachineSessionSnapshot,
   transitionMachine,
 } from "../../src/core/machine/index.js";
 
@@ -66,6 +67,27 @@ test("toPersistedMachineSession drops runtime panel status and history", () => {
   assert.equal(Object.hasOwn(persisted, "panel"), false);
   assert.equal(Object.hasOwn(persisted, "status"), false);
   assert.equal(Object.hasOwn(persisted, "history"), false);
+});
+
+test("toPersistedMachineSessionSnapshot keys only durable session fields", () => {
+  const base = toPersistedMachineSessionSnapshot(createNoisyMachineState());
+  const transientOnlyChange = toPersistedMachineSessionSnapshot({
+    ...createNoisyMachineState(),
+    panel: {
+      intent: MACHINE_PANEL_INTENT.PASTE_ARMED,
+      requestId: 7,
+    },
+    status: {
+      messageOverride: { message: "different" },
+    },
+    history: {
+      past: [{ kind: "different" }],
+      future: [],
+    },
+  });
+
+  assert.deepEqual(base.session, toPersistedMachineSession(createNoisyMachineState()));
+  assert.equal(base.key, transientOnlyChange.key);
 });
 
 test("toPersistedMachineSession normalizes invalid mode and opacity before saving", () => {

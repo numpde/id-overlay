@@ -3,7 +3,10 @@ import {
   createCancelPanelIntentEvent,
 } from "./events.js";
 import { createMachineEffectRunner } from "./effect-runner.js";
-import { toPersistedMachineSession, fromPersistedMachineSession } from "./persistence.js";
+import {
+  toPersistedMachineSessionSnapshot,
+  fromPersistedMachineSession,
+} from "./persistence.js";
 import { createMachineRuntime } from "./runtime.js";
 
 const DEFAULT_PANEL_TIMEOUT_MS = 1800;
@@ -42,7 +45,7 @@ export function createMachineHost({
     executeEffect: runEffect,
     onEffectError: reportError,
   });
-  lastPersistedKey = persistedSessionKey(runtime.getState());
+  lastPersistedKey = toPersistedMachineSessionSnapshot(runtime.getState()).key;
   unsubscribePersistence = runtime.subscribe(persistState, {
     emitCurrent: false,
   });
@@ -82,14 +85,13 @@ export function createMachineHost({
   }
 
   function persistState(state) {
-    const persisted = toPersistedMachineSession(state);
-    const nextKey = JSON.stringify(persisted);
-    if (nextKey === lastPersistedKey) {
+    const snapshot = toPersistedMachineSessionSnapshot(state);
+    if (snapshot.key === lastPersistedKey) {
       return;
     }
-    lastPersistedKey = nextKey;
+    lastPersistedKey = snapshot.key;
     try {
-      const maybePromise = savePersistedSession?.(persisted);
+      const maybePromise = savePersistedSession?.(snapshot.session);
       if (isPromiseLike(maybePromise)) {
         maybePromise.catch((error) => reportError(error, { operation: "save" }));
       }
@@ -148,10 +150,6 @@ export function createMachineHost({
     dispatch,
     destroy,
   };
-}
-
-function persistedSessionKey(state) {
-  return JSON.stringify(toPersistedMachineSession(state));
 }
 
 function createDestroyedDispatchResult(state) {

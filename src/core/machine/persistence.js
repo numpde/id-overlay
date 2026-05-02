@@ -11,6 +11,14 @@ export function toPersistedMachineSession(machineState) {
   };
 }
 
+export function toPersistedMachineSessionSnapshot(machineState) {
+  const session = toPersistedMachineSession(machineState);
+  return {
+    session,
+    key: JSON.stringify(session),
+  };
+}
+
 export function fromPersistedMachineSession(persisted) {
   if (!persisted || typeof persisted !== "object") {
     return createInitialMachineState();
