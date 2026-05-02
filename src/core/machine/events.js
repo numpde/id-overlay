@@ -66,3 +66,19 @@ export const MACHINE_PLACEMENT_EDIT_KIND = Object.freeze({
   ROTATE: "rotate",
   SCALE: "scale",
 });
+
+export function createLoadImageEvent({ image, placement = null, requestId = null }) {
+  return {
+    type: MACHINE_EVENT_KIND.LOAD_IMAGE,
+    image,
+    placement,
+    requestId,
+  };
+}
+
+export function createCancelPanelIntentEvent({ requestId = null } = {}) {
+  return {
+    type: MACHINE_EVENT_KIND.CANCEL_PANEL_INTENT,
+    requestId,
+  };
+}

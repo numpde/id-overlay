@@ -1,5 +1,9 @@
 import { MACHINE_EFFECT_KIND } from "./effects.js";
-import { MACHINE_EVENT_KIND } from "./events.js";
+import {
+  createCancelPanelIntentEvent,
+  createLoadImageEvent,
+} from "./events.js";
+import { selectIsCurrentPanelRequest } from "./selectors.js";
 
 export function createMachineEffectRunner({
   readPasteImage = null,
@@ -41,7 +45,7 @@ export function createMachineEffectRunner({
     if (!readPasteImage) {
       return;
     }
-    const image = await readPasteImage?.({
+    const image = await readPasteImage({
       requestId: effect.requestId,
       context,
     });
@@ -49,22 +53,20 @@ export function createMachineEffectRunner({
       return;
     }
     if (image) {
-      dispatch?.({
-        type: MACHINE_EVENT_KIND.LOAD_IMAGE,
+      dispatch?.(createLoadImageEvent({
         image,
-        placement: null,
         requestId: effect.requestId,
-      });
+      }));
       return;
     }
-    dispatch?.({
-      type: MACHINE_EVENT_KIND.CANCEL_PANEL_INTENT,
+    dispatch?.(createCancelPanelIntentEvent({
       requestId: effect.requestId,
-    });
+    }));
   }
 
   function isCurrentRequest(requestId) {
-    return getState?.()?.panel?.requestId === requestId;
+    const state = getState?.();
+    return state ? selectIsCurrentPanelRequest(state, requestId) : false;
   }
 
   function reportError(error, payload) {

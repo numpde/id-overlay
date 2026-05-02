@@ -13,6 +13,10 @@ export function selectCanRedo(state) {
   return Boolean(peekRedoRecord(state));
 }
 
+export function selectIsCurrentPanelRequest(state, requestId) {
+  return Number.isInteger(requestId) && requestId > 0 && state.panel.requestId === requestId;
+}
+
 export function selectUndoTooltip(state) {
   return peekUndoRecord(state)?.undoLabel ?? "";
 }

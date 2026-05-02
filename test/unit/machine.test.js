@@ -10,6 +10,7 @@ import {
   createInitialMachineState,
   selectOverlayPolicy,
   selectPanelView,
+  selectIsCurrentPanelRequest,
   selectStatus,
   transitionMachine,
 } from "../../src/core/machine/index.js";
@@ -300,6 +301,9 @@ test("selectors derive panel intent, status, controls, and pass-through", () => 
   }).state;
 
   assert.equal(selectPanelView(state).mainAction, "confirm-clear-image");
+  assert.equal(selectIsCurrentPanelRequest(state, state.panel.requestId), true);
+  assert.equal(selectIsCurrentPanelRequest(state, state.panel.requestId + 1), false);
+  assert.equal(selectIsCurrentPanelRequest(createInitialMachineState(), null), false);
   assert.equal(selectStatus(state), "Confirm clearing the image.");
   assert.deepEqual(selectOverlayPolicy(state), {
     hasImage: true,

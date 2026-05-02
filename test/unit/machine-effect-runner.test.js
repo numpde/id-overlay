@@ -5,7 +5,9 @@ import {
   MACHINE_EFFECT_KIND,
   MACHINE_EVENT_KIND,
   MACHINE_PANEL_INTENT,
+  createCancelPanelIntentEvent,
   createInitialMachineState,
+  createLoadImageEvent,
   createMachineEffectRunner,
 } from "../../src/core/machine/index.js";
 
@@ -13,6 +15,22 @@ const IMAGE = Object.freeze({
   src: "data:image/png;base64,abc",
   width: 800,
   height: 400,
+});
+
+test("event constructors centralize effect-runner outcome event shapes", () => {
+  assert.deepEqual(createLoadImageEvent({
+    image: IMAGE,
+    requestId: 7,
+  }), {
+    type: MACHINE_EVENT_KIND.LOAD_IMAGE,
+    image: IMAGE,
+    placement: null,
+    requestId: 7,
+  });
+  assert.deepEqual(createCancelPanelIntentEvent({ requestId: 7 }), {
+    type: MACHINE_EVENT_KIND.CANCEL_PANEL_INTENT,
+    requestId: 7,
+  });
 });
 
 test("machine effect runner ignores unknown effects", async () => {
