@@ -243,6 +243,50 @@ test("confirmed clear-pins cancels timeout and records clear-pins history", () =
   assert.equal(result.historyRecord.kind, MACHINE_HISTORY_KIND.CLEAR_PINS);
 });
 
+test("restoring image session cancels active panel timeout", () => {
+  let state = loadImageState();
+  const session = state.session;
+  state = transitionMachine(state, {
+    type: MACHINE_EVENT_KIND.REQUEST_PANEL_INTENT,
+    intent: MACHINE_PANEL_INTENT.CLEAR_IMAGE_CONFIRM,
+  }).state;
+
+  const result = transitionMachine(state, {
+    type: MACHINE_EVENT_KIND.RESTORE_IMAGE_SESSION,
+    session,
+  });
+
+  assert.deepEqual(result.state.panel, createIdlePanel());
+  assert.deepEqual(result.effects, [
+    {
+      kind: MACHINE_EFFECT_KIND.CANCEL_PANEL_TIMEOUT,
+      requestId: 1,
+    },
+  ]);
+});
+
+test("undoing clear-image while paste is armed cancels active panel timeout", () => {
+  let state = transitionMachine(loadImageState(), {
+    type: MACHINE_EVENT_KIND.CLEAR_IMAGE,
+  }).state;
+  state = transitionMachine(state, {
+    type: MACHINE_EVENT_KIND.REQUEST_PANEL_INTENT,
+    intent: MACHINE_PANEL_INTENT.PASTE_ARMED,
+  }).state;
+
+  const result = transitionMachine(state, {
+    type: MACHINE_EVENT_KIND.UNDO,
+  });
+
+  assert.deepEqual(result.state.panel, createIdlePanel());
+  assert.deepEqual(result.effects, [
+    {
+      kind: MACHINE_EFFECT_KIND.CANCEL_PANEL_TIMEOUT,
+      requestId: 1,
+    },
+  ]);
+});
+
 test("loading image after paste cancels timeout and records load-image history", () => {
   let state = transitionMachine(createInitialMachineState(), {
     type: MACHINE_EVENT_KIND.REQUEST_PANEL_INTENT,

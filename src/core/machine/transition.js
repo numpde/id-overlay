@@ -73,7 +73,7 @@ function transitionSemantic(state, event, { commitHistory }) {
           feedback: createFeedback(MACHINE_FEEDBACK_KIND.NONE),
         });
       }
-      return withoutHistory(setPanelIntent(state, MACHINE_PANEL_INTENT.IDLE));
+      return withoutHistory(cancelPanelIntent(state));
     case MACHINE_EVENT_KIND.SET_STATUS_OVERRIDE:
       return withoutHistory(setStatusOverride(state, event.message));
     case MACHINE_EVENT_KIND.CLEAR_STATUS_OVERRIDE:
@@ -138,10 +138,10 @@ function loadImage(state, event) {
     registration: createEmptyRegistration(),
   };
   const nextState = replaceSession(state, nextSession);
-  const panelEffects = createCancelPanelTimeoutEffects(state);
+  const panelTransition = clearPanelIntent(state, nextState);
   return createTransitionResult({
-    state: resetPanel(nextState),
-    effects: panelEffects,
+    state: panelTransition.state,
+    effects: panelTransition.effects,
     feedback: createFeedback(MACHINE_FEEDBACK_KIND.IMAGE_LOADED, "Loaded image."),
     historyRecord: {
       kind: MACHINE_HISTORY_KIND.LOAD_IMAGE,
@@ -165,16 +165,16 @@ function clearImage(state) {
     });
   }
   const previousSession = state.session;
-  const panelEffects = createCancelPanelTimeoutEffects(state);
-  const nextState = resetPanel(replaceSession(state, {
+  const nextState = replaceSession(state, {
     mode: MACHINE_MODE.TRACE,
     image: null,
     placement: null,
     registration: createEmptyRegistration(),
-  }));
+  });
+  const panelTransition = clearPanelIntent(state, nextState);
   return createTransitionResult({
-    state: nextState,
-    effects: panelEffects,
+    state: panelTransition.state,
+    effects: panelTransition.effects,
     feedback: createFeedback(MACHINE_FEEDBACK_KIND.IMAGE_CLEARED, "Cleared image."),
     historyRecord: {
       kind: MACHINE_HISTORY_KIND.CLEAR_IMAGE,
@@ -191,8 +191,13 @@ function clearImage(state) {
 }
 
 function restoreImageSession(state, event) {
+  const panelTransition = clearPanelIntent(
+    state,
+    replaceSession(state, event.session ?? {}),
+  );
   return createTransitionResult({
-    state: resetPanel(replaceSession(state, event.session ?? {})),
+    state: panelTransition.state,
+    effects: panelTransition.effects,
     feedback: createFeedback(MACHINE_FEEDBACK_KIND.IMAGE_RESTORED, "Restored image."),
   });
 }
@@ -313,12 +318,13 @@ function clearPins(state) {
     });
   }
   const nextRegistration = createEmptyRegistration();
-  const panelEffects = createCancelPanelTimeoutEffects(state);
+  const nextState = replaceSession(replaceRegistration(state, nextRegistration), {
+    mode: MACHINE_MODE.ALIGN,
+  });
+  const panelTransition = clearPanelIntent(state, nextState);
   return createTransitionResult({
-    state: resetPanel(replaceSession(replaceRegistration(state, nextRegistration), {
-      mode: MACHINE_MODE.ALIGN,
-    })),
-    effects: panelEffects,
+    state: panelTransition.state,
+    effects: panelTransition.effects,
     feedback: createFeedback(MACHINE_FEEDBACK_KIND.PINS_CLEARED, "Cleared pins."),
     historyRecord: {
       kind: MACHINE_HISTORY_KIND.CLEAR_PINS,
@@ -433,7 +439,7 @@ function setPlacement(state, event) {
 function requestPanelIntent(state, event) {
   const intent = normalizePanelIntent(event.intent);
   if (intent === MACHINE_PANEL_INTENT.IDLE) {
-    return setPanelIntent(state, intent);
+    return cancelPanelIntent(state);
   }
   const requestId = nextPanelRequestId(state);
   return createTransitionResult({
@@ -446,18 +452,11 @@ function requestPanelIntent(state, event) {
   });
 }
 
-function setPanelIntent(state, intent) {
-  const nextIntent = normalizePanelIntent(intent);
+function cancelPanelIntent(state) {
+  const panelTransition = clearPanelIntent(state);
   return createTransitionResult({
-    state: replacePanel(state, {
-      intent: nextIntent,
-      requestId: nextIntent === MACHINE_PANEL_INTENT.IDLE
-        ? null
-        : state.panel.requestId,
-    }),
-    effects: nextIntent === MACHINE_PANEL_INTENT.IDLE
-      ? createCancelPanelTimeoutEffects(state)
-      : [],
+    state: panelTransition.state,
+    effects: panelTransition.effects,
     feedback: createFeedback(MACHINE_FEEDBACK_KIND.PANEL_INTENT_CHANGED),
   });
 }
@@ -518,8 +517,11 @@ function createFeedback(kind, message = "") {
   return { kind, message };
 }
 
-function resetPanel(state) {
-  return replacePanel(state, createIdlePanel());
+function clearPanelIntent(state, nextState = state) {
+  return {
+    state: replacePanel(nextState, createIdlePanel()),
+    effects: createCancelPanelTimeoutEffects(state),
+  };
 }
 
 function nextPanelRequestId(state) {
