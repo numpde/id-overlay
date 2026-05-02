@@ -36,6 +36,8 @@ export async function bootstrapIdOverlay({ keyboardGateway = null } = {}) {
   const machineHost = createMachineHost({
     persistedSession: migratePersistedStateForCurrentMap(persistedState, pageAdapter.getSnapshot()),
     savePersistedSession: (session) => storage.save(session),
+    setPanelTimeout: (callback, { delayMs }) => globalThis.setTimeout(callback, delayMs),
+    clearPanelTimeout: (handle) => globalThis.clearTimeout(handle),
   });
   const store = createMachineBackedStateStore(machineHost);
   const interactions = createInteractionController({
@@ -44,7 +46,7 @@ export async function bootstrapIdOverlay({ keyboardGateway = null } = {}) {
     keyboardGateway,
   });
   const status = createStatusController({
-    store,
+    machineHost,
     interactions,
   });
   const shadow = host.shadowRoot ?? host.attachShadow({ mode: "open" });
@@ -59,9 +61,9 @@ export async function bootstrapIdOverlay({ keyboardGateway = null } = {}) {
 
   const panel = createPanel({
     shadow,
-    store,
     interactions,
     statusController: status,
+    machineHost,
   });
 
   const session = createSession({

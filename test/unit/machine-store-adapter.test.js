@@ -56,11 +56,11 @@ test("machine-backed store routes undo and redo through machine history", () => 
   assert.equal(store.canUndo(), true);
   assert.deepEqual(store.getUndoDescriptor(), {
     kind: "load-image",
-    label: "Clear image",
+    label: "Remove image",
   });
   assert.deepEqual(store.undo(), {
     kind: "load-image",
-    label: "Clear image",
+    label: "Remove image",
   });
   assert.equal(store.getState().image, null);
   assert.equal(store.canRedo(), true);

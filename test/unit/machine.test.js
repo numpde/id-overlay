@@ -42,7 +42,7 @@ test("initial no-image state is native Trace with paste as the primary action", 
 
   assert.equal(state.session.mode, MACHINE_MODE.TRACE);
   assert.equal(state.session.image, null);
-  assert.equal(selectStatus(state), "Paste an image to begin.");
+  assert.equal(selectStatus(state), "Paste a screenshot to begin.");
   assert.deepEqual(selectOverlayPolicy(state), {
     hasImage: false,
     mode: MACHINE_MODE.TRACE,
@@ -50,7 +50,7 @@ test("initial no-image state is native Trace with paste as the primary action", 
     canEditOverlay: false,
     arePinsVisible: false,
   });
-  assert.equal(selectPanelView(state).mainAction, "paste");
+  assert.equal(selectPanelView(state).mainAction.kind, "paste");
   assert.equal(selectPanelView(state).isAlignEnabled, false);
 });
 
@@ -65,7 +65,7 @@ test("loading an image enters Align and records a user-facing reloadable edit", 
   assert.equal(result.state.session.image, IMAGE);
   assert.equal(result.state.session.placement, PLACEMENT);
   assert.equal(result.historyRecord.kind, MACHINE_HISTORY_KIND.LOAD_IMAGE);
-  assert.equal(selectPanelView(result.state).undoTooltip, "Clear image");
+  assert.equal(selectPanelView(result.state).undoTooltip, "Remove image");
   assert.equal(result.state.history.future.length, 0);
   assert.equal(result.state.history.past.length, 1);
 });
@@ -313,11 +313,14 @@ test("selectors derive panel intent, status, controls, and pass-through", () => 
     intent: MACHINE_PANEL_INTENT.CLEAR_IMAGE_CONFIRM,
   }).state;
 
-  assert.equal(selectPanelView(state).mainAction, "confirm-clear-image");
+  assert.equal(selectPanelView(state).mainAction.kind, "confirm-clear-image");
   assert.equal(selectIsCurrentPanelRequest(state, state.panel.requestId), true);
   assert.equal(selectIsCurrentPanelRequest(state, state.panel.requestId + 1), false);
   assert.equal(selectIsCurrentPanelRequest(createInitialMachineState(), null), false);
-  assert.equal(selectStatus(state), "Confirm clearing the image.");
+  assert.equal(
+    selectStatus(state),
+    "Click Clear image? again to remove the current screenshot, placement, and pins.",
+  );
   assert.deepEqual(selectOverlayPolicy(state), {
     hasImage: true,
     mode: MACHINE_MODE.ALIGN,
@@ -332,6 +335,30 @@ test("selectors derive panel intent, status, controls, and pass-through", () => 
   }).state;
   assert.equal(selectPanelView(state).canClearPins, false);
   assert.equal(selectOverlayPolicy(state).isPassThrough, true);
+});
+
+test("machine rejects panel intents that are invalid for the current state", () => {
+  let state = createInitialMachineState();
+
+  let result = transitionMachine(state, {
+    type: MACHINE_EVENT_KIND.REQUEST_PANEL_INTENT,
+    intent: MACHINE_PANEL_INTENT.CLEAR_IMAGE_CONFIRM,
+  });
+  assert.deepEqual(result.state, state);
+  assert.deepEqual(result.effects, []);
+
+  state = addPin(loadImage()).state;
+  state = transitionMachine(state, {
+    type: MACHINE_EVENT_KIND.SELECT_MODE,
+    mode: MACHINE_MODE.TRACE,
+  }).state;
+  result = transitionMachine(state, {
+    type: MACHINE_EVENT_KIND.REQUEST_PANEL_INTENT,
+    intent: MACHINE_PANEL_INTENT.CLEAR_PINS_CONFIRM,
+  });
+
+  assert.deepEqual(result.state, state);
+  assert.deepEqual(result.effects, []);
 });
 
 function loadImage() {

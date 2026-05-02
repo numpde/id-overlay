@@ -1,35 +1,22 @@
 import { createValueStore } from "../core/value-store.js";
 import {
-  describePanelActionPresentation,
   describeInteractionEventPresentation,
+  describePanelActionPresentation,
 } from "../core/presentation.js";
-import { resolveUiStatusBaseline } from "../core/ui-status-model.js";
-import { projectLiveUiState } from "../core/ui-live-state.js";
-import { UI_PANEL_INTENT_KIND } from "../core/ui-state-model.js";
+import {
+  formatFeedback,
+  selectStatus,
+} from "../core/machine/selectors.js";
 
 const DEFAULT_TRANSIENT_MS = 1800;
 
-export function createStatusController({ store, interactions }) {
+export function createStatusController({ machineHost, interactions = null }) {
   const messageStore = createValueStore("");
-  // TODO(machine-cutover): Make transient message identity come from machine
-  // transition feedback. This controller may keep display timing, but not own
-  // user-facing feedback composition.
-  // Final semantic-history shape: transient timing may remain an external
-  // display concern, but the transient message identity should come from the
-  // consumed semantic transition/event presentation, not from imperative
-  // effect handlers composing fallback text.
   let transientMessage = null;
   let transientTimer = null;
-  let panelActionStateSource = null;
 
-  const unsubscribeStore = store.subscribe(syncMessage, { emitCurrent: false });
-  const unsubscribeInteractions = interactions.subscribe(syncMessage, { emitCurrent: false });
-  const unsubscribeInteractionEvents = interactions.subscribeEvents?.((event) => {
-    // TODO(machine-cutover): Remove this parallel status bus for user-visible
-    // outcomes, or keep it strictly adapter-diagnostic.
-    // Final semantic-history shape: this is a second feedback channel beside
-    // transition-result feedback. Either lift interaction events into
-    // canonical UI outcomes or keep them strictly adapter-local.
+  const unsubscribeMachine = machineHost.subscribe(syncMessage, { emitCurrent: false });
+  const unsubscribeInteractionEvents = interactions?.subscribeEvents?.((event) => {
     const eventMessage = describeInteractionEventPresentation(event);
     if (eventMessage) {
       showTransient(eventMessage);
@@ -46,13 +33,15 @@ export function createStatusController({ store, interactions }) {
     return messageStore.get();
   }
 
-  function setPanelActionStateSource(source) {
-    panelActionStateSource = source;
+  function refresh() {
     syncMessage();
   }
 
-  function refresh() {
-    syncMessage();
+  function showMachineFeedback(feedback, options) {
+    const message = formatFeedback(feedback);
+    if (message) {
+      showTransient(message, options);
+    }
   }
 
   function showTransient(message, { durationMs = DEFAULT_TRANSIENT_MS } = {}) {
@@ -83,32 +72,12 @@ export function createStatusController({ store, interactions }) {
 
   function destroy() {
     clearTransientTimer();
-    panelActionStateSource = null;
-    unsubscribeStore();
-    unsubscribeInteractions();
+    unsubscribeMachine();
     unsubscribeInteractionEvents?.();
   }
 
   function syncMessage() {
-    messageStore.set(
-      transientMessage ??
-        resolveBaselineMessage(),
-    );
-  }
-
-  function resolveBaselineMessage() {
-    // Final semantic-history shape: baseline status should remain a pure
-    // projection of canonical UI state. Avoid reintroducing panel-local prompt
-    // composition here when undo/redo records move into the state machine.
-    return resolveUiStatusBaseline({
-      uiState: projectLiveUiState({
-        state: store.getState(),
-        runtime: interactions.getRuntimeState(),
-        panelActionState: panelActionStateSource?.() ?? {
-          kind: UI_PANEL_INTENT_KIND.IDLE,
-        },
-      }),
-    });
+    messageStore.set(transientMessage ?? selectStatus(machineHost.getState()));
   }
 
   function clearTransientTimer() {
@@ -121,10 +90,10 @@ export function createStatusController({ store, interactions }) {
   return {
     subscribe,
     getMessage,
+    showMachineFeedback,
     showTransient,
     showPanelFeedback,
     clearTransient,
-    setPanelActionStateSource,
     refresh,
     destroy,
   };

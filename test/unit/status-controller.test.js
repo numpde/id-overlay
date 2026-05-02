@@ -10,8 +10,6 @@ import {
   describeSolveResultPresentation,
 } from "../../src/core/presentation.js";
 import { resolveUiViewModel } from "../../src/core/ui-view-model.js";
-import { createStateStore } from "../../src/core/state.js";
-import { createValueStore } from "../../src/core/value-store.js";
 import { projectLiveUiState } from "../../src/core/ui-live-state.js";
 import { createInitialPanelActionState } from "../../src/core/panel-state.js";
 import { UI_PANEL_INTENT_KIND } from "../../src/core/ui-state-model.js";
@@ -20,6 +18,11 @@ import {
   describeUiStatusCase,
   resolveUiStatusBaseline,
 } from "../../src/core/ui-status-model.js";
+import {
+  MACHINE_EVENT_KIND,
+  MACHINE_PANEL_INTENT,
+  createMachineHost,
+} from "../../src/core/machine/index.js";
 
 test("resolveUiStatusBaseline explains the current registration workflow", () => {
   assert.equal(
@@ -200,27 +203,16 @@ test("describeInteractionEventPresentation centralizes interaction event feedbac
 });
 
 test("status controller falls back to derived status after a transient", async () => {
-  const store = createStateStore();
-  const runtime = createValueStore({
-    isDragging: false,
-    isPassThroughActive: false,
-    dragMode: null,
-  });
+  const machineHost = createMachineHost();
   const eventListeners = new Set();
   const interactions = {
-    getRuntimeState() {
-      return runtime.get();
-    },
-    subscribe(listener, options) {
-      return runtime.subscribe(listener, options);
-    },
     subscribeEvents(listener) {
       eventListeners.add(listener);
       return () => eventListeners.delete(listener);
     },
   };
 
-  const controller = createStatusController({ store, interactions });
+  const controller = createStatusController({ machineHost, interactions });
   const messages = [];
   const unsubscribe = controller.subscribe((message) => {
     messages.push(message);
@@ -229,29 +221,17 @@ test("status controller falls back to derived status after a transient", async (
   controller.showTransient("Loaded screenshot.", { durationMs: 0 });
   await new Promise((resolve) => setTimeout(resolve, 0));
 
-  assert.equal(messages.at(-1), describeUiStatusCase(UI_STATUS_CASE.EMPTY_SESSION));
+  assert.equal(messages.at(-1), "Paste a screenshot to begin.");
 
   unsubscribe();
   controller.destroy();
+  machineHost.destroy();
 });
 
 test("status controller renders semantic panel feedback through presentation", () => {
-  const store = createStateStore();
-  const runtime = createValueStore({
-    isDragging: false,
-    isPassThroughActive: false,
-    dragMode: null,
-  });
-  const interactions = {
-    getRuntimeState() {
-      return runtime.get();
-    },
-    subscribe(listener, options) {
-      return runtime.subscribe(listener, options);
-    },
-  };
+  const machineHost = createMachineHost();
 
-  const controller = createStatusController({ store, interactions });
+  const controller = createStatusController({ machineHost });
   const messages = [];
   const unsubscribe = controller.subscribe((message) => {
     messages.push(message);
@@ -268,30 +248,20 @@ test("status controller renders semantic panel feedback through presentation", (
 
   unsubscribe();
   controller.destroy();
+  machineHost.destroy();
 });
 
 test("status controller reacts to pin and solve events", () => {
-  const store = createStateStore();
-  const runtime = createValueStore({
-    isDragging: false,
-    isPassThroughActive: false,
-    dragMode: null,
-  });
+  const machineHost = createMachineHost();
   const eventListeners = new Set();
   const interactions = {
-    getRuntimeState() {
-      return runtime.get();
-    },
-    subscribe(listener, options) {
-      return runtime.subscribe(listener, options);
-    },
     subscribeEvents(listener) {
       eventListeners.add(listener);
       return () => eventListeners.delete(listener);
     },
   };
 
-  const controller = createStatusController({ store, interactions });
+  const controller = createStatusController({ machineHost, interactions });
   for (const listener of eventListeners) {
     // Final semantic-history shape: status should receive canonical
     // transition/outcome feedback instead of raw interaction events.
@@ -319,28 +289,17 @@ test("status controller reacts to pin and solve events", () => {
   assert.equal(controller.getMessage(), "Cleared all registration pins.");
 
   controller.destroy();
+  machineHost.destroy();
 });
 
-test("status controller uses canonical ui-state source for baseline panel prompts", () => {
-  const store = createStateStore();
-  const runtime = createValueStore({
-    isDragging: false,
-    isPassThroughActive: false,
-    dragMode: null,
-  });
-  const interactions = {
-    getRuntimeState() {
-      return runtime.get();
-    },
-    subscribe(listener, options) {
-      return runtime.subscribe(listener, options);
-    },
-  };
+test("status controller uses machine state for baseline panel prompts", () => {
+  const machineHost = createMachineHost();
+  const controller = createStatusController({ machineHost });
 
-  const controller = createStatusController({ store, interactions });
-  controller.setPanelActionStateSource(() => ({
-    kind: UI_PANEL_INTENT_KIND.PASTE_ARMED,
-  }));
+  machineHost.dispatch({
+    type: MACHINE_EVENT_KIND.REQUEST_PANEL_INTENT,
+    intent: MACHINE_PANEL_INTENT.PASTE_ARMED,
+  });
 
   assert.equal(
     controller.getMessage(),
@@ -348,4 +307,5 @@ test("status controller uses canonical ui-state source for baseline panel prompt
   );
 
   controller.destroy();
+  machineHost.destroy();
 });

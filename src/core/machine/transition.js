@@ -151,7 +151,7 @@ function loadImage(state, event) {
     historyRecord: {
       kind: MACHINE_HISTORY_KIND.LOAD_IMAGE,
       label: "Loaded image",
-      undoLabel: "Clear image",
+      undoLabel: "Remove image",
       redoLabel: "Reload image",
       undoEvent: { type: MACHINE_EVENT_KIND.CLEAR_IMAGE },
       redoEvent: {
@@ -184,7 +184,7 @@ function clearImage(state) {
     historyRecord: {
       kind: MACHINE_HISTORY_KIND.CLEAR_IMAGE,
       label: "Cleared image",
-      undoLabel: "Restore image",
+      undoLabel: "Reload image",
       redoLabel: "Clear image",
       undoEvent: {
         type: MACHINE_EVENT_KIND.RESTORE_IMAGE_SESSION,
@@ -230,8 +230,13 @@ function selectMode(state, event) {
   if (mode === MACHINE_MODE.TRACE && shouldFitOnTrace(state)) {
     return fitOverlay(state);
   }
+  const panelTransition = clearInvalidPanelIntent(
+    state,
+    replaceSession(state, { mode }),
+  );
   return createTransitionResult({
-    state: replaceSession(state, { mode }),
+    state: panelTransition.state,
+    effects: panelTransition.effects,
     feedback: createFeedback(MACHINE_FEEDBACK_KIND.MODE_SELECTED, `Switched to ${mode}.`),
   });
 }
@@ -267,10 +272,15 @@ function addPin(state, event) {
     solvedTransform: null,
     dirty: true,
   };
-  return createTransitionResult({
-    state: replaceSession(replaceRegistration(state, nextRegistration), {
+  const panelTransition = clearInvalidPanelIntent(
+    state,
+    replaceSession(replaceRegistration(state, nextRegistration), {
       mode: MACHINE_MODE.ALIGN,
     }),
+  );
+  return createTransitionResult({
+    state: panelTransition.state,
+    effects: panelTransition.effects,
     feedback: createFeedback(MACHINE_FEEDBACK_KIND.PIN_ADDED, "Added pin."),
     historyRecord: {
       kind: MACHINE_HISTORY_KIND.ADD_PIN,
@@ -307,10 +317,15 @@ function removePin(state, event) {
     solvedTransform: null,
     dirty: true,
   };
-  return createTransitionResult({
-    state: replaceSession(replaceRegistration(state, nextRegistration), {
+  const panelTransition = clearInvalidPanelIntent(
+    state,
+    replaceSession(replaceRegistration(state, nextRegistration), {
       mode: MACHINE_MODE.ALIGN,
     }),
+  );
+  return createTransitionResult({
+    state: panelTransition.state,
+    effects: panelTransition.effects,
     feedback: createFeedback(MACHINE_FEEDBACK_KIND.PIN_REMOVED, "Removed pin."),
     historyRecord: {
       kind: MACHINE_HISTORY_KIND.REMOVE_PIN,
@@ -372,10 +387,15 @@ function clearPins(state) {
 }
 
 function restoreRegistration(state, event) {
-  return createTransitionResult({
-    state: replaceSession(replaceRegistration(state, event.registration), {
+  const panelTransition = clearInvalidPanelIntent(
+    state,
+    replaceSession(replaceRegistration(state, event.registration), {
       mode: event.mode ?? state.session.mode,
     }),
+  );
+  return createTransitionResult({
+    state: panelTransition.state,
+    effects: panelTransition.effects,
     feedback: createFeedback(event.feedbackKind ?? MACHINE_FEEDBACK_KIND.NONE),
   });
 }
@@ -384,8 +404,13 @@ function fitOverlay(state) {
   const previousSession = state.session;
   const solvedTransform = solveSimilarityTransform(state.session.registration.pins);
   if (!state.session.image || !solvedTransform) {
+    const panelTransition = clearInvalidPanelIntent(
+      state,
+      replaceSession(state, { mode: MACHINE_MODE.TRACE }),
+    );
     return createTransitionResult({
-      state: replaceSession(state, { mode: MACHINE_MODE.TRACE }),
+      state: panelTransition.state,
+      effects: panelTransition.effects,
       feedback: createFeedback(MACHINE_FEEDBACK_KIND.MODE_SELECTED, "Switched to trace."),
     });
   }
@@ -398,8 +423,13 @@ function fitOverlay(state) {
       dirty: false,
     },
   };
+  const panelTransition = clearInvalidPanelIntent(
+    state,
+    replaceSession(state, nextSession),
+  );
   return createTransitionResult({
-    state: replaceSession(state, nextSession),
+    state: panelTransition.state,
+    effects: panelTransition.effects,
     feedback: createFeedback(MACHINE_FEEDBACK_KIND.OVERLAY_FITTED, "Fit overlay from pins."),
     historyRecord: {
       kind: MACHINE_HISTORY_KIND.FIT_OVERLAY,
@@ -485,6 +515,12 @@ function requestPanelIntent(state, event) {
   const intent = event.intent;
   if (intent === MACHINE_PANEL_INTENT.IDLE) {
     return cancelPanelIntent(state);
+  }
+  if (!isPanelIntentValidForState(state, intent)) {
+    return createTransitionResult({
+      state,
+      feedback: createFeedback(MACHINE_FEEDBACK_KIND.NONE),
+    });
   }
   const requestId = nextPanelRequestId(state);
   return createTransitionResult({
@@ -578,6 +614,39 @@ function clearPanelIntent(state, nextState = state) {
     state: replacePanel(nextState, createIdlePanel()),
     effects: createCancelPanelTimeoutEffects(state),
   };
+}
+
+function clearInvalidPanelIntent(state, nextState) {
+  if (isPanelIntentValidForState(nextState)) {
+    return {
+      state: nextState,
+      effects: [],
+    };
+  }
+  return clearPanelIntent(state, nextState);
+}
+
+function isPanelIntentValidForState(state, intent = state.panel.intent) {
+  switch (intent) {
+    case MACHINE_PANEL_INTENT.IDLE:
+      return true;
+    case MACHINE_PANEL_INTENT.PASTE_ARMED:
+      return !state.session.image;
+    case MACHINE_PANEL_INTENT.CLEAR_PINS_CONFIRM:
+      return canClearPinsInState(state);
+    case MACHINE_PANEL_INTENT.CLEAR_IMAGE_CONFIRM:
+      return Boolean(state.session.image);
+    default:
+      return false;
+  }
+}
+
+function canClearPinsInState(state) {
+  return (
+    Boolean(state.session.image) &&
+    state.session.mode === MACHINE_MODE.ALIGN &&
+    state.session.registration.pins.length > 0
+  );
 }
 
 function nextPanelRequestId(state) {

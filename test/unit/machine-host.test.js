@@ -137,6 +137,16 @@ test("machine host starts, replaces, expires, and cancels request-bound panel ti
   });
 
   host.dispatch({
+    type: MACHINE_EVENT_KIND.LOAD_IMAGE,
+    image: IMAGE,
+    placement: PLACEMENT,
+  });
+  host.dispatch({
+    type: MACHINE_EVENT_KIND.ADD_PIN,
+    imagePx: { x: 10, y: 20 },
+    mapLatLon: { lat: 1, lon: 2 },
+  });
+  host.dispatch({
     type: MACHINE_EVENT_KIND.REQUEST_PANEL_INTENT,
     intent: MACHINE_PANEL_INTENT.CLEAR_IMAGE_CONFIRM,
   });
@@ -174,6 +184,13 @@ test("machine host destroy unsubscribes persistence and cancels outstanding time
     setPanelTimeout: timers.set,
     clearPanelTimeout: timers.clear,
   });
+  host.dispatch({
+    type: MACHINE_EVENT_KIND.LOAD_IMAGE,
+    image: IMAGE,
+    placement: PLACEMENT,
+  });
+  saves.length = 0;
+
   const unsubscribe = host.subscribe((state) => observedStates.push(state), {
     emitCurrent: false,
   });

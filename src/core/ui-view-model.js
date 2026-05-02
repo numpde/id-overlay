@@ -7,9 +7,10 @@ import {
 import {
   resolveHistoryControlPresentation,
 } from "./presentation.js";
-
-export const PANEL_TITLE = "Reference Overlay";
-export const PANEL_REPO_URL = "https://github.com/numpde/id-overlay";
+export {
+  PANEL_REPO_URL,
+  PANEL_TITLE,
+} from "./panel-metadata.js";
 
 export function resolveUiViewModel({
   uiState,

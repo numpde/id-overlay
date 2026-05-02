@@ -594,7 +594,7 @@ test("panel undo and redo restore committed session state and reset confirmation
     assert.equal(image.style.display, "none");
     assert.equal(mainActionButton.textContent, "Paste");
     assert.equal(mainActionButton.classList.contains("id-overlay-button--confirm"), false);
-    assert.equal(status.textContent, "Undid: Clear image.");
+    assert.equal(status.textContent, "Undid: Remove image.");
     assert.equal(undoButton.disabled, true);
     assert.equal(redoButton.disabled, false);
     assert.equal(undoButton.title, "");

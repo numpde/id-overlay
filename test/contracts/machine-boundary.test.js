@@ -30,6 +30,17 @@ const FORBIDDEN_IMPORTS = Object.freeze([
   "../../content/",
 ]);
 
+const CONTENT_BRIDGE_FORBIDDEN_IMPORTS = Object.freeze([
+  "../core/panel-state.js",
+  "../core/state.js",
+  "../core/ui-event-model.js",
+  "../core/ui-live-state.js",
+  "../core/ui-live-transition.js",
+  "../core/ui-status-model.js",
+  "../core/ui-view-model.js",
+  "./panel-live-effects.js",
+]);
+
 test("clean-room machine does not import legacy semantic ownership modules", () => {
   const violations = [];
   for (const filePath of listJavaScriptFiles(MACHINE_DIR)) {
@@ -50,6 +61,23 @@ test("content bootstrap uses the machine host instead of the legacy state store"
   assert.match(source, /createMachineHost/);
   assert.doesNotMatch(source, /createStateStore/);
   assert.doesNotMatch(source, /"\.\.\/core\/state\.js"/);
+});
+
+test("live panel and status controllers do not import the legacy ui bridge", () => {
+  const violations = [];
+  for (const relativePath of [
+    "src/content/panel.js",
+    "src/content/status-controller.js",
+  ]) {
+    const source = fs.readFileSync(repoPath(relativePath), "utf8");
+    for (const importPath of parseStaticImports(source)) {
+      if (CONTENT_BRIDGE_FORBIDDEN_IMPORTS.includes(importPath)) {
+        violations.push(`${relativePath} -> ${importPath}`);
+      }
+    }
+  }
+
+  assert.deepEqual(violations, []);
 });
 
 function listJavaScriptFiles(directory) {

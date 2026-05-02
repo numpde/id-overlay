@@ -38,6 +38,7 @@
         "src/core/interaction-runtime.js",
         "src/core/interaction-mode.js",
         "src/core/interaction-policy.js",
+        "src/core/panel-metadata.js",
         "src/core/panel-state.js",
         "src/core/ui-state-model.js",
         "src/core/ui-event-model.js",

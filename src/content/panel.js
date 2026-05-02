@@ -4,32 +4,22 @@ import {
   getOverlayImageLoadStats,
   normalizeOverlayImageBlob,
 } from "../core/image-normalization.js";
+import { PANEL_FEEDBACK_ACTION } from "../core/presentation.js";
 import {
-  PANEL_FEEDBACK_ACTION,
-} from "../core/presentation.js";
+  MACHINE_EVENT_KIND,
+  MACHINE_MODE,
+  MACHINE_PANEL_INTENT,
+  createCancelPanelIntentEvent,
+} from "../core/machine/events.js";
 import {
-  runPanelLiveEffects,
-} from "./panel-live-effects.js";
-import {
-  PANEL_ACTION_DEFAULTS,
-  createInitialPanelActionState,
-  isPanelActionSessionActive,
-  syncPanelActionState,
-} from "../core/panel-state.js";
-import { UI_EVENT_KIND } from "../core/ui-event-model.js";
-import { UI_PANEL_INTENT_KIND } from "../core/ui-state-model.js";
-import {
-  projectLiveUiState,
-} from "../core/ui-live-state.js";
-import {
-  transitionLiveUi,
-} from "../core/ui-live-transition.js";
+  MACHINE_PANEL_MAIN_ACTION,
+  selectIsCurrentPanelRequest,
+  selectPanelView,
+} from "../core/machine/selectors.js";
 import {
   PANEL_REPO_URL,
   PANEL_TITLE,
-  resolveUiViewModel,
-} from "../core/ui-view-model.js";
-import { INTERACTION_MODE, normalizeInteractionMode } from "../core/interaction-mode.js";
+} from "../core/panel-metadata.js";
 import { formatBuildLabel, createLogger } from "../core/logger.js";
 
 const PANEL_MARGIN_PX = 8;
@@ -37,7 +27,12 @@ const PANEL_FALLBACK_WIDTH_PX = 280;
 const PANEL_FALLBACK_HEIGHT_PX = 200;
 const SVG_NS = "http://www.w3.org/2000/svg";
 
-export function createPanel({ shadow, store, interactions, statusController }) {
+export function createPanel({
+  shadow,
+  interactions,
+  statusController,
+  machineHost,
+}) {
   const logger = createLogger("panel");
   const imageNormalizationDeps = createBrowserImageNormalizationDeps(window);
   const root = document.createElement("section");
@@ -139,31 +134,22 @@ export function createPanel({ shadow, store, interactions, statusController }) {
   shadow.append(root);
 
   let isPasteListenerAttached = false;
+  let lastPasteReadRequestId = null;
   let panelPosition = captureInitialPanelPosition();
   let activePanelDrag = null;
-  // TODO(machine-cutover): Delete panel-local intent state. Panel intent should
-  // be canonical machine state; this file should keep only DOM listener/timer
-  // handles that implement machine effects.
-  // Final semantic-history shape: panel intent is currently panel-local and
-  // then projected back into uiState. The clean cut-over should make this a
-  // single canonical UI-machine state value, with only DOM listener handles
-  // remaining local.
-  let panelActionState = createInitialPanelActionState();
-  let panelIntentTimer = null;
   applyPanelPosition();
   window.addEventListener("resize", handleWindowResize);
 
   header.addEventListener("mousedown", handlePanelDragStart);
 
   modeInput.addEventListener("change", () => {
-    // Final semantic-history shape: disabled checks are DOM affordance guards
-    // only. The state machine must still reject invalid mode transitions.
     if (modeInput.disabled) {
       return;
     }
-    applyModeSelection(
-      modeInput.checked ? INTERACTION_MODE.TRACE : INTERACTION_MODE.ALIGN,
-    );
+    dispatchMachineEvent({
+      type: MACHINE_EVENT_KIND.SELECT_MODE,
+      mode: modeInput.checked ? MACHINE_MODE.TRACE : MACHINE_MODE.ALIGN,
+    });
   });
   modeSwitch.addEventListener("wheel", (event) => {
     if (modeInput.disabled) {
@@ -171,137 +157,133 @@ export function createPanel({ shadow, store, interactions, statusController }) {
     }
     event.preventDefault();
     event.stopPropagation();
-    applyModeSelection(
-      event.deltaY < 0 ? INTERACTION_MODE.ALIGN : INTERACTION_MODE.TRACE,
-    );
+    dispatchMachineEvent({
+      type: MACHINE_EVENT_KIND.SELECT_MODE,
+      mode: event.deltaY < 0 ? MACHINE_MODE.ALIGN : MACHINE_MODE.TRACE,
+    });
   }, { passive: false });
 
   opacityInput.addEventListener("input", () => {
-    interactions.setOpacity(clampOpacity(Number(opacityInput.value)));
+    dispatchMachineEvent({
+      type: MACHINE_EVENT_KIND.SET_OPACITY,
+      opacity: clampOpacity(Number(opacityInput.value)),
+    });
   });
   opacityInput.addEventListener("wheel", (event) => {
-    // Final semantic-history shape: opacity remains adapter/UI input plumbing
-    // unless promoted to a canonical event. Do not treat this DOM guard as
-    // semantic validity.
     if (opacityInput.disabled) {
       return;
     }
     event.preventDefault();
     event.stopPropagation();
-    const nextOpacity = opacityFromWheelDelta(Number(opacityInput.value), event.deltaY);
-    interactions.setOpacity(nextOpacity);
+    dispatchMachineEvent({
+      type: MACHINE_EVENT_KIND.SET_OPACITY,
+      opacity: opacityFromWheelDelta(Number(opacityInput.value), event.deltaY),
+    });
   }, { passive: false });
 
-  mainActionButton.addEventListener("click", async () => {
-    await dispatchCanonicalUiEvent({
-      kind: UI_EVENT_KIND.MAIN_ACTION_TRIGGERED,
-    });
+  mainActionButton.addEventListener("click", () => {
+    void handleMainActionClick();
   });
-  undoButton.addEventListener("click", async () => {
-    // Final semantic-history shape: button disabled state is presentation. The
-    // history reducer must be safe for empty undo/redo stacks independently.
+  undoButton.addEventListener("click", () => {
     if (undoButton.disabled) {
       return;
     }
-    await dispatchCanonicalUiEvent({
-      kind: UI_EVENT_KIND.UNDO_TRIGGERED,
-    });
+    dispatchMachineEvent({ type: MACHINE_EVENT_KIND.UNDO });
   });
-  redoButton.addEventListener("click", async () => {
-    // Final semantic-history shape: redo availability should be enforced by
-    // canonical history state, not only by this DOM guard.
+  redoButton.addEventListener("click", () => {
     if (redoButton.disabled) {
       return;
     }
-    await dispatchCanonicalUiEvent({
-      kind: UI_EVENT_KIND.REDO_TRIGGERED,
-    });
+    dispatchMachineEvent({ type: MACHINE_EVENT_KIND.REDO });
   });
 
-  statusController.setPanelActionStateSource(() => panelActionState);
-
-  const unsubscribeStore = store.subscribe(() => {
-    const panelViewModel = resolveCurrentPanelViewModel();
-    if (panelViewModel.mainAction.shouldReset) {
-      // TODO(machine-cutover): Remove view-model repair. The transition that
-      // invalidates paste/confirmation intent must clear it before selectors run.
-      // Final semantic-history shape: stale intent reset should be produced by
-      // the state transition that invalidated the intent, not repaired here
-      // after view-model derivation.
-      setPanelActionState(
-        syncPanelActionState(
-          panelActionState,
-          UI_PANEL_INTENT_KIND.IDLE,
-        ),
-      );
-      return;
-    }
-    applyPanelViewModel(panelViewModel);
-  });
+  const unsubscribeMachine = machineHost.subscribe((state) => {
+    syncMachineSideEffects(state);
+    applyPanelView(selectPanelView(state));
+  }, { emitCurrent: false });
   const unsubscribeStatus = statusController.subscribe((message) => {
     statusElement.textContent = message;
     statusDetailSurface.textContent = message;
   });
 
-  applyPanelViewModel(resolveCurrentPanelViewModel());
+  syncMachineSideEffects(machineHost.getState());
+  applyPanelView(selectPanelView(machineHost.getState()));
   statusController.refresh();
 
   return {
     destroy() {
       detachPasteListener();
       endPanelDrag();
-      clearClearConfirmTimer();
-      statusController.setPanelActionStateSource(null);
       window.removeEventListener("resize", handleWindowResize);
-      unsubscribeStore();
+      unsubscribeMachine();
       unsubscribeStatus();
       root.remove();
     },
   };
 
-  function resolveCurrentUiState() {
-    return projectLiveUiState({
-      state: store.getState(),
-      panelActionState,
-      runtime: interactions.getRuntimeState(),
-    });
+  async function handleMainActionClick() {
+    const action = selectPanelView(machineHost.getState()).mainAction;
+    if (action.disabled) {
+      return;
+    }
+
+    switch (action.kind) {
+      case MACHINE_PANEL_MAIN_ACTION.PASTE:
+        dispatchMachineEvent({
+          type: MACHINE_EVENT_KIND.REQUEST_PANEL_INTENT,
+          intent: MACHINE_PANEL_INTENT.PASTE_ARMED,
+        });
+        return;
+      case MACHINE_PANEL_MAIN_ACTION.PASTE_ARMED:
+        dispatchMachineEvent(createCancelPanelIntentEvent({
+          requestId: machineHost.getState().panel.requestId,
+        }));
+        statusController.showPanelFeedback(PANEL_FEEDBACK_ACTION.PASTE_CANCELLED);
+        return;
+      case MACHINE_PANEL_MAIN_ACTION.CLEAR_PINS:
+        dispatchMachineEvent({
+          type: MACHINE_EVENT_KIND.REQUEST_PANEL_INTENT,
+          intent: MACHINE_PANEL_INTENT.CLEAR_PINS_CONFIRM,
+        });
+        return;
+      case MACHINE_PANEL_MAIN_ACTION.CONFIRM_CLEAR_PINS:
+        dispatchMachineEvent({ type: MACHINE_EVENT_KIND.CLEAR_PINS });
+        return;
+      case MACHINE_PANEL_MAIN_ACTION.CLEAR_IMAGE:
+        dispatchMachineEvent({
+          type: MACHINE_EVENT_KIND.REQUEST_PANEL_INTENT,
+          intent: MACHINE_PANEL_INTENT.CLEAR_IMAGE_CONFIRM,
+        });
+        return;
+      case MACHINE_PANEL_MAIN_ACTION.CONFIRM_CLEAR_IMAGE:
+        dispatchMachineEvent({ type: MACHINE_EVENT_KIND.CLEAR_IMAGE });
+        return;
+      default:
+        return;
+    }
   }
 
-  function resolveCurrentPanelViewModel() {
-    return resolveUiViewModel({
-      uiState: resolveCurrentUiState(),
-      // TODO(machine-cutover): Replace store snapshot descriptors with machine
-      // history selectors. Pending undo/redo copy should come from semantic
-      // history records.
-      // Final semantic-history shape: this should come from machine-level
-      // semantic history records, not store snapshot-history descriptors.
-      history: {
-        canUndo: store.canUndo(),
-        canRedo: store.canRedo(),
-        undoDescriptor: store.getUndoDescriptor(),
-        redoDescriptor: store.getRedoDescriptor(),
-      },
-    });
+  function dispatchMachineEvent(event) {
+    const result = machineHost.dispatch(event);
+    statusController.showMachineFeedback(result.feedback);
+    return result;
   }
 
-  function applyPanelViewModel(panelViewModel) {
-    // Final semantic-history shape: keep this as a dumb DOM projection. If any
-    // branching or repair logic appears here, it belongs back in canonical UI
-    // selectors/transitions.
-    opacityInput.value = panelViewModel.opacityControl.value;
-    opacityInput.disabled = panelViewModel.opacityControl.disabled;
-    modeInput.checked = panelViewModel.modeSwitch.checked;
-    modeInput.disabled = panelViewModel.modeSwitch.disabled;
-    modeInput.setAttribute("aria-label", panelViewModel.modeSwitch.accessibleLabel);
-    modeSwitch.dataset.mode = panelViewModel.modeSwitch.mode;
-    mainActionButton.textContent = panelViewModel.mainAction.label;
-    mainActionButton.disabled = panelViewModel.mainAction.disabled;
+  function applyPanelView(panelView) {
+    opacityInput.value = panelView.opacityControl.value;
+    opacityInput.disabled = panelView.opacityControl.disabled;
+    modeInput.checked = panelView.modeSwitch.checked;
+    modeInput.disabled = panelView.modeSwitch.disabled;
+    modeInput.setAttribute("aria-label", panelView.modeSwitch.accessibleLabel);
+    modeSwitch.dataset.mode = panelView.modeSwitch.mode;
+    mainActionButton.textContent = panelView.mainAction.label;
+    mainActionButton.disabled = panelView.mainAction.disabled;
     mainActionButton.classList.toggle(
       "id-overlay-button--confirm",
-      panelViewModel.mainAction.presentationKind === "confirm",
+      panelView.mainAction.presentationKind === "confirm",
     );
-    applyHistoryButtonPresentation(undoButton, panelViewModel.historyControls.undo);
-    applyHistoryButtonPresentation(redoButton, panelViewModel.historyControls.redo);
+    applyHistoryButtonPresentation(undoButton, panelView.historyControls.undo);
+    applyHistoryButtonPresentation(redoButton, panelView.historyControls.redo);
   }
 
   function applyHistoryButtonPresentation(button, presentation) {
@@ -310,11 +292,37 @@ export function createPanel({ shadow, store, interactions, statusController }) {
     button.setAttribute("aria-label", presentation.accessibleLabel);
   }
 
-  function applyModeSelection(mode) {
-    dispatchCanonicalUiEvent({
-      kind: UI_EVENT_KIND.MODE_SELECTED,
-      mode: normalizeInteractionMode(mode),
-    });
+  function syncMachineSideEffects(state) {
+    if (state.panel.intent !== MACHINE_PANEL_INTENT.PASTE_ARMED) {
+      lastPasteReadRequestId = null;
+      detachPasteListener();
+      return;
+    }
+
+    attachPasteListener();
+    if (
+      state.panel.requestId &&
+      state.panel.requestId !== lastPasteReadRequestId
+    ) {
+      lastPasteReadRequestId = state.panel.requestId;
+      void tryLoadClipboardImageFromApi({ requestId: state.panel.requestId });
+    }
+  }
+
+  function attachPasteListener() {
+    if (isPasteListenerAttached) {
+      return;
+    }
+    window.addEventListener("paste", handleWindowPaste, true);
+    isPasteListenerAttached = true;
+  }
+
+  function detachPasteListener() {
+    if (!isPasteListenerAttached) {
+      return;
+    }
+    window.removeEventListener("paste", handleWindowPaste, true);
+    isPasteListenerAttached = false;
   }
 
   function handlePanelDragStart(event) {
@@ -369,18 +377,14 @@ export function createPanel({ shadow, store, interactions, statusController }) {
   }
 
   async function handleWindowPaste(event) {
-    if (resolveCurrentPanelViewModel().mainAction.intent !== UI_PANEL_INTENT_KIND.PASTE_ARMED) {
+    const state = machineHost.getState();
+    const requestId = state.panel.requestId;
+    if (!isPasteArmedRequest(requestId, state)) {
       return;
     }
 
     event.preventDefault();
-    // Final semantic-history shape: cancelling paste capture before knowing
-    // whether the paste succeeds is a UI-machine policy. Keep the external
-    // paste event listener, but route success/failure/cancel as explicit
-    // transition events rather than imperative status calls below.
-    await dispatchCanonicalUiEvent({
-      kind: UI_EVENT_KIND.PASTE_CANCELLED,
-    });
+    dispatchMachineEvent(createCancelPanelIntentEvent({ requestId }));
 
     const item = [...(event.clipboardData?.items ?? [])].find((candidate) =>
       candidate.type.startsWith("image/"),
@@ -401,14 +405,14 @@ export function createPanel({ shadow, store, interactions, statusController }) {
     await loadClipboardImage(file, "window paste event");
   }
 
-  async function tryLoadClipboardImageFromApi({ sessionId }) {
+  async function tryLoadClipboardImageFromApi({ requestId }) {
     if (typeof navigator?.clipboard?.read !== "function") {
       return null;
     }
 
     try {
       const clipboardItems = await navigator.clipboard.read();
-      if (!isPanelActionSessionActive(panelActionState, sessionId)) {
+      if (!isPasteArmedRequest(requestId)) {
         logger.info("Ignoring clipboard API result because paste capture was cancelled");
         return null;
       }
@@ -424,11 +428,11 @@ export function createPanel({ shadow, store, interactions, statusController }) {
 
       const clipboardItem = clipboardItems.find((item) => item.types.includes(imageType));
       const blob = await clipboardItem.getType(imageType);
-      if (!isPanelActionSessionActive(panelActionState, sessionId)) {
+      if (!isPasteArmedRequest(requestId)) {
         logger.info("Ignoring clipboard image because paste capture was cancelled");
         return null;
       }
-      return loadClipboardImage(blob, "Clipboard API");
+      return loadClipboardImage(blob, "Clipboard API", { requestId });
     } catch (error) {
       logger.warn("Clipboard API read failed; falling back to manual paste", {
         message: error?.message ?? String(error),
@@ -437,20 +441,27 @@ export function createPanel({ shadow, store, interactions, statusController }) {
     }
   }
 
-  function setPanelActionState(nextState) {
-    if (nextState === panelActionState) {
-      return;
+  function isPasteArmedRequest(requestId, state = machineHost.getState()) {
+    return (
+      state.panel.intent === MACHINE_PANEL_INTENT.PASTE_ARMED &&
+      selectIsCurrentPanelRequest(state, requestId)
+    );
+  }
+
+  async function loadClipboardImage(source, sourceLabel, { requestId = null } = {}) {
+    const image = await normalizeOverlayImageBlob(source, imageNormalizationDeps);
+    if (requestId !== null && !isPasteArmedRequest(requestId)) {
+      logger.info("Ignoring normalized clipboard image because paste capture was cancelled");
+      return null;
     }
-    panelActionState = nextState;
-    // TODO(machine-cutover): This should collapse to effect-handle sync, or
-    // disappear entirely if MachineHost owns panel timers and paste reads.
-    // Final semantic-history shape: this should only sync external listener
-    // handles. Recomputing view-model/status here is a symptom of panel intent
-    // being outside the canonical machine state.
-    const panelViewModel = resolveCurrentPanelViewModel();
-    syncPanelActionSideEffects(panelViewModel.mainAction);
-    applyPanelViewModel(panelViewModel);
-    statusController.refresh();
+    const imageStats = getOverlayImageLoadStats(image);
+    interactions.loadImage(image);
+    logger.info("Loaded clipboard image", {
+      source: sourceLabel,
+      ...imageStats,
+    });
+    statusController.showPanelFeedback(PANEL_FEEDBACK_ACTION.CLIPBOARD_IMAGE_LOADED, image);
+    return image;
   }
 
   function setPanelPosition(nextPosition) {
@@ -487,128 +498,6 @@ export function createPanel({ shadow, store, interactions, statusController }) {
       left: clampNumber(position.left, PANEL_MARGIN_PX, maxLeft),
       top: clampNumber(position.top, PANEL_MARGIN_PX, maxTop),
     };
-  }
-
-  function syncPanelActionSideEffects(mainAction) {
-    // TODO(machine-cutover): Drive paste-listener and timeout lifecycles from
-    // machine effects, not from already-derived main-action presentation.
-    // Final semantic-history shape: derive these listener/timer effects from
-    // transition effects, not from the already-rendered main-action view model.
-    if (mainAction.presentationKind !== "confirm") {
-      clearClearConfirmTimer();
-    }
-    syncPasteListener(mainAction);
-  }
-
-  function syncPasteListener(mainAction) {
-    // Final semantic-history shape: paste listener attachment is an external
-    // effect of entering/leaving Paste Armed, not view-model presentation work.
-    if (mainAction.intent === UI_PANEL_INTENT_KIND.PASTE_ARMED && !isPasteListenerAttached) {
-      window.addEventListener("paste", handleWindowPaste, true);
-      isPasteListenerAttached = true;
-      return;
-    }
-    if (mainAction.intent !== UI_PANEL_INTENT_KIND.PASTE_ARMED && isPasteListenerAttached) {
-      detachPasteListener();
-    }
-  }
-
-  function detachPasteListener() {
-    if (!isPasteListenerAttached) {
-      return;
-    }
-    window.removeEventListener("paste", handleWindowPaste, true);
-    isPasteListenerAttached = false;
-  }
-
-  function clearClearConfirmTimer() {
-    if (!panelIntentTimer) {
-      return;
-    }
-    globalThis.clearTimeout(panelIntentTimer);
-    panelIntentTimer = null;
-  }
-
-  async function loadClipboardImage(source, sourceLabel) {
-    const image = await normalizeOverlayImageBlob(source, imageNormalizationDeps);
-    const imageStats = getOverlayImageLoadStats(image);
-    // TODO(machine-cutover): Dispatch a machine paste/load-image event instead
-    // of mutating the legacy interaction/store path directly.
-    // Final semantic-history shape: image load should enter through the
-    // canonical PASTE_SUCCEEDED/LOAD_IMAGE transition so it can emit the
-    // semantic load-image history record. Direct durable mutation here should
-    // disappear.
-    interactions.loadImage(image);
-    logger.info("Loaded clipboard image", {
-      source: sourceLabel,
-      ...imageStats,
-    });
-    statusController.showPanelFeedback(PANEL_FEEDBACK_ACTION.CLIPBOARD_IMAGE_LOADED, image);
-    return image;
-  }
-
-  async function dispatchCanonicalUiEvent(event) {
-    const {
-      transitionResult,
-      nextPanelActionState,
-      previousUiState,
-    } = transitionLiveUi({
-      state: store.getState(),
-      panelActionState,
-      runtime: interactions.getRuntimeState(),
-      event,
-    });
-
-    setPanelActionState(nextPanelActionState);
-
-    // TODO(machine-cutover): Replace transitionLiveUi/runCanonicalUiEffects with
-    // host.dispatch(machineEvent) plus host effect adapters.
-    // Final semantic-history shape: transitionResult should include semantic
-    // history metadata and any feedback identity. Running effects should not be
-    // responsible for durable undo/redo state changes.
-    await runCanonicalUiEffects({
-      previousUiState,
-      nextUiState: transitionResult.state,
-      effects: transitionResult.effects,
-      nextPanelActionState,
-    });
-    return transitionResult;
-  }
-
-  async function runCanonicalUiEffects({
-    previousUiState,
-    nextUiState,
-    effects,
-    nextPanelActionState,
-  }) {
-    await runPanelLiveEffects({
-      previousUiState,
-      nextUiState,
-      effects,
-      nextPanelActionState,
-    }, {
-      logger,
-      interactions,
-      statusController,
-      readPasteInput: tryLoadClipboardImageFromApi,
-      dispatchCanonicalUiEvent,
-      startPanelTimeout: async () => {
-        // Final semantic-history shape: the timer handle is external, but the
-        // timeout lifecycle should be owned by transition effects for entering
-        // and leaving confirmation states. Avoid coupling it to panel-local
-        // action state.
-        clearClearConfirmTimer();
-        panelIntentTimer = globalThis.setTimeout(() => {
-          panelIntentTimer = null;
-          void dispatchCanonicalUiEvent({
-            kind: UI_EVENT_KIND.PANEL_TIMEOUT_ELAPSED,
-          });
-        }, PANEL_ACTION_DEFAULTS.clearConfirmationTimeoutMs);
-      },
-      cancelPanelTimeout: async () => {
-        clearClearConfirmTimer();
-      },
-    });
   }
 }
 
