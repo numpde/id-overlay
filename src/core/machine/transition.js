@@ -125,6 +125,9 @@ function transitionRedo(state) {
 }
 
 function loadImage(state, event) {
+  // TODO(machine-cutover): If LOAD_IMAGE remains request-bound, validate
+  // event.requestId here. The effect runner may defensively ignore stale async
+  // reads, but the transition must be the authority for valid state changes.
   if (!event.image) {
     return createTransitionResult({
       state,
@@ -203,6 +206,9 @@ function restoreImageSession(state, event) {
 }
 
 function selectMode(state, event) {
+  // TODO(machine-cutover): Unknown event modes should be explicit no-ops.
+  // Normalization is appropriate at persistence/hydration boundaries, not as a
+  // substitute for transition validity.
   const mode = normalizeMode(event.mode);
   if (!state.session.image && mode === MACHINE_MODE.ALIGN) {
     return createTransitionResult({
@@ -437,6 +443,8 @@ function setPlacement(state, event) {
 }
 
 function requestPanelIntent(state, event) {
+  // TODO(machine-cutover): Unknown panel intents should be explicit no-ops, not
+  // coerced into IDLE/cancel. The machine should allow only valid transitions.
   const intent = normalizePanelIntent(event.intent);
   if (intent === MACHINE_PANEL_INTENT.IDLE) {
     return cancelPanelIntent(state);

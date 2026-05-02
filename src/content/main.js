@@ -32,6 +32,8 @@ export async function bootstrapIdOverlay({ keyboardGateway = null } = {}) {
   destroyExistingSession(host);
   const storage = createExtensionStorage();
   const persistedState = await storage.load();
+  // TODO(machine-cutover): Replace this live store boot with createMachineHost
+  // so the running extension uses src/core/machine as the runtime SSoT.
   const store = createStateStore(migratePersistedStateForCurrentMap(persistedState, pageAdapter.getSnapshot()));
   const interactions = createInteractionController({
     store,
@@ -60,6 +62,8 @@ export async function bootstrapIdOverlay({ keyboardGateway = null } = {}) {
   });
 
   const unsubscribe = store.subscribe((state) => {
+    // TODO(machine-cutover): Delete whole-store persistence once MachineHost
+    // owns durable-session persistence via the machine persistence projection.
     // Final semantic-history shape: persist an explicit durable-session
     // projection here, not the whole store object. Undo/redo stacks should
     // either be intentionally persisted as transition records or intentionally

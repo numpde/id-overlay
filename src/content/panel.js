@@ -141,6 +141,9 @@ export function createPanel({ shadow, store, interactions, statusController }) {
   let isPasteListenerAttached = false;
   let panelPosition = captureInitialPanelPosition();
   let activePanelDrag = null;
+  // TODO(machine-cutover): Delete panel-local intent state. Panel intent should
+  // be canonical machine state; this file should keep only DOM listener/timer
+  // handles that implement machine effects.
   // Final semantic-history shape: panel intent is currently panel-local and
   // then projected back into uiState. The clean cut-over should make this a
   // single canonical UI-machine state value, with only DOM listener handles
@@ -220,6 +223,8 @@ export function createPanel({ shadow, store, interactions, statusController }) {
   const unsubscribeStore = store.subscribe(() => {
     const panelViewModel = resolveCurrentPanelViewModel();
     if (panelViewModel.mainAction.shouldReset) {
+      // TODO(machine-cutover): Remove view-model repair. The transition that
+      // invalidates paste/confirmation intent must clear it before selectors run.
       // Final semantic-history shape: stale intent reset should be produced by
       // the state transition that invalidated the intent, not repaired here
       // after view-model derivation.
@@ -265,6 +270,9 @@ export function createPanel({ shadow, store, interactions, statusController }) {
   function resolveCurrentPanelViewModel() {
     return resolveUiViewModel({
       uiState: resolveCurrentUiState(),
+      // TODO(machine-cutover): Replace store snapshot descriptors with machine
+      // history selectors. Pending undo/redo copy should come from semantic
+      // history records.
       // Final semantic-history shape: this should come from machine-level
       // semantic history records, not store snapshot-history descriptors.
       history: {
@@ -434,6 +442,8 @@ export function createPanel({ shadow, store, interactions, statusController }) {
       return;
     }
     panelActionState = nextState;
+    // TODO(machine-cutover): This should collapse to effect-handle sync, or
+    // disappear entirely if MachineHost owns panel timers and paste reads.
     // Final semantic-history shape: this should only sync external listener
     // handles. Recomputing view-model/status here is a symptom of panel intent
     // being outside the canonical machine state.
@@ -480,6 +490,8 @@ export function createPanel({ shadow, store, interactions, statusController }) {
   }
 
   function syncPanelActionSideEffects(mainAction) {
+    // TODO(machine-cutover): Drive paste-listener and timeout lifecycles from
+    // machine effects, not from already-derived main-action presentation.
     // Final semantic-history shape: derive these listener/timer effects from
     // transition effects, not from the already-rendered main-action view model.
     if (mainAction.presentationKind !== "confirm") {
@@ -520,6 +532,8 @@ export function createPanel({ shadow, store, interactions, statusController }) {
   async function loadClipboardImage(source, sourceLabel) {
     const image = await normalizeOverlayImageBlob(source, imageNormalizationDeps);
     const imageStats = getOverlayImageLoadStats(image);
+    // TODO(machine-cutover): Dispatch a machine paste/load-image event instead
+    // of mutating the legacy interaction/store path directly.
     // Final semantic-history shape: image load should enter through the
     // canonical PASTE_SUCCEEDED/LOAD_IMAGE transition so it can emit the
     // semantic load-image history record. Direct durable mutation here should
@@ -547,6 +561,8 @@ export function createPanel({ shadow, store, interactions, statusController }) {
 
     setPanelActionState(nextPanelActionState);
 
+    // TODO(machine-cutover): Replace transitionLiveUi/runCanonicalUiEffects with
+    // host.dispatch(machineEvent) plus host effect adapters.
     // Final semantic-history shape: transitionResult should include semantic
     // history metadata and any feedback identity. Running effects should not be
     // responsible for durable undo/redo state changes.

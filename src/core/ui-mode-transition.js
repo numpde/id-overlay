@@ -39,6 +39,8 @@ function transitionModeSelected(uiState, nextMode) {
   }
 
   const nextState = patchMode(uiState, basis.nextMode);
+  // TODO(machine-cutover): Collapse Trace auto-fit into a single semantic
+  // machine transition that owns mode, solve result, and history.
   // Final semantic-history shape: when selecting Trace with computable unsolved
   // pins, this should become a fit-overlay transition with a history record,
   // not "set mode plus request solve". Pure mode switches remain non-history.
@@ -51,6 +53,8 @@ function transitionModeSelected(uiState, nextMode) {
 }
 
 function transitionSolveSucceeded(uiState, event) {
+  // TODO(machine-cutover): Make solve success the completion of a semantic
+  // fit-overlay transition, not a free-standing registration mutation.
   // Final semantic-history shape: a successful solve caused by fit-overlay
   // should commit that semantic transition, including undo/redo events. This
   // outcome should not remain an untracked registration mutation.

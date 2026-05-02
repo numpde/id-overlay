@@ -103,6 +103,9 @@ export function normalizeRegistration(registration = {}) {
   };
 }
 
+// TODO(machine-cutover): Keep normalizers for persisted/foreign input only.
+// Transition predicates should validate event payloads instead of relying on
+// default coercion to produce a legal state.
 export function normalizeMode(mode) {
   return mode === MACHINE_MODE.ALIGN ? MACHINE_MODE.ALIGN : MACHINE_MODE.TRACE;
 }

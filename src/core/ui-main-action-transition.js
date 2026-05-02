@@ -119,6 +119,8 @@ function shouldResetMainActionIntent({
   canPasteImage,
   canClearPins,
 }) {
+  // TODO(machine-cutover): Delete stale-intent repair after transitions own all
+  // panel intent invalidation.
   // Final semantic-history shape: remove this repair selector. The machine
   // should never expose a stale confirmation/paste intent after a session
   // transition invalidates it.
@@ -183,6 +185,8 @@ function transitionMainActionTriggered(uiState) {
   }
 
   if (action.intent === UI_PANEL_INTENT_KIND.CLEAR_IMAGE_CONFIRM) {
+    // TODO(machine-cutover): Commit clear-image in the machine transition; this
+    // should not emit an effect whose handler mutates durable state.
     // Final semantic-history shape: clear-image should be a semantic history
     // transition here, including undo/redo events for restoring/removing the
     // image session. The CLEAR_IMAGE effect should not be the authority for
@@ -217,6 +221,8 @@ function transitionPasteSucceeded(uiState, event) {
     return createUiTransitionResult(uiState);
   }
 
+  // TODO(machine-cutover): Author load-image history here/in the machine, not
+  // in the legacy store's LOAD_IMAGE_SESSION checkpoint.
   // Final semantic-history shape: paste/load-image should emit the load-image
   // history record from this transition. The interaction/store layer should
   // not infer that record from a low-level LOAD_IMAGE_SESSION action.

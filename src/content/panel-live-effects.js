@@ -38,6 +38,8 @@ export async function runPanelLiveEffects({
       }
     },
     clearPins: async () => {
+      // TODO(machine-cutover): Delete this durable mutation bridge. Clear-pins
+      // should be committed by the machine transition that produced the effect.
       // Final semantic-history shape: this handler should disappear once
       // clear-pins is committed by the state-machine transition itself. The
       // panel should not ask interactions to perform a second durable mutation.
@@ -45,6 +47,8 @@ export async function runPanelLiveEffects({
       interactions.clearPins();
     },
     clearImage: async () => {
+      // TODO(machine-cutover): Delete this durable mutation bridge. Clear-image
+      // should already be reflected in the machine state before effects run.
       // Final semantic-history shape: clear-image should be the transition's
       // durable state change plus history record. This handler should only run
       // non-state side effects, or disappear if no side effect remains.
@@ -53,6 +57,8 @@ export async function runPanelLiveEffects({
       statusController.showPanelFeedback(PANEL_FEEDBACK_ACTION.CLEAR_IMAGE);
     },
     undoSession: async () => {
+      // TODO(machine-cutover): Delete this snapshot-history bridge. Undo should
+      // consume the machine history record through the transition path.
       // Final semantic-history shape: undo should be resolved inside the
       // canonical transition, including feedback metadata. This imperative
       // bridge to interactions.undoSessionHistory() should disappear.
@@ -65,6 +71,8 @@ export async function runPanelLiveEffects({
       }
     },
     redoSession: async () => {
+      // TODO(machine-cutover): Delete this snapshot-history bridge. Redo should
+      // consume the machine history record through the transition path.
       // Final semantic-history shape: redo should replay the stored semantic
       // transition through the state machine, not leave this layer to call the
       // snapshot-history store path.
@@ -83,6 +91,8 @@ export async function runPanelLiveEffects({
     startPanelTimeout,
     cancelPanelTimeout,
     applyResolvedModeTransition: async (modeExecution) => {
+      // TODO(machine-cutover): Delete this mode execution bridge once selecting
+      // Trace produces any fit-overlay state/history directly in the machine.
       // Final semantic-history shape: mode execution should not be inferred by
       // the live-effect runner. The state-machine transition should already
       // have authored mode and any fit-overlay history.

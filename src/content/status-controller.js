@@ -11,6 +11,9 @@ const DEFAULT_TRANSIENT_MS = 1800;
 
 export function createStatusController({ store, interactions }) {
   const messageStore = createValueStore("");
+  // TODO(machine-cutover): Make transient message identity come from machine
+  // transition feedback. This controller may keep display timing, but not own
+  // user-facing feedback composition.
   // Final semantic-history shape: transient timing may remain an external
   // display concern, but the transient message identity should come from the
   // consumed semantic transition/event presentation, not from imperative
@@ -22,6 +25,8 @@ export function createStatusController({ store, interactions }) {
   const unsubscribeStore = store.subscribe(syncMessage, { emitCurrent: false });
   const unsubscribeInteractions = interactions.subscribe(syncMessage, { emitCurrent: false });
   const unsubscribeInteractionEvents = interactions.subscribeEvents?.((event) => {
+    // TODO(machine-cutover): Remove this parallel status bus for user-visible
+    // outcomes, or keep it strictly adapter-diagnostic.
     // Final semantic-history shape: this is a second feedback channel beside
     // transition-result feedback. Either lift interaction events into
     // canonical UI outcomes or keep them strictly adapter-local.

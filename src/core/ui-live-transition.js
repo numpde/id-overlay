@@ -16,6 +16,8 @@ export function transitionLiveUi({
     runtime,
   });
   const transitionResult = transitionUiState(previousUiState, event);
+  // TODO(machine-cutover): Delete this reconciliation bridge when live code
+  // dispatches directly to the machine host.
   // Final semantic-history shape: once panel intent lives in canonical UI
   // state, this reconciliation step should disappear. transitionUiState should
   // return the complete next machine state directly.

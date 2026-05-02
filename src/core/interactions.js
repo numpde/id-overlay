@@ -69,6 +69,8 @@ import { projectLiveUiState } from "./ui-live-state.js";
 import { transitionMode } from "./ui-mode-transition.js";
 
 export const INTERACTION_HISTORY_DESCRIPTOR = Object.freeze({
+  // TODO(machine-cutover): Delete interaction-authored history descriptors.
+  // Semantic machine transitions should own labels and undo/redo events.
   // Final semantic-history shape: these descriptors should move into the
   // state-machine transition records that create history. Interaction code
   // should dispatch semantic edit events, not supply presentation descriptors.
@@ -146,6 +148,8 @@ export function createInteractionController({
   }
 
   function loadImage(image) {
+    // TODO(machine-cutover): Replace this imperative durable mutation with a
+    // machine LOAD_IMAGE/PASTE_SUCCEEDED dispatch.
     // Final semantic-history shape: this should become adapter support for a
     // canonical paste/load-image outcome, not an imperative session mutation
     // that authors mode/placement/history below the UI machine.
@@ -170,6 +174,8 @@ export function createInteractionController({
   }
 
   function clearImage() {
+    // TODO(machine-cutover): Keep interaction cleanup here if needed, but move
+    // durable clear-image state/history to the machine transition.
     // Final semantic-history shape: clear-image should enter through the
     // semantic transition pipeline. Interaction cleanup can remain here, but
     // durable session mutation should not.
@@ -191,12 +197,14 @@ export function createInteractionController({
   }
 
   function undoSessionHistory() {
+    // TODO(machine-cutover): Delete this public API with snapshot undo.
     // Final semantic-history shape: this public interaction API should be
     // removed. Undo is a UI event consumed by the transition machine.
     return restoreSessionHistory("undo");
   }
 
   function redoSessionHistory() {
+    // TODO(machine-cutover): Delete this public API with snapshot redo.
     // Final semantic-history shape: this public interaction API should be
     // removed alongside snapshot redo.
     return restoreSessionHistory("redo");
@@ -213,6 +221,8 @@ export function createInteractionController({
     nextMode,
     requestSolve = false,
   }) {
+    // TODO(machine-cutover): Delete this bridge once mode/fit-overlay are one
+    // machine transition with any required history record.
     // Final semantic-history shape: fit-overlay should be a normal semantic
     // transition. This bridge currently performs "solve then set mode" outside
     // the reducer path, which prevents fit from becoming a coherent undoable
@@ -808,6 +818,7 @@ export function createInteractionController({
   }
 
   function restoreSessionHistory(direction) {
+    // TODO(machine-cutover): Delete this direct store.undo()/redo() path.
     // Final semantic-history shape: this should disappear. Undo/redo should be
     // state-machine events that consume semantic history records; interaction
     // code should not call store.undo()/store.redo() directly.

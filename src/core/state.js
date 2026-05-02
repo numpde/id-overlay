@@ -41,6 +41,8 @@ export const STATE_ACTION = Object.freeze({
   CLEAR_IMAGE: "clear-image",
 });
 
+// TODO(machine-cutover): Delete this checkpoint table when semantic history
+// records are authored by src/core/machine transitions.
 // Final semantic-history shape: this low-level checkpoint table should
 // disappear. History records should be emitted by the semantic state-machine
 // transition that interprets the user action, not inferred from reducer action
@@ -83,6 +85,8 @@ const HISTORY_ACTIONS = Object.freeze({
 
 export function createStateStore(initialState = {}) {
   let state = normalizeState(initialState);
+  // TODO(machine-cutover): Delete store-owned past/future/batch state. The
+  // machine history stack should be the single undo/redo source.
   // Final semantic-history shape: past/future/batch fields should move out of
   // this durable session store. This store should not own user-facing undo
   // policy or semantic history labels.
@@ -254,6 +258,8 @@ export function createStateStore(initialState = {}) {
   }
 
   function undo() {
+    // TODO(machine-cutover): Delete snapshot undo. Undo must dispatch the
+    // semantic history record's undoEvent through the machine transition.
     // Final semantic-history shape: undo should not restore a raw projected
     // snapshot here. It should dispatch the stored history record's undoEvent
     // through the state machine, so mode/effects/presentation are authored by
@@ -271,6 +277,8 @@ export function createStateStore(initialState = {}) {
   }
 
   function redo() {
+    // TODO(machine-cutover): Delete snapshot redo. Redo must dispatch the
+    // semantic history record's redoEvent through the machine transition.
     // Final semantic-history shape: redo should replay the stored redoEvent
     // through the same transition path instead of restoring undoableState.
     if (!canRedo()) {
@@ -378,6 +386,8 @@ function freezeHistoryDescriptor(descriptor) {
 }
 
 function projectUndoableSessionState(state) {
+  // TODO(machine-cutover): Delete generic undo snapshots. Each semantic history
+  // record should store only the inverse/replay event payload it needs.
   // Final semantic-history shape: this generic projection should disappear.
   // It is the source of accidental field restoration. Undoable records should
   // contain semantic inverse/replay events, with only the domain facts those
