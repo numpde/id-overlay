@@ -1,5 +1,16 @@
 import { UI_EFFECT_KIND } from "./ui-effect-model.js";
 
+const HANDLER_BY_EFFECT_KIND = Object.freeze({
+  [UI_EFFECT_KIND.REQUEST_PASTE_INPUT]: "requestPasteInput",
+  [UI_EFFECT_KIND.CLEAR_PINS]: "clearPins",
+  [UI_EFFECT_KIND.CLEAR_IMAGE]: "clearImage",
+  [UI_EFFECT_KIND.UNDO_SESSION]: "undoSession",
+  [UI_EFFECT_KIND.REDO_SESSION]: "redoSession",
+  [UI_EFFECT_KIND.SHOW_PASTE_CANCELLED_FEEDBACK]: "showPasteCancelledFeedback",
+  [UI_EFFECT_KIND.START_PANEL_TIMEOUT]: "startPanelTimeout",
+  [UI_EFFECT_KIND.CANCEL_PANEL_TIMEOUT]: "cancelPanelTimeout",
+});
+
 export async function runUiLiveEffects({
   previousUiState,
   nextUiState,
@@ -17,35 +28,9 @@ export async function runUiLiveEffects({
   }
 
   for (const effectKind of effects) {
-    switch (effectKind) {
-      case UI_EFFECT_KIND.REQUEST_PASTE_INPUT:
-        await handlers.requestPasteInput();
-        break;
-      case UI_EFFECT_KIND.REQUEST_REGISTRATION_SOLVE:
-        break;
-      case UI_EFFECT_KIND.CLEAR_PINS:
-        await handlers.clearPins();
-        break;
-      case UI_EFFECT_KIND.CLEAR_IMAGE:
-        await handlers.clearImage();
-        break;
-      case UI_EFFECT_KIND.UNDO_SESSION:
-        await handlers.undoSession();
-        break;
-      case UI_EFFECT_KIND.REDO_SESSION:
-        await handlers.redoSession();
-        break;
-      case UI_EFFECT_KIND.SHOW_PASTE_CANCELLED_FEEDBACK:
-        await handlers.showPasteCancelledFeedback();
-        break;
-      case UI_EFFECT_KIND.START_PANEL_TIMEOUT:
-        await handlers.startPanelTimeout();
-        break;
-      case UI_EFFECT_KIND.CANCEL_PANEL_TIMEOUT:
-        await handlers.cancelPanelTimeout();
-        break;
-      default:
-        break;
+    const handlerName = HANDLER_BY_EFFECT_KIND[effectKind];
+    if (handlerName) {
+      await handlers[handlerName]();
     }
   }
 }
