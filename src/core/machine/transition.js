@@ -14,6 +14,7 @@ import {
   isKnownPanelIntent,
   isValidPanelRequestId,
   normalizeMachineState,
+  normalizeOpacity,
   replaceHistory,
   replacePanel,
   replaceRegistration,
@@ -52,6 +53,8 @@ function transitionSemantic(state, event, { commitHistory }) {
       return withoutHistory(restoreImageSession(state, event));
     case MACHINE_EVENT_KIND.SELECT_MODE:
       return withOptionalHistory(selectMode(state, event), commitHistory);
+    case MACHINE_EVENT_KIND.SET_OPACITY:
+      return withoutHistory(setOpacity(state, event));
     case MACHINE_EVENT_KIND.ADD_PIN:
       return withOptionalHistory(addPin(state, event), commitHistory);
     case MACHINE_EVENT_KIND.REMOVE_PIN:
@@ -64,6 +67,8 @@ function transitionSemantic(state, event, { commitHistory }) {
       return withOptionalHistory(fitOverlay(state), commitHistory);
     case MACHINE_EVENT_KIND.SET_PLACEMENT:
       return withOptionalHistory(setPlacement(state, event), commitHistory);
+    case MACHINE_EVENT_KIND.SYNC_PLACEMENT:
+      return withoutHistory(syncPlacement(state, event));
     case MACHINE_EVENT_KIND.REQUEST_PANEL_INTENT:
       return withoutHistory(requestPanelIntent(state, event));
     case MACHINE_EVENT_KIND.CANCEL_PANEL_INTENT:
@@ -125,9 +130,6 @@ function transitionRedo(state) {
 }
 
 function loadImage(state, event) {
-  // TODO(machine-cutover): If LOAD_IMAGE remains request-bound, validate
-  // event.requestId here. The effect runner may defensively ignore stale async
-  // reads, but the transition must be the authority for valid state changes.
   if (!event.image || !canLoadImageForRequest(state, event)) {
     return createTransitionResult({
       state,
@@ -206,9 +208,6 @@ function restoreImageSession(state, event) {
 }
 
 function selectMode(state, event) {
-  // TODO(machine-cutover): Unknown event modes should be explicit no-ops.
-  // Normalization is appropriate at persistence/hydration boundaries, not as a
-  // substitute for transition validity.
   if (!isKnownMachineMode(event.mode)) {
     return createTransitionResult({
       state,
@@ -234,6 +233,19 @@ function selectMode(state, event) {
   return createTransitionResult({
     state: replaceSession(state, { mode }),
     feedback: createFeedback(MACHINE_FEEDBACK_KIND.MODE_SELECTED, `Switched to ${mode}.`),
+  });
+}
+
+function setOpacity(state, event) {
+  if (!Number.isFinite(event.opacity)) {
+    return createTransitionResult({
+      state,
+      feedback: createFeedback(MACHINE_FEEDBACK_KIND.NONE),
+    });
+  }
+  return createTransitionResult({
+    state: replaceSession(state, { opacity: normalizeOpacity(event.opacity) }),
+    feedback: createFeedback(MACHINE_FEEDBACK_KIND.NONE),
   });
 }
 
@@ -413,7 +425,9 @@ function setPlacement(state, event) {
       feedback: createFeedback(MACHINE_FEEDBACK_KIND.NONE),
     });
   }
-  const previousPlacement = state.session.placement;
+  const previousPlacement = Object.hasOwn(event, "previousPlacement")
+    ? event.previousPlacement
+    : state.session.placement;
   const nextPlacement = event.placement;
   const nextRegistration = {
     ...state.session.registration,
@@ -448,9 +462,20 @@ function setPlacement(state, event) {
   });
 }
 
+function syncPlacement(state, event) {
+  if (!state.session.image || !Object.hasOwn(event, "placement")) {
+    return createTransitionResult({
+      state,
+      feedback: createFeedback(MACHINE_FEEDBACK_KIND.NONE),
+    });
+  }
+  return createTransitionResult({
+    state: replaceSession(state, { placement: event.placement }),
+    feedback: createFeedback(MACHINE_FEEDBACK_KIND.NONE),
+  });
+}
+
 function requestPanelIntent(state, event) {
-  // TODO(machine-cutover): Unknown panel intents should be explicit no-ops, not
-  // coerced into IDLE/cancel. The machine should allow only valid transitions.
   if (!isKnownPanelIntent(event.intent)) {
     return createTransitionResult({
       state,

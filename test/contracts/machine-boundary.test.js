@@ -44,6 +44,14 @@ test("clean-room machine does not import legacy semantic ownership modules", () 
   assert.deepEqual(violations, []);
 });
 
+test("content bootstrap uses the machine host instead of the legacy state store", () => {
+  const source = fs.readFileSync(repoPath("src/content/main.js"), "utf8");
+
+  assert.match(source, /createMachineHost/);
+  assert.doesNotMatch(source, /createStateStore/);
+  assert.doesNotMatch(source, /"\.\.\/core\/state\.js"/);
+});
+
 function listJavaScriptFiles(directory) {
   return fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
     const entryPath = path.join(directory, entry.name);

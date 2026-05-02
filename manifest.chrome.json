@@ -61,7 +61,19 @@
         "src/core/presentation.js",
         "src/core/transform.js",
         "src/core/storage.js",
-        "src/core/interactions.js"
+        "src/core/interactions.js",
+        "src/core/machine-store-adapter.js",
+        "src/core/machine/effect-runner.js",
+        "src/core/machine/effects.js",
+        "src/core/machine/events.js",
+        "src/core/machine/geometry.js",
+        "src/core/machine/history.js",
+        "src/core/machine/host.js",
+        "src/core/machine/persistence.js",
+        "src/core/machine/runtime.js",
+        "src/core/machine/selectors.js",
+        "src/core/machine/state.js",
+        "src/core/machine/transition.js"
       ],
       "matches": [
         "https://www.openstreetmap.org/*"

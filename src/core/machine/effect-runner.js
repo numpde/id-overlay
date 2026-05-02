@@ -49,9 +49,6 @@ export function createMachineEffectRunner({
       requestId: effect.requestId,
       context,
     });
-    // TODO(machine-cutover): Keep this as a defensive async guard only. The
-    // LOAD_IMAGE transition should also reject stale request ids so validity is
-    // not owned by the effect runner.
     if (!isCurrentRequest(effect.requestId)) {
       return;
     }

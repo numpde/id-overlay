@@ -1,6 +1,7 @@
-import { createStateStore } from "../core/state.js";
 import { createExtensionStorage } from "../core/storage.js";
 import { createInteractionController } from "../core/interactions.js";
+import { createMachineHost } from "../core/machine/host.js";
+import { createMachineBackedStateStore } from "../core/machine-store-adapter.js";
 import { createPageAdapter } from "./page-adapter.js";
 import { createStatusController } from "./status-controller.js";
 import { createPanel } from "./panel.js";
@@ -32,9 +33,11 @@ export async function bootstrapIdOverlay({ keyboardGateway = null } = {}) {
   destroyExistingSession(host);
   const storage = createExtensionStorage();
   const persistedState = await storage.load();
-  // TODO(machine-cutover): Replace this live store boot with createMachineHost
-  // so the running extension uses src/core/machine as the runtime SSoT.
-  const store = createStateStore(migratePersistedStateForCurrentMap(persistedState, pageAdapter.getSnapshot()));
+  const machineHost = createMachineHost({
+    persistedSession: migratePersistedStateForCurrentMap(persistedState, pageAdapter.getSnapshot()),
+    savePersistedSession: (session) => storage.save(session),
+  });
+  const store = createMachineBackedStateStore(machineHost);
   const interactions = createInteractionController({
     store,
     pageAdapter,
@@ -61,22 +64,9 @@ export async function bootstrapIdOverlay({ keyboardGateway = null } = {}) {
     statusController: status,
   });
 
-  const unsubscribe = store.subscribe((state) => {
-    // TODO(machine-cutover): Delete whole-store persistence once MachineHost
-    // owns durable-session persistence via the machine persistence projection.
-    // Final semantic-history shape: persist an explicit durable-session
-    // projection here, not the whole store object. Undo/redo stacks should
-    // either be intentionally persisted as transition records or intentionally
-    // dropped at this boundary; raw snapshot history should not leak through
-    // storage by accident.
-    storage.save(state).catch((error) => {
-      logger.error("Failed to persist state", error);
-    });
-  }, { emitCurrent: false });
-
   const session = createSession({
     host,
-    unsubscribeStore: unsubscribe,
+    machineHost,
     panel,
     overlay,
     status,
@@ -172,7 +162,7 @@ function clearOwnedShadowNodes(shadow) {
 
 function createSession({
   host,
-  unsubscribeStore,
+  machineHost,
   panel,
   overlay,
   status,
@@ -187,7 +177,7 @@ function createSession({
     }
     destroyed = true;
     window.removeEventListener("beforeunload", handleBeforeUnload);
-    unsubscribeStore();
+    machineHost.destroy();
     panel.destroy();
     overlay.destroy();
     status.destroy();
