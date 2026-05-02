@@ -162,11 +162,15 @@ test("machine host starts, replaces, expires, and cancels request-bound panel ti
 
 test("machine host destroy unsubscribes persistence and cancels outstanding timers", () => {
   const saves = [];
+  const observedStates = [];
   const timers = createTimerHarness();
   const host = createMachineHost({
     savePersistedSession: (session) => saves.push(session),
     setPanelTimeout: timers.set,
     clearPanelTimeout: timers.clear,
+  });
+  const unsubscribe = host.subscribe((state) => observedStates.push(state), {
+    emitCurrent: false,
   });
 
   host.dispatch({
@@ -188,6 +192,8 @@ test("machine host destroy unsubscribes persistence and cancels outstanding time
   assert.equal(result.state, before);
   assert.equal(host.getState(), before);
   assert.deepEqual(saves, []);
+  assert.equal(observedStates.length, 1);
+  assert.doesNotThrow(() => unsubscribe());
 });
 
 function createTimerHarness() {
