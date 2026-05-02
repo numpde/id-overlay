@@ -58,14 +58,17 @@ export function resolveMainActionDescriptor(uiState) {
     canClearPins,
   });
   const effectiveIntent = shouldReset ? UI_PANEL_INTENT_KIND.IDLE : intent;
+  const descriptorBase = {
+    hasImage,
+    pinCount,
+    intent: effectiveIntent,
+    target,
+    shouldReset,
+  };
 
   if (target === UI_MAIN_ACTION_TARGET_KIND.PASTE) {
     return {
-      hasImage,
-      pinCount,
-      intent: effectiveIntent,
-      target,
-      shouldReset,
+      ...descriptorBase,
       disabled: !canPasteImage,
       label: effectiveIntent === UI_PANEL_INTENT_KIND.PASTE_ARMED ? "Paste…" : "Paste",
       presentationKind: UI_MAIN_ACTION_PRESENTATION_KIND.NEUTRAL,
@@ -74,11 +77,7 @@ export function resolveMainActionDescriptor(uiState) {
 
   if (effectiveIntent === UI_PANEL_INTENT_KIND.CLEAR_PINS_CONFIRM) {
     return {
-      hasImage,
-      pinCount,
-      intent: effectiveIntent,
-      target,
-      shouldReset,
+      ...descriptorBase,
       disabled: !canClearPins,
       label: "Clear pins?",
       presentationKind: UI_MAIN_ACTION_PRESENTATION_KIND.CONFIRM,
@@ -87,11 +86,7 @@ export function resolveMainActionDescriptor(uiState) {
 
   if (effectiveIntent === UI_PANEL_INTENT_KIND.CLEAR_IMAGE_CONFIRM) {
     return {
-      hasImage,
-      pinCount,
-      intent: effectiveIntent,
-      target,
-      shouldReset,
+      ...descriptorBase,
       disabled: false,
       label: "Clear image?",
       presentationKind: UI_MAIN_ACTION_PRESENTATION_KIND.CONFIRM,
@@ -100,11 +95,7 @@ export function resolveMainActionDescriptor(uiState) {
 
   if (target === UI_MAIN_ACTION_TARGET_KIND.CLEAR_PINS) {
     return {
-      hasImage,
-      pinCount,
-      intent: effectiveIntent,
-      target,
-      shouldReset,
+      ...descriptorBase,
       disabled: !canClearPins,
       label: resolveClearPinsLabel(pinCount),
       presentationKind: UI_MAIN_ACTION_PRESENTATION_KIND.NEUTRAL,
@@ -112,11 +103,7 @@ export function resolveMainActionDescriptor(uiState) {
   }
 
   return {
-    hasImage,
-    pinCount,
-    intent: effectiveIntent,
-    target,
-    shouldReset,
+    ...descriptorBase,
     disabled: false,
     label: "Clear image",
     presentationKind: UI_MAIN_ACTION_PRESENTATION_KIND.NEUTRAL,
