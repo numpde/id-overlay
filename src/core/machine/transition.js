@@ -10,6 +10,7 @@ import {
   createEmptyRegistration,
   createIdlePanel,
   createInitialMachineState,
+  isValidPanelRequestId,
   normalizeMachineState,
   normalizeMode,
   normalizePanelIntent,
@@ -66,6 +67,12 @@ function transitionSemantic(state, event, { commitHistory }) {
     case MACHINE_EVENT_KIND.REQUEST_PANEL_INTENT:
       return withoutHistory(requestPanelIntent(state, event));
     case MACHINE_EVENT_KIND.CANCEL_PANEL_INTENT:
+      if (!canCancelPanelIntent(state, event)) {
+        return createTransitionResult({
+          state,
+          feedback: createFeedback(MACHINE_FEEDBACK_KIND.NONE),
+        });
+      }
       return withoutHistory(setPanelIntent(state, MACHINE_PANEL_INTENT.IDLE));
     case MACHINE_EVENT_KIND.SET_STATUS_OVERRIDE:
       return withoutHistory(setStatusOverride(state, event.message));
@@ -453,6 +460,13 @@ function setPanelIntent(state, intent) {
       : [],
     feedback: createFeedback(MACHINE_FEEDBACK_KIND.PANEL_INTENT_CHANGED),
   });
+}
+
+function canCancelPanelIntent(state, event) {
+  if (event.requestId == null) {
+    return true;
+  }
+  return isValidPanelRequestId(event.requestId) && state.panel.requestId === event.requestId;
 }
 
 function setStatusOverride(state, message) {

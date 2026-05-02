@@ -128,6 +128,41 @@ test("cancelling panel intent clears request id and emits cancel-timeout effect"
   ]);
 });
 
+test("request-bound panel cancellation ignores stale request ids", () => {
+  const state = transitionMachine(createInitialMachineState(), {
+    type: MACHINE_EVENT_KIND.REQUEST_PANEL_INTENT,
+    intent: MACHINE_PANEL_INTENT.PASTE_ARMED,
+  }).state;
+
+  const result = transitionMachine(state, {
+    type: MACHINE_EVENT_KIND.CANCEL_PANEL_INTENT,
+    requestId: state.panel.requestId + 1,
+  });
+
+  assert.deepEqual(result.state, state);
+  assert.deepEqual(result.effects, []);
+});
+
+test("request-bound panel cancellation clears only the matching request id", () => {
+  const state = transitionMachine(createInitialMachineState(), {
+    type: MACHINE_EVENT_KIND.REQUEST_PANEL_INTENT,
+    intent: MACHINE_PANEL_INTENT.PASTE_ARMED,
+  }).state;
+
+  const result = transitionMachine(state, {
+    type: MACHINE_EVENT_KIND.CANCEL_PANEL_INTENT,
+    requestId: state.panel.requestId,
+  });
+
+  assert.deepEqual(result.state.panel, createIdlePanel());
+  assert.deepEqual(result.effects, [
+    {
+      kind: MACHINE_EFFECT_KIND.CANCEL_PANEL_TIMEOUT,
+      requestId: 1,
+    },
+  ]);
+});
+
 test("requesting clear-image confirmation emits a timeout effect", () => {
   const state = loadImageState();
 
