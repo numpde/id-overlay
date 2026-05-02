@@ -3,10 +3,9 @@
 // Effects are semantic commands emitted by pure transition functions. They are
 // not DOM operations, API calls, or reducer-internal implementation details.
 
-function defineUiEffect(kind, payloadKeys = []) {
+function defineUiEffect(kind) {
   return Object.freeze({
     kind,
-    payloadKeys: Object.freeze([...payloadKeys]),
   });
 }
 

@@ -20,41 +20,32 @@ test("ui effect vocabulary stays minimal and semantic", () => {
   });
 });
 
-test("ui effect model exposes payload-key shapes", () => {
+test("ui effect model exposes effect definitions", () => {
   assert.deepEqual(UI_EFFECT_MODEL.REQUEST_PASTE_INPUT, {
     kind: UI_EFFECT_KIND.REQUEST_PASTE_INPUT,
-    payloadKeys: [],
   });
   assert.deepEqual(UI_EFFECT_MODEL.REQUEST_REGISTRATION_SOLVE, {
     kind: UI_EFFECT_KIND.REQUEST_REGISTRATION_SOLVE,
-    payloadKeys: [],
   });
   assert.deepEqual(UI_EFFECT_MODEL.CLEAR_PINS, {
     kind: UI_EFFECT_KIND.CLEAR_PINS,
-    payloadKeys: [],
   });
   assert.deepEqual(UI_EFFECT_MODEL.CLEAR_IMAGE, {
     kind: UI_EFFECT_KIND.CLEAR_IMAGE,
-    payloadKeys: [],
   });
   assert.deepEqual(UI_EFFECT_MODEL.UNDO_SESSION, {
     kind: UI_EFFECT_KIND.UNDO_SESSION,
-    payloadKeys: [],
   });
   assert.deepEqual(UI_EFFECT_MODEL.REDO_SESSION, {
     kind: UI_EFFECT_KIND.REDO_SESSION,
-    payloadKeys: [],
   });
   assert.deepEqual(UI_EFFECT_MODEL.SHOW_PASTE_CANCELLED_FEEDBACK, {
     kind: UI_EFFECT_KIND.SHOW_PASTE_CANCELLED_FEEDBACK,
-    payloadKeys: [],
   });
   assert.deepEqual(UI_EFFECT_MODEL.START_PANEL_TIMEOUT, {
     kind: UI_EFFECT_KIND.START_PANEL_TIMEOUT,
-    payloadKeys: [],
   });
   assert.deepEqual(UI_EFFECT_MODEL.CANCEL_PANEL_TIMEOUT, {
     kind: UI_EFFECT_KIND.CANCEL_PANEL_TIMEOUT,
-    payloadKeys: [],
   });
 });
