@@ -4,6 +4,7 @@ import {
   MACHINE_PANEL_INTENT,
 } from "./events.js";
 import { peekRedoRecord, peekUndoRecord } from "./history.js";
+import { selectPanelPolicy } from "./policy.js";
 import { isValidPanelRequestId } from "./state.js";
 
 export const MACHINE_PANEL_MAIN_ACTION = Object.freeze({
@@ -45,30 +46,27 @@ export function selectRedoTooltip(state) {
 }
 
 export function selectPanelView(state) {
-  const hasImage = Boolean(state.session.image);
-  const isTrace = state.session.mode === MACHINE_MODE.TRACE;
-  const hasPins = state.session.registration.pins.length > 0;
-  const canClearPins = hasImage && hasPins && !isTrace;
+  const policy = selectPanelPolicy(state);
   const canUndo = selectCanUndo(state);
   const canRedo = selectCanRedo(state);
   const undoTooltip = selectUndoTooltip(state);
   const redoTooltip = selectRedoTooltip(state);
   return {
     mode: state.session.mode,
-    isAlignEnabled: hasImage,
-    isTraceEnabled: true,
+    isAlignEnabled: policy.canSelectAlign,
+    isTraceEnabled: policy.canSelectTrace,
     opacityControl: {
       value: String(state.session.opacity),
-      disabled: !hasImage,
+      disabled: !policy.canSetOpacity,
     },
     modeSwitch: {
-      checked: isTrace,
-      disabled: !hasImage,
-      accessibleLabel: `Mode: ${isTrace ? "Trace" : "Align"}`,
+      checked: policy.isTrace,
+      disabled: !policy.canSelectAlign,
+      accessibleLabel: `Mode: ${policy.isTrace ? "Trace" : "Align"}`,
       mode: state.session.mode,
     },
     mainAction: resolveMainAction(state),
-    canClearPins,
+    canClearPins: policy.canClearPins,
     canUndo,
     canRedo,
     undoTooltip,
@@ -88,10 +86,7 @@ export function selectPanelView(state) {
   };
 }
 
-export function selectStatus(state, feedback = null) {
-  if (feedback?.message) {
-    return feedback.message;
-  }
+export function selectStatus(state) {
   if (state.status.messageOverride?.message) {
     return state.status.messageOverride.message;
   }
@@ -113,14 +108,23 @@ export function selectStatus(state, feedback = null) {
   return MACHINE_STATUS_MESSAGE.TRACE;
 }
 
-export function selectOverlayPolicy(state) {
-  const hasImage = Boolean(state.session.image);
+export function selectOverlayPolicy(state, runtime = null) {
+  const session = state.session ?? state;
+  const hasImage = Boolean(session.image);
+  const mode = session.mode;
+  const runtimeState = runtime ?? state.runtime ?? null;
+  const hasInputPassThrough = runtimeState?.inputOverride === "pass-through" ||
+    runtimeState?.isPassThroughActive === true;
+  const isNativeMapInput = !hasImage || mode === MACHINE_MODE.TRACE;
+  const canEditOverlay = hasImage && mode === MACHINE_MODE.ALIGN;
   return {
     hasImage,
-    mode: state.session.mode,
-    isPassThrough: !hasImage || state.session.mode === MACHINE_MODE.TRACE,
-    canEditOverlay: hasImage && state.session.mode === MACHINE_MODE.ALIGN,
-    arePinsVisible: hasImage && state.session.mode === MACHINE_MODE.ALIGN,
+    mode,
+    isNativeMapInput,
+    isPassThrough: isNativeMapInput || hasInputPassThrough,
+    canEditOverlay,
+    arePinsVisible: canEditOverlay,
+    ownsPointerHitTesting: canEditOverlay && !hasInputPassThrough,
   };
 }
 
@@ -138,7 +142,8 @@ export function formatFeedback(feedback) {
 }
 
 function resolveMainAction(state) {
-  if (!state.session.image) {
+  const policy = selectPanelPolicy(state);
+  if (policy.canPaste) {
     return createMainAction({
       kind: state.panel.intent === MACHINE_PANEL_INTENT.PASTE_ARMED
         ? MACHINE_PANEL_MAIN_ACTION.PASTE_ARMED
@@ -148,11 +153,7 @@ function resolveMainAction(state) {
       target: MACHINE_PANEL_MAIN_ACTION.PASTE,
     });
   }
-  const canClearPins = (
-    state.session.mode === MACHINE_MODE.ALIGN &&
-    state.session.registration.pins.length > 0
-  );
-  if (canClearPins) {
+  if (policy.canClearPins) {
     if (state.panel.intent === MACHINE_PANEL_INTENT.CLEAR_PINS_CONFIRM) {
       return createMainAction({
         kind: MACHINE_PANEL_MAIN_ACTION.CONFIRM_CLEAR_PINS,
@@ -164,7 +165,7 @@ function resolveMainAction(state) {
     }
     return createMainAction({
       kind: MACHINE_PANEL_MAIN_ACTION.CLEAR_PINS,
-      label: resolveClearPinsLabel(state.session.registration.pins.length),
+      label: resolveClearPinsLabel(policy.pinCount),
       intent: state.panel.intent,
       target: MACHINE_PANEL_MAIN_ACTION.CLEAR_PINS,
     });

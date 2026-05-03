@@ -1,16 +1,12 @@
 import { clampOpacity, opacityFromWheelDelta } from "../core/transform.js";
 import {
-  createBrowserImageNormalizationDeps,
-  getOverlayImageLoadStats,
-  normalizeOverlayImageBlob,
-} from "../core/image-normalization.js";
-import { PANEL_FEEDBACK_ACTION } from "../core/presentation.js";
-import {
+  MACHINE_FEEDBACK_KIND,
   MACHINE_EVENT_KIND,
   MACHINE_MODE,
   MACHINE_PANEL_INTENT,
   createCancelPanelIntentEvent,
 } from "../core/machine/events.js";
+import { createPasteReadOutcomeEvent } from "../core/machine/paste-outcome.js";
 import {
   MACHINE_PANEL_MAIN_ACTION,
   selectIsCurrentPanelRequest,
@@ -29,12 +25,11 @@ const SVG_NS = "http://www.w3.org/2000/svg";
 
 export function createPanel({
   shadow,
-  interactions,
+  clipboardReader,
   statusController,
   machineHost,
 }) {
   const logger = createLogger("panel");
-  const imageNormalizationDeps = createBrowserImageNormalizationDeps(window);
   const root = document.createElement("section");
   root.className = "id-overlay-panel";
   root.dataset.idOverlayOwned = "true";
@@ -134,7 +129,6 @@ export function createPanel({
   shadow.append(root);
 
   let isPasteListenerAttached = false;
-  let lastPasteReadRequestId = null;
   let panelPosition = captureInitialPanelPosition();
   let activePanelDrag = null;
   applyPanelPosition();
@@ -237,8 +231,9 @@ export function createPanel({
       case MACHINE_PANEL_MAIN_ACTION.PASTE_ARMED:
         dispatchMachineEvent(createCancelPanelIntentEvent({
           requestId: machineHost.getState().panel.requestId,
+          feedbackKind: MACHINE_FEEDBACK_KIND.PASTE_CANCELLED,
+          feedbackMessage: "Paste cancelled.",
         }));
-        statusController.showPanelFeedback(PANEL_FEEDBACK_ACTION.PASTE_CANCELLED);
         return;
       case MACHINE_PANEL_MAIN_ACTION.CLEAR_PINS:
         dispatchMachineEvent({
@@ -264,9 +259,7 @@ export function createPanel({
   }
 
   function dispatchMachineEvent(event) {
-    const result = machineHost.dispatch(event);
-    statusController.showMachineFeedback(result.feedback);
-    return result;
+    return machineHost.dispatch(event);
   }
 
   function applyPanelView(panelView) {
@@ -294,19 +287,11 @@ export function createPanel({
 
   function syncMachineSideEffects(state) {
     if (state.panel.intent !== MACHINE_PANEL_INTENT.PASTE_ARMED) {
-      lastPasteReadRequestId = null;
       detachPasteListener();
       return;
     }
 
     attachPasteListener();
-    if (
-      state.panel.requestId &&
-      state.panel.requestId !== lastPasteReadRequestId
-    ) {
-      lastPasteReadRequestId = state.panel.requestId;
-      void tryLoadClipboardImageFromApi({ requestId: state.panel.requestId });
-    }
   }
 
   function attachPasteListener() {
@@ -384,61 +369,12 @@ export function createPanel({
     }
 
     event.preventDefault();
-    dispatchMachineEvent(createCancelPanelIntentEvent({ requestId }));
-
-    const item = [...(event.clipboardData?.items ?? [])].find((candidate) =>
-      candidate.type.startsWith("image/"),
-    );
-    if (!item) {
-      logger.warn("Window paste event did not contain an image");
-      statusController.showPanelFeedback(PANEL_FEEDBACK_ACTION.CLIPBOARD_MISSING_IMAGE);
+    const outcome = await clipboardReader.readClipboardDataImage(event.clipboardData);
+    if (!isPasteArmedRequest(requestId)) {
+      logger.info("Ignoring window paste result because paste capture was cancelled");
       return;
     }
-
-    const file = item.getAsFile();
-    if (!file) {
-      logger.warn("Window paste event image could not be converted to a file");
-      statusController.showPanelFeedback(PANEL_FEEDBACK_ACTION.CLIPBOARD_IMAGE_UNREADABLE);
-      return;
-    }
-
-    await loadClipboardImage(file, "window paste event");
-  }
-
-  async function tryLoadClipboardImageFromApi({ requestId }) {
-    if (typeof navigator?.clipboard?.read !== "function") {
-      return null;
-    }
-
-    try {
-      const clipboardItems = await navigator.clipboard.read();
-      if (!isPasteArmedRequest(requestId)) {
-        logger.info("Ignoring clipboard API result because paste capture was cancelled");
-        return null;
-      }
-      const imageType = clipboardItems
-        .flatMap((item) => item.types)
-        .find((type) => type.startsWith("image/"));
-
-      if (!imageType) {
-        logger.warn("Clipboard API read succeeded but no image type was present");
-        statusController.showPanelFeedback(PANEL_FEEDBACK_ACTION.CLIPBOARD_MISSING_IMAGE_WITH_PROMPT);
-        return null;
-      }
-
-      const clipboardItem = clipboardItems.find((item) => item.types.includes(imageType));
-      const blob = await clipboardItem.getType(imageType);
-      if (!isPasteArmedRequest(requestId)) {
-        logger.info("Ignoring clipboard image because paste capture was cancelled");
-        return null;
-      }
-      return loadClipboardImage(blob, "Clipboard API", { requestId });
-    } catch (error) {
-      logger.warn("Clipboard API read failed; falling back to manual paste", {
-        message: error?.message ?? String(error),
-      });
-      return null;
-    }
+    dispatchPasteOutcome(outcome, { requestId, cancelOnFeedback: true });
   }
 
   function isPasteArmedRequest(requestId, state = machineHost.getState()) {
@@ -448,20 +384,19 @@ export function createPanel({
     );
   }
 
-  async function loadClipboardImage(source, sourceLabel, { requestId = null } = {}) {
-    const image = await normalizeOverlayImageBlob(source, imageNormalizationDeps);
-    if (requestId !== null && !isPasteArmedRequest(requestId)) {
-      logger.info("Ignoring normalized clipboard image because paste capture was cancelled");
-      return null;
+  function dispatchPasteOutcome(outcome, { requestId, cancelOnFeedback }) {
+    const event = createPasteReadOutcomeEvent(outcome, { requestId });
+    if (event?.type === MACHINE_EVENT_KIND.LOAD_IMAGE) {
+      dispatchMachineEvent(event);
+      return;
     }
-    const imageStats = getOverlayImageLoadStats(image);
-    interactions.loadImage(image);
-    logger.info("Loaded clipboard image", {
-      source: sourceLabel,
-      ...imageStats,
-    });
-    statusController.showPanelFeedback(PANEL_FEEDBACK_ACTION.CLIPBOARD_IMAGE_LOADED, image);
-    return image;
+
+    if (cancelOnFeedback) {
+      dispatchMachineEvent(createCancelPanelIntentEvent({ requestId }));
+    }
+    if (event) {
+      dispatchMachineEvent(event);
+    }
   }
 
   function setPanelPosition(nextPosition) {

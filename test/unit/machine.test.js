@@ -49,9 +49,11 @@ test("initial no-image state is native Trace with paste as the primary action", 
   assert.deepEqual(selectOverlayPolicy(state), {
     hasImage: false,
     mode: MACHINE_MODE.TRACE,
+    isNativeMapInput: true,
     isPassThrough: true,
     canEditOverlay: false,
     arePinsVisible: false,
+    ownsPointerHitTesting: false,
   });
   assert.equal(selectPanelView(state).mainAction.kind, "paste");
   assert.equal(selectPanelView(state).isAlignEnabled, false);
@@ -205,6 +207,30 @@ test("clear-pins is invalid in Trace because pins are not visible there", () => 
   assert.equal(result.feedback.kind, MACHINE_FEEDBACK_KIND.NONE);
 });
 
+test("semantic feedback describes the concrete visible edit", () => {
+  let state = loadImage();
+
+  const add = addPin(state);
+  assert.equal(add.feedback.message, "Added pin 1.");
+
+  const remove = transitionMachine(add.state, {
+    type: MACHINE_EVENT_KIND.REMOVE_PIN,
+    id: 1,
+  });
+  assert.equal(remove.feedback.message, "Removed pin 1.");
+
+  state = addTwoPins(loadImage());
+  const clear = transitionMachine(state, { type: MACHINE_EVENT_KIND.CLEAR_PINS });
+  assert.equal(clear.feedback.message, "Cleared 2 pins.");
+
+  state = addTwoPins(loadImage());
+  const fit = transitionMachine(state, {
+    type: MACHINE_EVENT_KIND.SELECT_MODE,
+    mode: MACHINE_MODE.TRACE,
+  });
+  assert.equal(fit.feedback.message, "Fit overlay from 2 pins.");
+});
+
 test("placement undo and redo preserve the user's current mode", () => {
   let state = loadImage();
   state = transitionMachine(state, {
@@ -341,9 +367,11 @@ test("selectors derive panel intent, status, controls, and pass-through", () => 
   assert.deepEqual(selectOverlayPolicy(state), {
     hasImage: true,
     mode: MACHINE_MODE.ALIGN,
+    isNativeMapInput: false,
     isPassThrough: false,
     canEditOverlay: true,
     arePinsVisible: true,
+    ownsPointerHitTesting: true,
   });
 
   state = transitionMachine(state, {

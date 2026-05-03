@@ -4,10 +4,13 @@ import assert from "node:assert/strict";
 import {
   MACHINE_EFFECT_KIND,
   MACHINE_EVENT_KIND,
+  MACHINE_FEEDBACK_KIND,
   MACHINE_PANEL_INTENT,
   createCancelPanelIntentEvent,
   createInitialMachineState,
   createLoadImageEvent,
+  createPasteReadOutcomeEvent,
+  createReportFeedbackEvent,
   createMachineEffectRunner,
 } from "../../src/core/machine/index.js";
 
@@ -26,10 +29,40 @@ test("event constructors centralize effect-runner outcome event shapes", () => {
     image: IMAGE,
     placement: null,
     requestId: 7,
+    feedbackMessage: "",
   });
   assert.deepEqual(createCancelPanelIntentEvent({ requestId: 7 }), {
     type: MACHINE_EVENT_KIND.CANCEL_PANEL_INTENT,
     requestId: 7,
+    feedbackKind: MACHINE_FEEDBACK_KIND.PANEL_INTENT_CHANGED,
+    feedbackMessage: "",
+  });
+  assert.deepEqual(createReportFeedbackEvent({
+    feedbackKind: MACHINE_FEEDBACK_KIND.CLIPBOARD_MISSING_IMAGE,
+    message: "Clipboard does not contain an image.",
+  }), {
+    type: MACHINE_EVENT_KIND.REPORT_FEEDBACK,
+    feedbackKind: MACHINE_FEEDBACK_KIND.CLIPBOARD_MISSING_IMAGE,
+    message: "Clipboard does not contain an image.",
+  });
+  assert.deepEqual(createPasteReadOutcomeEvent({
+    image: IMAGE,
+    placement: "placement",
+    feedbackMessage: "Loaded screenshot.",
+  }, { requestId: 7 }), {
+    type: MACHINE_EVENT_KIND.LOAD_IMAGE,
+    image: IMAGE,
+    placement: "placement",
+    requestId: 7,
+    feedbackMessage: "Loaded screenshot.",
+  });
+  assert.deepEqual(createPasteReadOutcomeEvent({
+    feedbackKind: MACHINE_FEEDBACK_KIND.CLIPBOARD_MISSING_IMAGE,
+    message: "Clipboard does not contain an image.",
+  }, { requestId: 7 }), {
+    type: MACHINE_EVENT_KIND.REPORT_FEEDBACK,
+    feedbackKind: MACHINE_FEEDBACK_KIND.CLIPBOARD_MISSING_IMAGE,
+    message: "Clipboard does not contain an image.",
   });
 });
 
@@ -112,6 +145,7 @@ test("read-paste-image delegates request id and dispatches load-image when image
       image: IMAGE,
       placement: null,
       requestId: 7,
+      feedbackMessage: "",
     }],
   ]);
 });
@@ -147,7 +181,7 @@ test("read-paste-image does nothing after image result when request is stale", a
   assert.deepEqual(calls, []);
 });
 
-test("read-paste-image dispatches cancel when no image is returned and request is current", async () => {
+test("read-paste-image keeps paste armed when clipboard api falls back to manual paste", async () => {
   const calls = [];
   const runEffect = createMachineEffectRunner({
     readPasteImage: () => null,
@@ -160,10 +194,7 @@ test("read-paste-image dispatches cancel when no image is returned and request i
     requestId: 7,
   }, createContext());
 
-  assert.deepEqual(calls, [{
-    type: MACHINE_EVENT_KIND.CANCEL_PANEL_INTENT,
-    requestId: 7,
-  }]);
+  assert.deepEqual(calls, []);
 });
 
 test("read-paste-image does nothing after null result when request is stale", async () => {
@@ -180,6 +211,29 @@ test("read-paste-image does nothing after null result when request is stale", as
   }, createContext());
 
   assert.deepEqual(calls, []);
+});
+
+test("read-paste-image dispatches explicit feedback outcomes without cancelling paste", async () => {
+  const calls = [];
+  const runEffect = createMachineEffectRunner({
+    readPasteImage: () => ({
+      feedbackKind: MACHINE_FEEDBACK_KIND.CLIPBOARD_MISSING_IMAGE,
+      message: "Clipboard does not contain an image.",
+    }),
+    dispatch: (event) => calls.push(event),
+    getState: createPasteState(7),
+  });
+
+  await runEffect({
+    kind: MACHINE_EFFECT_KIND.READ_PASTE_IMAGE,
+    requestId: 7,
+  }, createContext());
+
+  assert.deepEqual(calls, [{
+    type: MACHINE_EVENT_KIND.REPORT_FEEDBACK,
+    feedbackKind: MACHINE_FEEDBACK_KIND.CLIPBOARD_MISSING_IMAGE,
+    message: "Clipboard does not contain an image.",
+  }]);
 });
 
 test("sync callback throw reports onError and does not rethrow", async () => {

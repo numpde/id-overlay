@@ -65,8 +65,10 @@ import {
 import { getOverlayImageLoadStats } from "./image-normalization.js";
 import {
   MACHINE_EVENT_KIND,
+  MACHINE_FEEDBACK_KIND,
   MACHINE_PLACEMENT_EDIT_KIND,
 } from "./machine/events.js";
+import { describeRuntimeErrorPresentation } from "./presentation.js";
 
 export function createInteractionController({
   machineHost,
@@ -117,9 +119,8 @@ export function createInteractionController({
   }
 
   function subscribeEvents(listener) {
-    // Final semantic-history shape: interaction events are currently a parallel
-    // outcome bus for status. Prefer canonical UI outcome events for anything
-    // user-visible.
+    // Low-level telemetry only. User-visible outcomes flow through the machine
+    // result stream.
     eventListeners.add(listener);
     return () => eventListeners.delete(listener);
   }
@@ -211,12 +212,7 @@ export function createInteractionController({
   }
 
   function requestTogglePinAtCurrentPointer() {
-    const result = togglePinAtCurrentPointer();
-    emitEvent({
-      type: INTERACTION_EVENT.PIN_RESULT,
-      result,
-    });
-    return result;
+    return togglePinAtCurrentPointer();
   }
 
   function togglePinAtCurrentPointer() {
@@ -284,9 +280,6 @@ export function createInteractionController({
           return;
         }
         logger.info("Cleared registration pins");
-        emitEvent({
-          type: INTERACTION_EVENT.PINS_CLEARED,
-        });
         syncRuntimeFromState();
       });
       return true;
@@ -717,10 +710,6 @@ export function createInteractionController({
         SOLVE_RESULT_REASON.INSUFFICIENT_PINS,
         solveState.pinCount,
       );
-      emitEvent({
-        type: INTERACTION_EVENT.SOLVE_RESULT,
-        result,
-      });
       logger.warn("Solve requested without enough pins", result);
       return result;
     }
@@ -731,10 +720,6 @@ export function createInteractionController({
         SOLVE_RESULT_REASON.SOLVE_FAILED,
         solveState.pinCount,
       );
-      emitEvent({
-        type: INTERACTION_EVENT.SOLVE_RESULT,
-        result,
-      });
       logger.warn("Solve requested but transform computation failed", result);
       return result;
     }
@@ -748,10 +733,6 @@ export function createInteractionController({
       },
     });
     const result = createSolveSuccessResult(solvedTransform, solveState.pinCount);
-    emitEvent({
-      type: INTERACTION_EVENT.SOLVE_RESULT,
-      result,
-    });
     logger.info("Computed registration transform", {
       pinCount: result.pinCount,
       scale: solvedTransform.scale,
@@ -810,6 +791,11 @@ export function createInteractionController({
     emitEvent({
       type: INTERACTION_EVENT.RUNTIME_ERROR,
       error: runtimeError,
+    });
+    dispatchMachine({
+      type: MACHINE_EVENT_KIND.REPORT_FEEDBACK,
+      feedbackKind: MACHINE_FEEDBACK_KIND.RUNTIME_ERROR,
+      message: describeRuntimeErrorPresentation(runtimeError),
     });
     logger.error("Runtime boundary failed", runtimeError, error);
     return runtimeError;

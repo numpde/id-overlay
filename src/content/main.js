@@ -5,6 +5,7 @@ import { createPageAdapter } from "./page-adapter.js";
 import { createStatusController } from "./status-controller.js";
 import { createPanel } from "./panel.js";
 import { createOverlay } from "./overlay.js";
+import { createClipboardImageReader } from "./paste-adapter.js";
 import { BUILD_INFO } from "../core/build-info.js";
 import { createLogger } from "../core/logger.js";
 import { createPlacementTransform } from "../core/transform.js";
@@ -32,9 +33,15 @@ export async function bootstrapIdOverlay({ keyboardGateway = null } = {}) {
   destroyExistingSession(host);
   const storage = createExtensionStorage();
   const persistedState = await storage.load();
+  const clipboardReader = createClipboardImageReader({
+    ownerWindow: window,
+    pageAdapter,
+    logger,
+  });
   const machineHost = createMachineHost({
     persistedSession: migratePersistedStateForCurrentMap(persistedState, pageAdapter.getSnapshot()),
     savePersistedSession: (session) => storage.save(session),
+    readPasteImage: () => clipboardReader.readClipboardApiImage(),
     setPanelTimeout: (callback, { delayMs }) => globalThis.setTimeout(callback, delayMs),
     clearPanelTimeout: (handle) => globalThis.clearTimeout(handle),
   });
@@ -45,7 +52,6 @@ export async function bootstrapIdOverlay({ keyboardGateway = null } = {}) {
   });
   const status = createStatusController({
     machineHost,
-    interactions,
   });
   const shadow = host.shadowRoot ?? host.attachShadow({ mode: "open" });
   await attachShadowStyles(shadow);
@@ -59,7 +65,7 @@ export async function bootstrapIdOverlay({ keyboardGateway = null } = {}) {
 
   const panel = createPanel({
     shadow,
-    interactions,
+    clipboardReader,
     statusController: status,
     machineHost,
   });

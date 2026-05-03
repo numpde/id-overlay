@@ -35,6 +35,11 @@ import {
   createReadPasteImageEffect,
   createStartPanelTimeoutEffect,
 } from "./effects.js";
+import {
+  isPanelIntentValidForState,
+  selectPanelPolicy,
+  shouldFitOnTrace,
+} from "./policy.js";
 
 export function transitionMachine(state = createInitialMachineState(), event = {}) {
   const currentState = normalizeMachineState(state);
@@ -82,7 +87,9 @@ function transitionSemantic(state, event, { commitHistory }) {
           feedback: createFeedback(MACHINE_FEEDBACK_KIND.NONE),
         });
       }
-      return withoutHistory(cancelPanelIntent(state));
+      return withoutHistory(cancelPanelIntent(state, event));
+    case MACHINE_EVENT_KIND.REPORT_FEEDBACK:
+      return withoutHistory(reportFeedback(state, event));
     case MACHINE_EVENT_KIND.SET_STATUS_OVERRIDE:
       return withoutHistory(setStatusOverride(state, event.message));
     case MACHINE_EVENT_KIND.CLEAR_STATUS_OVERRIDE:
@@ -151,7 +158,10 @@ function loadImage(state, event) {
   return createTransitionResult({
     state: panelTransition.state,
     effects: panelTransition.effects,
-    feedback: createFeedback(MACHINE_FEEDBACK_KIND.IMAGE_LOADED, "Loaded image."),
+    feedback: createFeedback(
+      MACHINE_FEEDBACK_KIND.IMAGE_LOADED,
+      event.feedbackMessage || "Loaded image.",
+    ),
     historyRecord: {
       kind: MACHINE_HISTORY_KIND.LOAD_IMAGE,
       label: "Loaded image",
@@ -283,7 +293,7 @@ function addPin(state, event) {
   return createTransitionResult({
     state: panelTransition.state,
     effects: panelTransition.effects,
-    feedback: createFeedback(MACHINE_FEEDBACK_KIND.PIN_ADDED, "Added pin."),
+    feedback: createFeedback(MACHINE_FEEDBACK_KIND.PIN_ADDED, `Added pin ${pin.id}.`),
     historyRecord: {
       kind: MACHINE_HISTORY_KIND.ADD_PIN,
       label: "Added pin",
@@ -307,6 +317,7 @@ function addPin(state, event) {
 
 function removePin(state, event) {
   const previousRegistration = state.session.registration;
+  const removedPin = previousRegistration.pins.find((pin) => pin.id === event.id);
   const nextPins = previousRegistration.pins.filter((pin) => pin.id !== event.id);
   if (nextPins.length === previousRegistration.pins.length) {
     return createTransitionResult({
@@ -326,7 +337,10 @@ function removePin(state, event) {
   return createTransitionResult({
     state: panelTransition.state,
     effects: panelTransition.effects,
-    feedback: createFeedback(MACHINE_FEEDBACK_KIND.PIN_REMOVED, "Removed pin."),
+    feedback: createFeedback(
+      MACHINE_FEEDBACK_KIND.PIN_REMOVED,
+      `Removed pin ${removedPin.id}.`,
+    ),
     historyRecord: {
       kind: MACHINE_HISTORY_KIND.REMOVE_PIN,
       label: "Removed pin",
@@ -350,7 +364,7 @@ function removePin(state, event) {
 
 function clearPins(state) {
   const previousRegistration = state.session.registration;
-  if (!canClearPinsInState(state)) {
+  if (!selectPanelPolicy(state).canClearPins) {
     return createTransitionResult({
       state,
       feedback: createFeedback(MACHINE_FEEDBACK_KIND.NONE),
@@ -364,7 +378,10 @@ function clearPins(state) {
   return createTransitionResult({
     state: panelTransition.state,
     effects: panelTransition.effects,
-    feedback: createFeedback(MACHINE_FEEDBACK_KIND.PINS_CLEARED, "Cleared pins."),
+    feedback: createFeedback(
+      MACHINE_FEEDBACK_KIND.PINS_CLEARED,
+      `Cleared ${formatPinCount(previousRegistration.pins.length)}.`,
+    ),
     historyRecord: {
       kind: MACHINE_HISTORY_KIND.CLEAR_PINS,
       label: "Cleared pins",
@@ -430,7 +447,10 @@ function fitOverlay(state) {
   return createTransitionResult({
     state: panelTransition.state,
     effects: panelTransition.effects,
-    feedback: createFeedback(MACHINE_FEEDBACK_KIND.OVERLAY_FITTED, "Fit overlay from pins."),
+    feedback: createFeedback(
+      MACHINE_FEEDBACK_KIND.OVERLAY_FITTED,
+      `Fit overlay from ${formatPinCount(state.session.registration.pins.length)}.`,
+    ),
     historyRecord: {
       kind: MACHINE_HISTORY_KIND.FIT_OVERLAY,
       label: "Fit overlay from pins",
@@ -530,12 +550,22 @@ function requestPanelIntent(state, event) {
   });
 }
 
-function cancelPanelIntent(state) {
+function cancelPanelIntent(state, event = {}) {
   const panelTransition = clearPanelIntent(state);
   return createTransitionResult({
     state: panelTransition.state,
     effects: panelTransition.effects,
-    feedback: createFeedback(MACHINE_FEEDBACK_KIND.PANEL_INTENT_CHANGED),
+    feedback: createFeedback(
+      event.feedbackKind ?? MACHINE_FEEDBACK_KIND.PANEL_INTENT_CHANGED,
+      event.feedbackMessage ?? "",
+    ),
+  });
+}
+
+function reportFeedback(state, event) {
+  return createTransitionResult({
+    state,
+    feedback: createFeedback(event.feedbackKind ?? MACHINE_FEEDBACK_KIND.NONE, event.message ?? ""),
   });
 }
 
@@ -623,29 +653,6 @@ function clearInvalidPanelIntent(state, nextState) {
   return clearPanelIntent(state, nextState);
 }
 
-function isPanelIntentValidForState(state, intent = state.panel.intent) {
-  switch (intent) {
-    case MACHINE_PANEL_INTENT.IDLE:
-      return true;
-    case MACHINE_PANEL_INTENT.PASTE_ARMED:
-      return !state.session.image;
-    case MACHINE_PANEL_INTENT.CLEAR_PINS_CONFIRM:
-      return canClearPinsInState(state);
-    case MACHINE_PANEL_INTENT.CLEAR_IMAGE_CONFIRM:
-      return Boolean(state.session.image);
-    default:
-      return false;
-  }
-}
-
-function canClearPinsInState(state) {
-  return (
-    Boolean(state.session.image) &&
-    state.session.mode === MACHINE_MODE.ALIGN &&
-    state.session.registration.pins.length > 0
-  );
-}
-
 function nextPanelRequestId(state) {
   return state.panel.requestId === null ? 1 : state.panel.requestId + 1;
 }
@@ -672,17 +679,12 @@ function createPanelIntentEffects({ intent, requestId }) {
   ];
 }
 
-function shouldFitOnTrace(state) {
-  const registration = state.session.registration;
-  return (
-    Boolean(state.session.image) &&
-    registration.pins.length >= 2 &&
-    (registration.dirty || !registration.solvedTransform)
-  );
-}
-
 function nextPinId(pins) {
   return pins.reduce((maxId, pin) => Math.max(maxId, Number(pin.id) || 0), 0) + 1;
+}
+
+function formatPinCount(pinCount) {
+  return pinCount === 1 ? "1 pin" : `${pinCount} pins`;
 }
 
 function placementHistoryKind(editKind) {

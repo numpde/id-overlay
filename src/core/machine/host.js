@@ -27,6 +27,7 @@ export function createMachineHost({
   let destroyed = false;
   const panelTimers = new Map();
   const subscriberUnsubscribes = new Set();
+  const resultListeners = new Set();
   let runtime = null;
   let unsubscribePersistence = null;
   let lastPersistedKey = "";
@@ -67,11 +68,21 @@ export function createMachineHost({
     return unsubscribe;
   }
 
+  function subscribeResults(listener) {
+    if (destroyed) {
+      return () => {};
+    }
+    resultListeners.add(listener);
+    return () => resultListeners.delete(listener);
+  }
+
   function dispatch(event) {
     if (destroyed) {
       return createDestroyedDispatchResult(runtime.getState());
     }
-    return runtime.dispatch(event);
+    const result = runtime.dispatch(event);
+    notifyResult({ event, result });
+    return result;
   }
 
   function destroy() {
@@ -81,6 +92,7 @@ export function createMachineHost({
     destroyed = true;
     unsubscribePersistence?.();
     clearSubscribers();
+    resultListeners.clear();
     clearAllPanelTimers();
   }
 
@@ -144,9 +156,16 @@ export function createMachineHost({
     onError?.(error, context);
   }
 
+  function notifyResult(outcome) {
+    for (const listener of resultListeners) {
+      listener(outcome);
+    }
+  }
+
   return {
     getState,
     subscribe,
+    subscribeResults,
     dispatch,
     destroy,
   };

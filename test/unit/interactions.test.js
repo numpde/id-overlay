@@ -37,6 +37,7 @@ import {
 } from "../../src/core/session.js";
 import {
   MACHINE_EVENT_KIND,
+  MACHINE_FEEDBACK_KIND,
   MACHINE_HISTORY_KIND,
   createMachineHost,
 } from "../../src/core/machine/index.js";
@@ -243,7 +244,7 @@ test("double-click adds a pin at the correct image and map coordinates", () => {
 });
 
 test("interaction boundaries emit a runtime error event instead of throwing raw adapter failures", () => {
-  const { controller } = createHarness({
+  const { controller, machineHost } = createHarness({
     screenToMapThrows: new Error("adapter exploded"),
   });
   const events = [];
@@ -255,6 +256,12 @@ test("interaction boundaries emit a runtime error event instead of throwing raw 
     width: 800,
     height: 400,
   });
+  const feedback = [];
+  machineHost.subscribeResults(({ result }) => {
+    if (result.feedback.kind === MACHINE_FEEDBACK_KIND.RUNTIME_ERROR) {
+      feedback.push(result.feedback);
+    }
+  });
 
   const result = controller.handleDoubleClick({ x: 600, y: 320 });
 
@@ -263,6 +270,10 @@ test("interaction boundaries emit a runtime error event instead of throwing raw 
   assert.equal(events[0].type, INTERACTION_EVENT.RUNTIME_ERROR);
   assert.equal(events[0].error.source, RUNTIME_ERROR_SOURCE.INTERACTIONS);
   assert.equal(events[0].error.operation, "handle-double-click");
+  assert.deepEqual(feedback, [{
+    kind: MACHINE_FEEDBACK_KIND.RUNTIME_ERROR,
+    message: "The overlay interaction failed. Try the action again.",
+  }]);
 });
 
 test("double-click on an existing pin removes it", () => {
@@ -764,10 +775,7 @@ test("toggleing to trace auto-computes a dirty transform when enough pins exist"
   assert.ok(store.getState().registration.solvedTransform);
 });
 
-test("clearing pins emits no event when nothing changed", () => {
-  // Final semantic-history shape: if pin clearing becomes a canonical
-  // transition outcome, this interaction event assertion should disappear with
-  // the parallel subscribeEvents feedback bus.
+test("clearing pins emits no low-level telemetry when nothing changed", () => {
   const { controller } = createHarness();
   const events = [];
   controller.subscribeEvents((event) => {

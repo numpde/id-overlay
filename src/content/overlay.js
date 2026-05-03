@@ -14,16 +14,15 @@ import { getOverlayImage, hasOverlayImageSession } from "../core/session.js";
 import {
   getRuntimePointerScreenPx,
   isRuntimeDragging,
-  isRuntimePassThroughActive,
   isRuntimePointerInsideImage,
 } from "../core/interaction-runtime.js";
 import {
-  resolveRegistrationUiPolicy,
   resolveOverlayActivationPolicy,
   resolveOverlayPointerMovePolicy,
   resolveOverlayPointerSequencePolicy,
   resolveOverlayWheelPolicy,
 } from "../core/interaction-policy.js";
+import { selectOverlayPolicy } from "../core/machine/selectors.js";
 import {
   beginOverlayPointerSequence,
   clearOverlayPointerSequence,
@@ -188,17 +187,12 @@ export function createOverlay({ pageAdapter, machineHost, interactions }) {
     // Final semantic-history shape: overlay rendering should consume canonical
     // UI affordance/selectors rather than recomputing panel/registration
     // policy from raw session state.
-    const registrationUi = resolveRegistrationUiPolicy(state);
-    const overlayOwnsPointerHitTesting = doesOverlayOwnPointerHitTesting({
-      state,
-      runtime: latestRuntime,
-      registrationUi,
-    });
+    const overlayPolicy = selectOverlayPolicy(state, latestRuntime);
     // Final semantic-history shape: this dataset is presentation of canonical
     // mode. Keep it as a DOM projection only; do not let tests treat it as a
     // separate source of mode truth.
     overlayRoot.dataset.mode = state.mode;
-    overlayRoot.dataset.passThrough = String(isRuntimePassThroughActive(latestRuntime));
+    overlayRoot.dataset.passThrough = String(overlayPolicy.isPassThrough);
     overlayRoot.style.left = `${localViewportRect.left}px`;
     overlayRoot.style.top = `${localViewportRect.top}px`;
     overlayRoot.style.width = `${localViewportRect.width}px`;
@@ -248,12 +242,12 @@ export function createOverlay({ pageAdapter, machineHost, interactions }) {
     overlayFrame.style.height = `${model.height}px`;
     overlayFrame.style.transformOrigin = "0 0";
     overlayFrame.style.transform = `rotate(${model.rotationDeg}deg)`;
-    overlayFrame.style.pointerEvents = overlayOwnsPointerHitTesting ? "auto" : "none";
+    overlayFrame.style.pointerEvents = overlayPolicy.ownsPointerHitTesting ? "auto" : "none";
 
     // Final semantic-history shape: pin visibility should be projected from
     // canonical UI state. This direct policy check should not diverge from the
     // main-action and status affordance selectors.
-    if (!registrationUi.canShowPins) {
+    if (!overlayPolicy.arePinsVisible) {
       mapPinLayer.replaceChildren();
       pinLayer.replaceChildren();
       return;
@@ -507,11 +501,8 @@ export function createOverlay({ pageAdapter, machineHost, interactions }) {
         altKey: event.altKey,
         ctrlKey: event.ctrlKey,
       });
-      const overlayOwnsPointerHitTesting = doesOverlayOwnPointerHitTesting({
-        state,
-        runtime: latestRuntime,
-      });
-      if (!wheelPolicy.shouldIntercept && !overlayOwnsPointerHitTesting) {
+      const overlayPolicy = selectOverlayPolicy(state, latestRuntime);
+      if (!wheelPolicy.shouldIntercept && !overlayPolicy.ownsPointerHitTesting) {
         return;
       }
       if (!interactions.handleWheel({
@@ -523,7 +514,7 @@ export function createOverlay({ pageAdapter, machineHost, interactions }) {
       })) {
         return;
       }
-      if (wheelPolicy.shouldIntercept || overlayOwnsPointerHitTesting) {
+      if (wheelPolicy.shouldIntercept || overlayPolicy.ownsPointerHitTesting) {
         consumeOverlayEvent(event);
       }
     });
@@ -697,12 +688,4 @@ function consumeOverlayEvent(event) {
   event?.preventDefault?.();
   event?.stopPropagation?.();
   event?.stopImmediatePropagation?.();
-}
-
-function doesOverlayOwnPointerHitTesting({ state, runtime, registrationUi = null }) {
-  // Final semantic-history shape: overlay hit-testing ownership should be a
-  // canonical affordance derived once from UI state/runtime, not a local
-  // recomposition of registration policy plus pass-through.
-  const resolvedRegistrationUi = registrationUi ?? resolveRegistrationUiPolicy(state);
-  return resolvedRegistrationUi.canShowPins && !isRuntimePassThroughActive(runtime);
 }

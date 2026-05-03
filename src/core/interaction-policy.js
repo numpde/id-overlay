@@ -1,4 +1,5 @@
 import { isRuntimePassThroughActive } from "./interaction-runtime.js";
+import { selectOverlayPolicy } from "./machine/selectors.js";
 import {
   hasOverlayImageSession,
   isAlignMode,
@@ -14,9 +15,6 @@ export const KEYBOARD_SHORTCUT_ACTION = Object.freeze({
 });
 
 export const INTERACTION_EVENT = Object.freeze({
-  PIN_RESULT: "pin-result",
-  SOLVE_RESULT: "solve-result",
-  PINS_CLEARED: "pins-cleared",
   RUNTIME_ERROR: "runtime-error",
 });
 
@@ -49,28 +47,15 @@ export const WHEEL_MODE = Object.freeze({
   ADJUST_OPACITY: "adjust-opacity",
 });
 
-export function resolveRegistrationUiPolicy(state) {
-  // Final semantic-history shape: keep this as low-level interaction policy,
-  // but avoid letting panel affordances fork from it. Panel-visible actions
-  // should use the canonical UI selectors over machine state.
-  const registrationModeActive = isAlignMode(state?.mode);
-  const hasImage = hasOverlayImageSession(state);
-  return {
-    registrationModeActive,
-    canPasteImage: !hasImage || registrationModeActive,
-    canShowPins: registrationModeActive && hasImage,
-  };
-}
-
 export function canEditRegistration(state) {
-  return resolveRegistrationUiPolicy(state).canShowPins;
+  return selectOverlayPolicy(state).canEditOverlay;
 }
 
 export function canCaptureOverlayPointer({ state, runtime }) {
   // Final semantic-history shape: this is currently a raw-state policy used by
   // overlay and interactions. Prefer a canonical UI affordance selector so all
   // consumers agree on Align/Trace/pass-through semantics.
-  return canEditRegistration(state) && !isRuntimePassThroughActive(runtime);
+  return selectOverlayPolicy(state, runtime).ownsPointerHitTesting;
 }
 
 export function canTrackOverlayPointer({ state, runtime }) {
@@ -117,16 +102,20 @@ export function resolveWheelMode({ shiftKey, altKey, ctrlKey }) {
 }
 
 export function canHandleWheelGesture({ state, runtime, wheelMode }) {
-  if (!hasOverlayImageSession(state) || isRuntimePassThroughActive(runtime)) {
+  const overlayPolicy = selectOverlayPolicy(state, runtime);
+  if (!overlayPolicy.hasImage) {
     return false;
   }
   if (wheelMode === WHEEL_MODE.ADJUST_OPACITY) {
     return true;
   }
-  if (wheelMode === WHEEL_MODE.MAP_ZOOM) {
-    return canCaptureOverlayPointer({ state, runtime });
+  if (overlayPolicy.isPassThrough) {
+    return false;
   }
-  return canEditRegistration(state) && !isRuntimePassThroughActive(runtime);
+  if (wheelMode === WHEEL_MODE.MAP_ZOOM) {
+    return overlayPolicy.ownsPointerHitTesting;
+  }
+  return overlayPolicy.ownsPointerHitTesting;
 }
 
 export function resolveOverlayWheelPolicy({

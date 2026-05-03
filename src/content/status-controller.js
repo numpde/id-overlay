@@ -1,27 +1,23 @@
 import { createValueStore } from "../core/value-store.js";
 import {
-  describeInteractionEventPresentation,
-  describePanelActionPresentation,
-} from "../core/presentation.js";
-import {
   formatFeedback,
   selectStatus,
 } from "../core/machine/selectors.js";
 
 const DEFAULT_TRANSIENT_MS = 1800;
 
-export function createStatusController({ machineHost, interactions = null }) {
+export function createStatusController({
+  machineHost,
+  transientMs = DEFAULT_TRANSIENT_MS,
+}) {
   const messageStore = createValueStore("");
   let transientMessage = null;
   let transientTimer = null;
 
   const unsubscribeMachine = machineHost.subscribe(syncMessage, { emitCurrent: false });
-  const unsubscribeInteractionEvents = interactions?.subscribeEvents?.((event) => {
-    const eventMessage = describeInteractionEventPresentation(event);
-    if (eventMessage) {
-      showTransient(eventMessage);
-    }
-  }) ?? null;
+  const unsubscribeMachineResults = machineHost.subscribeResults?.(({ result }) => {
+    showFeedback(result.feedback);
+  }) ?? (() => {});
 
   syncMessage();
 
@@ -37,14 +33,14 @@ export function createStatusController({ machineHost, interactions = null }) {
     syncMessage();
   }
 
-  function showMachineFeedback(feedback, options) {
+  function showFeedback(feedback, options) {
     const message = formatFeedback(feedback);
     if (message) {
       showTransient(message, options);
     }
   }
 
-  function showTransient(message, { durationMs = DEFAULT_TRANSIENT_MS } = {}) {
+  function showTransient(message, { durationMs = transientMs } = {}) {
     transientMessage = message;
     syncMessage();
     clearTransientTimer();
@@ -54,26 +50,10 @@ export function createStatusController({ machineHost, interactions = null }) {
     }, durationMs);
   }
 
-  function showPanelFeedback(action, payload, options) {
-    const message = describePanelActionPresentation(action, payload);
-    if (message) {
-      showTransient(message, options);
-    }
-  }
-
-  function clearTransient() {
-    if (transientMessage === null && !transientTimer) {
-      return;
-    }
-    transientMessage = null;
-    clearTransientTimer();
-    syncMessage();
-  }
-
   function destroy() {
     clearTransientTimer();
     unsubscribeMachine();
-    unsubscribeInteractionEvents?.();
+    unsubscribeMachineResults();
   }
 
   function syncMessage() {
@@ -90,10 +70,6 @@ export function createStatusController({ machineHost, interactions = null }) {
   return {
     subscribe,
     getMessage,
-    showMachineFeedback,
-    showTransient,
-    showPanelFeedback,
-    clearTransient,
     refresh,
     destroy,
   };
