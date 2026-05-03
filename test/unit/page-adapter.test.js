@@ -352,6 +352,54 @@ test("page adapter keeps the same viewport mount through style churn while it re
   }
 });
 
+test("page adapter replaces a cached viewport mount after it becomes hidden", async () => {
+  const env = createDomEnvironment({
+    url: "https://www.openstreetmap.org/edit?editor=id#map=16/-1.22645/36.82597",
+    viewportHtml: '<div class="main-map"></div><div id="map"></div>',
+  });
+
+  try {
+    const initialViewport = env.document.querySelector(".main-map");
+    const fallbackViewport = env.document.getElementById("map");
+    let initialViewportVisible = true;
+    initialViewport.getBoundingClientRect = () => ({
+      left: 120,
+      top: 80,
+      width: initialViewportVisible ? 800 : 0,
+      height: initialViewportVisible ? 600 : 0,
+      right: initialViewportVisible ? 920 : 120,
+      bottom: initialViewportVisible ? 680 : 80,
+    });
+    fallbackViewport.getBoundingClientRect = () => ({
+      left: 120,
+      top: 80,
+      width: 800,
+      height: 600,
+      right: 920,
+      bottom: 680,
+    });
+
+    const adapter = createPageAdapter({
+      hashTarget: env.window,
+      viewportDocument: env.document,
+    });
+
+    const unsubscribe = adapter.subscribe(() => {});
+    assert.equal(adapter.getSnapshot().mountElement, initialViewport);
+
+    initialViewportVisible = false;
+    initialViewport.setAttribute("style", "display: none");
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    assert.equal(adapter.getSnapshot().mountElement, fallbackViewport);
+
+    unsubscribe();
+    adapter.destroy();
+  } finally {
+    env.cleanup();
+  }
+});
+
 test("page adapter snapshot changes when the semantic viewport host changes", async () => {
   const env = createDomEnvironment({
     url: "https://www.openstreetmap.org/edit?editor=id#map=16/-1.22645/36.82597",
