@@ -7,11 +7,6 @@ import {
   reduceInteractionRuntime,
 } from "../../src/core/interaction-runtime.js";
 import {
-  canHandleWheelGesture,
-  canCaptureOverlayPointer,
-  canEditRegistration,
-  canTrackOverlayPointer,
-  canToggleOverlayPin,
   doesDragEditPlacement,
   doesWheelEditOpacity,
   doesWheelEditPlacement,
@@ -19,16 +14,11 @@ import {
   INTERACTION_EVENT,
   isMapPanDragMode,
   KEYBOARD_SHORTCUT_ACTION,
-  resolveOverlayActivationPolicy,
-  resolveOverlayPointerMovePolicy,
-  resolveOverlayPointerSequencePolicy,
-  resolveOverlayWheelPolicy,
   resolveDragMode,
-  resolveKeyboardShortcut,
   resolveWheelMode,
-  shouldReleasePassThrough,
   WHEEL_MODE,
 } from "../../src/core/interaction-policy.js";
+import { resolveInputProjection } from "../../src/core/input-projection.js";
 import { RUNTIME_ERROR_SOURCE } from "../../src/core/runtime-error.js";
 import {
   SESSION_MODE,
@@ -936,8 +926,6 @@ test("keyboard shortcuts can be delivered through the early keyboard gateway", (
 });
 
 test("keyboard shortcut resolution is single-source and mode-aware", () => {
-  // Final semantic-history shape: shortcut resolution is adapter policy. The
-  // canonical transition must still validate the resulting event.
   const state = createEmptySession({
     mode: SESSION_MODE.ALIGN,
     image: {
@@ -948,31 +936,31 @@ test("keyboard shortcut resolution is single-source and mode-aware", () => {
   });
 
   assert.equal(
-    resolveKeyboardShortcut({
+    resolveInputProjection({
       event: createKeyEvent({ code: "KeyP" }),
       state,
-    }),
+    }).keyboard.action,
     KEYBOARD_SHORTCUT_ACTION.TOGGLE_PIN_CURRENT_POINTER,
   );
   assert.equal(
-    resolveKeyboardShortcut({
+    resolveInputProjection({
       event: createKeyEvent({ code: "Escape" }),
       state,
-    }),
+    }).keyboard.action,
     KEYBOARD_SHORTCUT_ACTION.SWITCH_TO_TRACE,
   );
   assert.equal(
-    resolveKeyboardShortcut({
+    resolveInputProjection({
       event: createKeyEvent({ code: "Space" }),
       state,
-    }),
+    }).keyboard.action,
     KEYBOARD_SHORTCUT_ACTION.ENABLE_PASS_THROUGH,
   );
   assert.equal(
-    resolveKeyboardShortcut({
+    resolveInputProjection({
       event: createKeyEvent({ code: "KeyP" }),
       state: { ...state, mode: "trace" },
-    }),
+    }).keyboard.action,
     null,
   );
 });
@@ -1012,42 +1000,54 @@ test("wheel mode resolution is single-source and modifier-aware", () => {
 });
 
 test("align capability helpers are the single source of truth for editability", () => {
-  assert.equal(canEditRegistration({ mode: "align", image: { src: "x" } }), true);
-  assert.equal(canEditRegistration({ mode: "trace", image: { src: "x" } }), false);
-  assert.equal(canEditRegistration({ mode: "align", image: null }), false);
   assert.equal(
-    canCaptureOverlayPointer({
-      state: { mode: "align", image: { src: "x" } },
-      runtime: { isPassThroughActive: false },
-    }),
+    resolveInputProjection({ state: { mode: "align", image: { src: "x" } } })
+      .overlayPolicy.canEditOverlay,
     true,
   );
   assert.equal(
-    canCaptureOverlayPointer({
-      state: { mode: "align", image: { src: "x" } },
-      runtime: { isPassThroughActive: true },
-    }),
+    resolveInputProjection({ state: { mode: "trace", image: { src: "x" } } })
+      .overlayPolicy.canEditOverlay,
     false,
   );
   assert.equal(
-    canTrackOverlayPointer({
+    resolveInputProjection({ state: { mode: "align", image: null } })
+      .overlayPolicy.canEditOverlay,
+    false,
+  );
+  assert.equal(
+    resolveInputProjection({
       state: { mode: "align", image: { src: "x" } },
       runtime: { isPassThroughActive: false },
-    }),
+    }).overlayPolicy.ownsPointerHitTesting,
     true,
   );
   assert.equal(
-    canTrackOverlayPointer({
+    resolveInputProjection({
       state: { mode: "align", image: { src: "x" } },
       runtime: { isPassThroughActive: true },
-    }),
+    }).overlayPolicy.ownsPointerHitTesting,
     false,
   );
   assert.equal(
-    canTrackOverlayPointer({
+    resolveInputProjection({
+      state: { mode: "align", image: { src: "x" } },
+      runtime: { isPassThroughActive: false },
+    }).overlayPolicy.ownsPointerHitTesting,
+    true,
+  );
+  assert.equal(
+    resolveInputProjection({
+      state: { mode: "align", image: { src: "x" } },
+      runtime: { isPassThroughActive: true },
+    }).overlayPolicy.ownsPointerHitTesting,
+    false,
+  );
+  assert.equal(
+    resolveInputProjection({
       state: { mode: "trace", image: { src: "x" } },
       runtime: { isPassThroughActive: false },
-    }),
+    }).overlayPolicy.ownsPointerHitTesting,
     false,
   );
 });
@@ -1069,63 +1069,69 @@ test("gesture ownership helpers are the single source of truth for map-vs-overla
 
 test("wheel capability is single-source across modes and modifiers", () => {
   assert.equal(
-    canHandleWheelGesture({
+    resolveInputProjection({
       state: { mode: "align", image: { src: "x" } },
       runtime: { isPassThroughActive: false },
+      isPointerOverOverlay: true,
       wheelMode: "map-zoom",
-    }),
+    }).wheel.shouldHandle,
     true,
   );
   assert.equal(
-    canHandleWheelGesture({
+    resolveInputProjection({
       state: { mode: "trace", image: { src: "x" } },
       runtime: { isPassThroughActive: false },
+      isPointerOverOverlay: true,
       wheelMode: "map-zoom",
-    }),
+    }).wheel.shouldHandle,
     false,
   );
   assert.equal(
-    canHandleWheelGesture({
+    resolveInputProjection({
       state: { mode: "trace", image: { src: "x" } },
       runtime: { isPassThroughActive: false },
+      isPointerOverOverlay: true,
       wheelMode: "adjust-opacity",
-    }),
+    }).wheel.shouldHandle,
     true,
   );
 });
 
 test("overlay wheel policy is single-source", () => {
-  // Final semantic-history shape: wheel policy should stay an adapter
-  // ownership/classification selector; semantic edit authorization should come
-  // from canonical UI affordances.
   const state = { mode: "align", image: { src: "x" }, opacity: 0.6 };
   const runtime = { isPassThroughActive: false };
 
   assert.deepEqual(
-    resolveOverlayWheelPolicy({
+    resolveInputProjection({
       state,
       runtime,
+      isPointerOverOverlay: true,
       shiftKey: false,
       altKey: false,
       ctrlKey: false,
-    }),
+    }).wheel,
     {
       wheelMode: WHEEL_MODE.MAP_ZOOM,
+      shouldHandle: true,
       shouldIntercept: false,
+      shouldConsume: true,
     },
   );
 
   assert.deepEqual(
-    resolveOverlayWheelPolicy({
+    resolveInputProjection({
       state,
       runtime,
+      isPointerOverOverlay: true,
       shiftKey: false,
       altKey: true,
       ctrlKey: false,
-    }),
+    }).wheel,
     {
       wheelMode: WHEEL_MODE.ADJUST_OPACITY,
+      shouldHandle: true,
       shouldIntercept: true,
+      shouldConsume: true,
     },
   );
 });
@@ -1135,34 +1141,34 @@ test("overlay pointer move policy is single-source", () => {
   const runtime = { isPassThroughActive: false };
 
   assert.deepEqual(
-    resolveOverlayPointerMovePolicy({
+    resolveInputProjection({
       state,
       runtime,
       isPointerOverOverlay: false,
-    }),
+    }).pointerMove,
     {
       shouldTrackPointer: false,
     },
   );
 
   assert.deepEqual(
-    resolveOverlayPointerMovePolicy({
+    resolveInputProjection({
       state,
       runtime,
       isPointerOverOverlay: true,
-    }),
+    }).pointerMove,
     {
       shouldTrackPointer: true,
     },
   );
 
   assert.deepEqual(
-    resolveOverlayPointerMovePolicy({
+    resolveInputProjection({
       state,
       runtime,
       isPointerOverOverlay: true,
       buttons: 1,
-    }),
+    }).pointerMove,
     {
       shouldTrackPointer: false,
     },
@@ -1170,19 +1176,17 @@ test("overlay pointer move policy is single-source", () => {
 });
 
 test("overlay pointer sequence policy is single-source", () => {
-  // Final semantic-history shape: this should assert pointer-sequence
-  // ownership only, not become a parallel source of edit validity.
   const state = { mode: "align", image: { src: "x" } };
   const runtime = { isPassThroughActive: false };
 
   assert.deepEqual(
-    resolveOverlayPointerSequencePolicy({
+    resolveInputProjection({
       state,
       runtime,
       isPointerOverOverlay: false,
       button: 0,
       shiftKey: false,
-    }),
+    }).pointerSequence,
     {
       shouldOwnPointerSequence: false,
       dragMode: null,
@@ -1190,13 +1194,13 @@ test("overlay pointer sequence policy is single-source", () => {
   );
 
   assert.deepEqual(
-    resolveOverlayPointerSequencePolicy({
+    resolveInputProjection({
       state,
       runtime,
       isPointerOverOverlay: true,
       button: 0,
       shiftKey: false,
-    }),
+    }).pointerSequence,
     {
       shouldOwnPointerSequence: true,
       dragMode: DRAG_MODE.MAP_PAN,
@@ -1204,13 +1208,13 @@ test("overlay pointer sequence policy is single-source", () => {
   );
 
   assert.deepEqual(
-    resolveOverlayPointerSequencePolicy({
+    resolveInputProjection({
       state,
       runtime,
       isPointerOverOverlay: true,
       button: 0,
       shiftKey: true,
-    }),
+    }).pointerSequence,
     {
       shouldOwnPointerSequence: true,
       dragMode: DRAG_MODE.MOVE_OVERLAY,
@@ -1218,13 +1222,13 @@ test("overlay pointer sequence policy is single-source", () => {
   );
 
   assert.deepEqual(
-    resolveOverlayPointerSequencePolicy({
+    resolveInputProjection({
       state,
       runtime,
       isPointerOverOverlay: true,
       button: 1,
       shiftKey: true,
-    }),
+    }).pointerSequence,
     {
       shouldOwnPointerSequence: false,
       dragMode: null,
@@ -1237,11 +1241,11 @@ test("overlay activation policy is single-source", () => {
   const runtime = { isPassThroughActive: false };
 
   assert.deepEqual(
-    resolveOverlayActivationPolicy({
+    resolveInputProjection({
       state,
       runtime,
       isPointerOverOverlay: false,
-    }),
+    }).activation,
     {
       shouldConsumeClick: false,
       shouldTogglePin: false,
@@ -1249,11 +1253,11 @@ test("overlay activation policy is single-source", () => {
   );
 
   assert.deepEqual(
-    resolveOverlayActivationPolicy({
+    resolveInputProjection({
       state,
       runtime,
       isPointerOverOverlay: true,
-    }),
+    }).activation,
     {
       shouldConsumeClick: true,
       shouldTogglePin: true,
@@ -1261,11 +1265,11 @@ test("overlay activation policy is single-source", () => {
   );
 
   assert.deepEqual(
-    resolveOverlayActivationPolicy({
+    resolveInputProjection({
       state: { mode: "trace", image: { src: "x" } },
       runtime,
       isPointerOverOverlay: true,
-    }),
+    }).activation,
     {
       shouldConsumeClick: false,
       shouldTogglePin: false,
@@ -1273,11 +1277,11 @@ test("overlay activation policy is single-source", () => {
   );
 
   assert.equal(
-    canToggleOverlayPin({
+    resolveInputProjection({
       state,
       runtime,
       isPointerOverOverlay: true,
-    }),
+    }).activation.shouldTogglePin,
     true,
   );
 });
@@ -1330,31 +1334,28 @@ test("map zoom does nothing when the page adapter cannot forward it", () => {
 });
 
 test("pass-through release stays active until the runtime says it can be released", () => {
-  // Final semantic-history shape: pass-through release policy should remain
-  // raw input/runtime policy, but any user-visible affordance derived from it
-  // should come from canonical UI runtime selectors.
   assert.equal(
-    shouldReleasePassThrough({
+    resolveInputProjection({
       event: createKeyEvent({ code: "Space" }),
       state: { mode: "align" },
       runtime: { isPassThroughActive: false },
-    }),
+    }).passThroughRelease.shouldRelease,
     true,
   );
   assert.equal(
-    shouldReleasePassThrough({
+    resolveInputProjection({
       event: createKeyEvent({ code: "Space" }),
       state: { mode: "trace" },
       runtime: { isPassThroughActive: true },
-    }),
+    }).passThroughRelease.shouldRelease,
     true,
   );
   assert.equal(
-    shouldReleasePassThrough({
+    resolveInputProjection({
       event: createKeyEvent({ code: "KeyP" }),
       state: { mode: "align" },
       runtime: { isPassThroughActive: true },
-    }),
+    }).passThroughRelease.shouldRelease,
     false,
   );
 });

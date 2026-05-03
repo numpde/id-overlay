@@ -7,22 +7,15 @@ import {
   reduceInteractionRuntime,
 } from "./interaction-runtime.js";
 import {
-  canCaptureOverlayPointer,
-  canEditRegistration,
-  canHandleWheelGesture,
   DRAG_MODE,
   INTERACTION_EVENT,
   isMapPanDragMode,
   KEYBOARD_SHORTCUT_ACTION,
   PIN_RESULT_ACTION,
   PIN_RESULT_REASON,
-  resolveDragMode,
-  resolveKeyboardShortcut,
-  resolveWheelMode,
-  shouldIgnoreKeyboardShortcut,
-  shouldReleasePassThrough,
   WHEEL_MODE,
 } from "./interaction-policy.js";
+import { resolveInputProjection } from "./input-projection.js";
 import {
   createPlacementEditedRegistration,
   getOverlayImage,
@@ -206,19 +199,19 @@ export function createInteractionController({
 
   function handlePointerDown({ button, screenPoint, shiftKey, dragMode: explicitDragMode = null }) {
     return runInteractionBoundary("handle-pointer-down", () => {
-      const state = getSession();
-      if (button !== 0 || !canCaptureOverlayPointer({
-        state,
+      const inputProjection = resolveInputProjection({
+        machineState: getMachineState(),
         runtime: runtimeStore.get(),
-      })) {
+        isPointerOverOverlay: true,
+        button,
+        shiftKey,
+      });
+      if (!inputProjection.pointerSequence.shouldOwnPointerSequence) {
         return false;
       }
 
-      if (!hasOverlayImageSession(state)) {
-        return false;
-      }
-
-      const dragMode = explicitDragMode ?? resolveDragMode({ shiftKey });
+      const state = getSession();
+      const dragMode = explicitDragMode ?? inputProjection.pointerSequence.dragMode;
       if (isMapPanDragMode(dragMode)) {
         const beganMapPan = pageAdapter.beginMapPan?.(screenPoint) === true;
         if (!beganMapPan) {
@@ -303,12 +296,16 @@ export function createInteractionController({
     return runInteractionBoundary("handle-wheel", () => {
       const state = getSession();
       const runtime = runtimeStore.get();
-      if (!hasOverlayImageSession(state)) {
-        return false;
-      }
-
-      const wheelMode = resolveWheelMode({ shiftKey, altKey, ctrlKey });
-      if (!canHandleWheelGesture({ state, runtime, wheelMode })) {
+      const inputProjection = resolveInputProjection({
+        machineState: getMachineState(),
+        runtime,
+        isPointerOverOverlay: true,
+        shiftKey,
+        altKey,
+        ctrlKey,
+      });
+      const wheelMode = inputProjection.wheel.wheelMode;
+      if (!inputProjection.wheel.shouldHandle) {
         return false;
       }
       if (wheelMode === WHEEL_MODE.MAP_ZOOM) {
@@ -400,12 +397,14 @@ export function createInteractionController({
       return;
     }
 
-    const shortcutAction = resolveKeyboardShortcut({
+    const keyboardProjection = resolveInputProjection({
+      machineState: getMachineState(),
+      runtime: runtimeStore.get(),
       event,
-      state,
-    });
+    }).keyboard;
+    const shortcutAction = keyboardProjection.action;
     if (!shortcutAction) {
-      if (!shouldIgnoreKeyboardShortcut(event)) {
+      if (!keyboardProjection.shouldIgnore) {
         logger.debug("Ignoring keydown because it is not an overlay shortcut", {
           code: event.code,
           mode: state.mode,
@@ -441,11 +440,12 @@ export function createInteractionController({
   }
 
   function handleKeyUp(event) {
-    if (!shouldReleasePassThrough({
+    const inputProjection = resolveInputProjection({
+      machineState: getMachineState(),
       event,
-      state: getSession(),
       runtime: runtimeStore.get(),
-    })) {
+    });
+    if (!inputProjection.passThroughRelease.shouldRelease) {
       logger.debug("Ignoring keyup because pass-through is not active for this event", {
         code: event.code,
       });
@@ -771,7 +771,7 @@ function consumeEvent(event) {
 }
 
 export function resolvePinContext({ state, runtime, pageAdapter }) {
-  if (!canEditRegistration(state)) {
+  if (!resolveInputProjection({ state, runtime }).overlayPolicy.canEditOverlay) {
     return createPinFailureResult(
       hasOverlayImageSession(state) ? PIN_RESULT_REASON.NOT_ALIGN_MODE : PIN_RESULT_REASON.NO_IMAGE,
     );

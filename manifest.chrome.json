@@ -36,6 +36,7 @@
         "src/core/runtime-error.js",
         "src/core/interaction-runtime.js",
         "src/core/interaction-policy.js",
+        "src/core/input-projection.js",
         "src/core/session.js",
         "src/core/panel-metadata.js",
         "src/core/overlay-pointer-sequence.js",

@@ -184,6 +184,37 @@ test("interaction adapter does not own placement edit lifecycle semantics", () =
   assert.deepEqual(violations, []);
 });
 
+test("input eligibility is centralized in the input projection", () => {
+  const sources = new Map([
+    ["src/content/overlay.js", fs.readFileSync(repoPath("src/content/overlay.js"), "utf8")],
+    ["src/core/interactions.js", fs.readFileSync(repoPath("src/core/interactions.js"), "utf8")],
+    ["src/core/interaction-policy.js", fs.readFileSync(repoPath("src/core/interaction-policy.js"), "utf8")],
+  ]);
+  const forbiddenPatterns = [
+    [
+      "overlay imports selector/policy ownership directly",
+      "src/content/overlay.js",
+      /selectOverlayPolicy|interaction-policy\.js/,
+    ],
+    [
+      "interactions imports semantic eligibility helpers",
+      "src/core/interactions.js",
+      /\b(?:canCaptureOverlayPointer|canHandleWheelGesture|canEditRegistration|resolveKeyboardShortcut|shouldReleasePassThrough)\b/,
+    ],
+    [
+      "raw interaction policy imports machine/session semantics",
+      "src/core/interaction-policy.js",
+      /machine\/selectors|selectOverlayPolicy|from "\.\/session\.js"/,
+    ],
+  ];
+  const violations = forbiddenPatterns
+    .filter(([, relativePath, pattern]) => pattern.test(sources.get(relativePath)))
+    .map(([name]) => name);
+
+  assert.deepEqual(violations, []);
+  assert.ok(fs.existsSync(repoPath("src/core/input-projection.js")));
+});
+
 test("similarity solving has one implementation", () => {
   const definitions = [];
   for (const filePath of listJavaScriptFiles(repoPath("src"))) {

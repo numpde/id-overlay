@@ -16,13 +16,7 @@ import {
   isRuntimeDragging,
   isRuntimePointerInsideImage,
 } from "../core/interaction-runtime.js";
-import {
-  resolveOverlayActivationPolicy,
-  resolveOverlayPointerMovePolicy,
-  resolveOverlayPointerSequencePolicy,
-  resolveOverlayWheelPolicy,
-} from "../core/interaction-policy.js";
-import { selectOverlayPolicy } from "../core/machine/selectors.js";
+import { resolveInputProjection } from "../core/input-projection.js";
 import {
   beginOverlayPointerSequence,
   clearOverlayPointerSequence,
@@ -155,9 +149,6 @@ export function createOverlay({ pageAdapter, machineHost, interactions }) {
     scheduleRender();
   });
   const unsubscribeInteractions = interactions.subscribe((runtime) => {
-    // Final semantic-history shape: overlay may subscribe to raw input runtime
-    // for event plumbing, but visible affordances should come from canonical
-    // UI runtime projection rather than this raw runtime stream.
     latestRuntime = runtime;
     syncGlobalPointerListeners();
     scheduleRender();
@@ -185,10 +176,10 @@ export function createOverlay({ pageAdapter, machineHost, interactions }) {
     const state = machineState.session;
     const viewportRect = latestSnapshot.viewportRect;
     const localViewportRect = latestSnapshot.localViewportRect ?? viewportRect;
-    // Final semantic-history shape: overlay rendering should consume canonical
-    // UI affordance/selectors rather than recomputing panel/registration
-    // policy from raw session state.
-    const overlayPolicy = selectOverlayPolicy(state, latestRuntime);
+    const overlayPolicy = resolveInputProjection({
+      machineState,
+      runtime: latestRuntime,
+    }).overlayPolicy;
     // Final semantic-history shape: this dataset is presentation of canonical
     // mode. Keep it as a DOM projection only; do not let tests treat it as a
     // separate source of mode truth.
@@ -245,9 +236,6 @@ export function createOverlay({ pageAdapter, machineHost, interactions }) {
     overlayFrame.style.transform = `rotate(${model.rotationDeg}deg)`;
     overlayFrame.style.pointerEvents = overlayPolicy.ownsPointerHitTesting ? "auto" : "none";
 
-    // Final semantic-history shape: pin visibility should be projected from
-    // canonical UI state. This direct policy check should not diverge from the
-    // main-action and status affordance selectors.
     if (!overlayPolicy.arePinsVisible) {
       mapPinLayer.replaceChildren();
       pinLayer.replaceChildren();
@@ -323,10 +311,6 @@ export function createOverlay({ pageAdapter, machineHost, interactions }) {
     });
   }
 
-  function getSession() {
-    return getMachineState().session;
-  }
-
   function getMachineState() {
     return machineHost.getState();
   }
@@ -379,9 +363,6 @@ export function createOverlay({ pageAdapter, machineHost, interactions }) {
 
   function handleMountedPointerMove(event) {
     runOverlayBoundary("mounted-pointer-move", event, () => {
-      // Final semantic-history shape: this handler should only translate DOM
-      // input into canonical pointer/gesture events. Policy decisions should
-      // be delegated to shared selectors over canonical state.
       if (isForwardedMapGestureEvent(event)) {
         return;
       }
@@ -394,13 +375,12 @@ export function createOverlay({ pageAdapter, machineHost, interactions }) {
         consumeOverlayEvent(event);
         return;
       }
-      const state = getSession();
-      const pointerPolicy = resolveOverlayPointerMovePolicy({
-        state,
+      const pointerPolicy = resolveInputProjection({
+        machineState: getMachineState(),
         runtime: latestRuntime,
         isPointerOverOverlay: isScreenPointOverOverlay(screenPoint),
         buttons: event.buttons,
-      });
+      }).pointerMove;
       if (pointerPolicy.shouldTrackPointer) {
         interactions.handlePointerMove?.(screenPoint);
         return;
@@ -426,14 +406,13 @@ export function createOverlay({ pageAdapter, machineHost, interactions }) {
         return;
       }
       const screenPoint = toGlobalScreenPoint(event);
-      const state = getSession();
-      const pointerPolicy = resolveOverlayPointerSequencePolicy({
-        state,
+      const pointerPolicy = resolveInputProjection({
+        machineState: getMachineState(),
         runtime: latestRuntime,
         isPointerOverOverlay: isScreenPointOverOverlay(screenPoint),
         button: event.button,
         shiftKey: event.shiftKey,
-      });
+      }).pointerSequence;
       if (!pointerPolicy.shouldOwnPointerSequence) {
         return;
       }
@@ -452,11 +431,11 @@ export function createOverlay({ pageAdapter, machineHost, interactions }) {
         return;
       }
       const screenPoint = toGlobalScreenPoint(event);
-      const activationPolicy = resolveOverlayActivationPolicy({
-        state: getSession(),
+      const activationPolicy = resolveInputProjection({
+        machineState: getMachineState(),
         runtime: latestRuntime,
         isPointerOverOverlay: isScreenPointOverOverlay(screenPoint),
-      });
+      }).activation;
       if (!activationPolicy.shouldTogglePin) {
         return;
       }
@@ -474,11 +453,11 @@ export function createOverlay({ pageAdapter, machineHost, interactions }) {
         return;
       }
       const screenPoint = toGlobalScreenPoint(event);
-      const activationPolicy = resolveOverlayActivationPolicy({
-        state: getSession(),
+      const activationPolicy = resolveInputProjection({
+        machineState: getMachineState(),
         runtime: latestRuntime,
         isPointerOverOverlay: isScreenPointOverOverlay(screenPoint),
-      });
+      }).activation;
       if (!activationPolicy.shouldConsumeClick) {
         return;
       }
@@ -488,26 +467,19 @@ export function createOverlay({ pageAdapter, machineHost, interactions }) {
 
   function handleMountedWheel(event) {
     runOverlayBoundary("mounted-wheel", event, () => {
-      // Final semantic-history shape: wheel handling currently mixes DOM
-      // interception policy with semantic overlay edits. Keep interception in
-      // the adapter and route edits through canonical events.
       if (isForwardedMapGestureEvent(event)) {
         return;
       }
       const screenPoint = toGlobalScreenPoint(event);
-      if (!isScreenPointOverOverlay(screenPoint)) {
-        return;
-      }
-      const state = getSession();
-      const wheelPolicy = resolveOverlayWheelPolicy({
-        state,
+      const wheelPolicy = resolveInputProjection({
+        machineState: getMachineState(),
         runtime: latestRuntime,
+        isPointerOverOverlay: isScreenPointOverOverlay(screenPoint),
         shiftKey: event.shiftKey,
         altKey: event.altKey,
         ctrlKey: event.ctrlKey,
-      });
-      const overlayPolicy = selectOverlayPolicy(state, latestRuntime);
-      if (!wheelPolicy.shouldIntercept && !overlayPolicy.ownsPointerHitTesting) {
+      }).wheel;
+      if (!wheelPolicy.shouldHandle) {
         return;
       }
       if (!interactions.handleWheel({
@@ -519,7 +491,7 @@ export function createOverlay({ pageAdapter, machineHost, interactions }) {
       })) {
         return;
       }
-      if (wheelPolicy.shouldIntercept || overlayPolicy.ownsPointerHitTesting) {
+      if (wheelPolicy.shouldConsume) {
         consumeOverlayEvent(event);
       }
     });
