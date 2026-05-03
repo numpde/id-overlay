@@ -350,7 +350,7 @@ function removePin(state, event) {
 
 function clearPins(state) {
   const previousRegistration = state.session.registration;
-  if (previousRegistration.pins.length === 0) {
+  if (!canClearPinsInState(state)) {
     return createTransitionResult({
       state,
       feedback: createFeedback(MACHINE_FEEDBACK_KIND.NONE),
@@ -458,14 +458,9 @@ function setPlacement(state, event) {
   const previousPlacement = Object.hasOwn(event, "previousPlacement")
     ? event.previousPlacement
     : state.session.placement;
+  const previousRegistration = event.previousRegistration ?? state.session.registration;
   const nextPlacement = event.placement;
-  const nextRegistration = {
-    ...state.session.registration,
-    solvedTransform: null,
-    dirty: state.session.registration.pins.length > 0
-      ? true
-      : state.session.registration.dirty,
-  };
+  const nextRegistration = event.registration ?? createPlacementEditedRegistration(state.session.registration);
   const nextState = replaceRegistration(replaceSession(state, {
     placement: nextPlacement,
   }), nextRegistration);
@@ -482,11 +477,13 @@ function setPlacement(state, event) {
         type: MACHINE_EVENT_KIND.SET_PLACEMENT,
         placement: previousPlacement,
         editKind: event.editKind,
+        registration: previousRegistration,
       },
       redoEvent: {
         type: MACHINE_EVENT_KIND.SET_PLACEMENT,
         placement: nextPlacement,
         editKind: event.editKind,
+        registration: nextRegistration,
       },
     },
   });
@@ -647,6 +644,15 @@ function canClearPinsInState(state) {
     state.session.mode === MACHINE_MODE.ALIGN &&
     state.session.registration.pins.length > 0
   );
+}
+
+function createPlacementEditedRegistration(registration) {
+  return {
+    ...registration,
+    dirty: registration.pins.length > 0
+      ? true
+      : registration.dirty,
+  };
 }
 
 function nextPanelRequestId(state) {

@@ -63,10 +63,10 @@ import {
   solveSimilarityTransform,
 } from "./transform.js";
 import { getOverlayImageLoadStats } from "./image-normalization.js";
-import { UI_EFFECT_KIND } from "./ui-effect-model.js";
-import { UI_EVENT_KIND } from "./ui-event-model.js";
-import { projectLiveUiState } from "./ui-live-state.js";
-import { transitionMode } from "./ui-mode-transition.js";
+import {
+  MACHINE_EVENT_KIND,
+  MACHINE_PLACEMENT_EDIT_KIND,
+} from "./machine/events.js";
 
 export const INTERACTION_HISTORY_DESCRIPTOR = Object.freeze({
   // TODO(machine-cutover): Delete interaction-authored history descriptors.
@@ -89,7 +89,7 @@ export const INTERACTION_HISTORY_DESCRIPTOR = Object.freeze({
 });
 
 export function createInteractionController({
-  store,
+  machineHost,
   pageAdapter,
   keyTarget = globalThis.window,
   keyboardGateway = null,
@@ -98,8 +98,9 @@ export function createInteractionController({
   const runtimeStore = createValueStore(DEFAULT_INTERACTION_RUNTIME);
   const eventListeners = new Set();
   let dragState = null;
+  let placementEditDraft = null;
 
-  const unsubscribeStore = store.subscribe(() => {
+  const unsubscribeMachine = machineHost.subscribe(() => {
     syncRuntimeFromState();
   }, { emitCurrent: false });
   const unsubscribeKeyboardGateway = keyboardGateway?.subscribe?.({
@@ -120,7 +121,7 @@ export function createInteractionController({
   syncRuntimeFromState();
 
   function destroy() {
-    unsubscribeStore();
+    unsubscribeMachine();
     unsubscribeKeyboardGateway?.();
     for (const target of keyEventTargets) {
       target?.removeEventListener?.("keydown", handleKeyDown, true);
@@ -148,11 +149,6 @@ export function createInteractionController({
   }
 
   function loadImage(image) {
-    // TODO(machine-cutover): Replace this imperative durable mutation with a
-    // machine LOAD_IMAGE/PASTE_SUCCEEDED dispatch.
-    // Final semantic-history shape: this should become adapter support for a
-    // canonical paste/load-image outcome, not an imperative session mutation
-    // that authors mode/placement/history below the UI machine.
     return runInteractionBoundary("load-image", () => {
       const snapshot = pageAdapter.getSnapshot();
       const placement = createPlacementTransform({
@@ -162,7 +158,11 @@ export function createInteractionController({
         rotationRad: 0,
         zoom: snapshot.mapView.zoom,
       });
-      store.loadImageSession(image, placement);
+      dispatchMachine({
+        type: MACHINE_EVENT_KIND.LOAD_IMAGE,
+        image,
+        placement,
+      });
       const imageStats = getOverlayImageLoadStats(image);
       logger.info("Loaded image session", {
         ...imageStats,
@@ -174,18 +174,13 @@ export function createInteractionController({
   }
 
   function clearImage() {
-    // TODO(machine-cutover): Keep interaction cleanup here if needed, but move
-    // durable clear-image state/history to the machine transition.
-    // Final semantic-history shape: clear-image should enter through the
-    // semantic transition pipeline. Interaction cleanup can remain here, but
-    // durable session mutation should not.
     return runInteractionBoundary("clear-image", () => {
       resetInteractionState({
         endPointerScreenPx: runtimeStore.get().pointerScreenPx,
         pointerScreenPx: null,
         isPointerInsideImage: false,
       });
-      store.clearImage();
+      dispatchMachine({ type: MACHINE_EVENT_KIND.CLEAR_IMAGE });
       logger.info("Cleared current image session");
       dispatchRuntime({
         type: INTERACTION_RUNTIME_ACTION.UPDATE_POINTER,
@@ -197,46 +192,30 @@ export function createInteractionController({
   }
 
   function undoSessionHistory() {
-    // TODO(machine-cutover): Delete this public API with snapshot undo.
-    // Final semantic-history shape: this public interaction API should be
-    // removed. Undo is a UI event consumed by the transition machine.
     return restoreSessionHistory("undo");
   }
 
   function redoSessionHistory() {
-    // TODO(machine-cutover): Delete this public API with snapshot redo.
-    // Final semantic-history shape: this public interaction API should be
-    // removed alongside snapshot redo.
     return restoreSessionHistory("redo");
   }
 
   function toggleMode() {
-    // Final semantic-history shape: keyboard mode toggles should dispatch the
-    // same canonical MODE_SELECTED event as the panel switch. This direct path
-    // through applyMode should not remain a separate transition authority.
-    applyMode(nextMode(store.getState().mode));
+    applyMode(nextMode(getSession().mode));
   }
 
   function applyResolvedModeTransition({
     nextMode,
-    requestSolve = false,
   }) {
-    // TODO(machine-cutover): Delete this bridge once mode/fit-overlay are one
-    // machine transition with any required history record.
-    // Final semantic-history shape: fit-overlay should be a normal semantic
-    // transition. This bridge currently performs "solve then set mode" outside
-    // the reducer path, which prevents fit from becoming a coherent undoable
-    // transition.
     return runInteractionBoundary("apply-mode", () => {
       const normalizedNextMode = normalizeInteractionMode(nextMode);
-      if (requestSolve) {
-        solveRegistrationFromCurrentState();
-      }
       resetInteractionState({
         pointerScreenPx: runtimeStore.get().pointerScreenPx,
         isPointerInsideImage: runtimeStore.get().isPointerInsideImage,
       });
-      store.setMode(normalizedNextMode);
+      dispatchMachine({
+        type: MACHINE_EVENT_KIND.SELECT_MODE,
+        mode: normalizedNextMode,
+      });
       logger.info("Switched mode", { mode: normalizedNextMode });
       syncRuntimeFromState();
       return true;
@@ -244,10 +223,10 @@ export function createInteractionController({
   }
 
   function setOpacity(opacity) {
-    // Final semantic-history shape: opacity remains non-history, but this is
-    // still a direct store mutation from UI controls. Prefer a canonical event
-    // if opacity needs to participate in shared transition effects.
-    store.setOpacity(opacity);
+    dispatchMachine({
+      type: MACHINE_EVENT_KIND.SET_OPACITY,
+      opacity,
+    });
   }
 
   function computeTransform() {
@@ -262,9 +241,6 @@ export function createInteractionController({
   }
 
   function requestTogglePinAtCurrentPointer() {
-    // Final semantic-history shape: pin toggles should be canonical
-    // registration events once pointer context is resolved. Interaction events
-    // should not be the user-visible feedback authority.
     const result = togglePinAtCurrentPointer();
     emitEvent({
       type: INTERACTION_EVENT.PIN_RESULT,
@@ -275,7 +251,7 @@ export function createInteractionController({
 
   function togglePinAtCurrentPointer() {
     const pinContext = resolvePinContext({
-      state: store.getState(),
+      state: getSession(),
       runtime: runtimeStore.get(),
       pageAdapter,
     });
@@ -288,7 +264,10 @@ export function createInteractionController({
 
     return preserveRenderedPlacementForRegistrationEdit(() => {
       if (pinContext.existingPin) {
-        store.removePin(pinContext.existingPin.id);
+        dispatchMachine({
+          type: MACHINE_EVENT_KIND.REMOVE_PIN,
+          id: pinContext.existingPin.id,
+        });
         logger.info("Removed registration pin", {
           pinId: pinContext.existingPin.id,
         });
@@ -302,10 +281,13 @@ export function createInteractionController({
         };
       }
 
-      const pin = store.addPin({
+      const previousPins = getSession().registration.pins;
+      dispatchMachine({
+        type: MACHINE_EVENT_KIND.ADD_PIN,
         imagePx: pinContext.imagePx,
         mapLatLon: pinContext.mapLatLon,
       });
+      const pin = findAddedPin(previousPins, getSession().registration.pins);
       logger.info("Added registration pin", {
         pinId: pin?.id ?? null,
         imagePx: pinContext.imagePx,
@@ -323,12 +305,11 @@ export function createInteractionController({
   }
 
   function clearPins() {
-    // Final semantic-history shape: clear-pins is a semantic registration
-    // transition. This method should shrink to adapter/runtime cleanup or
-    // disappear.
     return runInteractionBoundary("clear-pins", () => {
       preserveRenderedPlacementForRegistrationEdit(() => {
-        const changed = store.clearPins();
+        const hadPins = getSession().registration.pins.length > 0;
+        dispatchMachine({ type: MACHINE_EVENT_KIND.CLEAR_PINS });
+        const changed = hadPins && getSession().registration.pins.length === 0;
         if (!changed) {
           return;
         }
@@ -370,18 +351,15 @@ export function createInteractionController({
   }
 
   function handlePointerDown({ button, screenPoint, shiftKey, dragMode: explicitDragMode = null }) {
-    // Final semantic-history shape: pointer handlers should translate raw DOM
-    // input into gesture events. Starting a semantic move-overlay edit and its
-    // history record should not be embedded in this handler.
     return runInteractionBoundary("handle-pointer-down", () => {
+      const state = getSession();
       if (button !== 0 || !canCaptureOverlayPointer({
-        state: store.getState(),
+        state,
         runtime: runtimeStore.get(),
       })) {
         return false;
       }
 
-      const state = store.getState();
       if (!hasOverlayImageSession(state)) {
         return false;
       }
@@ -418,10 +396,7 @@ export function createInteractionController({
           startPointerScreenPx: screenPoint,
           startCenterScreenPx: centerScreenPx,
         };
-        // Final semantic-history shape: dragging may still batch many pointer
-        // moves into one user edit, but the batch should be owned by the
-        // semantic transition record, not by a store descriptor checkpoint.
-        store.beginHistoryBatch(INTERACTION_HISTORY_DESCRIPTOR.MOVE_OVERLAY);
+        beginPlacementEdit(MACHINE_PLACEMENT_EDIT_KIND.MOVE);
       }
       startDragRuntime(screenPoint, {
         isPointerInsideImage: true,
@@ -440,10 +415,7 @@ export function createInteractionController({
       if (isMapPanDragMode(dragState.mode)) {
         pageAdapter.endMapPan?.(screenPoint);
       } else {
-        // Final semantic-history shape: ending a drag should finalize the
-        // pending transition record; it should not directly close store-local
-        // snapshot history.
-        store.endHistoryBatch();
+        commitPlacementEdit();
       }
       dragState = null;
       endDragRuntime(screenPoint, {
@@ -465,11 +437,8 @@ export function createInteractionController({
   }
 
   function handleWheel({ deltaY, shiftKey, altKey, ctrlKey, screenPoint }) {
-    // Final semantic-history shape: wheel handlers should classify/forward
-    // adapter input, then dispatch canonical opacity/rotate/scale/map-zoom
-    // events. Semantic overlay edits should not be committed here.
     return runInteractionBoundary("handle-wheel", () => {
-      const state = store.getState();
+      const state = getSession();
       const runtime = runtimeStore.get();
       if (!hasOverlayImageSession(state)) {
         return false;
@@ -504,7 +473,10 @@ export function createInteractionController({
 
       if (wheelMode === WHEEL_MODE.ADJUST_OPACITY) {
         const nextOpacity = opacityFromWheelDelta(state.opacity, deltaY);
-        store.setOpacity(nextOpacity);
+        dispatchMachine({
+          type: MACHINE_EVENT_KIND.SET_OPACITY,
+          opacity: nextOpacity,
+        });
         logger.info("Adjusted overlay opacity", { opacity: nextOpacity, deltaY });
         updatePointer(screenPoint, { isPointerInsideImage: true });
         return true;
@@ -520,11 +492,10 @@ export function createInteractionController({
           anchorScreenPx: screenPoint,
           rotationRad: nextRotationRad,
         });
-        // Final semantic-history shape: wheel rotation should be reported to
-        // the transition machine as a semantic edit; interactions should not
-        // attach presentation descriptors to store writes.
-        store.setPlacement(nextPlacement, {
-          historyDescriptor: INTERACTION_HISTORY_DESCRIPTOR.ROTATE_OVERLAY,
+        dispatchMachine({
+          type: MACHINE_EVENT_KIND.SET_PLACEMENT,
+          placement: nextPlacement,
+          editKind: MACHINE_PLACEMENT_EDIT_KIND.ROTATE,
         });
         logger.info("Rotated overlay placement", { rotationRad: nextRotationRad, deltaY });
       } else if (wheelMode === WHEEL_MODE.ZOOM_OVERLAY) {
@@ -536,11 +507,10 @@ export function createInteractionController({
           anchorScreenPx: screenPoint,
           screenScale: nextScale,
         });
-        // Final semantic-history shape: wheel scaling should commit through a
-        // semantic transition record with undo/redo events, not through a
-        // store-local descriptor.
-        store.setPlacement(nextPlacement, {
-          historyDescriptor: INTERACTION_HISTORY_DESCRIPTOR.SCALE_OVERLAY,
+        dispatchMachine({
+          type: MACHINE_EVENT_KIND.SET_PLACEMENT,
+          placement: nextPlacement,
+          editKind: MACHINE_PLACEMENT_EDIT_KIND.SCALE,
         });
         logger.info("Scaled overlay placement", { scale: nextScale, deltaY });
       }
@@ -560,10 +530,7 @@ export function createInteractionController({
   }
 
   function handleKeyDown(event) {
-    // Final semantic-history shape: keyboard handling should resolve to
-    // canonical UI events. This function currently jumps from shortcuts to
-    // imperative interaction methods.
-    const state = store.getState();
+    const state = getSession();
     if (!hasOverlayImageSession(state)) {
       return;
     }
@@ -592,35 +559,26 @@ export function createInteractionController({
       logger.info("Keyboard pin toggle requested", {
         pointerScreenPx: runtimeStore.get().pointerScreenPx,
       });
-      // Final semantic-history shape: KeyP should dispatch the same semantic
-      // pin-toggle event as double-click after pointer context is resolved.
       requestTogglePinAtCurrentPointer();
       return;
     }
 
     if (shortcutAction === KEYBOARD_SHORTCUT_ACTION.SWITCH_TO_TRACE) {
       logger.info("Keyboard trace escape requested");
-      // Final semantic-history shape: this should dispatch MODE_SELECTED so a
-      // keyboard Trace switch has the same fit-overlay/history semantics as
-      // the panel switch.
       applyMode(INTERACTION_MODE.TRACE);
       return;
     }
 
     if (shortcutAction === KEYBOARD_SHORTCUT_ACTION.ENABLE_PASS_THROUGH) {
       logger.info("Keyboard pass-through activated");
-      // Final semantic-history shape: pass-through is raw input override state;
-      // keep it out of history, but project it through canonical UI runtime.
       setPassThrough(true);
     }
   }
 
   function handleKeyUp(event) {
-    // Final semantic-history shape: release remains keyboard/runtime plumbing.
-    // User-visible status should observe canonical runtime projection.
     if (!shouldReleasePassThrough({
       event,
-      state: store.getState(),
+      state: getSession(),
       runtime: runtimeStore.get(),
     })) {
       logger.debug("Ignoring keyup because pass-through is not active for this event", {
@@ -656,37 +614,32 @@ export function createInteractionController({
       x: dragState.startCenterScreenPx.x + (screenPoint.x - dragState.startPointerScreenPx.x),
       y: dragState.startCenterScreenPx.y + (screenPoint.y - dragState.startPointerScreenPx.y),
     };
-    const state = syncPlacementBaselineToCurrentRenderTransform(store.getState());
+    const state = syncPlacementBaselineToCurrentRenderTransform();
     const snapshot = pageAdapter.getSnapshot();
     const nextPlacement = createRetunedPlacementTransform({
       state,
       snapshot,
       centerScreenPx: nextCenterScreenPx,
     });
-    // Final semantic-history shape: drag movement should finalize as a
-    // transition-machine edit record. Store placement updates should be plain
-    // durable session writes.
-    store.setPlacement(nextPlacement, {
-      historyDescriptor: INTERACTION_HISTORY_DESCRIPTOR.MOVE_OVERLAY,
+    dispatchMachine({
+      type: MACHINE_EVENT_KIND.SYNC_PLACEMENT,
+      placement: nextPlacement,
     });
   }
 
-  function syncPlacementBaselineToCurrentRenderTransform(state = store.getState()) {
-    // Final semantic-history shape: this solved-render-to-manual-placement
-    // baseline sync is an important domain operation. It should be an explicit
-    // semantic transition step, not an invisible prelude inside interactions.
+  function syncPlacementBaselineToCurrentRenderTransform(state = getSession()) {
     const nextPlacement = derivePlacementFromCurrentRenderTransform(state);
     if (!nextPlacement) {
       return state;
     }
-    store.syncPlacement(nextPlacement);
-    return store.getState();
+    dispatchMachine({
+      type: MACHINE_EVENT_KIND.SYNC_PLACEMENT,
+      placement: nextPlacement,
+    });
+    return getSession();
   }
 
   function preserveRenderedPlacementForRegistrationEdit(mutateRegistration) {
-    // Final semantic-history shape: preserving visible placement across pin
-    // edits should be stated in registration transition semantics, not hidden
-    // as an imperative wrapper around store mutation.
     syncPlacementBaselineToCurrentRenderTransform();
     return mutateRegistration();
   }
@@ -746,35 +699,54 @@ export function createInteractionController({
 
   function dispatchRuntime(action) {
     runtimeStore.set(
-      reduceInteractionRuntime(runtimeStore.get(), action, store.getState()),
+      reduceInteractionRuntime(runtimeStore.get(), action, getSession()),
     );
   }
 
+  function getSession() {
+    return machineHost.getState().session;
+  }
+
+  function dispatchMachine(event) {
+    return machineHost.dispatch(event);
+  }
+
+  function beginPlacementEdit(editKind) {
+    placementEditDraft = {
+      editKind,
+      previousPlacement: getSession().placement,
+      previousRegistration: getSession().registration,
+    };
+  }
+
+  function commitPlacementEdit() {
+    if (!placementEditDraft) {
+      return false;
+    }
+    const draft = placementEditDraft;
+    placementEditDraft = null;
+    const nextPlacement = getSession().placement;
+    if (areEqualPlacements(draft.previousPlacement, nextPlacement)) {
+      return false;
+    }
+    const result = dispatchMachine({
+      type: MACHINE_EVENT_KIND.SET_PLACEMENT,
+      placement: nextPlacement,
+      previousPlacement: draft.previousPlacement,
+      previousRegistration: draft.previousRegistration,
+      editKind: draft.editKind,
+    });
+    return Boolean(result.historyRecord);
+  }
+
   function applyMode(mode) {
-    // Final semantic-history shape: this is a local reconstruction of UI state
-    // just to run a partial transition. Mode selection should enter through the
-    // canonical UI event dispatcher instead.
-    const uiState = projectLiveUiState({
-      state: store.getState(),
-      panelActionState: null,
-      runtime: runtimeStore.get(),
-    });
-    const transitionResult = transitionMode(uiState, {
-      kind: UI_EVENT_KIND.MODE_SELECTED,
-      mode,
-    });
     return applyResolvedModeTransition({
-      nextMode: transitionResult.state.session.mode,
-      requestSolve: transitionResult.effects.includes(UI_EFFECT_KIND.REQUEST_REGISTRATION_SOLVE),
+      nextMode: mode,
     });
   }
 
   function solveRegistrationFromCurrentState() {
-    // Final semantic-history shape: if solving is pure from pins, fit-overlay
-    // should compute and commit solvedTransform inside the state-machine
-    // transition. This imperative helper should remain only for explicit,
-    // non-history "compute now" flows, or disappear.
-    const state = store.getState();
+    const state = getSession();
     const solveState = resolveRegistrationSolveState(state.registration);
     if (!solveState.canCompute) {
       const result = createSolveFailureResult(
@@ -803,7 +775,14 @@ export function createInteractionController({
       return result;
     }
 
-    store.setSolvedTransform(solvedTransform);
+    dispatchMachine({
+      type: MACHINE_EVENT_KIND.RESTORE_REGISTRATION,
+      registration: {
+        ...state.registration,
+        solvedTransform,
+        dirty: false,
+      },
+    });
     const result = createSolveSuccessResult(solvedTransform, solveState.pinCount);
     emitEvent({
       type: INTERACTION_EVENT.SOLVE_RESULT,
@@ -818,17 +797,16 @@ export function createInteractionController({
   }
 
   function restoreSessionHistory(direction) {
-    // TODO(machine-cutover): Delete this direct store.undo()/redo() path.
-    // Final semantic-history shape: this should disappear. Undo/redo should be
-    // state-machine events that consume semantic history records; interaction
-    // code should not call store.undo()/store.redo() directly.
     return runInteractionBoundary(`${direction}-session-history`, () => {
       resetInteractionState({
         endPointerScreenPx: runtimeStore.get().pointerScreenPx,
         pointerScreenPx: null,
         isPointerInsideImage: false,
       });
-      const historyDescriptor = direction === "undo" ? store.undo() : store.redo();
+      const result = dispatchMachine({
+        type: direction === "undo" ? MACHINE_EVENT_KIND.UNDO : MACHINE_EVENT_KIND.REDO,
+      });
+      const historyDescriptor = historyDescriptorFromRecord(result.consumedHistoryRecord);
       if (historyDescriptor) {
         logger.info(`${direction === "undo" ? "Undid" : "Redid"} session history`);
         syncRuntimeFromState();
@@ -845,7 +823,7 @@ export function createInteractionController({
     if (isMapPanDragMode(dragState?.mode)) {
       pageAdapter.endMapPan?.(endPointerScreenPx);
     } else if (dragState?.mode === DRAG_MODE.MOVE_OVERLAY) {
-      store.endHistoryBatch();
+      commitPlacementEdit();
     }
     dragState = null;
     dispatchRuntime({
@@ -856,9 +834,6 @@ export function createInteractionController({
   }
 
   function emitEvent(event) {
-    // Final semantic-history shape: do not add new user-facing outcomes here.
-    // User-visible results should be transition results or canonical outcome
-    // events consumed by the same presentation path.
     for (const listener of eventListeners) {
       listener(event);
     }
@@ -1097,6 +1072,25 @@ function createSolveFailureResult(reason, pinCount) {
     reason,
     pinCount,
   };
+}
+
+function findAddedPin(previousPins, nextPins) {
+  const previousIds = new Set(previousPins.map((pin) => pin.id));
+  return nextPins.find((pin) => !previousIds.has(pin.id)) ?? null;
+}
+
+function historyDescriptorFromRecord(record) {
+  if (!record) {
+    return null;
+  }
+  return {
+    kind: record.kind,
+    label: record.label ?? null,
+  };
+}
+
+function areEqualPlacements(left, right) {
+  return JSON.stringify(left) === JSON.stringify(right);
 }
 
 function resolveKeyEventTargets(keyTarget) {

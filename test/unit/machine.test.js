@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import {
   MACHINE_EVENT_KIND,
+  MACHINE_FEEDBACK_KIND,
   MACHINE_HISTORY_KIND,
   MACHINE_MODE,
   MACHINE_PANEL_INTENT,
@@ -186,6 +187,20 @@ test("clear-pins undo and redo land in Align because pin state is invisible in T
   const redo = transitionMachine(undo.state, { type: MACHINE_EVENT_KIND.REDO });
   assert.equal(redo.state.session.mode, MACHINE_MODE.ALIGN);
   assert.equal(redo.state.session.registration.pins.length, 0);
+});
+
+test("clear-pins is invalid in Trace because pins are not visible there", () => {
+  let state = addPin(loadImage()).state;
+  state = transitionMachine(state, {
+    type: MACHINE_EVENT_KIND.SELECT_MODE,
+    mode: MACHINE_MODE.TRACE,
+  }).state;
+
+  const result = transitionMachine(state, { type: MACHINE_EVENT_KIND.CLEAR_PINS });
+
+  assert.deepEqual(result.state, state);
+  assert.equal(result.historyRecord, null);
+  assert.equal(result.feedback.kind, MACHINE_FEEDBACK_KIND.NONE);
 });
 
 test("placement undo and redo preserve the user's current mode", () => {

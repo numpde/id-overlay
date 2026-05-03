@@ -60,7 +60,9 @@ test("content bootstrap uses the machine host instead of the legacy state store"
 
   assert.match(source, /createMachineHost/);
   assert.doesNotMatch(source, /createStateStore/);
+  assert.doesNotMatch(source, /createMachineBackedStateStore/);
   assert.doesNotMatch(source, /"\.\.\/core\/state\.js"/);
+  assert.doesNotMatch(source, /"\.\.\/core\/machine-store-adapter\.js"/);
 });
 
 test("live panel and status controllers do not import the legacy ui bridge", () => {
@@ -79,6 +81,40 @@ test("live panel and status controllers do not import the legacy ui bridge", () 
 
   assert.deepEqual(violations, []);
 });
+
+test("live interactions and overlay read canonical machine host, not the legacy session store", () => {
+  const liveSources = new Map([
+    ["src/core/interactions.js", fs.readFileSync(repoPath("src/core/interactions.js"), "utf8")],
+    ["src/content/overlay.js", fs.readFileSync(repoPath("src/content/overlay.js"), "utf8")],
+  ]);
+  const violations = [];
+
+  for (const [relativePath, source] of liveSources) {
+    for (const violation of findLegacySessionStoreUsage(source)) {
+      violations.push(`${relativePath}: ${violation}`);
+    }
+  }
+
+  assert.deepEqual(violations, []);
+});
+
+function findLegacySessionStoreUsage(source) {
+  const forbiddenPatterns = [
+    ["compat adapter", /createMachineBackedStateStore|machine-store-adapter/],
+    ["legacy factory", /createStateStore/],
+    [
+      "legacy store parameter",
+      /create(?:InteractionController|Overlay)\s*\(\s*\{[^}]*\bstore\b/s,
+    ],
+    [
+      "legacy session store call",
+      /\bstore\.(?:getState|subscribe|loadImageSession|clearImage|setMode|setOpacity|addPin|removePin|clearPins|beginHistoryBatch|endHistoryBatch|setPlacement|syncPlacement|undo|redo|canUndo|canRedo|getUndoDescriptor|getRedoDescriptor)\b/,
+    ],
+  ];
+  return forbiddenPatterns
+    .filter(([, pattern]) => pattern.test(source))
+    .map(([name]) => name);
+}
 
 function listJavaScriptFiles(directory) {
   return fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {

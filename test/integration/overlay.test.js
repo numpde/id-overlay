@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 
 import { createDomEnvironment } from "../helpers/dom-env.js";
 import { repoFileUrl } from "../helpers/paths.js";
-import { createStateStore } from "../../src/core/state.js";
+import { MACHINE_EVENT_KIND } from "../../src/core/machine/events.js";
+import { createMachineHost } from "../../src/core/machine/host.js";
 import { createPlacementTransform } from "../../src/core/transform.js";
 import { createValueStore } from "../../src/core/value-store.js";
 
@@ -17,7 +18,7 @@ test("overlay double-click toggles pins through the interaction controller", asy
     const { createOverlay } = await import(`${repoFileUrl("src/content/overlay.js")}?o=${Date.now()}`);
     const map = env.document.getElementById("map") ?? env.document.body;
 
-    const store = createStateStore({
+    const machineHost = createOverlayMachineHost({
       mode: "align",
       opacity: 0.6,
       image: {
@@ -80,7 +81,7 @@ test("overlay double-click toggles pins through the interaction controller", asy
           return this.mapToScreen(point);
         },
       },
-      store,
+      machineHost,
       interactions: {
         getRuntimeState() {
           return runtimeStore.get();
@@ -137,10 +138,9 @@ test("handled overlay wheel gestures do not bubble into the underlying map", asy
   try {
     const { createOverlay } = await import(`${repoFileUrl("src/content/overlay.js")}?ow=${Date.now()}`);
     const map = env.document.getElementById("map");
-    // Final semantic-history shape: direct raw store fixtures are acceptable
-    // for render tests, but semantic state setup should move to UI-machine
-    // fixtures when testing transitions.
-    const store = createStateStore({
+    // Render tests may hydrate the machine directly; semantic actions still
+    // enter through machine events.
+    const machineHost = createOverlayMachineHost({
       mode: "align",
       opacity: 0.6,
       image: {
@@ -198,7 +198,7 @@ test("handled overlay wheel gestures do not bubble into the underlying map", asy
           return this.mapToScreen(point);
         },
       },
-      store,
+      machineHost,
       interactions: {
         getRuntimeState() {
           return runtimeStore.get();
@@ -253,7 +253,7 @@ test("plain wheel over the overlay in align mode is forwarded manually and does 
     // Final semantic-history shape: this render fixture intentionally bypasses
     // transitions. Keep it scoped to render output; do not use this pattern for
     // user-action semantics.
-    const store = createStateStore({
+    const machineHost = createOverlayMachineHost({
       mode: "align",
       opacity: 0.6,
       image: {
@@ -312,7 +312,7 @@ test("plain wheel over the overlay in align mode is forwarded manually and does 
           return this.mapToScreen(point);
         },
       },
-      store,
+      machineHost,
       interactions: {
         getRuntimeState() {
           return runtimeStore.get();
@@ -356,6 +356,10 @@ test("plain wheel over the overlay in align mode is forwarded manually and does 
   }
 });
 
+function createOverlayMachineHost(session) {
+  return createMachineHost({ persistedSession: session });
+}
+
 test("alt-wheel in trace mode is captured from the map layer when the pointer is over the overlay", async () => {
   const env = createDomEnvironment({
     viewportHtml: '<div id="map"></div>',
@@ -364,7 +368,7 @@ test("alt-wheel in trace mode is captured from the map layer when the pointer is
   try {
     const { createOverlay } = await import(`${repoFileUrl("src/content/overlay.js")}?ot=${Date.now()}`);
     const map = env.document.getElementById("map");
-    const store = createStateStore({
+    const machineHost = createOverlayMachineHost({
       mode: "trace",
       opacity: 0.6,
       image: {
@@ -423,7 +427,7 @@ test("alt-wheel in trace mode is captured from the map layer when the pointer is
           return this.mapToScreen(point);
         },
       },
-      store,
+      machineHost,
       interactions: {
         getRuntimeState() {
           return runtimeStore.get();
@@ -483,7 +487,7 @@ test("align-mode overlay pointerdown owns the click sequence and does not bubble
   try {
     const { createOverlay } = await import(`${repoFileUrl("src/content/overlay.js")}?op=${Date.now()}`);
     const map = env.document.getElementById("map");
-    const store = createStateStore({
+    const machineHost = createOverlayMachineHost({
       mode: "align",
       opacity: 0.6,
       image: {
@@ -533,7 +537,7 @@ test("align-mode overlay pointerdown owns the click sequence and does not bubble
           return point;
         },
       },
-      store,
+      machineHost,
       interactions: {
         getRuntimeState() {
           return runtimeStore.get();
@@ -586,7 +590,7 @@ test("plain pointerdown over the overlay in align mode owns the click sequence w
   try {
     const { createOverlay } = await import(`${repoFileUrl("src/content/overlay.js")}?opp=${Date.now()}`);
     const map = env.document.getElementById("map");
-    const store = createStateStore({
+    const machineHost = createOverlayMachineHost({
       mode: "align",
       opacity: 0.6,
       image: {
@@ -637,7 +641,7 @@ test("plain pointerdown over the overlay in align mode owns the click sequence w
           return point;
         },
       },
-      store,
+      machineHost,
       interactions: {
         getRuntimeState() {
           return runtimeStore.get();
@@ -690,7 +694,7 @@ test("trace-mode solved transform follows map view changes from the page adapter
   try {
     const { createOverlay } = await import(`${repoFileUrl("src/content/overlay.js")}?o2=${Date.now()}`);
 
-    const store = createStateStore({
+    const machineHost = createOverlayMachineHost({
       mode: "trace",
       opacity: 0.6,
       image: {
@@ -753,7 +757,7 @@ test("trace-mode solved transform follows map view changes from the page adapter
           return point;
         },
       },
-      store,
+      machineHost,
       interactions: {
         getRuntimeState() {
           return runtimeStore.get();
@@ -809,7 +813,7 @@ test("trace-mode overlay applies live surface motion from the page adapter", asy
   try {
     const { createOverlay } = await import(`${repoFileUrl("src/content/overlay.js")}?o3=${Date.now()}`);
 
-    const store = createStateStore({
+    const machineHost = createOverlayMachineHost({
       mode: "trace",
       opacity: 0.6,
       image: {
@@ -886,7 +890,7 @@ test("trace-mode overlay applies live surface motion from the page adapter", asy
           return this.mapToScreen(point);
         },
       },
-      store,
+      machineHost,
       interactions: {
         getRuntimeState() {
           return runtimeStore.get();
@@ -924,9 +928,7 @@ test("trace-mode overlay applies live surface motion from the page adapter", asy
     assert.equal(env.document.querySelectorAll(".id-overlay-map-pin").length, 0);
     assert.equal(env.document.querySelectorAll(".id-overlay-pin").length, 0);
 
-    // Final semantic-history shape: integration tests should not bypass the
-    // state machine with direct store mutation for semantic user actions.
-    store.clearPins();
+    machineHost.dispatch({ type: MACHINE_EVENT_KIND.CLEAR_PINS });
     await new Promise((resolve) => setTimeout(resolve, 0));
     assert.equal(env.document.querySelectorAll(".id-overlay-map-pin").length, 0);
     assert.equal(env.document.querySelectorAll(".id-overlay-pin").length, 0);

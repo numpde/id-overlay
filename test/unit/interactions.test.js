@@ -35,6 +35,7 @@ import {
 import { INTERACTION_MODE, nextMode } from "../../src/core/interaction-mode.js";
 import { RUNTIME_ERROR_SOURCE } from "../../src/core/runtime-error.js";
 import { createStateStore } from "../../src/core/state.js";
+import { createMachineHost } from "../../src/core/machine/host.js";
 import {
   createPlacementScreenTransform,
   imagePointToRenderedScreenPoint,
@@ -1359,9 +1360,14 @@ function createHarness({
     screenToMapThrows,
     snapshot,
   });
-  const store = createStateStore();
+  const machineHost = createMachineHost();
+  const store = {
+    getState() {
+      return machineHost.getState().session;
+    },
+  };
   const controller = createInteractionController({
-    store,
+    machineHost,
     keyTarget,
     keyboardGateway,
     pageAdapter,

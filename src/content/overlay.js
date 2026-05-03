@@ -117,7 +117,7 @@ const OVERLAY_STYLE_TEXT = `
 
 `;
 
-export function createOverlay({ pageAdapter, store, interactions }) {
+export function createOverlay({ pageAdapter, machineHost, interactions }) {
   const overlayRoot = document.createElement("div");
   overlayRoot.className = "id-overlay-viewport";
   overlayRoot.dataset.idOverlayOwned = "true";
@@ -150,7 +150,7 @@ export function createOverlay({ pageAdapter, store, interactions }) {
   let dragEventWindow = null;
   let pendingPointerSequence = createInitialOverlayPointerSequenceState();
 
-  const unsubscribeStore = store.subscribe(scheduleRender);
+  const unsubscribeMachine = machineHost.subscribe(scheduleRender);
   const unsubscribeViewport = pageAdapter.subscribe((nextSnapshot) => {
     latestSnapshot = nextSnapshot;
     scheduleRender();
@@ -158,7 +158,7 @@ export function createOverlay({ pageAdapter, store, interactions }) {
   const unsubscribeInteractions = interactions.subscribe((runtime) => {
     // Final semantic-history shape: overlay may subscribe to raw input runtime
     // for event plumbing, but visible affordances should come from canonical
-    // UI runtime projection rather than this raw store.
+    // UI runtime projection rather than this raw runtime stream.
     latestRuntime = runtime;
     syncGlobalPointerListeners();
     scheduleRender();
@@ -182,12 +182,12 @@ export function createOverlay({ pageAdapter, store, interactions }) {
   function render() {
     ensureOverlayMount();
 
-    const state = store.getState();
+    const state = getSession();
     const viewportRect = latestSnapshot.viewportRect;
     const localViewportRect = latestSnapshot.localViewportRect ?? viewportRect;
     // Final semantic-history shape: overlay rendering should consume canonical
     // UI affordance/selectors rather than recomputing panel/registration
-    // policy from raw store state in parallel with ui-view-model.
+    // policy from raw session state in parallel with ui-view-model.
     const registrationUi = resolveRegistrationUiPolicy(state);
     const overlayOwnsPointerHitTesting = doesOverlayOwnPointerHitTesting({
       state,
@@ -328,6 +328,10 @@ export function createOverlay({ pageAdapter, store, interactions }) {
     });
   }
 
+  function getSession() {
+    return machineHost.getState().session;
+  }
+
   return {
     destroy() {
       if (renderFrame !== null && typeof globalThis.cancelAnimationFrame === "function") {
@@ -335,7 +339,7 @@ export function createOverlay({ pageAdapter, store, interactions }) {
       }
       detachGlobalPointerListeners();
       detachWheelListener();
-      unsubscribeStore();
+      unsubscribeMachine();
       unsubscribeViewport();
       unsubscribeInteractions();
       overlayRoot.remove();
@@ -391,7 +395,7 @@ export function createOverlay({ pageAdapter, store, interactions }) {
         consumeOverlayEvent(event);
         return;
       }
-      const state = store.getState();
+      const state = getSession();
       const pointerPolicy = resolveOverlayPointerMovePolicy({
         state,
         runtime: latestRuntime,
@@ -423,7 +427,7 @@ export function createOverlay({ pageAdapter, store, interactions }) {
         return;
       }
       const screenPoint = toGlobalScreenPoint(event);
-      const state = store.getState();
+      const state = getSession();
       const pointerPolicy = resolveOverlayPointerSequencePolicy({
         state,
         runtime: latestRuntime,
@@ -450,7 +454,7 @@ export function createOverlay({ pageAdapter, store, interactions }) {
       }
       const screenPoint = toGlobalScreenPoint(event);
       const activationPolicy = resolveOverlayActivationPolicy({
-        state: store.getState(),
+        state: getSession(),
         runtime: latestRuntime,
         isPointerOverOverlay: isScreenPointOverOverlay(screenPoint),
       });
@@ -472,7 +476,7 @@ export function createOverlay({ pageAdapter, store, interactions }) {
       }
       const screenPoint = toGlobalScreenPoint(event);
       const activationPolicy = resolveOverlayActivationPolicy({
-        state: store.getState(),
+        state: getSession(),
         runtime: latestRuntime,
         isPointerOverOverlay: isScreenPointOverOverlay(screenPoint),
       });
@@ -495,7 +499,7 @@ export function createOverlay({ pageAdapter, store, interactions }) {
       if (!isScreenPointOverOverlay(screenPoint)) {
         return;
       }
-      const state = store.getState();
+      const state = getSession();
       const wheelPolicy = resolveOverlayWheelPolicy({
         state,
         runtime: latestRuntime,
@@ -617,7 +621,7 @@ export function createOverlay({ pageAdapter, store, interactions }) {
   }
 
   function isScreenPointOverOverlay(screenPoint) {
-    const state = store.getState();
+    const state = getSession();
     if (!hasOverlayImageSession(state)) {
       return false;
     }

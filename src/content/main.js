@@ -1,7 +1,6 @@
 import { createExtensionStorage } from "../core/storage.js";
 import { createInteractionController } from "../core/interactions.js";
 import { createMachineHost } from "../core/machine/host.js";
-import { createMachineBackedStateStore } from "../core/machine-store-adapter.js";
 import { createPageAdapter } from "./page-adapter.js";
 import { createStatusController } from "./status-controller.js";
 import { createPanel } from "./panel.js";
@@ -39,9 +38,8 @@ export async function bootstrapIdOverlay({ keyboardGateway = null } = {}) {
     setPanelTimeout: (callback, { delayMs }) => globalThis.setTimeout(callback, delayMs),
     clearPanelTimeout: (handle) => globalThis.clearTimeout(handle),
   });
-  const store = createMachineBackedStateStore(machineHost);
   const interactions = createInteractionController({
-    store,
+    machineHost,
     pageAdapter,
     keyboardGateway,
   });
@@ -55,7 +53,7 @@ export async function bootstrapIdOverlay({ keyboardGateway = null } = {}) {
 
   const overlay = createOverlay({
     pageAdapter,
-    store,
+    machineHost,
     interactions,
   });
 
@@ -83,7 +81,7 @@ export async function bootstrapIdOverlay({ keyboardGateway = null } = {}) {
 
 function migratePersistedStateForCurrentMap(persistedState, snapshot) {
   // Final semantic-history shape: persisted-state migrations should produce
-  // canonical durable session data before store creation. They should not need
+  // canonical durable session data before machine hydration. They should not need
   // to understand UI history records or transition internals.
   if (!persistedState?.image) {
     return persistedState ?? {};
