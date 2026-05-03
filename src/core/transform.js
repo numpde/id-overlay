@@ -1,6 +1,5 @@
 import {
   DEFAULT_SESSION_OPACITY,
-  getOverlayImage,
   hasCleanSolvedTransform,
   hasOverlayImageSession,
 } from "./session.js";
@@ -311,74 +310,6 @@ export function hitTestPin({
   }
 
   return bestMatch?.pin ?? null;
-}
-
-export function createRetunedPlacementTransform({
-  state,
-  snapshot,
-  centerScreenPx = null,
-  anchorScreenPx = null,
-  screenScale = null,
-  rotationRad = null,
-}) {
-  // TODO(smell): This is interaction edit retuning, not pure transform math:
-  // it reads session image metadata and active render state. If placement
-  // editing grows, extract a placement-edit geometry helper with explicit
-  // `image` and `screenTransform` inputs.
-  const image = getOverlayImage(state);
-  const screenTransform = resolveOverlayScreenTransform({
-    state,
-    snapshot,
-  });
-  const imageCenter = {
-    x: image.width / 2,
-    y: image.height / 2,
-  };
-  const resolvedScreenScale = screenScale ?? Math.hypot(screenTransform.a, screenTransform.b);
-  const resolvedRotationRad = rotationRad ?? Math.atan2(screenTransform.b, screenTransform.a);
-  const anchorImagePx = anchorScreenPx
-    ? screenPointToRenderedImagePoint({
-      screenPoint: anchorScreenPx,
-      transform: screenTransform,
-      snapshot,
-    })
-    : null;
-
-  if (
-    anchorImagePx &&
-    isImagePointWithinBounds(anchorImagePx, image)
-  ) {
-    return derivePlacementFromScreenTransform({
-      snapshot,
-      transform: createSimilarityTransformFromAnchor({
-        anchorImagePx,
-        anchorTargetPx: removeSurfaceMotionFromScreenPoint({
-          screenPoint: anchorScreenPx,
-          snapshot,
-        }),
-        scale: resolvedScreenScale,
-        rotationRad: resolvedRotationRad,
-      }),
-    });
-  }
-
-  const resolvedCenterScreenPx = centerScreenPx ?? imagePointToRenderedScreenPoint({
-    imagePoint: imageCenter,
-    transform: screenTransform,
-    snapshot,
-  });
-  return derivePlacementFromScreenTransform({
-    snapshot,
-    transform: createSimilarityTransformFromAnchor({
-      anchorImagePx: imageCenter,
-      anchorTargetPx: removeSurfaceMotionFromScreenPoint({
-        screenPoint: resolvedCenterScreenPx,
-        snapshot,
-      }),
-      scale: resolvedScreenScale,
-      rotationRad: resolvedRotationRad,
-    }),
-  });
 }
 
 export function createSimilarityTransformFromAnchor({

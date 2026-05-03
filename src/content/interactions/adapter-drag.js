@@ -3,17 +3,11 @@ import {
   isKnownDragMode,
   isMapPanDragMode,
 } from "../../core/interaction-policy.js";
-import { resolvePlacementEditRenderState } from "../../core/placement-edit-render-state.js";
-import { getOverlayImage } from "../../core/session.js";
 import {
-  createRetunedPlacementTransform,
-  imagePointToRenderedScreenPoint,
-  resolveOverlayScreenTransform,
-} from "../../core/transform.js";
-import {
-  MACHINE_EVENT_KIND,
-  MACHINE_PLACEMENT_EDIT_KIND,
-} from "../../core/machine/events.js";
+  planMovePlacementEditPreview,
+  planMovePlacementEditStart,
+} from "../../core/placement-edit-planning.js";
+import { MACHINE_EVENT_KIND } from "../../core/machine/events.js";
 
 export function createAdapterDragController({
   pageAdapter,
@@ -45,38 +39,21 @@ export function createAdapterDragController({
     }
 
     const snapshot = pageAdapter.getSnapshot();
-    const interactionState = resolvePlacementEditRenderState({
+    const movePlan = planMovePlacementEditStart({
       state: getMachineState(),
       snapshot,
+      startPointerScreenPx: screenPoint,
     });
-    if (!interactionState) {
+    if (!movePlan) {
       return false;
     }
 
-    const image = getOverlayImage(interactionState);
-    const screenTransform = resolveOverlayScreenTransform({
-      state: interactionState,
-      snapshot,
-    });
-    const centerScreenPx = imagePointToRenderedScreenPoint({
-      imagePoint: {
-        x: image.width / 2,
-        y: image.height / 2,
-      },
-      transform: screenTransform,
-      snapshot,
-    });
-
     isMapPanActive = false;
     overlayMove = {
-      startPointerScreenPx: screenPoint,
-      startCenterScreenPx: centerScreenPx,
+      startPointerScreenPx: movePlan.startPointerScreenPx,
+      startCenterScreenPx: movePlan.startCenterScreenPx,
     };
-    dispatchMachine({
-      type: MACHINE_EVENT_KIND.BEGIN_PLACEMENT_EDIT,
-      editKind: MACHINE_PLACEMENT_EDIT_KIND.MOVE,
-      renderedPlacement: interactionState.placement,
-    });
+    dispatchMachine(movePlan.event);
     return true;
   }
 
@@ -90,27 +67,18 @@ export function createAdapterDragController({
       return;
     }
 
-    const nextCenterScreenPx = {
-      x: overlayMove.startCenterScreenPx.x + (screenPoint.x - overlayMove.startPointerScreenPx.x),
-      y: overlayMove.startCenterScreenPx.y + (screenPoint.y - overlayMove.startPointerScreenPx.y),
-    };
     const snapshot = pageAdapter.getSnapshot();
-    const state = resolvePlacementEditRenderState({
+    const previewPlan = planMovePlacementEditPreview({
       state: getMachineState(),
       snapshot,
+      startPointerScreenPx: overlayMove.startPointerScreenPx,
+      startCenterScreenPx: overlayMove.startCenterScreenPx,
+      pointerScreenPx: screenPoint,
     });
-    if (!state) {
+    if (!previewPlan) {
       return;
     }
-    const nextPlacement = createRetunedPlacementTransform({
-      state,
-      snapshot,
-      centerScreenPx: nextCenterScreenPx,
-    });
-    dispatchMachine({
-      type: MACHINE_EVENT_KIND.PREVIEW_PLACEMENT_EDIT,
-      placement: nextPlacement,
-    });
+    dispatchMachine(previewPlan.event);
   }
 
   function end(screenPoint) {

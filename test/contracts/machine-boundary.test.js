@@ -291,6 +291,36 @@ test("interaction controller shell delegates pin and wheel command semantics", (
   assert.deepEqual(violations, []);
 });
 
+test("placement edit planning is centralized outside transform and live interaction routing", () => {
+  const sources = new Map([
+    ["src/core/transform.js", fs.readFileSync(repoPath("src/core/transform.js"), "utf8")],
+    ["src/content/interactions/adapter-drag.js", fs.readFileSync(repoPath("src/content/interactions/adapter-drag.js"), "utf8")],
+    ["src/content/interactions/wheel-command.js", fs.readFileSync(repoPath("src/content/interactions/wheel-command.js"), "utf8")],
+  ]);
+  const forbiddenPatterns = [
+    [
+      "transform-owned placement retuning",
+      "src/core/transform.js",
+      /\b(?:createRetunedPlacementTransform|resolvePlacementEditRenderState|MACHINE_PLACEMENT_EDIT_KIND)\b/,
+    ],
+    [
+      "drag-owned placement edit geometry",
+      "src/content/interactions/adapter-drag.js",
+      /\b(?:resolvePlacementEditRenderState|createRetunedPlacementTransform|imagePointToRenderedScreenPoint|resolveOverlayScreenTransform|getOverlayImage|MACHINE_PLACEMENT_EDIT_KIND)\b/,
+    ],
+    [
+      "wheel-owned placement edit geometry",
+      "src/content/interactions/wheel-command.js",
+      /\b(?:resolvePlacementEditRenderState|createRetunedPlacementTransform|rotationFromWheelDelta|scaleFromWheelDelta|MACHINE_PLACEMENT_EDIT_KIND)\b/,
+    ],
+  ];
+  const violations = forbiddenPatterns
+    .filter(([, relativePath, pattern]) => pattern.test(sources.get(relativePath)))
+    .map(([name]) => name);
+
+  assert.deepEqual(violations, []);
+});
+
 test("input eligibility is centralized in the input projection", () => {
   const sources = new Map([
     ["src/content/overlay.js", fs.readFileSync(repoPath("src/content/overlay.js"), "utf8")],
