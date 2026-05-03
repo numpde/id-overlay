@@ -96,3 +96,35 @@ test("storage wrapper loads and saves with promise-style browser storage", async
     }
   }
 });
+
+test("storage wrapper rejects callback-style chrome errors", async () => {
+  const previousChrome = globalThis.chrome;
+  globalThis.chrome = {
+    runtime: {
+      lastError: null,
+    },
+    storage: {
+      local: {
+        get(_key, callback) {
+          globalThis.chrome.runtime.lastError = new Error("storage failed");
+          callback(undefined);
+          globalThis.chrome.runtime.lastError = null;
+        },
+      },
+    },
+  };
+
+  try {
+    const storage = createExtensionStorage();
+    await assert.rejects(
+      storage.load(),
+      /storage failed/,
+    );
+  } finally {
+    if (previousChrome === undefined) {
+      delete globalThis.chrome;
+    } else {
+      globalThis.chrome = previousChrome;
+    }
+  }
+});

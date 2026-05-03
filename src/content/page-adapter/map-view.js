@@ -15,6 +15,8 @@ export const DEFAULT_MAP_VIEW = Object.freeze({
 });
 
 export function createMapViewResolver() {
+  // TODO(smell): Map-view inference is currently tile/hash derived, not sourced
+  // from a canonical iD map API. Keep this resolver isolated from projection callers.
   let lastCoherentMapView = null;
 
   function resolveMapView(context, { viewportRect, surfaceMotion }) {

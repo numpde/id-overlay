@@ -14,6 +14,9 @@ const OWNED_NODE_SELECTOR = "[data-id-overlay-owned='true']";
 const SESSION_KEY = "__idOverlaySession__";
 
 export async function bootstrapIdOverlay({ keyboardGateway = null } = {}) {
+  // TODO(smell): Bootstrap still owns composition plus page cleanup, shadow
+  // stylesheet injection, paste capture, and lifecycle teardown. Extract host,
+  // style, and session-lifecycle helpers before adding more branches here.
   const logger = createLogger("main");
   const pageAdapter = createPageAdapter();
   if (!pageAdapter.isSupported()) {

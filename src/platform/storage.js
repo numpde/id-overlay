@@ -1,8 +1,8 @@
 const STORAGE_KEY = "id-overlay/state";
 
 export function createExtensionStorage() {
-  const extensionApi = resolveExtensionApi();
-  if (!extensionApi?.storage?.local) {
+  const storageLocal = resolveStorageLocal();
+  if (!storageLocal) {
     return {
       async load() {
         return null;
@@ -13,35 +13,56 @@ export function createExtensionStorage() {
 
   return {
     async load() {
-      const record = await callStorageLocalMethod(extensionApi, "get", STORAGE_KEY);
+      const record = await storageLocal.get(STORAGE_KEY);
       return record?.[STORAGE_KEY] ?? null;
     },
     async save(persistedSession) {
-      await callStorageLocalMethod(extensionApi, "set", {
+      await storageLocal.set({
         [STORAGE_KEY]: persistedSession
       });
     }
   };
 }
 
-function resolveExtensionApi() {
+function resolveStorageLocal() {
   if (globalThis.browser?.storage?.local) {
-    return globalThis.browser;
+    return createPromiseStorageLocal(globalThis.browser.storage.local);
   }
   if (globalThis.chrome?.storage?.local) {
-    return globalThis.chrome;
+    return createCallbackStorageLocal(globalThis.chrome.storage.local, {
+      getLastError: () => globalThis.chrome?.runtime?.lastError ?? null,
+    });
   }
   return null;
 }
 
-function callStorageLocalMethod(extensionApi, methodName, argument) {
-  const method = extensionApi.storage.local[methodName];
-  if (typeof method === "function" && method.length <= 1) {
-    return method.call(extensionApi.storage.local, argument);
-  }
+function createPromiseStorageLocal(storageLocal) {
+  return {
+    get(key) {
+      return storageLocal.get(key);
+    },
+    set(record) {
+      return storageLocal.set(record);
+    },
+  };
+}
+
+function createCallbackStorageLocal(storageLocal, { getLastError }) {
+  return {
+    get(key) {
+      return callCallbackStorageMethod(storageLocal, "get", key, { getLastError });
+    },
+    set(record) {
+      return callCallbackStorageMethod(storageLocal, "set", record, { getLastError });
+    },
+  };
+}
+
+function callCallbackStorageMethod(storageLocal, methodName, argument, { getLastError }) {
+  const method = storageLocal?.[methodName];
   return new Promise((resolve, reject) => {
-    method.call(extensionApi.storage.local, argument, (value) => {
-      const error = globalThis.chrome?.runtime?.lastError;
+    method.call(storageLocal, argument, (value) => {
+      const error = getLastError();
       if (error) {
         reject(error);
         return;

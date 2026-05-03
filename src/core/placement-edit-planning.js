@@ -19,6 +19,9 @@ import {
   screenPointToRenderedImagePoint,
 } from "./transform.js";
 
+// TODO(smell): The planner currently returns machine event payloads as well as
+// pure placement calculations. Keep this boundary small; the next cleanup is to
+// split event construction from edit math when geometry gets a second caller.
 export function resolvePlacementEditRenderState({ state, snapshot }) {
   const session = state?.session ?? state;
   const runtime = state?.session ? state.runtime ?? null : null;

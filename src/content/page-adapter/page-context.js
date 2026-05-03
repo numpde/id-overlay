@@ -11,6 +11,9 @@ export function createPageContext({
   onStructureMutation = onChange,
   onContextRetarget = () => {},
 }) {
+  // TODO(smell): Page-context tracking owns iframe retargeting, mutation
+  // observation, and history patching. Those are all browser-integration seams;
+  // keep domain logic out of this layer.
   let mutationObserver = null;
   let restoreHistoryMethods = null;
   let observedMapWindow = null;
@@ -104,6 +107,8 @@ export function createPageContext({
 }
 
 function patchHistoryMethods({ hashTarget, onHistoryMutation }) {
+  // TODO(smell): Monkey-patching history is intentionally quarantined here.
+  // Replace this with a stable page/map notification source when available.
   const history = hashTarget.history;
   if (!history) {
     return null;

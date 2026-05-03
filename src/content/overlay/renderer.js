@@ -8,6 +8,9 @@ import { getOverlayImage, hasOverlayImageSession } from "../../core/session.js";
 import { selectOverlayPresentation } from "../../core/machine/selectors.js";
 
 const OVERLAY_STYLE_ID = "id-overlay-map-styles";
+// TODO(smell): Overlay CSS lives in JS because it must be injected into the
+// current page or iframe document after remounts. Replace this with a generated
+// style asset plus document-scoped injector before expanding overlay styling.
 const OVERLAY_STYLE_TEXT = `
 .id-overlay-viewport {
   position: absolute;
@@ -98,6 +101,9 @@ export function createOverlayRenderer({
   getSnapshot,
   onMountChange,
 }) {
+  // TODO(smell): Rendering still owns mount retargeting, RAF scheduling,
+  // model-to-DOM patching, and pin marker creation. Split mount/scheduler
+  // mechanics from render patching before adding another visual layer.
   const overlayRoot = document.createElement("div");
   overlayRoot.className = "id-overlay-viewport";
   overlayRoot.dataset.idOverlayOwned = "true";

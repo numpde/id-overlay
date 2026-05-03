@@ -66,3 +66,14 @@ export function shouldFitOnTrace(state) {
     (registration.dirty || !registration.solvedTransform)
   );
 }
+
+export function shouldReleasePassThroughOverride(state, runtime, event) {
+  const session = state?.session ?? state ?? {};
+  return (
+    event?.code === "Space" &&
+    (
+      session.mode === MACHINE_MODE.ALIGN ||
+      runtime?.inputOverride === MACHINE_INPUT_OVERRIDE.PASS_THROUGH
+    )
+  );
+}

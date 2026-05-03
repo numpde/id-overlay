@@ -27,6 +27,9 @@ export function createOverlayInputRouter({
   getSnapshot,
   getMountElement,
 }) {
+  // TODO(smell): This router still couples listener lifecycle, global drag
+  // retargeting, pending pointer sequences, hit-testing, and error recovery.
+  // Next cleanup: split listener ownership from overlay gesture projection.
   let mountedInputTarget = null;
   let dragEventWindow = null;
   let pendingPointerSequence = createInitialOverlayPointerSequenceState();

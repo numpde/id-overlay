@@ -28,6 +28,9 @@ export function createInteractionController({
   keyTarget = globalThis.window,
   keyboardGateway = null,
 }) {
+  // TODO(smell): This shell is still the widest live interaction boundary:
+  // keyboard routing, runtime sync/reset, error reporting, and command wiring
+  // all meet here. Split those ownership seams before adding another command family.
   const logger = createLogger("interactions");
   let observedRuntime = machineHost.getState().runtime;
   const adapterDrag = createAdapterDragController({

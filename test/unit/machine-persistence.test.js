@@ -108,6 +108,59 @@ test("toPersistedMachineSessionSnapshot keys only durable session fields", () =>
   assert.equal(base.key, transientOnlyChange.key);
 });
 
+test("toPersistedMachineSessionSnapshot key is stable for semantically equal nested data", () => {
+  const base = toPersistedMachineSessionSnapshot(createNoisyMachineState());
+  const reordered = toPersistedMachineSessionSnapshot({
+    session: {
+      registration: {
+        dirty: false,
+        solvedTransform: {
+          rotationRad: 0,
+          scale: 0.5,
+          ty: 2,
+          tx: 1,
+          b: 0,
+          a: 0.5,
+          type: "similarity",
+        },
+        pins: [{
+          mapLatLon: { lon: 36.84, lat: -1.23 },
+          imagePx: { y: 200, x: 400 },
+          id: 1,
+        }],
+      },
+      placement: {
+        rotationRad: 0,
+        scale: 1,
+        ty: 20,
+        tx: 10,
+        b: 0,
+        a: 1,
+        type: "similarity",
+      },
+      image: {
+        working: {
+          scaleFromOriginal: 1,
+          height: 400,
+          width: 800,
+          src: "data:image/png;base64,abc",
+        },
+        original: {
+          height: 400,
+          width: 800,
+        },
+        height: 400,
+        width: 800,
+        src: "data:image/png;base64,abc",
+      },
+      opacity: 0.75,
+      mode: MACHINE_MODE.ALIGN,
+    },
+  });
+
+  assert.equal(base.key, reordered.key);
+});
+
 test("toPersistedMachineSession normalizes invalid mode and opacity before saving", () => {
   const persisted = toPersistedMachineSession({
     session: {

@@ -1,5 +1,7 @@
 export const ID_EMBED_SELECTOR = "#id-embed";
 export const SURFACE_MOTION_SELECTOR = ".supersurface";
+// TODO(smell): These selectors encode current iD/OpenStreetMap DOM structure.
+// Keep upstream-DOM assumptions quarantined in this adapter layer and test any change.
 export const VIEWPORT_SELECTORS = Object.freeze([
   ".main-map",
   ".supersurface",
@@ -101,6 +103,8 @@ export function findViewportElement(viewportDocument) {
 }
 
 export function findReferenceTile(viewportDocument) {
+  // TODO(smell): Reference-tile discovery is heuristic and tile-layer specific.
+  // Keep it out of projection math; replace it with an explicit map-view API when available.
   const centerTile = viewportDocument.querySelector("img.tile-center");
   if (centerTile) {
     return centerTile;

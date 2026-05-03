@@ -1,26 +1,30 @@
 (() => {
-  const BOOTSTRAP_KEY = "__idOverlayBootstrap__";
-  const existingBootstrap = window[BOOTSTRAP_KEY];
-  if (existingBootstrap) {
-    existingBootstrap.start();
-    return;
-  }
-  const keyboardGateway = createKeyboardGateway(window);
-  const bootstrapRuntime = createBootstrapRuntime({
-    keyboardGateway,
-  });
-  window[BOOTSTRAP_KEY] = bootstrapRuntime;
-  bootstrapRuntime.start();
+  installContentEntrypoint(window).start();
 })();
 
-function createBootstrapRuntime({ keyboardGateway }) {
+function installContentEntrypoint(windowTarget) {
+  const BOOTSTRAP_KEY = "__idOverlayBootstrap__";
+  const existingEntrypoint = windowTarget[BOOTSTRAP_KEY];
+  if (existingEntrypoint) {
+    return existingEntrypoint;
+  }
+
+  const keyboardGateway = createKeyboardGateway(windowTarget);
+  const entrypoint = Object.freeze({
+    start: createBootstrapStarter({ keyboardGateway }),
+    keyboardGateway,
+  });
+  windowTarget[BOOTSTRAP_KEY] = entrypoint;
+  return entrypoint;
+}
+
+function createBootstrapStarter({ keyboardGateway }) {
   let bootstrapPromise = null;
 
-  function start() {
+  return function start() {
     if (bootstrapPromise) {
       return bootstrapPromise;
     }
-
     const runtime = globalThis.chrome?.runtime ?? globalThis.browser?.runtime;
     if (!runtime?.getURL) {
       console.error("id-overlay: extension runtime unavailable");
@@ -39,12 +43,7 @@ function createBootstrapRuntime({ keyboardGateway }) {
     });
 
     return bootstrapPromise;
-  }
-
-  return Object.freeze({
-    start,
-    keyboardGateway,
-  });
+  };
 }
 
 function createKeyboardGateway(windowTarget) {

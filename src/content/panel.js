@@ -19,6 +19,9 @@ export function createPanel({
   shadow,
   machineHost,
 }) {
+  // TODO(smell): Panel meaning is view-model-owned, but this DOM shell still
+  // mixes element construction, event binding, render patching, and panel drag.
+  // Extract wiring/render mechanics before adding more panel controls.
   const root = document.createElement("section");
   root.className = "id-overlay-panel";
   root.dataset.idOverlayOwned = "true";

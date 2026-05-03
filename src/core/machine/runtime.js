@@ -1,4 +1,4 @@
-import { normalizeMachineState } from "./state.js";
+import { machineStatesEqual, normalizeMachineState } from "./state.js";
 import { transitionMachine } from "./transition.js";
 
 export function createMachineRuntime({
@@ -24,7 +24,7 @@ export function createMachineRuntime({
   function dispatch(event, { transition = transitionMachine } = {}) {
     const result = transition(state, event);
     const previousState = state;
-    state = areEqual(previousState, result.state) ? previousState : result.state;
+    state = machineStatesEqual(previousState, result.state) ? previousState : result.state;
     const committedResult = state === result.state
       ? result
       : {
@@ -88,11 +88,4 @@ export function createMachineRuntime({
 
 function isPromiseLike(value) {
   return value && typeof value.catch === "function";
-}
-
-function areEqual(left, right) {
-  // TODO(smell): Whole-state JSON equality is convenient but brittle and can
-  // hide accidental key-order/state-shape coupling. Prefer transition results
-  // that explicitly say whether state changed, or a canonical state equality.
-  return JSON.stringify(left) === JSON.stringify(right);
 }

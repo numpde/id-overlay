@@ -9,6 +9,8 @@ import {
 } from "./dom.js";
 
 export function createViewportGeometryResolver({ hashTarget }) {
+  // TODO(smell): Viewport geometry depends on current iD/container DOM and CSS
+  // transform conventions. Keep this as an adapter seam, not a source of state truth.
   let viewportElement = null;
 
   function resolveViewportGeometry(context) {

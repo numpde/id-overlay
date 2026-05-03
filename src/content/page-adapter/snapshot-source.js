@@ -10,6 +10,9 @@ export function createPageSnapshotSource({
   mapViewResolver,
   runBoundary,
 }) {
+  // TODO(smell): Snapshot observation combines event listeners, RAF polling,
+  // snapshot equality, and cache fallback. Keep page-context inference elsewhere;
+  // next cleanup should split scheduler ownership from snapshot cache ownership.
   let snapshotLoopHandle = null;
   let usingAnimationFrameLoop = false;
   let lastSnapshot = null;

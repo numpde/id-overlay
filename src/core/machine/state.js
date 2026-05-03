@@ -1,4 +1,7 @@
 import {
+  createPlacementSnapshotKey,
+  createRegistrationSnapshotKey,
+  createSessionSnapshotKey,
   createEmptyRegistration,
   createEmptySession,
   isKnownSessionMode,
@@ -73,6 +76,14 @@ export function normalizeMachineState(state = {}) {
       future: Array.isArray(history.future) ? history.future : [],
     },
   };
+}
+
+export function createMachineStateKey(state = {}) {
+  return serializeMachineState(normalizeMachineState(state));
+}
+
+export function machineStatesEqual(left, right) {
+  return createMachineStateKey(left) === createMachineStateKey(right);
 }
 
 export function normalizePanel(panel = {}) {
@@ -256,4 +267,119 @@ function normalizePoint(point) {
 
 function normalizeRequestId(requestId) {
   return isValidPanelRequestId(requestId) ? requestId : null;
+}
+
+function serializeMachineState(state) {
+  return [
+    createSessionSnapshotKey(state.session),
+    serializeRuntime(state.runtime),
+    serializePanel(state.panel),
+    serializeStatus(state.status),
+    serializeHistory(state.history),
+  ].join("||");
+}
+
+function serializeRuntime(runtime) {
+  return [
+    "runtime",
+    serializePoint(runtime.pointer.screenPx),
+    runtime.activeGesture?.kind ?? "",
+    runtime.inputOverride ?? "",
+    serializePlacementEdit(runtime.placementEdit),
+  ].join("|");
+}
+
+function serializePlacementEdit(placementEdit) {
+  if (!placementEdit) {
+    return "placement-edit:null";
+  }
+  return [
+    "placement-edit",
+    placementEdit.kind,
+    createPlacementSnapshotKey(placementEdit.beforePlacement),
+    createRegistrationSnapshotKey(placementEdit.beforeRegistration),
+    createPlacementSnapshotKey(placementEdit.previewPlacement),
+  ].join("|");
+}
+
+function serializePanel(panel) {
+  return [
+    "panel",
+    panel.intent,
+    panel.requestId ?? "",
+  ].join("|");
+}
+
+function serializeStatus(status) {
+  return [
+    "status",
+    status.lastRequestId,
+    serializeStatusNotice(status.notice),
+  ].join("|");
+}
+
+function serializeStatusNotice(notice) {
+  if (!notice) {
+    return "notice:null";
+  }
+  return [
+    "notice",
+    notice.requestId,
+    notice.kind,
+    serializeMachineValue(notice.payload),
+  ].join("|");
+}
+
+function serializeHistory(history) {
+  return [
+    "history",
+    history.past.map(serializeHistoryRecord).join("~"),
+    history.future.map(serializeHistoryRecord).join("~"),
+  ].join("|");
+}
+
+function serializeHistoryRecord(record) {
+  if (!record) {
+    return "record:null";
+  }
+  return [
+    encodeMachineKeyPart(record.kind ?? ""),
+    encodeMachineKeyPart(record.label ?? ""),
+    encodeMachineKeyPart(record.undoLabel ?? ""),
+    encodeMachineKeyPart(record.redoLabel ?? ""),
+    serializeMachineValue(record.undoEvent ?? null),
+    serializeMachineValue(record.redoEvent ?? null),
+  ].join("|");
+}
+
+function serializePoint(point) {
+  return point ? `${point.x},${point.y}` : "point:null";
+}
+
+function serializeMachineValue(value) {
+  if (value === null) {
+    return "null";
+  }
+  if (value === undefined) {
+    return "undefined";
+  }
+  if (typeof value === "string") {
+    return `string:${encodeURIComponent(value)}`;
+  }
+  if (typeof value === "number" || typeof value === "boolean") {
+    return `${typeof value}:${String(value)}`;
+  }
+  if (Array.isArray(value)) {
+    return `array:[${value.map(serializeMachineValue).join(",")}]`;
+  }
+  if (typeof value === "object") {
+    return `object:{${Object.keys(value).sort().map((key) => {
+      return `${encodeURIComponent(key)}=${serializeMachineValue(value[key])}`;
+    }).join(",")}}`;
+  }
+  return `${typeof value}:${String(value)}`;
+}
+
+function encodeMachineKeyPart(value) {
+  return encodeURIComponent(String(value));
 }

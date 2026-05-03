@@ -103,6 +103,50 @@ test("no-op transitions do not notify subscribers", () => {
   assert.equal(states.length, 0);
 });
 
+test("equal transitions keep the previous state identity", () => {
+  const runtime = createMachineRuntime();
+  const initialState = runtime.getState();
+  const states = [];
+  runtime.subscribe((state) => states.push(state), { emitCurrent: false });
+
+  const result = runtime.dispatch({ type: "equal-clone" }, {
+    transition: (state) => ({
+      state: {
+        session: {
+          ...state.session,
+          registration: {
+            ...state.session.registration,
+            pins: [...state.session.registration.pins],
+          },
+        },
+        runtime: {
+          ...state.runtime,
+          pointer: {
+            ...state.runtime.pointer,
+          },
+        },
+        panel: {
+          ...state.panel,
+        },
+        status: {
+          ...state.status,
+        },
+        history: {
+          past: [...state.history.past],
+          future: [...state.history.future],
+        },
+      },
+      effects: [],
+      historyRecord: null,
+      consumedHistoryRecord: null,
+    }),
+  });
+
+  assert.equal(result.state, initialState);
+  assert.equal(runtime.getState(), initialState);
+  assert.equal(states.length, 0);
+});
+
 test("undo and redo flow through the same dispatch path", () => {
   const runtime = createMachineRuntime();
   runtime.dispatch(loadImageEvent());

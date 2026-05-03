@@ -22,6 +22,9 @@ export function createPageAdapter({
   let handleStructureMutation = () => notifySnapshotChanged();
 
   function runAdapterBoundary(operation, fn, fallbackValue = undefined) {
+    // TODO(smell): Adapter fallbacks keep the extension alive but can mask
+    // projection/page-integration regressions. Keep fallback values boring and
+    // make real adapter behavior observable in tests.
     try {
       return fn();
     } catch (error) {

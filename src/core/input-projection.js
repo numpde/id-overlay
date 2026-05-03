@@ -6,10 +6,9 @@ import {
   shouldIgnoreKeyboardShortcut,
 } from "./interaction-policy.js";
 import {
-  selectIsInputPassThroughActive,
-} from "./machine/selectors.js";
-import { selectOverlayPolicy } from "./machine/policy.js";
-import { isAlignMode } from "./session.js";
+  selectOverlayPolicy,
+  shouldReleasePassThroughOverride,
+} from "./machine/policy.js";
 
 export function resolveInputProjection({
   machineState = null,
@@ -24,8 +23,7 @@ export function resolveInputProjection({
   wheelMode = null,
   event = null,
 } = {}) {
-  const session = machineState?.session ?? state ?? {};
-  const canonicalState = machineState ?? session;
+  const canonicalState = machineState ?? state ?? {};
   const overlayPolicy = selectOverlayPolicy(canonicalState, runtime);
   const resolvedWheelMode = wheelMode ?? resolveWheelMode({ shiftKey, altKey, ctrlKey });
   const canOwnOverlayPointer = (
@@ -55,7 +53,7 @@ export function resolveInputProjection({
     }),
     keyboard: resolveKeyboardProjection({ event, overlayPolicy }),
     passThroughRelease: {
-      shouldRelease: resolvePassThroughOverrideRelease({ event, session, runtime }),
+      shouldRelease: shouldReleasePassThroughOverride(canonicalState, runtime, event),
     },
   };
 }
@@ -122,14 +120,4 @@ function resolveKeyboardProjection({ event, overlayPolicy }) {
     action: null,
     shouldIgnore: false,
   };
-}
-
-function resolvePassThroughOverrideRelease({ event, session, runtime }) {
-  // TODO(smell): This reaches back into raw session mode after most input
-  // eligibility has moved through overlay policy. Prefer one policy-owned
-  // pass-through release predicate if this path changes again.
-  return (
-    event?.code === "Space" &&
-    (isAlignMode(session.mode) || selectIsInputPassThroughActive(runtime))
-  );
 }

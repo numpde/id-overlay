@@ -23,6 +23,9 @@ const MAX_SCREEN_SCALE = 12;
 const WHEEL_SCALE_STEP = 1 / 400;
 const WHEEL_ROTATION_STEP = 1 / 800;
 
+// TODO(smell): This module is still a broad geometry toolbox: opacity/wheel
+// math, render-state resolution, surface-motion projection, and pin helpers.
+// Keep new domain behavior out; split by geometry/render/pin ownership next.
 export function clampOpacity(value) {
   if (!Number.isFinite(value)) {
     return DEFAULT_SESSION_OPACITY;

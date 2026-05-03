@@ -1,4 +1,5 @@
 import { createInitialMachineState, normalizeMachineState } from "./state.js";
+import { createSessionSnapshotKey } from "../session.js";
 import { createPlacementTransform } from "../transform.js";
 
 export function toPersistedMachineSession(machineState) {
@@ -16,7 +17,7 @@ export function toPersistedMachineSessionSnapshot(machineState) {
   const session = toPersistedMachineSession(machineState);
   return {
     session,
-    key: JSON.stringify(session),
+    key: createSessionSnapshotKey(session),
   };
 }
 
