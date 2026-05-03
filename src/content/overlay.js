@@ -181,7 +181,8 @@ export function createOverlay({ pageAdapter, machineHost, interactions }) {
   function render() {
     ensureOverlayMount();
 
-    const state = getSession();
+    const machineState = getMachineState();
+    const state = machineState.session;
     const viewportRect = latestSnapshot.viewportRect;
     const localViewportRect = latestSnapshot.localViewportRect ?? viewportRect;
     // Final semantic-history shape: overlay rendering should consume canonical
@@ -211,7 +212,7 @@ export function createOverlay({ pageAdapter, machineHost, interactions }) {
     const image = getOverlayImage(state);
 
     const transform = resolveOverlayScreenTransform({
-      state,
+      state: machineState,
       snapshot: latestSnapshot,
     });
     const model = buildOverlayRenderModel({
@@ -323,7 +324,11 @@ export function createOverlay({ pageAdapter, machineHost, interactions }) {
   }
 
   function getSession() {
-    return machineHost.getState().session;
+    return getMachineState().session;
+  }
+
+  function getMachineState() {
+    return machineHost.getState();
   }
 
   return {
@@ -612,13 +617,14 @@ export function createOverlay({ pageAdapter, machineHost, interactions }) {
   }
 
   function isScreenPointOverOverlay(screenPoint) {
-    const state = getSession();
+    const machineState = getMachineState();
+    const state = machineState.session;
     if (!hasOverlayImageSession(state)) {
       return false;
     }
     const image = getOverlayImage(state);
     const transform = resolveOverlayScreenTransform({
-      state,
+      state: machineState,
       snapshot: latestSnapshot,
     });
     if (!transform) {

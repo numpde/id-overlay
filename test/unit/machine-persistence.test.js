@@ -224,6 +224,12 @@ function createNoisyMachineState() {
       },
       activeGesture: "move-overlay",
       inputOverride: "pass-through",
+      placementEdit: {
+        kind: "move",
+        beforePlacement: PLACEMENT,
+        beforeRegistration: REGISTRATION,
+        previewPlacement: PLACEMENT,
+      },
     },
     panel: {
       intent: MACHINE_PANEL_INTENT.CLEAR_IMAGE_CONFIRM,

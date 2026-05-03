@@ -10,11 +10,6 @@ import {
   canCaptureOverlayPointer,
   canEditRegistration,
   canHandleWheelGesture,
-  canTrackOverlayPointer,
-  canToggleOverlayPin,
-  doesDragEditPlacement,
-  doesWheelEditOpacity,
-  doesWheelEditPlacement,
   DRAG_MODE,
   INTERACTION_EVENT,
   isMapPanDragMode,
@@ -23,16 +18,13 @@ import {
   PIN_RESULT_REASON,
   resolveDragMode,
   resolveKeyboardShortcut,
-  resolveOverlayActivationPolicy,
-  resolveOverlayPointerMovePolicy,
-  resolveOverlayPointerSequencePolicy,
-  resolveOverlayWheelPolicy,
   resolveWheelMode,
   shouldIgnoreKeyboardShortcut,
   shouldReleasePassThrough,
   WHEEL_MODE,
 } from "./interaction-policy.js";
 import {
+  createPlacementEditedRegistration,
   getOverlayImage,
   hasCleanSolvedTransform,
   hasOverlayImageSession,
@@ -71,7 +63,6 @@ export function createInteractionController({
   const runtimeStore = createValueStore(DEFAULT_INTERACTION_RUNTIME);
   const eventListeners = new Set();
   let dragState = null;
-  let placementEditDraft = null;
   let observedSession = machineHost.getState().session;
 
   const unsubscribeMachine = machineHost.subscribe((state) => {
@@ -239,7 +230,10 @@ export function createInteractionController({
           lastPointerScreenPx: screenPoint,
         };
       } else {
-        const interactionState = syncPlacementBaselineToCurrentRenderTransform(state);
+        const interactionState = resolvePlacementEditRenderState(state);
+        if (!interactionState) {
+          return false;
+        }
         const image = getOverlayImage(interactionState);
         const snapshot = pageAdapter.getSnapshot();
         const screenTransform = resolveOverlayScreenTransform({
@@ -259,7 +253,11 @@ export function createInteractionController({
           startPointerScreenPx: screenPoint,
           startCenterScreenPx: centerScreenPx,
         };
-        beginPlacementEdit(MACHINE_PLACEMENT_EDIT_KIND.MOVE);
+        dispatchMachine({
+          type: MACHINE_EVENT_KIND.BEGIN_PLACEMENT_EDIT,
+          editKind: MACHINE_PLACEMENT_EDIT_KIND.MOVE,
+          renderedPlacement: interactionState.placement,
+        });
       }
       startDragRuntime(screenPoint, {
         isPointerInsideImage: true,
@@ -278,7 +276,9 @@ export function createInteractionController({
       if (isMapPanDragMode(dragState.mode)) {
         pageAdapter.endMapPan?.(screenPoint);
       } else {
-        commitPlacementEdit();
+        dispatchMachine({
+          type: MACHINE_EVENT_KIND.COMMIT_PLACEMENT_EDIT,
+        });
       }
       dragState = null;
       endDragRuntime(screenPoint, {
@@ -345,7 +345,10 @@ export function createInteractionController({
         return true;
       }
 
-      const placementState = syncPlacementBaselineToCurrentRenderTransform(state);
+      const placementState = resolvePlacementEditRenderState(state);
+      if (!placementState) {
+        return false;
+      }
       const snapshot = pageAdapter.getSnapshot();
       if (wheelMode === WHEEL_MODE.ROTATE_OVERLAY) {
         const nextRotationRad = rotationFromWheelDelta(placementState.placement.rotationRad, deltaY);
@@ -356,7 +359,8 @@ export function createInteractionController({
           rotationRad: nextRotationRad,
         });
         dispatchMachine({
-          type: MACHINE_EVENT_KIND.SET_PLACEMENT,
+          type: MACHINE_EVENT_KIND.APPLY_PLACEMENT_EDIT,
+          renderedPlacement: placementState.placement,
           placement: nextPlacement,
           editKind: MACHINE_PLACEMENT_EDIT_KIND.ROTATE,
         });
@@ -371,7 +375,8 @@ export function createInteractionController({
           screenScale: nextScale,
         });
         dispatchMachine({
-          type: MACHINE_EVENT_KIND.SET_PLACEMENT,
+          type: MACHINE_EVENT_KIND.APPLY_PLACEMENT_EDIT,
+          renderedPlacement: placementState.placement,
           placement: nextPlacement,
           editKind: MACHINE_PLACEMENT_EDIT_KIND.SCALE,
         });
@@ -474,7 +479,10 @@ export function createInteractionController({
       x: dragState.startCenterScreenPx.x + (screenPoint.x - dragState.startPointerScreenPx.x),
       y: dragState.startCenterScreenPx.y + (screenPoint.y - dragState.startPointerScreenPx.y),
     };
-    const state = syncPlacementBaselineToCurrentRenderTransform();
+    const state = resolvePlacementEditRenderState();
+    if (!state) {
+      return;
+    }
     const snapshot = pageAdapter.getSnapshot();
     const nextPlacement = createRetunedPlacementTransform({
       state,
@@ -482,21 +490,23 @@ export function createInteractionController({
       centerScreenPx: nextCenterScreenPx,
     });
     dispatchMachine({
-      type: MACHINE_EVENT_KIND.SYNC_PLACEMENT,
+      type: MACHINE_EVENT_KIND.PREVIEW_PLACEMENT_EDIT,
       placement: nextPlacement,
     });
   }
 
-  function syncPlacementBaselineToCurrentRenderTransform(state = getSession()) {
-    const nextPlacement = derivePlacementFromCurrentRenderTransform(state);
-    if (!nextPlacement) {
-      return state;
+  function resolvePlacementEditRenderState(state = getSession()) {
+    const placement = getMachineState().runtime.placementEdit?.previewPlacement ??
+      derivePlacementFromCurrentRenderTransform(state) ??
+      state.placement;
+    if (placement?.type !== "similarity") {
+      return null;
     }
-    dispatchMachine({
-      type: MACHINE_EVENT_KIND.SYNC_PLACEMENT,
-      placement: nextPlacement,
-    });
-    return getSession();
+    return {
+      ...state,
+      placement,
+      registration: createPlacementEditedRegistration(state.registration),
+    };
   }
 
   function derivePlacementFromCurrentRenderTransform(state) {
@@ -576,39 +586,15 @@ export function createInteractionController({
   }
 
   function getSession() {
-    return machineHost.getState().session;
+    return getMachineState().session;
+  }
+
+  function getMachineState() {
+    return machineHost.getState();
   }
 
   function dispatchMachine(event) {
     return machineHost.dispatch(event);
-  }
-
-  function beginPlacementEdit(editKind) {
-    placementEditDraft = {
-      editKind,
-      previousPlacement: getSession().placement,
-      previousRegistration: getSession().registration,
-    };
-  }
-
-  function commitPlacementEdit() {
-    if (!placementEditDraft) {
-      return false;
-    }
-    const draft = placementEditDraft;
-    placementEditDraft = null;
-    const nextPlacement = getSession().placement;
-    if (areEqualPlacements(draft.previousPlacement, nextPlacement)) {
-      return false;
-    }
-    const result = dispatchMachine({
-      type: MACHINE_EVENT_KIND.SET_PLACEMENT,
-      placement: nextPlacement,
-      previousPlacement: draft.previousPlacement,
-      previousRegistration: draft.previousRegistration,
-      editKind: draft.editKind,
-    });
-    return Boolean(result.historyRecord);
   }
 
   function resetInteractionState({
@@ -619,7 +605,9 @@ export function createInteractionController({
     if (isMapPanDragMode(dragState?.mode)) {
       pageAdapter.endMapPan?.(endPointerScreenPx);
     } else if (dragState?.mode === DRAG_MODE.MOVE_OVERLAY) {
-      commitPlacementEdit();
+      dispatchMachine({
+        type: MACHINE_EVENT_KIND.COMMIT_PLACEMENT_EDIT,
+      });
     }
     dragState = null;
     dispatchRuntime({
@@ -866,10 +854,6 @@ function createPinResultFromTransition({ result, pinContext, previousPins }) {
     );
   }
   return createPinFailureResult(PIN_RESULT_REASON.NO_POINTER);
-}
-
-function areEqualPlacements(left, right) {
-  return JSON.stringify(left) === JSON.stringify(right);
 }
 
 function resolveKeyEventTargets(keyTarget) {

@@ -155,7 +155,8 @@ test("clear-pins undo and redo land in Align because pin state is invisible in T
 test("placement undo and redo preserve the user's current mode", () => {
   let state = loadImage();
   state = transitionMachine(state, {
-    type: MACHINE_EVENT_KIND.SET_PLACEMENT,
+    type: MACHINE_EVENT_KIND.APPLY_PLACEMENT_EDIT,
+    renderedPlacement: PLACEMENT,
     placement: MOVED_PLACEMENT,
     editKind: MACHINE_PLACEMENT_EDIT_KIND.MOVE,
   }).state;
@@ -227,9 +228,15 @@ test("new semantic edits clear redo, but pure mode switches do not", () => {
     mode: MACHINE_MODE.TRACE,
   }).state;
   assert.equal(state.history.future.length, 1);
+  state = transitionMachine(state, {
+    type: MACHINE_EVENT_KIND.SELECT_MODE,
+    mode: MACHINE_MODE.ALIGN,
+  }).state;
+  assert.equal(state.history.future.length, 1);
 
   state = transitionMachine(state, {
-    type: MACHINE_EVENT_KIND.SET_PLACEMENT,
+    type: MACHINE_EVENT_KIND.APPLY_PLACEMENT_EDIT,
+    renderedPlacement: PLACEMENT,
     placement: MOVED_PLACEMENT,
     editKind: MACHINE_PLACEMENT_EDIT_KIND.MOVE,
   }).state;

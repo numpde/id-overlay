@@ -3,11 +3,15 @@ import {
   createEmptySession,
   isKnownSessionMode,
   normalizeRegistration,
+  normalizePlacement,
   normalizeSession,
   normalizeSessionMode,
   normalizeSessionOpacity,
 } from "../session.js";
-import { MACHINE_PANEL_INTENT } from "./events.js";
+import {
+  MACHINE_PANEL_INTENT,
+  MACHINE_PLACEMENT_EDIT_KIND,
+} from "./events.js";
 
 export {
   createEmptyRegistration,
@@ -27,6 +31,7 @@ export function createInitialMachineState(overrides = {}) {
       },
       activeGesture: null,
       inputOverride: null,
+      placementEdit: null,
     },
     panel: createIdlePanel(),
     status: {
@@ -56,13 +61,7 @@ export function normalizeMachineState(state = {}) {
 
   return {
     session: normalizeSession(session),
-    runtime: {
-      pointer: {
-        screenPx: normalizePoint(runtime.pointer?.screenPx),
-      },
-      activeGesture: runtime.activeGesture ?? null,
-      inputOverride: runtime.inputOverride ?? null,
-    },
+    runtime: normalizeRuntime(runtime),
     panel: normalizePanel(panel),
     status: {
       messageOverride: status.messageOverride ?? null,
@@ -129,6 +128,55 @@ export function replaceHistory(state, history) {
       future: history.future ?? state.history.future,
     },
   };
+}
+
+function replaceRuntime(state, runtime) {
+  return {
+    ...state,
+    runtime: normalizeRuntime({
+      ...state.runtime,
+      ...runtime,
+    }),
+  };
+}
+
+export function replacePlacementEdit(state, placementEdit) {
+  return replaceRuntime(state, { placementEdit });
+}
+
+function normalizeRuntime(runtime = {}) {
+  return {
+    pointer: {
+      screenPx: normalizePoint(runtime.pointer?.screenPx),
+    },
+    activeGesture: runtime.activeGesture ?? null,
+    inputOverride: runtime.inputOverride ?? null,
+    placementEdit: normalizePlacementEdit(runtime.placementEdit),
+  };
+}
+
+function normalizePlacementEdit(edit) {
+  if (!edit || typeof edit !== "object" || !edit.beforeRegistration) {
+    return null;
+  }
+  if (!isKnownPlacementEditKind(edit?.kind)) {
+    return null;
+  }
+  const beforePlacement = normalizePlacement(edit.beforePlacement);
+  const previewPlacement = normalizePlacement(edit.previewPlacement);
+  if (!beforePlacement || !previewPlacement) {
+    return null;
+  }
+  return {
+    kind: edit.kind,
+    beforePlacement,
+    beforeRegistration: normalizeRegistration(edit.beforeRegistration),
+    previewPlacement,
+  };
+}
+
+function isKnownPlacementEditKind(kind) {
+  return Object.values(MACHINE_PLACEMENT_EDIT_KIND).includes(kind);
 }
 
 function normalizePoint(point) {

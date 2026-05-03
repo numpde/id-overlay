@@ -170,6 +170,20 @@ test("interaction adapter does not own registration solve or pin mutation semant
   assert.deepEqual(violations, []);
 });
 
+test("interaction adapter does not own placement edit lifecycle semantics", () => {
+  const source = fs.readFileSync(repoPath("src/core/interactions.js"), "utf8");
+  const forbiddenPatterns = [
+    ["direct placement restore events", /MACHINE_EVENT_KIND\.RESTORE_PLACEMENT/],
+    ["interaction-local placement draft", /\bplacementEditDraft\b/],
+    ["interaction-local placement lifecycle", /\b(?:begin|commit)PlacementEdit\b/],
+  ];
+  const violations = forbiddenPatterns
+    .filter(([, pattern]) => pattern.test(source))
+    .map(([name]) => name);
+
+  assert.deepEqual(violations, []);
+});
+
 test("similarity solving has one implementation", () => {
   const definitions = [];
   for (const filePath of listJavaScriptFiles(repoPath("src"))) {

@@ -300,7 +300,8 @@ test("semantic feedback describes the concrete visible edit", () => {
 test("placement undo and redo preserve the user's current mode", () => {
   let state = loadImage();
   state = transitionMachine(state, {
-    type: MACHINE_EVENT_KIND.SET_PLACEMENT,
+    type: MACHINE_EVENT_KIND.APPLY_PLACEMENT_EDIT,
+    renderedPlacement: PLACEMENT,
     placement: MOVED_PLACEMENT,
     editKind: MACHINE_PLACEMENT_EDIT_KIND.MOVE,
   }).state;
@@ -318,29 +319,27 @@ test("placement undo and redo preserve the user's current mode", () => {
   assert.deepEqual(redo.state.session.placement, MOVED_PLACEMENT);
 });
 
-test("placement undo can restore an explicitly empty previous placement", () => {
-  let state = transitionMachine(createInitialMachineState(), {
+test("placement history replay can restore an explicitly empty placement", () => {
+  const state = transitionMachine(createInitialMachineState(), {
     type: MACHINE_EVENT_KIND.LOAD_IMAGE,
     image: IMAGE,
-    placement: null,
-  }).state;
-
-  state = transitionMachine(state, {
-    type: MACHINE_EVENT_KIND.SET_PLACEMENT,
     placement: MOVED_PLACEMENT,
-    editKind: MACHINE_PLACEMENT_EDIT_KIND.MOVE,
   }).state;
 
-  const undo = transitionMachine(state, { type: MACHINE_EVENT_KIND.UNDO });
-  assert.equal(undo.state.session.placement, null);
-  assert.equal(undo.consumedHistoryRecord.kind, MACHINE_HISTORY_KIND.MOVE_OVERLAY);
+  const result = transitionMachine(state, {
+    type: MACHINE_EVENT_KIND.RESTORE_PLACEMENT,
+    placement: null,
+  });
+  assert.equal(result.state.session.placement, null);
+  assert.equal(result.historyRecord, null);
 });
 
 test("placement history distinguishes move rotate and scale without tracking opacity", () => {
   let state = loadImage();
 
   const rotate = transitionMachine(state, {
-    type: MACHINE_EVENT_KIND.SET_PLACEMENT,
+    type: MACHINE_EVENT_KIND.APPLY_PLACEMENT_EDIT,
+    renderedPlacement: PLACEMENT,
     placement: { ...PLACEMENT, b: 0.5, rotationRad: 0.5 },
     editKind: MACHINE_PLACEMENT_EDIT_KIND.ROTATE,
   });
@@ -348,12 +347,157 @@ test("placement history distinguishes move rotate and scale without tracking opa
   assert.equal(rotate.historyRecord.undoLabel, "Undo rotate overlay");
 
   const scale = transitionMachine(rotate.state, {
-    type: MACHINE_EVENT_KIND.SET_PLACEMENT,
+    type: MACHINE_EVENT_KIND.APPLY_PLACEMENT_EDIT,
+    renderedPlacement: rotate.state.session.placement,
     placement: { ...PLACEMENT, a: 2, scale: 2 },
     editKind: MACHINE_PLACEMENT_EDIT_KIND.SCALE,
   });
   assert.equal(scale.historyRecord.kind, MACHINE_HISTORY_KIND.SCALE_OVERLAY);
   assert.equal(scale.historyRecord.undoLabel, "Undo scale overlay");
+});
+
+test("placement edit preview is transient machine runtime, not durable session state", () => {
+  let state = loadImage();
+
+  const begin = transitionMachine(state, {
+    type: MACHINE_EVENT_KIND.BEGIN_PLACEMENT_EDIT,
+    editKind: MACHINE_PLACEMENT_EDIT_KIND.MOVE,
+    renderedPlacement: PLACEMENT,
+  });
+  assert.equal(begin.historyRecord, null);
+  assert.deepEqual(begin.state.session.placement, PLACEMENT);
+  assert.deepEqual(begin.state.runtime.placementEdit.beforePlacement, PLACEMENT);
+  assert.deepEqual(begin.state.runtime.placementEdit.previewPlacement, PLACEMENT);
+
+  const preview = transitionMachine(begin.state, {
+    type: MACHINE_EVENT_KIND.PREVIEW_PLACEMENT_EDIT,
+    placement: MOVED_PLACEMENT,
+  });
+  assert.equal(preview.historyRecord, null);
+  assert.deepEqual(preview.state.session.placement, PLACEMENT);
+  assert.deepEqual(preview.state.runtime.placementEdit.previewPlacement, MOVED_PLACEMENT);
+  assert.equal(preview.state.history.past.length, state.history.past.length);
+});
+
+test("placement edit commit records one semantic history entry and clears the preview", () => {
+  let state = loadImage();
+  state = transitionMachine(state, {
+    type: MACHINE_EVENT_KIND.BEGIN_PLACEMENT_EDIT,
+    editKind: MACHINE_PLACEMENT_EDIT_KIND.MOVE,
+    renderedPlacement: PLACEMENT,
+  }).state;
+  state = transitionMachine(state, {
+    type: MACHINE_EVENT_KIND.PREVIEW_PLACEMENT_EDIT,
+    placement: MOVED_PLACEMENT,
+  }).state;
+
+  const commit = transitionMachine(state, {
+    type: MACHINE_EVENT_KIND.COMMIT_PLACEMENT_EDIT,
+  });
+
+  assert.deepEqual(commit.state.session.placement, MOVED_PLACEMENT);
+  assert.equal(commit.state.runtime.placementEdit, null);
+  assert.equal(commit.historyRecord.kind, MACHINE_HISTORY_KIND.MOVE_OVERLAY);
+  assert.equal(commit.state.history.past.at(-1).kind, MACHINE_HISTORY_KIND.MOVE_OVERLAY);
+
+  const undo = transitionMachine(commit.state, { type: MACHINE_EVENT_KIND.UNDO });
+  assert.deepEqual(undo.state.session.placement, PLACEMENT);
+  assert.equal(undo.state.runtime.placementEdit, null);
+
+  const redo = transitionMachine(undo.state, { type: MACHINE_EVENT_KIND.REDO });
+  assert.deepEqual(redo.state.session.placement, MOVED_PLACEMENT);
+  assert.equal(redo.state.runtime.placementEdit, null);
+});
+
+test("unchanged placement edit commit only clears transient runtime", () => {
+  let state = loadImage();
+  state = transitionMachine(state, {
+    type: MACHINE_EVENT_KIND.BEGIN_PLACEMENT_EDIT,
+    editKind: MACHINE_PLACEMENT_EDIT_KIND.MOVE,
+    renderedPlacement: PLACEMENT,
+  }).state;
+
+  const commit = transitionMachine(state, {
+    type: MACHINE_EVENT_KIND.COMMIT_PLACEMENT_EDIT,
+  });
+
+  assert.deepEqual(commit.state.session.placement, PLACEMENT);
+  assert.equal(commit.state.runtime.placementEdit, null);
+  assert.equal(commit.historyRecord, null);
+  assert.equal(commit.feedback.kind, MACHINE_FEEDBACK_KIND.NONE);
+});
+
+test("cancelled placement edit drops preview without changing session", () => {
+  let state = loadImage();
+  state = transitionMachine(state, {
+    type: MACHINE_EVENT_KIND.BEGIN_PLACEMENT_EDIT,
+    editKind: MACHINE_PLACEMENT_EDIT_KIND.MOVE,
+    renderedPlacement: PLACEMENT,
+  }).state;
+  state = transitionMachine(state, {
+    type: MACHINE_EVENT_KIND.PREVIEW_PLACEMENT_EDIT,
+    placement: MOVED_PLACEMENT,
+  }).state;
+
+  const cancel = transitionMachine(state, {
+    type: MACHINE_EVENT_KIND.CANCEL_PLACEMENT_EDIT,
+  });
+
+  assert.deepEqual(cancel.state.session.placement, PLACEMENT);
+  assert.equal(cancel.state.runtime.placementEdit, null);
+  assert.equal(cancel.historyRecord, null);
+});
+
+test("one-shot placement edits are undoable user-visible rotate and scale actions", () => {
+  let state = loadImage();
+  const rotatedPlacement = { ...PLACEMENT, a: 0.5, b: 0.5, rotationRad: Math.PI / 4 };
+  const rotate = transitionMachine(state, {
+    type: MACHINE_EVENT_KIND.APPLY_PLACEMENT_EDIT,
+    editKind: MACHINE_PLACEMENT_EDIT_KIND.ROTATE,
+    renderedPlacement: PLACEMENT,
+    placement: rotatedPlacement,
+  });
+
+  assert.deepEqual(rotate.state.session.placement, rotatedPlacement);
+  assert.equal(rotate.state.runtime.placementEdit, null);
+  assert.equal(rotate.historyRecord.kind, MACHINE_HISTORY_KIND.ROTATE_OVERLAY);
+
+  state = rotate.state;
+  const scaledPlacement = { ...rotatedPlacement, a: 2, b: 0, scale: 2, rotationRad: 0 };
+  const scale = transitionMachine(state, {
+    type: MACHINE_EVENT_KIND.APPLY_PLACEMENT_EDIT,
+    editKind: MACHINE_PLACEMENT_EDIT_KIND.SCALE,
+    renderedPlacement: rotatedPlacement,
+    placement: scaledPlacement,
+  });
+
+  assert.deepEqual(scale.state.session.placement, scaledPlacement);
+  assert.equal(scale.historyRecord.kind, MACHINE_HISTORY_KIND.SCALE_OVERLAY);
+});
+
+test("placement edit lifecycle is invalid outside Align overlay editing", () => {
+  let state = createInitialMachineState();
+  let result = transitionMachine(state, {
+    type: MACHINE_EVENT_KIND.BEGIN_PLACEMENT_EDIT,
+    editKind: MACHINE_PLACEMENT_EDIT_KIND.MOVE,
+    renderedPlacement: PLACEMENT,
+  });
+  assert.deepEqual(result.state, state);
+
+  state = loadImage();
+  state = transitionMachine(state, {
+    type: MACHINE_EVENT_KIND.SELECT_MODE,
+    mode: MACHINE_MODE.TRACE,
+  }).state;
+  result = transitionMachine(state, {
+    type: MACHINE_EVENT_KIND.APPLY_PLACEMENT_EDIT,
+    editKind: MACHINE_PLACEMENT_EDIT_KIND.SCALE,
+    renderedPlacement: PLACEMENT,
+    placement: MOVED_PLACEMENT,
+  });
+
+  assert.deepEqual(result.state, state);
+  assert.equal(result.historyRecord, null);
 });
 
 test("redoing a loaded image restores authored image-load context, not later mode switches", () => {
@@ -405,9 +549,15 @@ test("new semantic edits clear redo, but pure mode switches do not", () => {
     mode: MACHINE_MODE.TRACE,
   }).state;
   assert.equal(state.history.future.length, 1);
+  state = transitionMachine(state, {
+    type: MACHINE_EVENT_KIND.SELECT_MODE,
+    mode: MACHINE_MODE.ALIGN,
+  }).state;
+  assert.equal(state.history.future.length, 1);
 
   state = transitionMachine(state, {
-    type: MACHINE_EVENT_KIND.SET_PLACEMENT,
+    type: MACHINE_EVENT_KIND.APPLY_PLACEMENT_EDIT,
+    renderedPlacement: PLACEMENT,
     placement: MOVED_PLACEMENT,
     editKind: MACHINE_PLACEMENT_EDIT_KIND.MOVE,
   }).state;

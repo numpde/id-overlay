@@ -184,21 +184,28 @@ export function resolveOverlayRenderState(state) {
   // Final semantic-history shape: this is the render-source selector only. It
   // should not be used as a proxy for mode, fit-overlay history, or whether a
   // transition is undoable.
-  if (!hasOverlayImageSession(state)) {
+  const { session, runtime } = resolveRenderInputs(state);
+  if (!hasOverlayImageSession(session)) {
     return {
       source: "none",
       similarityTransform: null,
     };
   }
-  if (hasCleanSolvedTransform(state.registration)) {
+  if (runtime?.placementEdit?.previewPlacement) {
+    return {
+      source: "placement-preview",
+      similarityTransform: runtime.placementEdit.previewPlacement,
+    };
+  }
+  if (hasCleanSolvedTransform(session.registration)) {
     return {
       source: "solved",
-      similarityTransform: state.registration.solvedTransform,
+      similarityTransform: session.registration.solvedTransform,
     };
   }
   return {
     source: "placement",
-    similarityTransform: state.placement,
+    similarityTransform: session.placement,
   };
 }
 
@@ -223,6 +230,13 @@ export function resolveOverlayScreenTransform({ state, snapshot }) {
 
 export function resolveOverlayRenderSource(state) {
   return resolveOverlayRenderState(state).source;
+}
+
+function resolveRenderInputs(state) {
+  return {
+    session: state?.session ?? state,
+    runtime: state?.session ? state.runtime ?? null : null,
+  };
 }
 
 export function buildOverlayRenderModel({ image, transform, opacity }) {

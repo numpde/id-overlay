@@ -186,6 +186,31 @@ test("resolveOverlayRenderState centralizes the active render source and transfo
   });
 });
 
+test("resolveOverlayRenderState prefers machine-owned placement preview when present", () => {
+  const placement = { type: "similarity", a: 1, b: 0, tx: 5, ty: 6 };
+  const solvedTransform = { type: "similarity", a: 2, b: 0, tx: 3, ty: 4 };
+  const previewPlacement = { type: "similarity", a: 1, b: 0, tx: 25, ty: 16 };
+
+  assert.deepEqual(resolveOverlayRenderState({
+    session: {
+      image: { width: 1, height: 1 },
+      placement,
+      registration: { solvedTransform, dirty: false },
+    },
+    runtime: {
+      placementEdit: {
+        kind: "move",
+        beforePlacement: solvedTransform,
+        beforeRegistration: { pins: [], solvedTransform, dirty: false },
+        previewPlacement,
+      },
+    },
+  }), {
+    source: "placement-preview",
+    similarityTransform: previewPlacement,
+  });
+});
+
 test("buildOverlayRenderModel derives CSS-compatible placement from a similarity transform", () => {
   const model = buildOverlayRenderModel({
     image: { width: 400, height: 200 },

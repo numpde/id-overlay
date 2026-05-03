@@ -17,12 +17,14 @@ import {
   normalizeOpacity,
   replaceHistory,
   replacePanel,
+  replacePlacementEdit,
   replaceRegistration,
   replaceSession,
 } from "./state.js";
 import {
   createInvalidatedRegistration,
   createPlacementEditedRegistration,
+  normalizePlacement,
 } from "../session.js";
 import {
   commitHistoryRecord,
@@ -76,10 +78,18 @@ function transitionSemantic(state, event, { commitHistory }) {
       return withoutHistory(restoreRegistration(state, event));
     case MACHINE_EVENT_KIND.FIT_OVERLAY:
       return withOptionalHistory(fitOverlay(state), commitHistory);
-    case MACHINE_EVENT_KIND.SET_PLACEMENT:
-      return withOptionalHistory(setPlacement(state, event), commitHistory);
-    case MACHINE_EVENT_KIND.SYNC_PLACEMENT:
-      return withoutHistory(syncPlacement(state, event));
+    case MACHINE_EVENT_KIND.BEGIN_PLACEMENT_EDIT:
+      return withoutHistory(beginPlacementEdit(state, event));
+    case MACHINE_EVENT_KIND.PREVIEW_PLACEMENT_EDIT:
+      return withoutHistory(previewPlacementEdit(state, event));
+    case MACHINE_EVENT_KIND.COMMIT_PLACEMENT_EDIT:
+      return withOptionalHistory(commitPlacementEdit(state), commitHistory);
+    case MACHINE_EVENT_KIND.CANCEL_PLACEMENT_EDIT:
+      return withoutHistory(cancelPlacementEdit(state));
+    case MACHINE_EVENT_KIND.APPLY_PLACEMENT_EDIT:
+      return withOptionalHistory(applyPlacementEdit(state, event), commitHistory);
+    case MACHINE_EVENT_KIND.RESTORE_PLACEMENT:
+      return withoutHistory(restorePlacement(state, event));
     case MACHINE_EVENT_KIND.REQUEST_PANEL_INTENT:
       return withoutHistory(requestPanelIntent(state, event));
     case MACHINE_EVENT_KIND.CANCEL_PANEL_INTENT:
@@ -155,7 +165,7 @@ function loadImage(state, event) {
     placement: event.placement ?? null,
     registration: createEmptyRegistration(),
   };
-  const nextState = replaceSession(state, nextSession);
+  const nextState = clearPlacementEditRuntime(replaceSession(state, nextSession));
   const panelTransition = clearPanelIntent(state, nextState);
   return createTransitionResult({
     state: panelTransition.state,
@@ -186,12 +196,12 @@ function clearImage(state) {
     });
   }
   const previousSession = state.session;
-  const nextState = replaceSession(state, {
+  const nextState = clearPlacementEditRuntime(replaceSession(state, {
     mode: MACHINE_MODE.TRACE,
     image: null,
     placement: null,
     registration: createEmptyRegistration(),
-  });
+  }));
   const panelTransition = clearPanelIntent(state, nextState);
   return createTransitionResult({
     state: panelTransition.state,
@@ -214,7 +224,7 @@ function clearImage(state) {
 function restoreImageSession(state, event) {
   const panelTransition = clearPanelIntent(
     state,
-    replaceSession(state, event.session ?? {}),
+    clearPlacementEditRuntime(replaceSession(state, event.session ?? {})),
   );
   return createTransitionResult({
     state: panelTransition.state,
@@ -248,7 +258,7 @@ function selectMode(state, event) {
   }
   const panelTransition = clearInvalidPanelIntent(
     state,
-    replaceSession(state, { mode }),
+    clearPlacementEditRuntime(replaceSession(state, { mode })),
   );
   return createTransitionResult({
     state: panelTransition.state,
@@ -317,9 +327,9 @@ function addPin(state, event) {
   });
   const panelTransition = clearInvalidPanelIntent(
     state,
-    replaceSession(replaceRegistration(state, nextRegistration), {
+    clearPlacementEditRuntime(replaceSession(replaceRegistration(state, nextRegistration), {
       mode: MACHINE_MODE.ALIGN,
-    }),
+    })),
   );
   return createTransitionResult({
     state: panelTransition.state,
@@ -361,9 +371,9 @@ function removePin(state, event) {
   });
   const panelTransition = clearInvalidPanelIntent(
     state,
-    replaceSession(replaceRegistration(state, nextRegistration), {
+    clearPlacementEditRuntime(replaceSession(replaceRegistration(state, nextRegistration), {
       mode: MACHINE_MODE.ALIGN,
-    }),
+    })),
   );
   return createTransitionResult({
     state: panelTransition.state,
@@ -403,9 +413,9 @@ function clearPins(state, event = {}) {
   }
   const nextRegistration = createEmptyRegistration();
   const editState = prepareRegistrationEditState(state, event);
-  const nextState = replaceSession(replaceRegistration(editState, nextRegistration), {
+  const nextState = clearPlacementEditRuntime(replaceSession(replaceRegistration(editState, nextRegistration), {
     mode: MACHINE_MODE.ALIGN,
-  });
+  }));
   const panelTransition = clearPanelIntent(state, nextState);
   return createTransitionResult({
     state: panelTransition.state,
@@ -438,9 +448,9 @@ function clearPins(state, event = {}) {
 function restoreRegistration(state, event) {
   const panelTransition = clearInvalidPanelIntent(
     state,
-    replaceSession(replaceRegistration(state, event.registration), {
+    clearPlacementEditRuntime(replaceSession(replaceRegistration(state, event.registration), {
       mode: event.mode ?? state.session.mode,
-    }),
+    })),
   );
   return createTransitionResult({
     state: panelTransition.state,
@@ -471,7 +481,7 @@ function fitOverlay(state) {
   if (!state.session.image || !solvedTransform) {
     const panelTransition = clearInvalidPanelIntent(
       state,
-      replaceSession(state, { mode: MACHINE_MODE.TRACE }),
+      clearPlacementEditRuntime(replaceSession(state, { mode: MACHINE_MODE.TRACE })),
     );
     return createTransitionResult({
       state: panelTransition.state,
@@ -490,7 +500,7 @@ function fitOverlay(state) {
   };
   const panelTransition = clearInvalidPanelIntent(
     state,
-    replaceSession(state, nextSession),
+    clearPlacementEditRuntime(replaceSession(state, nextSession)),
   );
   return createTransitionResult({
     state: panelTransition.state,
@@ -516,7 +526,134 @@ function fitOverlay(state) {
   });
 }
 
-function setPlacement(state, event) {
+function beginPlacementEdit(state, event) {
+  if (!canEditPlacement(state)) {
+    return createTransitionResult({
+      state,
+      feedback: createFeedback(MACHINE_FEEDBACK_KIND.NONE),
+    });
+  }
+  const kind = normalizePlacementEditKind(event.editKind);
+  const renderedPlacement = normalizePlacement(event.renderedPlacement);
+  if (!kind || !renderedPlacement) {
+    return createTransitionResult({
+      state,
+      feedback: createFeedback(MACHINE_FEEDBACK_KIND.NONE),
+    });
+  }
+  return createTransitionResult({
+    state: replacePlacementEdit(state, {
+      kind,
+      beforePlacement: renderedPlacement,
+      beforeRegistration: state.session.registration,
+      previewPlacement: renderedPlacement,
+    }),
+    feedback: createFeedback(MACHINE_FEEDBACK_KIND.NONE),
+  });
+}
+
+function previewPlacementEdit(state, event) {
+  if (!state.runtime.placementEdit) {
+    return createTransitionResult({
+      state,
+      feedback: createFeedback(MACHINE_FEEDBACK_KIND.NONE),
+    });
+  }
+  if (!canEditPlacement(state)) {
+    return createTransitionResult({
+      state: clearPlacementEditRuntime(state),
+      feedback: createFeedback(MACHINE_FEEDBACK_KIND.NONE),
+    });
+  }
+  const previewPlacement = normalizePlacement(event.placement);
+  if (!previewPlacement) {
+    return createTransitionResult({
+      state,
+      feedback: createFeedback(MACHINE_FEEDBACK_KIND.NONE),
+    });
+  }
+  return createTransitionResult({
+    state: replacePlacementEdit(state, {
+      ...state.runtime.placementEdit,
+      previewPlacement,
+    }),
+    feedback: createFeedback(MACHINE_FEEDBACK_KIND.NONE),
+  });
+}
+
+function commitPlacementEdit(state) {
+  const edit = state.runtime.placementEdit;
+  if (!edit) {
+    return createTransitionResult({
+      state,
+      feedback: createFeedback(MACHINE_FEEDBACK_KIND.NONE),
+    });
+  }
+  if (!canEditPlacement(state)) {
+    return createTransitionResult({
+      state: clearPlacementEditRuntime(state),
+      feedback: createFeedback(MACHINE_FEEDBACK_KIND.NONE),
+    });
+  }
+  const stateWithoutPreview = replacePlacementEdit(state, null);
+  if (areEqualPlacements(edit.beforePlacement, edit.previewPlacement)) {
+    return createTransitionResult({
+      state: stateWithoutPreview,
+      feedback: createFeedback(MACHINE_FEEDBACK_KIND.NONE),
+    });
+  }
+  return commitPlacementChange(stateWithoutPreview, {
+    placement: edit.previewPlacement,
+    previousPlacement: edit.beforePlacement,
+    previousRegistration: edit.beforeRegistration,
+    editKind: edit.kind,
+  });
+}
+
+function cancelPlacementEdit(state) {
+  if (!state.runtime.placementEdit) {
+    return createTransitionResult({
+      state,
+      feedback: createFeedback(MACHINE_FEEDBACK_KIND.NONE),
+    });
+  }
+  return createTransitionResult({
+    state: replacePlacementEdit(state, null),
+    feedback: createFeedback(MACHINE_FEEDBACK_KIND.NONE),
+  });
+}
+
+function applyPlacementEdit(state, event) {
+  if (!canEditPlacement(state)) {
+    return createTransitionResult({
+      state: clearPlacementEditRuntime(state),
+      feedback: createFeedback(MACHINE_FEEDBACK_KIND.NONE),
+    });
+  }
+  const kind = normalizePlacementEditKind(event.editKind);
+  const renderedPlacement = normalizePlacement(event.renderedPlacement);
+  const nextPlacement = normalizePlacement(event.placement);
+  if (!kind || !renderedPlacement || !nextPlacement) {
+    return createTransitionResult({
+      state,
+      feedback: createFeedback(MACHINE_FEEDBACK_KIND.NONE),
+    });
+  }
+  if (areEqualPlacements(renderedPlacement, nextPlacement)) {
+    return createTransitionResult({
+      state: replacePlacementEdit(state, null),
+      feedback: createFeedback(MACHINE_FEEDBACK_KIND.NONE),
+    });
+  }
+  return commitPlacementChange(replacePlacementEdit(state, null), {
+    placement: nextPlacement,
+    previousPlacement: renderedPlacement,
+    previousRegistration: state.session.registration,
+    editKind: kind,
+  });
+}
+
+function commitPlacementChange(state, event) {
   if (!state.session.image || !Object.hasOwn(event, "placement")) {
     return createTransitionResult({
       state,
@@ -529,9 +666,9 @@ function setPlacement(state, event) {
   const previousRegistration = event.previousRegistration ?? state.session.registration;
   const nextPlacement = event.placement;
   const nextRegistration = event.registration ?? createPlacementEditedRegistration(state.session.registration);
-  const nextState = replaceRegistration(replaceSession(state, {
+  const nextState = replacePlacementEdit(replaceRegistration(replaceSession(state, {
     placement: nextPlacement,
-  }), nextRegistration);
+  }), nextRegistration), null);
   const kind = placementHistoryKind(event.editKind);
   return createTransitionResult({
     state: nextState,
@@ -542,32 +679,48 @@ function setPlacement(state, event) {
       undoLabel: undoPlacementLabel(event.editKind),
       redoLabel: redoPlacementLabel(event.editKind),
       undoEvent: {
-        type: MACHINE_EVENT_KIND.SET_PLACEMENT,
+        type: MACHINE_EVENT_KIND.RESTORE_PLACEMENT,
         placement: previousPlacement,
-        editKind: event.editKind,
         registration: previousRegistration,
       },
       redoEvent: {
-        type: MACHINE_EVENT_KIND.SET_PLACEMENT,
+        type: MACHINE_EVENT_KIND.RESTORE_PLACEMENT,
         placement: nextPlacement,
-        editKind: event.editKind,
         registration: nextRegistration,
       },
     },
   });
 }
 
-function syncPlacement(state, event) {
+function restorePlacement(state, event) {
   if (!state.session.image || !Object.hasOwn(event, "placement")) {
     return createTransitionResult({
       state,
       feedback: createFeedback(MACHINE_FEEDBACK_KIND.NONE),
     });
   }
+  const nextRegistration = event.registration ?? state.session.registration;
   return createTransitionResult({
-    state: replaceSession(state, { placement: event.placement }),
+    state: replacePlacementEdit(replaceRegistration(replaceSession(state, {
+      placement: event.placement,
+    }), nextRegistration), null),
     feedback: createFeedback(MACHINE_FEEDBACK_KIND.NONE),
   });
+}
+
+function canEditPlacement(state) {
+  return (
+    Boolean(state.session.image) &&
+    state.session.mode === MACHINE_MODE.ALIGN
+  );
+}
+
+function clearPlacementEditRuntime(state) {
+  return state.runtime.placementEdit ? replacePlacementEdit(state, null) : state;
+}
+
+function normalizePlacementEditKind(kind) {
+  return Object.values(MACHINE_PLACEMENT_EDIT_KIND).includes(kind) ? kind : null;
 }
 
 function requestPanelIntent(state, event) {
@@ -773,4 +926,8 @@ function redoPlacementLabel(editKind) {
     return "Redo scale overlay";
   }
   return "Redo move overlay";
+}
+
+function areEqualPlacements(left, right) {
+  return JSON.stringify(left) === JSON.stringify(right);
 }
