@@ -1,36 +1,15 @@
 import { createLogger } from "../core/logger.js";
 import { createRuntimeError, RUNTIME_ERROR_SOURCE } from "../core/runtime-error.js";
-import {
-  isKnownWheelMode,
-  KEYBOARD_SHORTCUT_ACTION,
-  WHEEL_MODE,
-} from "../core/interaction-policy.js";
+import { KEYBOARD_SHORTCUT_ACTION } from "../core/interaction-policy.js";
 import { resolveInputProjection } from "../core/input-projection.js";
 import { createKeyboardListeners } from "../platform/keyboard-listeners.js";
-import { resolvePlacementEditRenderState } from "../core/placement-edit-render-state.js";
 import {
-  getOverlayImage,
   hasOverlayImageSession,
   SESSION_MODE,
 } from "../core/session.js";
 import {
-  buildPinRenderModels,
-  createRetunedPlacementTransform,
-  derivePlacementFromCurrentRenderState,
-  hitTestPin,
-  imagePointToRenderedScreenPoint,
-  isImagePointWithinBounds,
-  opacityFromWheelDelta,
-  resolveOverlayRenderSource,
-  resolveOverlayScreenTransform,
-  rotationFromWheelDelta,
-  scaleFromWheelDelta,
-  screenPointToRenderedImagePoint,
-} from "../core/transform.js";
-import {
   MACHINE_INPUT_OVERRIDE,
   MACHINE_EVENT_KIND,
-  MACHINE_PLACEMENT_EDIT_KIND,
   MACHINE_STATUS_NOTICE_KIND,
 } from "../core/machine/events.js";
 import {
@@ -40,6 +19,8 @@ import {
   selectRuntimePointerScreenPx,
 } from "../core/machine/selectors.js";
 import { createAdapterDragController } from "./interactions/adapter-drag.js";
+import { createPinToggleCommand } from "./interactions/pin-toggle-command.js";
+import { createWheelCommand } from "./interactions/wheel-command.js";
 
 export function createInteractionController({
   machineHost,
@@ -47,11 +28,6 @@ export function createInteractionController({
   keyTarget = globalThis.window,
   keyboardGateway = null,
 }) {
-  // TODO(smell): This is still the broadest live adapter boundary. It owns
-  // keyboard commands, adapter drag state, page-adapter calls, geometry
-  // projection, machine dispatch, and runtime error reporting. Split the next
-  // behavior change along one of those responsibility lines instead of adding
-  // another command family here.
   const logger = createLogger("interactions");
   let observedRuntime = machineHost.getState().runtime;
   const adapterDrag = createAdapterDragController({
@@ -59,6 +35,16 @@ export function createInteractionController({
     getMachineState,
     dispatchMachine,
     logger,
+  });
+  const pinToggleCommand = createPinToggleCommand({
+    pageAdapter,
+    getMachineState,
+    dispatchMachine,
+  });
+  const wheelCommand = createWheelCommand({
+    pageAdapter,
+    getMachineState,
+    dispatchMachine,
   });
 
   const unsubscribeMachine = machineHost.subscribe((state) => {
@@ -115,45 +101,23 @@ export function createInteractionController({
   function handleTogglePin({ screenPoint }) {
     return runInteractionBoundary("handle-toggle-pin", () => {
       updatePointer(screenPoint);
-      return togglePinAtScreenPoint(screenPoint);
+      return executePinToggleAtScreenPoint(screenPoint);
     }, { fallbackValue: false });
   }
 
-  function togglePinAtScreenPoint(screenPoint) {
-    const snapshot = pageAdapter.getSnapshot();
-    const pinContext = resolvePinContext({
-      state: getSession(),
-      snapshot,
-      screenPoint,
-      pageAdapter,
-    });
-    if (!pinContext.ok) {
+  function executePinToggleAtScreenPoint(screenPoint) {
+    const outcome = pinToggleCommand.toggleAtScreenPoint(screenPoint);
+    if (!outcome.handled) {
       logger.warn("Pin toggle requested without a valid pin context", {
-        reason: pinContext.reason,
+        reason: outcome.reason,
       });
       return false;
     }
-
-    const preservedPlacement = derivePlacementFromCurrentRenderState({
-      state: getMachineState(),
-      snapshot,
+    logger.info("Toggled registration pin", {
+      pinId: outcome.existingPinId,
     });
-    const event = {
-      type: MACHINE_EVENT_KIND.TOGGLE_PIN,
-      imagePx: pinContext.imagePx,
-      mapLatLon: pinContext.mapLatLon,
-      existingPinId: pinContext.existingPin?.id ?? null,
-      ...(preservedPlacement ? { preservedPlacement } : {}),
-    };
-    const result = dispatchMachine(event);
-    const handled = Boolean(result.historyRecord);
-    if (handled) {
-      logger.info("Toggled registration pin", {
-        pinId: pinContext.existingPin?.id ?? null,
-      });
-      updatePointer(pinContext.pointerScreenPx);
-    }
-    return handled;
+    updatePointer(outcome.pointerScreenPx);
+    return true;
   }
 
   function handlePointerEnter(screenPoint) {
@@ -217,96 +181,14 @@ export function createInteractionController({
 
   function handleWheel({ deltaY, wheelMode, screenPoint }) {
     return runInteractionBoundary("handle-wheel", () => {
-      if (!isKnownWheelMode(wheelMode)) {
+      const outcome = wheelCommand.handleWheel({ deltaY, wheelMode, screenPoint });
+      logInteractionOutcome(outcome);
+      if (!outcome.handled) {
         return false;
       }
-      if (wheelMode === WHEEL_MODE.MAP_ZOOM) {
-        return handleMapZoomWheel({ deltaY, screenPoint });
-      }
-      if (wheelMode === WHEEL_MODE.ADJUST_OPACITY) {
-        return handleOpacityWheel({ deltaY, screenPoint });
-      }
-      return handlePlacementWheel({ deltaY, wheelMode, screenPoint });
+      updatePointer(outcome.pointerScreenPx);
+      return true;
     }, { fallbackValue: false });
-  }
-
-  function handleMapZoomWheel({ deltaY, screenPoint }) {
-    const forwarded = pageAdapter.forwardMapZoom({
-      screenPoint,
-      deltaY,
-    });
-    if (!forwarded) {
-      logger.warn("Map zoom requested, but the page adapter could not forward it");
-      return false;
-    }
-    logger.info(
-      "Forwarded native wheel to map zoom; overlay follows through the current render state",
-      {
-        forwarded,
-        deltaY,
-        renderSource: resolveOverlayRenderSource(getSession()),
-      },
-    );
-    updatePointer(screenPoint);
-    return true;
-  }
-
-  function handleOpacityWheel({ deltaY, screenPoint }) {
-    const nextOpacity = opacityFromWheelDelta(getSession().opacity, deltaY);
-    dispatchMachine({
-      type: MACHINE_EVENT_KIND.SET_OPACITY,
-      opacity: nextOpacity,
-    });
-    logger.info("Adjusted overlay opacity", { opacity: nextOpacity, deltaY });
-    updatePointer(screenPoint);
-    return true;
-  }
-
-  function handlePlacementWheel({ deltaY, wheelMode, screenPoint }) {
-    const snapshot = pageAdapter.getSnapshot();
-    const placementState = resolvePlacementEditRenderState({
-      state: getMachineState(),
-      snapshot,
-    });
-    if (!placementState) {
-      return false;
-    }
-    if (wheelMode === WHEEL_MODE.ROTATE_OVERLAY) {
-      const nextRotationRad = rotationFromWheelDelta(placementState.placement.rotationRad, deltaY);
-      const nextPlacement = createRetunedPlacementTransform({
-        state: placementState,
-        snapshot,
-        anchorScreenPx: screenPoint,
-        rotationRad: nextRotationRad,
-      });
-      dispatchMachine({
-        type: MACHINE_EVENT_KIND.APPLY_PLACEMENT_EDIT,
-        renderedPlacement: placementState.placement,
-        placement: nextPlacement,
-        editKind: MACHINE_PLACEMENT_EDIT_KIND.ROTATE,
-      });
-      logger.info("Rotated overlay placement", { rotationRad: nextRotationRad, deltaY });
-    } else if (wheelMode === WHEEL_MODE.ZOOM_OVERLAY) {
-      const screenScale = Math.hypot(placementState.placement.a, placementState.placement.b) * (2 ** snapshot.mapView.zoom);
-      const nextScale = scaleFromWheelDelta(screenScale, deltaY);
-      const nextPlacement = createRetunedPlacementTransform({
-        state: placementState,
-        snapshot,
-        anchorScreenPx: screenPoint,
-        screenScale: nextScale,
-      });
-      dispatchMachine({
-        type: MACHINE_EVENT_KIND.APPLY_PLACEMENT_EDIT,
-        renderedPlacement: placementState.placement,
-        placement: nextPlacement,
-        editKind: MACHINE_PLACEMENT_EDIT_KIND.SCALE,
-      });
-      logger.info("Scaled overlay placement", { scale: nextScale, deltaY });
-    } else {
-      return false;
-    }
-    updatePointer(screenPoint);
-    return true;
   }
 
   function handleKeyDown(event) {
@@ -344,7 +226,7 @@ export function createInteractionController({
       logger.info("Keyboard pin toggle requested", {
         pointerScreenPx: getPointerScreenPx(),
       });
-      togglePinAtScreenPoint(getPointerScreenPx());
+      executePinToggleAtScreenPoint(getPointerScreenPx());
       return;
     }
 
@@ -382,6 +264,18 @@ export function createInteractionController({
       endPointerScreenPx: getPointerScreenPx(),
       pointerScreenPx: null,
     });
+  }
+
+  function logInteractionOutcome(outcome) {
+    if (!outcome.log) {
+      return;
+    }
+    const { level, message, details } = outcome.log;
+    if (details === undefined) {
+      logger[level]?.(message);
+      return;
+    }
+    logger[level]?.(message, details);
   }
 
   function updatePointer(pointerScreenPx) {
@@ -529,63 +423,6 @@ function consumeEvent(event) {
   event.preventDefault?.();
   event.stopPropagation?.();
   event.stopImmediatePropagation?.();
-}
-
-function resolvePinContext({ state, snapshot, screenPoint, pageAdapter }) {
-  if (!hasOverlayImageSession(state)) {
-    return createPinContextFailure("no-image");
-  }
-  const pointerScreenPx = screenPoint;
-  if (!pointerScreenPx) {
-    return createPinContextFailure("no-pointer");
-  }
-
-  const currentTransform = resolveOverlayScreenTransform({
-    state,
-    snapshot,
-  });
-  const imagePx = screenPointToRenderedImagePoint({
-    screenPoint: pointerScreenPx,
-    transform: currentTransform,
-    snapshot,
-  });
-  const image = getOverlayImage(state);
-  if (!isImagePointWithinBounds(imagePx, image)) {
-    return createPinContextFailure("pointer-outside-image", {
-      pointerScreenPx,
-      imagePx,
-    });
-  }
-
-  const renderedPins = buildPinRenderModels({
-    pins: state.registration.pins,
-    transform: currentTransform,
-    projectOverlayScreenPoint: (pinImagePx) => imagePointToRenderedScreenPoint({
-      imagePoint: pinImagePx,
-      transform: currentTransform,
-      snapshot,
-    }),
-  });
-  const existingPin = hitTestPin({
-    screenPoint: pointerScreenPx,
-    renderedPins,
-  });
-
-  return {
-    ok: true,
-    pointerScreenPx,
-    imagePx,
-    mapLatLon: pageAdapter.screenToMap(pointerScreenPx),
-    existingPin,
-  };
-}
-
-function createPinContextFailure(reason, extra = {}) {
-  return {
-    ok: false,
-    reason,
-    ...extra,
-  };
 }
 
 function areInputRuntimesEqual(left, right) {

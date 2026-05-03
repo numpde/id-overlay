@@ -268,6 +268,29 @@ test("interaction adapter does not own placement edit lifecycle semantics", () =
   assert.deepEqual(violations, []);
 });
 
+test("interaction controller shell delegates pin and wheel command semantics", () => {
+  const source = fs.readFileSync(repoPath("src/content/interaction-controller.js"), "utf8");
+  const forbiddenPatterns = [
+    ["direct pin toggle event", /MACHINE_EVENT_KIND\.TOGGLE_PIN/],
+    ["direct opacity event", /MACHINE_EVENT_KIND\.SET_OPACITY/],
+    ["direct placement edit event", /MACHINE_EVENT_KIND\.APPLY_PLACEMENT_EDIT/],
+    ["placement command kind", /\bMACHINE_PLACEMENT_EDIT_KIND\b/],
+    [
+      "pin command geometry",
+      /\b(?:resolvePinContext|buildPinRenderModels|hitTestPin|screenPointToRenderedImagePoint)\b/,
+    ],
+    [
+      "wheel command geometry",
+      /\b(?:resolvePlacementEditRenderState|createRetunedPlacementTransform|opacityFromWheelDelta|rotationFromWheelDelta|scaleFromWheelDelta)\b/,
+    ],
+  ];
+  const violations = forbiddenPatterns
+    .filter(([, pattern]) => pattern.test(source))
+    .map(([name]) => name);
+
+  assert.deepEqual(violations, []);
+});
+
 test("input eligibility is centralized in the input projection", () => {
   const sources = new Map([
     ["src/content/overlay.js", fs.readFileSync(repoPath("src/content/overlay.js"), "utf8")],
