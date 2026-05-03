@@ -602,6 +602,57 @@ test("global pointer listeners retarget when the overlay remounts during a pendi
   }
 });
 
+test("destroy removes pending overlay pointer listeners", async () => {
+  const env = createDomEnvironment({
+    viewportHtml: '<div id="map"></div>',
+  });
+
+  try {
+    const { createOverlay } = await import(`${repoFileUrl("src/content/overlay.js")}?destroy-pending=${Date.now()}`);
+    const map = env.document.getElementById("map");
+    const machineHost = createOverlayMachineHost(createOverlaySession({
+      mode: SESSION_MODE.ALIGN,
+    }));
+    let handledPointerMoveCount = 0;
+    let handledPointerDownCount = 0;
+
+    const overlay = createOverlay({
+      pageAdapter: createStaticOverlayPageAdapter({ map }),
+      machineHost,
+      interactions: createOverlayInteractionsDouble(machineHost, {
+        handlePointerMove() {
+          handledPointerMoveCount += 1;
+        },
+        handlePointerDown() {
+          handledPointerDownCount += 1;
+          return true;
+        },
+      }),
+    });
+
+    map.dispatchEvent(new env.window.MouseEvent("pointerdown", {
+      bubbles: true,
+      cancelable: true,
+      clientX: 512,
+      clientY: 288,
+      button: 0,
+    }));
+    overlay.destroy();
+
+    env.window.dispatchEvent(new env.window.MouseEvent("pointermove", {
+      bubbles: true,
+      cancelable: true,
+      clientX: 520,
+      clientY: 288,
+    }));
+
+    assert.equal(handledPointerMoveCount, 0);
+    assert.equal(handledPointerDownCount, 0);
+  } finally {
+    env.cleanup();
+  }
+});
+
 function createOverlayMachineHost(session) {
   return createMachineHost({ persistedSession: session });
 }
