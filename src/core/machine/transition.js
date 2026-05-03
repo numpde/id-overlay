@@ -1,9 +1,11 @@
 import {
   MACHINE_EVENT_KIND,
   MACHINE_HISTORY_KIND,
+  MACHINE_INPUT_OVERRIDE,
   MACHINE_MODE,
   MACHINE_PANEL_INTENT,
   MACHINE_PLACEMENT_EDIT_KIND,
+  MACHINE_POINTER_GESTURE_KIND,
   MACHINE_STATUS_NOTICE_KIND,
 } from "./events.js";
 import {
@@ -18,6 +20,7 @@ import {
   replacePanel,
   replacePlacementEdit,
   replaceRegistration,
+  replaceInputRuntime,
   replaceSession,
   replaceStatus,
 } from "./state.js";
@@ -69,6 +72,16 @@ function transitionSemantic(state, event) {
       return restoreImageSession(state, event);
     case MACHINE_EVENT_KIND.SELECT_MODE:
       return selectMode(state, event);
+    case MACHINE_EVENT_KIND.UPDATE_POINTER_RUNTIME:
+      return updatePointerRuntime(state, event);
+    case MACHINE_EVENT_KIND.BEGIN_POINTER_GESTURE:
+      return beginPointerGesture(state, event);
+    case MACHINE_EVENT_KIND.END_POINTER_GESTURE:
+      return endPointerGesture(state, event);
+    case MACHINE_EVENT_KIND.SET_INPUT_OVERRIDE:
+      return setInputOverride(state, event);
+    case MACHINE_EVENT_KIND.RESET_INPUT_RUNTIME:
+      return resetInputRuntime(state, event);
     case MACHINE_EVENT_KIND.SET_OPACITY:
       return setOpacity(state, event);
     case MACHINE_EVENT_KIND.TOGGLE_PIN:
@@ -183,7 +196,10 @@ function loadImage(state, event) {
     placement: event.placement ?? null,
     registration: createEmptyRegistration(),
   };
-  const nextState = clearPlacementEditRuntime(replaceSession(state, nextSession));
+  const nextState = resetInputRuntimeState(
+    clearPlacementEditRuntime(replaceSession(state, nextSession)),
+    { pointerScreenPx: null },
+  );
   const panelTransition = clearPanelIntent(state, nextState);
   return createTransitionResult({
     state: panelTransition.state,
@@ -212,12 +228,15 @@ function clearImage(state) {
     });
   }
   const previousSession = state.session;
-  const nextState = clearPlacementEditRuntime(replaceSession(state, {
-    mode: MACHINE_MODE.TRACE,
-    image: null,
-    placement: null,
-    registration: createEmptyRegistration(),
-  }));
+  const nextState = resetInputRuntimeState(
+    clearPlacementEditRuntime(replaceSession(state, {
+      mode: MACHINE_MODE.TRACE,
+      image: null,
+      placement: null,
+      registration: createEmptyRegistration(),
+    })),
+    { pointerScreenPx: null },
+  );
   const panelTransition = clearPanelIntent(state, nextState);
   return createTransitionResult({
     state: panelTransition.state,
@@ -238,9 +257,12 @@ function clearImage(state) {
 }
 
 function restoreImageSession(state, event) {
+  const nextState = resetInputRuntimeState(
+    clearPlacementEditRuntime(replaceSession(state, event.session ?? {})),
+  );
   const panelTransition = clearPanelIntent(
     state,
-    clearPlacementEditRuntime(replaceSession(state, event.session ?? {})),
+    nextState,
   );
   return createTransitionResult({
     state: panelTransition.state,
@@ -269,14 +291,65 @@ function selectMode(state, event) {
   if (mode === MACHINE_MODE.TRACE && shouldFitOnTrace(state)) {
     return fitOverlay(state);
   }
+  const nextState = resetInputRuntimeState(
+    clearPlacementEditRuntime(replaceSession(state, { mode })),
+  );
   const panelTransition = clearInvalidPanelIntent(
     state,
-    clearPlacementEditRuntime(replaceSession(state, { mode })),
+    nextState,
   );
   return createTransitionResult({
     state: panelTransition.state,
     effects: panelTransition.effects,
     statusNotice: createStatusNotice(MACHINE_STATUS_NOTICE_KIND.MODE_SELECTED, { mode }),
+  });
+}
+
+function updatePointerRuntime(state, event) {
+  return createTransitionResult({
+    state: replaceInputRuntime(state, {
+      pointerScreenPx: event.screenPx ?? null,
+    }),
+  });
+}
+
+function beginPointerGesture(state, event) {
+  if (!Object.values(MACHINE_POINTER_GESTURE_KIND).includes(event.gestureKind)) {
+    return createTransitionResult({
+      state,
+    });
+  }
+  return createTransitionResult({
+    state: replaceInputRuntime(state, {
+      pointerScreenPx: event.screenPx ?? null,
+      activeGesture: {
+        kind: event.gestureKind,
+      },
+    }),
+  });
+}
+
+function endPointerGesture(state, event) {
+  return createTransitionResult({
+    state: replaceInputRuntime(state, {
+      pointerScreenPx: event.screenPx ?? null,
+      activeGesture: null,
+    }),
+  });
+}
+
+function setInputOverride(state, event) {
+  const inputOverride = event.inputOverride === MACHINE_INPUT_OVERRIDE.PASS_THROUGH
+    ? MACHINE_INPUT_OVERRIDE.PASS_THROUGH
+    : null;
+  return createTransitionResult({
+    state: replaceInputRuntime(state, { inputOverride }),
+  });
+}
+
+function resetInputRuntime(state, event) {
+  return createTransitionResult({
+    state: resetInputRuntimeState(state, { pointerScreenPx: event.screenPx }),
   });
 }
 
@@ -478,9 +551,12 @@ function fitOverlay(state) {
   const previousSession = state.session;
   const solvedTransform = solveSimilarityTransform(state.session.registration.pins);
   if (!state.session.image || !solvedTransform) {
+    const nextState = resetInputRuntimeState(
+      clearPlacementEditRuntime(replaceSession(state, { mode: MACHINE_MODE.TRACE })),
+    );
     const panelTransition = clearInvalidPanelIntent(
       state,
-      clearPlacementEditRuntime(replaceSession(state, { mode: MACHINE_MODE.TRACE })),
+      nextState,
     );
     return createTransitionResult({
       state: panelTransition.state,
@@ -499,9 +575,12 @@ function fitOverlay(state) {
       dirty: false,
     },
   };
+  const nextState = resetInputRuntimeState(
+    clearPlacementEditRuntime(replaceSession(state, nextSession)),
+  );
   const panelTransition = clearInvalidPanelIntent(
     state,
-    clearPlacementEditRuntime(replaceSession(state, nextSession)),
+    nextState,
   );
   return createTransitionResult({
     state: panelTransition.state,
@@ -701,6 +780,14 @@ function canEditPlacement(state) {
 
 function clearPlacementEditRuntime(state) {
   return state.runtime.placementEdit ? replacePlacementEdit(state, null) : state;
+}
+
+function resetInputRuntimeState(state, { pointerScreenPx = state.runtime.pointer.screenPx } = {}) {
+  return replaceInputRuntime(state, {
+    pointerScreenPx: pointerScreenPx ?? null,
+    activeGesture: null,
+    inputOverride: null,
+  });
 }
 
 function normalizePlacementEditKind(kind) {

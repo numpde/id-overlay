@@ -1,18 +1,10 @@
-import { createValueStore } from "./value-store.js";
 import { createLogger } from "./logger.js";
 import { createRuntimeError, RUNTIME_ERROR_SOURCE } from "./runtime-error.js";
-import {
-  DEFAULT_INTERACTION_RUNTIME,
-  INTERACTION_RUNTIME_ACTION,
-  reduceInteractionRuntime,
-} from "./interaction-runtime.js";
 import {
   DRAG_MODE,
   INTERACTION_EVENT,
   isMapPanDragMode,
   KEYBOARD_SHORTCUT_ACTION,
-  PIN_RESULT_ACTION,
-  PIN_RESULT_REASON,
   WHEEL_MODE,
 } from "./interaction-policy.js";
 import { resolveInputProjection } from "./input-projection.js";
@@ -40,10 +32,17 @@ import {
   screenPointToRenderedImagePoint,
 } from "./transform.js";
 import {
+  MACHINE_INPUT_OVERRIDE,
   MACHINE_EVENT_KIND,
   MACHINE_PLACEMENT_EDIT_KIND,
   MACHINE_STATUS_NOTICE_KIND,
 } from "./machine/events.js";
+import {
+  selectIsInputPassThroughActive,
+  selectIsRuntimeDragging,
+  selectRuntimeGestureKind,
+  selectRuntimePointerScreenPx,
+} from "./machine/selectors.js";
 
 export function createInteractionController({
   machineHost,
@@ -52,15 +51,14 @@ export function createInteractionController({
   keyboardGateway = null,
 }) {
   const logger = createLogger("interactions");
-  const runtimeStore = createValueStore(DEFAULT_INTERACTION_RUNTIME);
   const eventListeners = new Set();
   let dragState = null;
-  let observedSession = machineHost.getState().session;
+  let observedRuntime = machineHost.getState().runtime;
 
   const unsubscribeMachine = machineHost.subscribe((state) => {
-    const previousSession = observedSession;
-    observedSession = state.session;
-    syncRuntimeFromSessionChange(previousSession, state.session);
+    const previousRuntime = observedRuntime;
+    observedRuntime = state.runtime;
+    syncAdapterDragFromRuntimeChange(previousRuntime, state.runtime);
   }, { emitCurrent: false });
   const unsubscribeKeyboardGateway = keyboardGateway?.subscribe?.({
     keydown: handleKeyDown,
@@ -77,8 +75,6 @@ export function createInteractionController({
     keyTarget?.addEventListener?.("blur", handleWindowBlur);
   }
 
-  syncRuntimeFromState();
-
   function destroy() {
     unsubscribeMachine();
     unsubscribeKeyboardGateway?.();
@@ -92,7 +88,18 @@ export function createInteractionController({
   }
 
   function subscribe(listener, options) {
-    return runtimeStore.subscribe(listener, options);
+    const { emitCurrent = true } = options ?? {};
+    let previousRuntime = getRuntimeState();
+    if (emitCurrent) {
+      listener(previousRuntime);
+    }
+    return machineHost.subscribe((state) => {
+      const nextRuntime = state.runtime;
+      if (!areInputRuntimesEqual(previousRuntime, nextRuntime)) {
+        previousRuntime = nextRuntime;
+        listener(nextRuntime);
+      }
+    }, { emitCurrent: false });
   }
 
   function subscribeEvents(listener) {
@@ -103,43 +110,36 @@ export function createInteractionController({
   }
 
   function getRuntimeState() {
-    return runtimeStore.get();
+    return getMachineState().runtime;
   }
 
   function applyMode(mode) {
     return runInteractionBoundary("apply-mode", () => {
       resetInteractionState({
-        pointerScreenPx: runtimeStore.get().pointerScreenPx,
-        isPointerInsideImage: runtimeStore.get().isPointerInsideImage,
+        pointerScreenPx: getPointerScreenPx(),
       });
       dispatchMachine({
         type: MACHINE_EVENT_KIND.SELECT_MODE,
         mode,
       });
       logger.info("Requested mode switch", { mode });
-      syncRuntimeFromState();
       return true;
     });
-  }
-
-  function requestTogglePinAtCurrentPointer() {
-    return togglePinAtCurrentPointer();
   }
 
   function togglePinAtCurrentPointer() {
     const pinContext = resolvePinContext({
       state: getSession(),
-      runtime: runtimeStore.get(),
+      runtime: getRuntimeState(),
       pageAdapter,
     });
     if (!pinContext.ok) {
       logger.warn("Pin toggle requested without a valid pin context", {
         reason: pinContext.reason,
       });
-      return pinContext;
+      return false;
     }
 
-    const previousPins = getSession().registration.pins;
     const preservedPlacement = derivePlacementFromCurrentRenderTransform(getSession());
     const event = {
       type: MACHINE_EVENT_KIND.TOGGLE_PIN,
@@ -149,49 +149,38 @@ export function createInteractionController({
       ...(preservedPlacement ? { preservedPlacement } : {}),
     };
     const result = dispatchMachine(event);
-
-    const pinResult = createPinResultFromTransition({
-      result,
-      pinContext,
-      previousPins,
-    });
-    if (pinResult.ok) {
+    const handled = Boolean(result.historyRecord);
+    if (handled) {
       logger.info("Toggled registration pin", {
-        action: pinResult.action,
-        pinId: pinResult.pin?.id ?? null,
+        pinId: pinContext.existingPin?.id ?? null,
       });
-      dispatchRuntime({
-        type: INTERACTION_RUNTIME_ACTION.UPDATE_POINTER,
-        pointerScreenPx: pinContext.pointerScreenPx,
-        isPointerInsideImage: true,
-      });
+      updatePointer(pinContext.pointerScreenPx);
     }
-    return pinResult;
+    return handled;
   }
 
   function handlePointerEnter(screenPoint) {
-    updatePointer(screenPoint, { isPointerInsideImage: true });
+    updatePointer(screenPoint);
   }
 
   function handlePointerLeave() {
-    if (runtimeStore.get().isDragging) {
+    if (selectIsRuntimeDragging(getRuntimeState())) {
       return;
     }
-    updatePointer(null, { isPointerInsideImage: false });
+    updatePointer(null);
   }
 
   function handlePointerMove(screenPoint) {
     return runInteractionBoundary("handle-pointer-move", () => {
-      const runtime = runtimeStore.get();
-      if (runtime.isDragging && dragState) {
+      const runtime = getRuntimeState();
+      if (selectIsRuntimeDragging(runtime) && dragState) {
         dragTo(screenPoint);
         startDragRuntime(screenPoint, {
-          isPointerInsideImage: true,
           dragMode: dragState.mode,
         });
         return true;
       }
-      updatePointer(screenPoint, { isPointerInsideImage: true });
+      updatePointer(screenPoint);
       return true;
     }, { fallbackValue: false });
   }
@@ -200,7 +189,7 @@ export function createInteractionController({
     return runInteractionBoundary("handle-pointer-down", () => {
       const inputProjection = resolveInputProjection({
         machineState: getMachineState(),
-        runtime: runtimeStore.get(),
+        runtime: getRuntimeState(),
         isPointerOverOverlay: true,
         button,
         shiftKey,
@@ -252,7 +241,6 @@ export function createInteractionController({
         });
       }
       startDragRuntime(screenPoint, {
-        isPointerInsideImage: true,
         dragMode,
       });
       return true;
@@ -273,9 +261,7 @@ export function createInteractionController({
         });
       }
       dragState = null;
-      endDragRuntime(screenPoint, {
-        isPointerInsideImage: true,
-      });
+      endDragRuntime(screenPoint);
       return true;
     }, { fallbackValue: false });
   }
@@ -283,9 +269,8 @@ export function createInteractionController({
   function handlePointerCancel() {
     return runInteractionBoundary("handle-pointer-cancel", () => {
       resetInteractionState({
-        endPointerScreenPx: runtimeStore.get().pointerScreenPx,
+        endPointerScreenPx: getPointerScreenPx(),
         pointerScreenPx: null,
-        isPointerInsideImage: false,
       });
       return true;
     });
@@ -294,7 +279,7 @@ export function createInteractionController({
   function handleWheel({ deltaY, shiftKey, altKey, ctrlKey, screenPoint }) {
     return runInteractionBoundary("handle-wheel", () => {
       const state = getSession();
-      const runtime = runtimeStore.get();
+      const runtime = getRuntimeState();
       const inputProjection = resolveInputProjection({
         machineState: getMachineState(),
         runtime,
@@ -326,7 +311,7 @@ export function createInteractionController({
             renderSource: resolveOverlayRenderSource(state),
           },
         );
-        updatePointer(screenPoint, { isPointerInsideImage: true });
+        updatePointer(screenPoint);
         return true;
       }
 
@@ -337,7 +322,7 @@ export function createInteractionController({
           opacity: nextOpacity,
         });
         logger.info("Adjusted overlay opacity", { opacity: nextOpacity, deltaY });
-        updatePointer(screenPoint, { isPointerInsideImage: true });
+        updatePointer(screenPoint);
         return true;
       }
 
@@ -378,16 +363,16 @@ export function createInteractionController({
         });
         logger.info("Scaled overlay placement", { scale: nextScale, deltaY });
       }
-      updatePointer(screenPoint, { isPointerInsideImage: true });
+      updatePointer(screenPoint);
       return true;
     }, { fallbackValue: false });
   }
 
   function handleDoubleClick(screenPoint) {
     return runInteractionBoundary("handle-double-click", () => {
-      updatePointer(screenPoint, { isPointerInsideImage: true });
-      return requestTogglePinAtCurrentPointer();
-    }, { fallbackValue: createPinFailureResult(PIN_RESULT_REASON.NO_POINTER) });
+      updatePointer(screenPoint);
+      return togglePinAtCurrentPointer();
+    }, { fallbackValue: false });
   }
 
   function handleKeyDown(event) {
@@ -398,7 +383,7 @@ export function createInteractionController({
 
     const keyboardProjection = resolveInputProjection({
       machineState: getMachineState(),
-      runtime: runtimeStore.get(),
+      runtime: getRuntimeState(),
       event,
     }).keyboard;
     const shortcutAction = keyboardProjection.action;
@@ -420,9 +405,9 @@ export function createInteractionController({
 
     if (shortcutAction === KEYBOARD_SHORTCUT_ACTION.TOGGLE_PIN_CURRENT_POINTER) {
       logger.info("Keyboard pin toggle requested", {
-        pointerScreenPx: runtimeStore.get().pointerScreenPx,
+        pointerScreenPx: getPointerScreenPx(),
       });
-      requestTogglePinAtCurrentPointer();
+      togglePinAtCurrentPointer();
       return;
     }
 
@@ -442,7 +427,7 @@ export function createInteractionController({
     const inputProjection = resolveInputProjection({
       machineState: getMachineState(),
       event,
-      runtime: runtimeStore.get(),
+      runtime: getRuntimeState(),
     });
     if (!inputProjection.passThroughRelease.shouldRelease) {
       logger.debug("Ignoring keyup because pass-through is not active for this event", {
@@ -457,9 +442,8 @@ export function createInteractionController({
 
   function handleWindowBlur() {
     resetInteractionState({
-      endPointerScreenPx: runtimeStore.get().pointerScreenPx,
+      endPointerScreenPx: getPointerScreenPx(),
       pointerScreenPx: null,
-      isPointerInsideImage: false,
     });
   }
 
@@ -523,65 +507,33 @@ export function createInteractionController({
     });
   }
 
-  function updatePointer(pointerScreenPx, { isPointerInsideImage }) {
-    dispatchRuntime({
-      type: INTERACTION_RUNTIME_ACTION.UPDATE_POINTER,
-      pointerScreenPx,
-      isPointerInsideImage,
+  function updatePointer(pointerScreenPx) {
+    dispatchMachine({
+      type: MACHINE_EVENT_KIND.UPDATE_POINTER_RUNTIME,
+      screenPx: pointerScreenPx,
     });
   }
 
-  function startDragRuntime(pointerScreenPx, { isPointerInsideImage, dragMode }) {
-    dispatchRuntime({
-      type: INTERACTION_RUNTIME_ACTION.START_DRAG,
-      pointerScreenPx,
-      isPointerInsideImage,
-      dragMode,
+  function startDragRuntime(pointerScreenPx, { dragMode }) {
+    dispatchMachine({
+      type: MACHINE_EVENT_KIND.BEGIN_POINTER_GESTURE,
+      screenPx: pointerScreenPx,
+      gestureKind: dragMode,
     });
   }
 
-  function endDragRuntime(pointerScreenPx, { isPointerInsideImage }) {
-    dispatchRuntime({
-      type: INTERACTION_RUNTIME_ACTION.END_DRAG,
-      pointerScreenPx,
-      isPointerInsideImage,
+  function endDragRuntime(pointerScreenPx) {
+    dispatchMachine({
+      type: MACHINE_EVENT_KIND.END_POINTER_GESTURE,
+      screenPx: pointerScreenPx,
     });
   }
 
   function setPassThrough(isActive) {
-    dispatchRuntime({
-      type: INTERACTION_RUNTIME_ACTION.SET_PASS_THROUGH,
-      isActive,
+    dispatchMachine({
+      type: MACHINE_EVENT_KIND.SET_INPUT_OVERRIDE,
+      inputOverride: isActive ? MACHINE_INPUT_OVERRIDE.PASS_THROUGH : null,
     });
-  }
-
-  function syncRuntimeFromState() {
-    dispatchRuntime({
-      type: INTERACTION_RUNTIME_ACTION.SYNC_FROM_STATE,
-    });
-  }
-
-  function syncRuntimeFromSessionChange(previousSession, nextSession) {
-    const imageWasRemoved = Boolean(previousSession.image) && !nextSession.image;
-    const modeChanged = previousSession.mode !== nextSession.mode;
-    if (!imageWasRemoved && !modeChanged) {
-      syncRuntimeFromState();
-      return;
-    }
-
-    resetInteractionState({
-      endPointerScreenPx: runtimeStore.get().pointerScreenPx,
-      pointerScreenPx: imageWasRemoved ? null : runtimeStore.get().pointerScreenPx,
-      isPointerInsideImage: imageWasRemoved
-        ? false
-        : runtimeStore.get().isPointerInsideImage,
-    });
-  }
-
-  function dispatchRuntime(action) {
-    runtimeStore.set(
-      reduceInteractionRuntime(runtimeStore.get(), action, getSession()),
-    );
   }
 
   function getSession() {
@@ -596,24 +548,46 @@ export function createInteractionController({
     return machineHost.dispatch(event);
   }
 
+  function getPointerScreenPx() {
+    return selectRuntimePointerScreenPx(getRuntimeState());
+  }
+
   function resetInteractionState({
-    endPointerScreenPx = runtimeStore.get().pointerScreenPx,
-    pointerScreenPx = runtimeStore.get().pointerScreenPx,
-    isPointerInsideImage = runtimeStore.get().isPointerInsideImage,
+    endPointerScreenPx = getPointerScreenPx(),
+    pointerScreenPx = getPointerScreenPx(),
   } = {}) {
+    finishAdapterDrag(endPointerScreenPx, { commitPlacement: true });
+    dragState = null;
+    dispatchMachine({
+      type: MACHINE_EVENT_KIND.RESET_INPUT_RUNTIME,
+      screenPx: pointerScreenPx,
+    });
+  }
+
+  function syncAdapterDragFromRuntimeChange(previousRuntime, nextRuntime) {
+    if (
+      !dragState ||
+      !selectIsRuntimeDragging(previousRuntime) ||
+      selectIsRuntimeDragging(nextRuntime)
+    ) {
+      return;
+    }
+    finishAdapterDrag(selectRuntimePointerScreenPx(previousRuntime), {
+      commitPlacement: false,
+    });
+    dragState = null;
+  }
+
+  function finishAdapterDrag(endPointerScreenPx, { commitPlacement }) {
     if (isMapPanDragMode(dragState?.mode)) {
       pageAdapter.endMapPan?.(endPointerScreenPx);
-    } else if (dragState?.mode === DRAG_MODE.MOVE_OVERLAY) {
+      return;
+    }
+    if (commitPlacement && dragState?.mode === DRAG_MODE.MOVE_OVERLAY) {
       dispatchMachine({
         type: MACHINE_EVENT_KIND.COMMIT_PLACEMENT_EDIT,
       });
     }
-    dragState = null;
-    dispatchRuntime({
-      type: INTERACTION_RUNTIME_ACTION.RESET,
-      pointerScreenPx,
-      isPointerInsideImage,
-    });
   }
 
   function emitEvent(event) {
@@ -633,8 +607,7 @@ export function createInteractionController({
   } = {}) {
     if (resetInteraction) {
       resetInteractionState({
-        pointerScreenPx: runtimeStore.get().pointerScreenPx,
-        isPointerInsideImage: runtimeStore.get().isPointerInsideImage,
+        pointerScreenPx: getPointerScreenPx(),
       });
     }
     const runtimeError = createRuntimeError({
@@ -696,7 +669,6 @@ export function createInteractionController({
     handlePointerCancel,
     handleWheel,
     handleDoubleClick,
-    requestTogglePinAtCurrentPointer,
     reportRuntimeError,
   };
 }
@@ -771,15 +743,13 @@ function consumeEvent(event) {
   event.stopImmediatePropagation?.();
 }
 
-export function resolvePinContext({ state, runtime, pageAdapter }) {
+function resolvePinContext({ state, runtime, pageAdapter }) {
   if (!resolveInputProjection({ state, runtime }).overlayPolicy.canEditOverlay) {
-    return createPinFailureResult(
-      hasOverlayImageSession(state) ? PIN_RESULT_REASON.NOT_ALIGN_MODE : PIN_RESULT_REASON.NO_IMAGE,
-    );
+    return createPinContextFailure(hasOverlayImageSession(state) ? "not-align-mode" : "no-image");
   }
-  const pointerScreenPx = runtime.pointerScreenPx;
+  const pointerScreenPx = selectRuntimePointerScreenPx(runtime);
   if (!pointerScreenPx) {
-    return createPinFailureResult(PIN_RESULT_REASON.NO_POINTER);
+    return createPinContextFailure("no-pointer");
   }
 
   const snapshot = pageAdapter.getSnapshot();
@@ -794,7 +764,7 @@ export function resolvePinContext({ state, runtime, pageAdapter }) {
   });
   const image = getOverlayImage(state);
   if (!isImagePointWithinBounds(imagePx, image)) {
-    return createPinFailureResult(PIN_RESULT_REASON.POINTER_OUTSIDE_IMAGE, {
+    return createPinContextFailure("pointer-outside-image", {
       pointerScreenPx,
       imagePx,
     });
@@ -823,15 +793,7 @@ export function resolvePinContext({ state, runtime, pageAdapter }) {
   };
 }
 
-function createPinSuccessResult(action, pin) {
-  return {
-    ok: true,
-    action,
-    pin,
-  };
-}
-
-function createPinFailureResult(reason, extra = {}) {
+function createPinContextFailure(reason, extra = {}) {
   return {
     ok: false,
     reason,
@@ -839,23 +801,13 @@ function createPinFailureResult(reason, extra = {}) {
   };
 }
 
-function findAddedPin(previousPins, nextPins) {
-  const previousIds = new Set(previousPins.map((pin) => pin.id));
-  return nextPins.find((pin) => !previousIds.has(pin.id)) ?? null;
-}
-
-function createPinResultFromTransition({ result, pinContext, previousPins }) {
-  const nextPins = result.state.session.registration.pins;
-  const addedPin = findAddedPin(previousPins, nextPins);
-  const removedExistingPin = pinContext.existingPin &&
-    !nextPins.some((pin) => pin.id === pinContext.existingPin.id);
-  if (removedExistingPin) {
-    return createPinSuccessResult(PIN_RESULT_ACTION.REMOVED, pinContext.existingPin);
-  }
-  if (addedPin) {
-    return createPinSuccessResult(PIN_RESULT_ACTION.ADDED, addedPin);
-  }
-  return createPinFailureResult(PIN_RESULT_REASON.NO_POINTER);
+function areInputRuntimesEqual(left, right) {
+  return (
+    selectRuntimePointerScreenPx(left)?.x === selectRuntimePointerScreenPx(right)?.x &&
+    selectRuntimePointerScreenPx(left)?.y === selectRuntimePointerScreenPx(right)?.y &&
+    selectRuntimeGestureKind(left) === selectRuntimeGestureKind(right) &&
+    selectIsInputPassThroughActive(left) === selectIsInputPassThroughActive(right)
+  );
 }
 
 function resolveKeyEventTargets(keyTarget) {

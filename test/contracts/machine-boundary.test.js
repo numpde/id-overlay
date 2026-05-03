@@ -45,6 +45,7 @@ const LEGACY_BRIDGE_FILES = Object.freeze([
   "src/content/panel-live-effects.js",
   "src/content/status-controller.js",
   "src/core/interaction-mode.js",
+  "src/core/interaction-runtime.js",
   "src/core/machine-store-adapter.js",
   "src/core/panel-state.js",
   "src/core/presentation.js",
@@ -181,6 +182,8 @@ test("interaction adapter does not own registration solve or pin mutation semant
   const forbiddenPatterns = [
     ["direct add/remove/restore events", /MACHINE_EVENT_KIND\.(?:ADD_PIN|REMOVE_PIN|RESTORE_REGISTRATION)/],
     ["registration solver import", /\bsolveSimilarityTransform\b/],
+    ["public pin/solve result vocabulary", /\b(?:PIN_RESULT_(?:ACTION|REASON)|SOLVE_RESULT_REASON)\b/],
+    ["public pin toggle command", /\brequestTogglePinAtCurrentPointer\b/],
     ["controller solve method", /\bsolveRegistrationFromCurrentState\b|\bcomputeTransform\b/],
     ["controller pin clearing method", /\bfunction\s+clearPins\b/],
     ["controller image load/clear methods", /\bfunction\s+(?:loadImage|clearImage)\b/],
@@ -188,6 +191,27 @@ test("interaction adapter does not own registration solve or pin mutation semant
   const violations = forbiddenPatterns
     .filter(([, pattern]) => pattern.test(source))
     .map(([name]) => name);
+
+  assert.deepEqual(violations, []);
+});
+
+test("input runtime is machine-owned, not an interaction-side reducer", () => {
+  const forbiddenPatterns = [
+    ["interaction runtime reducer", /\breduceInteractionRuntime\b/],
+    ["interaction runtime action enum", /\bINTERACTION_RUNTIME_ACTION\b/],
+    ["interaction runtime default state", /\bDEFAULT_INTERACTION_RUNTIME\b/],
+    ["standalone interaction runtime import", /interaction-runtime\.js/],
+    ["legacy boolean runtime projection", /\b(?:isDragging|isPassThroughActive|isPointerInsideImage)\b/],
+  ];
+  const violations = [];
+  for (const filePath of listJavaScriptFiles(repoPath("src"))) {
+    const source = fs.readFileSync(filePath, "utf8");
+    for (const [name, pattern] of forbiddenPatterns) {
+      if (pattern.test(source)) {
+        violations.push(`${path.relative(repoPath(), filePath)}: ${name}`);
+      }
+    }
+  }
 
   assert.deepEqual(violations, []);
 });

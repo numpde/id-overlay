@@ -1,7 +1,6 @@
+import { MACHINE_POINTER_GESTURE_KIND } from "./machine/events.js";
+
 export const KEYBOARD_SHORTCUT_ACTION = Object.freeze({
-  // Final semantic-history shape: shortcut actions are adapter vocabulary.
-  // They should map to canonical UI events before causing user-visible state
-  // changes.
   TOGGLE_PIN_CURRENT_POINTER: "toggle-pin-current-pointer",
   SWITCH_TO_TRACE: "switch-to-trace",
   ENABLE_PASS_THROUGH: "enable-pass-through",
@@ -11,27 +10,7 @@ export const INTERACTION_EVENT = Object.freeze({
   RUNTIME_ERROR: "runtime-error",
 });
 
-export const PIN_RESULT_ACTION = Object.freeze({
-  ADDED: "added",
-  REMOVED: "removed",
-});
-
-export const PIN_RESULT_REASON = Object.freeze({
-  POINTER_OUTSIDE_IMAGE: "pointer-outside-image",
-  NOT_ALIGN_MODE: "not-align-mode",
-  NO_IMAGE: "no-image",
-  NO_POINTER: "no-pointer",
-});
-
-export const SOLVE_RESULT_REASON = Object.freeze({
-  INSUFFICIENT_PINS: "insufficient-pins",
-  SOLVE_FAILED: "solve-failed",
-});
-
-export const DRAG_MODE = Object.freeze({
-  MOVE_OVERLAY: "move-overlay",
-  MAP_PAN: "map-pan",
-});
+export const DRAG_MODE = MACHINE_POINTER_GESTURE_KIND;
 
 export const WHEEL_MODE = Object.freeze({
   MAP_ZOOM: "map-zoom",
@@ -42,21 +21,6 @@ export const WHEEL_MODE = Object.freeze({
 
 export function isMapPanDragMode(dragMode) {
   return dragMode === DRAG_MODE.MAP_PAN;
-}
-
-export function doesDragEditPlacement(dragMode) {
-  return dragMode === DRAG_MODE.MOVE_OVERLAY;
-}
-
-export function doesWheelEditPlacement(wheelMode) {
-  return (
-    wheelMode === WHEEL_MODE.ZOOM_OVERLAY ||
-    wheelMode === WHEEL_MODE.ROTATE_OVERLAY
-  );
-}
-
-export function doesWheelEditOpacity(wheelMode) {
-  return wheelMode === WHEEL_MODE.ADJUST_OPACITY;
 }
 
 export function resolveDragMode({ shiftKey }) {

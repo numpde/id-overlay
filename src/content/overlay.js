@@ -12,10 +12,9 @@ import {
 } from "../core/transform.js";
 import { getOverlayImage, hasOverlayImageSession } from "../core/session.js";
 import {
-  getRuntimePointerScreenPx,
-  isRuntimeDragging,
-  isRuntimePointerInsideImage,
-} from "../core/interaction-runtime.js";
+  selectIsRuntimeDragging,
+  selectRuntimePointerScreenPx,
+} from "../core/machine/selectors.js";
 import { resolveInputProjection } from "../core/input-projection.js";
 import {
   beginOverlayPointerSequence,
@@ -370,7 +369,7 @@ export function createOverlay({ pageAdapter, machineHost, interactions }) {
         return;
       }
       const screenPoint = toGlobalScreenPoint(event);
-      if (isRuntimeDragging(latestRuntime)) {
+      if (selectIsRuntimeDragging(latestRuntime)) {
         interactions.handlePointerMove?.(screenPoint);
         consumeOverlayEvent(event);
         return;
@@ -385,7 +384,7 @@ export function createOverlay({ pageAdapter, machineHost, interactions }) {
         interactions.handlePointerMove?.(screenPoint);
         return;
       }
-      if (getRuntimePointerScreenPx(latestRuntime) || isRuntimePointerInsideImage(latestRuntime)) {
+      if (selectRuntimePointerScreenPx(latestRuntime)) {
         interactions.handlePointerLeave?.();
       }
     });
@@ -393,7 +392,7 @@ export function createOverlay({ pageAdapter, machineHost, interactions }) {
 
   function handleMountedPointerLeave() {
     runOverlayBoundary("mounted-pointer-leave", null, () => {
-      if (isRuntimeDragging(latestRuntime)) {
+      if (selectIsRuntimeDragging(latestRuntime)) {
         return;
       }
       interactions.handlePointerLeave?.();
@@ -439,11 +438,10 @@ export function createOverlay({ pageAdapter, machineHost, interactions }) {
       if (!activationPolicy.shouldTogglePin) {
         return;
       }
-      const result = interactions.handleDoubleClick(screenPoint);
-      consumeOverlayEvent(event);
-      if (!result.ok) {
+      if (!interactions.handleDoubleClick(screenPoint)) {
         return;
       }
+      consumeOverlayEvent(event);
     });
   }
 
@@ -549,7 +547,7 @@ export function createOverlay({ pageAdapter, machineHost, interactions }) {
         }
         setPendingPointerSequence(clearOverlayPointerSequence());
       }
-      if (!isRuntimeDragging(latestRuntime)) {
+      if (!selectIsRuntimeDragging(latestRuntime)) {
         syncGlobalPointerListeners();
         return;
       }
@@ -568,7 +566,7 @@ export function createOverlay({ pageAdapter, machineHost, interactions }) {
         consumeOverlayEvent(event);
         return;
       }
-      if (!isRuntimeDragging(latestRuntime)) {
+      if (!selectIsRuntimeDragging(latestRuntime)) {
         syncGlobalPointerListeners();
         return;
       }
@@ -635,7 +633,7 @@ export function createOverlay({ pageAdapter, machineHost, interactions }) {
   function syncGlobalPointerListeners() {
     const shouldListenGlobally = (
       hasPendingOverlayPointerSequence(pendingPointerSequence) ||
-      isRuntimeDragging(latestRuntime)
+      selectIsRuntimeDragging(latestRuntime)
     );
     if (shouldListenGlobally) {
       attachGlobalPointerListeners();

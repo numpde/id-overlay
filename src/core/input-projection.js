@@ -1,4 +1,3 @@
-import { isRuntimePassThroughActive } from "./interaction-runtime.js";
 import {
   KEYBOARD_SHORTCUT_ACTION,
   WHEEL_MODE,
@@ -6,7 +5,10 @@ import {
   resolveWheelMode,
   shouldIgnoreKeyboardShortcut,
 } from "./interaction-policy.js";
-import { selectOverlayPolicy } from "./machine/selectors.js";
+import {
+  selectIsInputPassThroughActive,
+  selectOverlayPolicy,
+} from "./machine/selectors.js";
 import { isAlignMode } from "./session.js";
 
 export function resolveInputProjection({
@@ -125,6 +127,6 @@ function resolveKeyboardProjection({ event, overlayPolicy }) {
 function resolvePassThroughOverrideRelease({ event, session, runtime }) {
   return (
     event?.code === "Space" &&
-    (isAlignMode(session.mode) || isRuntimePassThroughActive(runtime))
+    (isAlignMode(session.mode) || selectIsInputPassThroughActive(runtime))
   );
 }

@@ -1,4 +1,5 @@
 import {
+  MACHINE_INPUT_OVERRIDE,
   MACHINE_MODE,
   MACHINE_PANEL_INTENT,
   MACHINE_PLACEMENT_EDIT_KIND,
@@ -122,8 +123,7 @@ export function selectOverlayPolicy(state, runtime = null) {
   const hasImage = Boolean(session.image);
   const mode = session.mode;
   const runtimeState = runtime ?? state.runtime ?? null;
-  const hasInputPassThrough = runtimeState?.inputOverride === "pass-through" ||
-    runtimeState?.isPassThroughActive === true;
+  const hasInputPassThrough = runtimeState?.inputOverride === MACHINE_INPUT_OVERRIDE.PASS_THROUGH;
   const isNativeMapInput = !hasImage || mode === MACHINE_MODE.TRACE;
   const canEditOverlay = hasImage && mode === MACHINE_MODE.ALIGN;
   return {
@@ -135,6 +135,26 @@ export function selectOverlayPolicy(state, runtime = null) {
     arePinsVisible: canEditOverlay,
     ownsPointerHitTesting: canEditOverlay && !hasInputPassThrough,
   };
+}
+
+export function selectRuntimePointerScreenPx(stateOrRuntime) {
+  const runtime = stateOrRuntime?.runtime ?? stateOrRuntime;
+  return runtime?.pointer?.screenPx ?? null;
+}
+
+export function selectRuntimeGestureKind(stateOrRuntime) {
+  const runtime = stateOrRuntime?.runtime ?? stateOrRuntime;
+  return runtime?.activeGesture?.kind ?? null;
+}
+
+export function selectIsRuntimeDragging(stateOrRuntime) {
+  const runtime = stateOrRuntime?.runtime ?? stateOrRuntime;
+  return Boolean(runtime?.activeGesture);
+}
+
+export function selectIsInputPassThroughActive(stateOrRuntime) {
+  const runtime = stateOrRuntime?.runtime ?? stateOrRuntime;
+  return runtime?.inputOverride === MACHINE_INPUT_OVERRIDE.PASS_THROUGH;
 }
 
 export function formatStatusNotice(notice, state = null) {

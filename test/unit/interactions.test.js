@@ -3,13 +3,6 @@ import assert from "node:assert/strict";
 
 import { createInteractionController } from "../../src/core/interactions.js";
 import {
-  INTERACTION_RUNTIME_ACTION,
-  reduceInteractionRuntime,
-} from "../../src/core/interaction-runtime.js";
-import {
-  doesDragEditPlacement,
-  doesWheelEditOpacity,
-  doesWheelEditPlacement,
   DRAG_MODE,
   INTERACTION_EVENT,
   isMapPanDragMode,
@@ -27,6 +20,7 @@ import {
 import {
   MACHINE_EVENT_KIND,
   MACHINE_HISTORY_KIND,
+  MACHINE_INPUT_OVERRIDE,
   MACHINE_STATUS_NOTICE_KIND,
   createMachineHost,
   selectStatus,
@@ -188,9 +182,8 @@ test("double-click adds a pin at the correct image and map coordinates", () => {
   const { controller, store } = harness;
   seedMachineImageSession(harness);
 
-  const result = controller.handleDoubleClick({ x: 600, y: 320 });
-  assert.equal(result.ok, true);
-  assert.equal(result.action, "added");
+  const handled = controller.handleDoubleClick({ x: 600, y: 320 });
+  assert.equal(handled, true);
   assert.equal(store.getState().registration.pins.length, 1);
   assert.deepEqual(store.getState().registration.pins[0], {
     id: 1,
@@ -210,9 +203,9 @@ test("interaction boundaries emit a runtime error event instead of throwing raw 
   });
   seedMachineImageSession(harness);
 
-  const result = controller.handleDoubleClick({ x: 600, y: 320 });
+  const handled = controller.handleDoubleClick({ x: 600, y: 320 });
 
-  assert.equal(result.ok, false);
+  assert.equal(handled, false);
   assert.equal(events.length, 1);
   assert.equal(events[0].type, INTERACTION_EVENT.RUNTIME_ERROR);
   assert.equal(events[0].error.source, RUNTIME_ERROR_SOURCE.INTERACTIONS);
@@ -227,10 +220,9 @@ test("double-click on an existing pin removes it", () => {
   seedMachineImageSession(harness);
 
   controller.handleDoubleClick({ x: 600, y: 320 });
-  const result = controller.handleDoubleClick({ x: 600, y: 320 });
+  const handled = controller.handleDoubleClick({ x: 600, y: 320 });
 
-  assert.equal(result.ok, true);
-  assert.equal(result.action, "removed");
+  assert.equal(handled, true);
   assert.equal(store.getState().registration.pins.length, 0);
 });
 
@@ -249,52 +241,39 @@ test("machine fit event solves from interaction-created pins and clears the dirt
   assert.ok(store.getState().registration.solvedTransform);
 });
 
-test("interaction runtime transitions are single-source through the runtime reducer", () => {
-  const state = createEmptySession({
-    mode: SESSION_MODE.ALIGN,
-    image: TEST_IMAGE,
+test("input runtime transitions are canonical machine transitions", () => {
+  const machineHost = createMachineHost();
+
+  machineHost.dispatch({
+    type: MACHINE_EVENT_KIND.UPDATE_POINTER_RUNTIME,
+    screenPx: { x: 500, y: 300 },
   });
-  const baseRuntime = {
-    // Final semantic-history shape: this fixture is raw interaction runtime.
-    // Keep tests here focused on adapter/input state.
-    isDragging: false,
-    isPassThroughActive: false,
-    isPointerInsideImage: false,
-    pointerScreenPx: null,
-    dragMode: null,
-  };
+  assert.deepEqual(machineHost.getState().runtime.pointer.screenPx, { x: 500, y: 300 });
 
-  const synced = reduceInteractionRuntime(baseRuntime, {
-    type: INTERACTION_RUNTIME_ACTION.SYNC_FROM_STATE,
-  }, state);
-  assert.equal(synced.isDragging, false);
+  machineHost.dispatch({
+    type: MACHINE_EVENT_KIND.BEGIN_POINTER_GESTURE,
+    screenPx: { x: 510, y: 305 },
+    gestureKind: DRAG_MODE.MAP_PAN,
+  });
+  assert.deepEqual(machineHost.getState().runtime.pointer.screenPx, { x: 510, y: 305 });
+  assert.deepEqual(machineHost.getState().runtime.activeGesture, { kind: DRAG_MODE.MAP_PAN });
 
-  const dragging = reduceInteractionRuntime(synced, {
-    type: INTERACTION_RUNTIME_ACTION.START_DRAG,
-    pointerScreenPx: { x: 500, y: 300 },
-    isPointerInsideImage: true,
-    dragMode: DRAG_MODE.MAP_PAN,
-  }, state);
-  assert.deepEqual(dragging.pointerScreenPx, { x: 500, y: 300 });
-  assert.equal(dragging.isDragging, true);
-  assert.equal(dragging.dragMode, DRAG_MODE.MAP_PAN);
+  machineHost.dispatch({
+    type: MACHINE_EVENT_KIND.SET_INPUT_OVERRIDE,
+    inputOverride: MACHINE_INPUT_OVERRIDE.PASS_THROUGH,
+  });
+  assert.equal(machineHost.getState().runtime.inputOverride, MACHINE_INPUT_OVERRIDE.PASS_THROUGH);
 
-  const reset = reduceInteractionRuntime(dragging, {
-    type: INTERACTION_RUNTIME_ACTION.RESET,
-    pointerScreenPx: null,
-    isPointerInsideImage: false,
-  }, state);
-  assert.equal(reset.isDragging, false);
-  assert.equal(reset.dragMode, null);
-  assert.equal(reset.isPassThroughActive, false);
-  assert.equal(reset.pointerScreenPx, null);
-
-  const unchanged = reduceInteractionRuntime(reset, {
-    type: INTERACTION_RUNTIME_ACTION.UPDATE_POINTER,
-    pointerScreenPx: null,
-    isPointerInsideImage: false,
-  }, state);
-  assert.equal(unchanged, reset);
+  machineHost.dispatch({
+    type: MACHINE_EVENT_KIND.RESET_INPUT_RUNTIME,
+    screenPx: null,
+  });
+  assert.deepEqual(machineHost.getState().runtime, {
+    pointer: { screenPx: null },
+    activeGesture: null,
+    inputOverride: null,
+    placementEdit: null,
+  });
 });
 
 test("adding a pin preserves the current rendered placement after a solved transform exists", () => {
@@ -714,16 +693,14 @@ test("switching mode clears pass-through and ends any active map pan through one
     mode: SESSION_MODE.TRACE,
   });
 
-  assert.equal(controller.getRuntimeState().isDragging, false);
-  assert.equal(controller.getRuntimeState().dragMode, null);
-  assert.equal(controller.getRuntimeState().isPassThroughActive, false);
+  assert.equal(controller.getRuntimeState().activeGesture, null);
+  assert.equal(controller.getRuntimeState().inputOverride, null);
   assert.deepEqual(adapterCalls.mapPan.ends, [{ x: 520, y: 310 }]);
 });
 
 test("clearing the image resets runtime and ends any active map pan through one transition path", () => {
-  // Final semantic-history shape: runtime cleanup can remain interaction-side,
-  // but clear-image semantics and history should be reducer-owned rather than
-  // routed through an interaction-controller convenience API.
+  // The machine owns runtime cleanup; the interaction adapter only releases
+  // page-adapter resources tied to the ended gesture.
   const harness = createHarness();
   const { controller, adapterCalls, store, machineHost } = harness;
   seedMachineImageSession(harness);
@@ -737,18 +714,13 @@ test("clearing the image resets runtime and ends any active map pan through one 
   machineHost.dispatch({ type: MACHINE_EVENT_KIND.CLEAR_IMAGE });
 
   assert.equal(store.getState().image, null);
-  assert.equal(controller.getRuntimeState().isDragging, false);
-  assert.equal(controller.getRuntimeState().dragMode, null);
-  assert.equal(controller.getRuntimeState().isPassThroughActive, false);
-  assert.equal(controller.getRuntimeState().pointerScreenPx, null);
-  assert.equal(controller.getRuntimeState().isPointerInsideImage, false);
+  assert.equal(controller.getRuntimeState().activeGesture, null);
+  assert.equal(controller.getRuntimeState().inputOverride, null);
+  assert.equal(controller.getRuntimeState().pointer.screenPx, null);
   assert.deepEqual(adapterCalls.mapPan.ends, [{ x: 520, y: 310 }]);
 });
 
 test("space activates temporary pass-through while aligning", () => {
-  // Final semantic-history shape: this remains keyboard/runtime plumbing
-  // coverage. User-visible pass-through status should be asserted through
-  // canonical UI runtime projection.
   const keyTarget = createKeyTarget();
   const harness = createHarness({ keyTarget });
   const { controller } = harness;
@@ -756,18 +728,17 @@ test("space activates temporary pass-through while aligning", () => {
 
   const keydown = createKeyEvent({ code: "Space" });
   keyTarget.dispatch("keydown", keydown);
-  assert.equal(controller.getRuntimeState().isPassThroughActive, true);
+  assert.equal(controller.getRuntimeState().inputOverride, MACHINE_INPUT_OVERRIDE.PASS_THROUGH);
   assert.equal(keydown.prevented, true);
   assert.equal(keydown.stopped, true);
   assert.equal(keydown.immediatelyStopped, true);
   keyTarget.dispatch("keyup", { code: "Space" });
-  assert.equal(controller.getRuntimeState().isPassThroughActive, false);
+  assert.equal(controller.getRuntimeState().inputOverride, null);
 });
 
 test("pressing P toggles a pin at the current pointer location", () => {
-  // Final semantic-history shape: KeyP should eventually assert dispatch of a
-  // semantic pin-toggle event, not direct mutation through the interaction
-  // adapter.
+  // Keyboard delivery is adapter plumbing; the pin mutation itself is still a
+  // canonical machine transition.
   const keyTarget = createKeyTarget();
   const harness = createHarness({ keyTarget });
   const { controller, store } = harness;
@@ -911,35 +882,35 @@ test("align capability helpers are the single source of truth for editability", 
   assert.equal(
     resolveInputProjection({
       state: { mode: "align", image: { src: "x" } },
-      runtime: { isPassThroughActive: false },
+      runtime: createInputRuntime(),
     }).overlayPolicy.ownsPointerHitTesting,
     true,
   );
   assert.equal(
     resolveInputProjection({
       state: { mode: "align", image: { src: "x" } },
-      runtime: { isPassThroughActive: true },
+      runtime: createInputRuntime({ passThrough: true }),
     }).overlayPolicy.ownsPointerHitTesting,
     false,
   );
   assert.equal(
     resolveInputProjection({
       state: { mode: "align", image: { src: "x" } },
-      runtime: { isPassThroughActive: false },
+      runtime: createInputRuntime(),
     }).overlayPolicy.ownsPointerHitTesting,
     true,
   );
   assert.equal(
     resolveInputProjection({
       state: { mode: "align", image: { src: "x" } },
-      runtime: { isPassThroughActive: true },
+      runtime: createInputRuntime({ passThrough: true }),
     }).overlayPolicy.ownsPointerHitTesting,
     false,
   );
   assert.equal(
     resolveInputProjection({
       state: { mode: "trace", image: { src: "x" } },
-      runtime: { isPassThroughActive: false },
+      runtime: createInputRuntime(),
     }).overlayPolicy.ownsPointerHitTesting,
     false,
   );
@@ -948,23 +919,13 @@ test("align capability helpers are the single source of truth for editability", 
 test("gesture ownership helpers are the single source of truth for map-vs-overlay ownership", () => {
   assert.equal(isMapPanDragMode(DRAG_MODE.MAP_PAN), true);
   assert.equal(isMapPanDragMode(DRAG_MODE.MOVE_OVERLAY), false);
-
-  assert.equal(doesDragEditPlacement(DRAG_MODE.MOVE_OVERLAY), true);
-  assert.equal(doesDragEditPlacement(DRAG_MODE.MAP_PAN), false);
-
-  assert.equal(doesWheelEditPlacement("zoom-overlay"), true);
-  assert.equal(doesWheelEditPlacement("rotate-overlay"), true);
-  assert.equal(doesWheelEditPlacement("map-zoom"), false);
-  assert.equal(doesWheelEditPlacement("adjust-opacity"), false);
-  assert.equal(doesWheelEditOpacity("adjust-opacity"), true);
-  assert.equal(doesWheelEditOpacity("map-zoom"), false);
 });
 
 test("wheel capability is single-source across modes and modifiers", () => {
   assert.equal(
     resolveInputProjection({
       state: { mode: "align", image: { src: "x" } },
-      runtime: { isPassThroughActive: false },
+      runtime: createInputRuntime(),
       isPointerOverOverlay: true,
       wheelMode: "map-zoom",
     }).wheel.shouldHandle,
@@ -973,7 +934,7 @@ test("wheel capability is single-source across modes and modifiers", () => {
   assert.equal(
     resolveInputProjection({
       state: { mode: "trace", image: { src: "x" } },
-      runtime: { isPassThroughActive: false },
+      runtime: createInputRuntime(),
       isPointerOverOverlay: true,
       wheelMode: "map-zoom",
     }).wheel.shouldHandle,
@@ -982,7 +943,7 @@ test("wheel capability is single-source across modes and modifiers", () => {
   assert.equal(
     resolveInputProjection({
       state: { mode: "trace", image: { src: "x" } },
-      runtime: { isPassThroughActive: false },
+      runtime: createInputRuntime(),
       isPointerOverOverlay: true,
       wheelMode: "adjust-opacity",
     }).wheel.shouldHandle,
@@ -992,7 +953,7 @@ test("wheel capability is single-source across modes and modifiers", () => {
 
 test("overlay wheel policy is single-source", () => {
   const state = { mode: "align", image: { src: "x" }, opacity: 0.6 };
-  const runtime = { isPassThroughActive: false };
+  const runtime = createInputRuntime();
 
   assert.deepEqual(
     resolveInputProjection({
@@ -1031,7 +992,7 @@ test("overlay wheel policy is single-source", () => {
 
 test("overlay pointer move policy is single-source", () => {
   const state = { mode: "align", image: { src: "x" } };
-  const runtime = { isPassThroughActive: false };
+  const runtime = createInputRuntime();
 
   assert.deepEqual(
     resolveInputProjection({
@@ -1070,7 +1031,7 @@ test("overlay pointer move policy is single-source", () => {
 
 test("overlay pointer sequence policy is single-source", () => {
   const state = { mode: "align", image: { src: "x" } };
-  const runtime = { isPassThroughActive: false };
+  const runtime = createInputRuntime();
 
   assert.deepEqual(
     resolveInputProjection({
@@ -1131,7 +1092,7 @@ test("overlay pointer sequence policy is single-source", () => {
 
 test("overlay activation policy is single-source", () => {
   const state = { mode: "align", image: { src: "x" } };
-  const runtime = { isPassThroughActive: false };
+  const runtime = createInputRuntime();
 
   assert.deepEqual(
     resolveInputProjection({
@@ -1195,7 +1156,7 @@ test("map pan does nothing when the page adapter cannot start it", () => {
 
   assert.equal(handled, false);
   assert.deepEqual(store.getState().placement, initialPlacement);
-  assert.equal(controller.getRuntimeState().isDragging, false);
+  assert.equal(controller.getRuntimeState().activeGesture, null);
   assert.deepEqual(adapterCalls.mapPan.starts, [{ x: 500, y: 300 }]);
 });
 
@@ -1225,7 +1186,7 @@ test("pass-through release stays active until the runtime says it can be release
     resolveInputProjection({
       event: createKeyEvent({ code: "Space" }),
       state: { mode: "align" },
-      runtime: { isPassThroughActive: false },
+      runtime: createInputRuntime(),
     }).passThroughRelease.shouldRelease,
     true,
   );
@@ -1233,7 +1194,7 @@ test("pass-through release stays active until the runtime says it can be release
     resolveInputProjection({
       event: createKeyEvent({ code: "Space" }),
       state: { mode: "trace" },
-      runtime: { isPassThroughActive: true },
+      runtime: createInputRuntime({ passThrough: true }),
     }).passThroughRelease.shouldRelease,
     true,
   );
@@ -1241,7 +1202,7 @@ test("pass-through release stays active until the runtime says it can be release
     resolveInputProjection({
       event: createKeyEvent({ code: "KeyP" }),
       state: { mode: "align" },
-      runtime: { isPassThroughActive: true },
+      runtime: createInputRuntime({ passThrough: true }),
     }).passThroughRelease.shouldRelease,
     false,
   );
@@ -1289,6 +1250,15 @@ function createHarness({
     keyTarget,
     adapterCalls,
     pageAdapter,
+  };
+}
+
+function createInputRuntime({ passThrough = false } = {}) {
+  return {
+    pointer: { screenPx: null },
+    activeGesture: null,
+    inputOverride: passThrough ? MACHINE_INPUT_OVERRIDE.PASS_THROUGH : null,
+    placementEdit: null,
   };
 }
 

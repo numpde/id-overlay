@@ -20,7 +20,6 @@ test("chrome build output includes the manifest and source tree", async () => {
     "src/core/build-info.js",
     "src/core/logger.js",
     "src/core/session.js",
-    "src/core/value-store.js",
   ]) {
     const stat = await fs.stat(repoPath("dist", requiredPath));
     assert.ok(stat.isFile(), `${requiredPath} should exist in dist`);

@@ -3,15 +3,12 @@ import assert from "node:assert/strict";
 
 import { createDomEnvironment } from "../helpers/dom-env.js";
 import { repoFileUrl } from "../helpers/paths.js";
+import { createInteractionController } from "../../src/core/interactions.js";
 import { MACHINE_EVENT_KIND } from "../../src/core/machine/events.js";
 import { createMachineHost } from "../../src/core/machine/host.js";
 import { createPlacementTransform } from "../../src/core/transform.js";
-import { createValueStore } from "../../src/core/value-store.js";
 
 test("overlay double-click toggles pins through the interaction controller", async () => {
-  // Final semantic-history shape: this should assert adapter routing from
-  // double-click to a canonical pin-toggle event, not an imperative
-  // interaction-controller method.
   const env = createDomEnvironment();
 
   try {
@@ -35,15 +32,6 @@ test("overlay double-click toggles pins through the interaction controller", asy
       }),
     });
 
-    const runtimeStore = createValueStore({
-      isDragging: false,
-      isPointerInsideImage: true,
-      isPassThroughActive: false,
-      pointerScreenPx: null,
-      dragMode: null,
-    });
-
-    const callLog = [];
     let mapClickCount = 0;
     let mapDoubleClickCount = 0;
     map.addEventListener("click", () => {
@@ -52,51 +40,49 @@ test("overlay double-click toggles pins through the interaction controller", asy
     map.addEventListener("dblclick", () => {
       mapDoubleClickCount += 1;
     });
-    const overlay = createOverlay({
-      pageAdapter: {
-        getSnapshot() {
-          return {
-            viewportElement: map,
-            mountElement: map,
-            viewportRect: { left: 100, top: 200, width: 800, height: 400 },
-            localViewportRect: { left: 0, top: 0, width: 800, height: 400 },
-            mapView: { center: { lat: 0, lon: 0 }, zoom: 16 },
-            surfaceMotion: { transformCss: "none", transformOriginCss: "0px 0px" },
-          };
-        },
-        subscribe(listener) {
-          listener(this.getSnapshot());
-          return () => {};
-        },
-        clientPointToScreen(point) {
-          return point;
-        },
-        mapToScreen(point) {
-          return {
-            x: 428 + point.lon * 50,
-            y: 208 - point.lat * 50,
-          };
-        },
-        mapToOverlayLayerScreen(point) {
-          return this.mapToScreen(point);
-        },
+    const pageAdapter = {
+      getSnapshot() {
+        return {
+          viewportElement: map,
+          mountElement: map,
+          viewportRect: { left: 100, top: 200, width: 800, height: 400 },
+          localViewportRect: { left: 0, top: 0, width: 800, height: 400 },
+          mapView: { center: { lat: 0, lon: 0 }, zoom: 16 },
+          surfaceMotion: { transformCss: "none", transformOriginCss: "0px 0px" },
+        };
       },
+      subscribe(listener) {
+        listener(this.getSnapshot());
+        return () => {};
+      },
+      clientPointToScreen(point) {
+        return point;
+      },
+      mapToScreen(point) {
+        return {
+          x: 428 + point.lon * 50,
+          y: 208 - point.lat * 50,
+        };
+      },
+      mapToOverlayLayerScreen(point) {
+        return this.mapToScreen(point);
+      },
+      screenToMap(point) {
+        return {
+          lat: (208 - point.y) / 50,
+          lon: (point.x - 428) / 50,
+        };
+      },
+    };
+    const interactions = createInteractionController({
       machineHost,
-      interactions: {
-        getRuntimeState() {
-          return runtimeStore.get();
-        },
-        subscribe(listener) {
-          return runtimeStore.subscribe(listener);
-        },
-        handlePointerMove(point) {
-          callLog.push(["move", point]);
-        },
-        handleDoubleClick(point) {
-          callLog.push(["double-click", point]);
-          return { ok: true };
-        },
-      },
+      pageAdapter,
+      keyTarget: env.window,
+    });
+    const overlay = createOverlay({
+      pageAdapter,
+      machineHost,
+      interactions,
     });
 
     const event = new env.window.MouseEvent("dblclick", {
@@ -107,7 +93,11 @@ test("overlay double-click toggles pins through the interaction controller", asy
     });
     map.dispatchEvent(event);
 
-    assert.deepEqual(callLog, [["double-click", { x: 512, y: 288 }]]);
+    assert.deepEqual(machineHost.getState().session.registration.pins, [{
+      id: 1,
+      imagePx: { x: 412, y: 88 },
+      mapLatLon: { lat: -1.6, lon: 1.68 },
+    }]);
     assert.equal(event.defaultPrevented, true);
     assert.equal(mapDoubleClickCount, 0);
 
@@ -122,6 +112,7 @@ test("overlay double-click toggles pins through the interaction controller", asy
     assert.equal(mapClickCount, 0);
 
     overlay.destroy();
+    interactions.destroy();
   } finally {
     env.cleanup();
   }
@@ -156,13 +147,7 @@ test("handled overlay wheel gestures do not bubble into the underlying map", asy
         zoom: 16,
       }),
     });
-    const runtimeStore = createValueStore({
-      isDragging: false,
-      isPointerInsideImage: true,
-      isPassThroughActive: false,
-      pointerScreenPx: null,
-      dragMode: null,
-    });
+    const runtimeStore = createOverlayRuntimeHarness();
 
     let mapWheelCount = 0;
     map.addEventListener("wheel", () => {
@@ -218,7 +203,7 @@ test("handled overlay wheel gestures do not bubble into the underlying map", asy
           return true;
         },
         handleDoubleClick() {
-          return { ok: false };
+          return false;
         },
       },
     });
@@ -269,13 +254,7 @@ test("plain wheel over the overlay in align mode is forwarded manually and does 
         zoom: 16,
       }),
     });
-    const runtimeStore = createValueStore({
-      isDragging: false,
-      isPointerInsideImage: true,
-      isPassThroughActive: false,
-      pointerScreenPx: null,
-      dragMode: null,
-    });
+    const runtimeStore = createOverlayRuntimeHarness();
 
     let mapWheelCount = 0;
     let handledWheelCount = 0;
@@ -332,7 +311,7 @@ test("plain wheel over the overlay in align mode is forwarded manually and does 
           return true;
         },
         handleDoubleClick() {
-          return { ok: false };
+          return false;
         },
       },
     });
@@ -360,6 +339,32 @@ function createOverlayMachineHost(session) {
   return createMachineHost({ persistedSession: session });
 }
 
+function createOverlayRuntimeHarness(initialRuntime = createIdleMachineRuntime()) {
+  let runtime = initialRuntime;
+  const listeners = new Set();
+  return {
+    get() {
+      return runtime;
+    },
+    subscribe(listener, { emitCurrent = true } = {}) {
+      listeners.add(listener);
+      if (emitCurrent) {
+        listener(runtime);
+      }
+      return () => listeners.delete(listener);
+    },
+  };
+}
+
+function createIdleMachineRuntime() {
+  return {
+    pointer: { screenPx: null },
+    activeGesture: null,
+    inputOverride: null,
+    placementEdit: null,
+  };
+}
+
 test("alt-wheel in trace mode is captured from the map layer when the pointer is over the overlay", async () => {
   const env = createDomEnvironment({
     viewportHtml: '<div id="map"></div>',
@@ -384,13 +389,7 @@ test("alt-wheel in trace mode is captured from the map layer when the pointer is
         zoom: 16,
       }),
     });
-    const runtimeStore = createValueStore({
-      isDragging: false,
-      isPointerInsideImage: false,
-      isPassThroughActive: false,
-      pointerScreenPx: null,
-      dragMode: null,
-    });
+    const runtimeStore = createOverlayRuntimeHarness();
 
     const callLog = [];
     let mapWheelCount = 0;
@@ -448,7 +447,7 @@ test("alt-wheel in trace mode is captured from the map layer when the pointer is
           return true;
         },
         handleDoubleClick() {
-          return { ok: false };
+          return false;
         },
       },
     });
@@ -503,13 +502,7 @@ test("align-mode overlay pointerdown owns the click sequence and does not bubble
         zoom: 16,
       }),
     });
-    const runtimeStore = createValueStore({
-      isDragging: false,
-      isPointerInsideImage: true,
-      isPassThroughActive: false,
-      pointerScreenPx: null,
-      dragMode: null,
-    });
+    const runtimeStore = createOverlayRuntimeHarness();
 
     let mapPointerDownCount = 0;
     let handledPointerDownCount = 0;
@@ -558,7 +551,7 @@ test("align-mode overlay pointerdown owns the click sequence and does not bubble
           return false;
         },
         handleDoubleClick() {
-          return { ok: false };
+          return false;
         },
       },
     });
@@ -606,13 +599,7 @@ test("plain pointerdown over the overlay in align mode owns the click sequence w
         zoom: 16,
       }),
     });
-    const runtimeStore = createValueStore({
-      isDragging: false,
-      isPointerInsideImage: true,
-      isPassThroughActive: false,
-      pointerScreenPx: null,
-      dragMode: null,
-    });
+    const runtimeStore = createOverlayRuntimeHarness();
 
     let mapPointerDownCount = 0;
     let handledPointerMoveCount = 0;
@@ -663,7 +650,7 @@ test("plain pointerdown over the overlay in align mode owns the click sequence w
           return false;
         },
         handleDoubleClick() {
-          return { ok: false };
+          return false;
         },
       },
     });
@@ -723,13 +710,7 @@ test("trace-mode solved transform follows map view changes from the page adapter
       },
     });
 
-    const runtimeStore = createValueStore({
-      isDragging: false,
-      isPointerInsideImage: false,
-      isPassThroughActive: false,
-      pointerScreenPx: null,
-      dragMode: null,
-    });
+    const runtimeStore = createOverlayRuntimeHarness();
 
     let snapshot = {
       viewportElement: env.document.getElementById("map") ?? env.document.body,
@@ -777,7 +758,7 @@ test("trace-mode solved transform follows map view changes from the page adapter
           return false;
         },
         handleDoubleClick() {
-          return { ok: false };
+          return false;
         },
       },
     });
@@ -848,13 +829,7 @@ test("trace-mode overlay applies live surface motion from the page adapter", asy
       },
     });
 
-    const runtimeStore = createValueStore({
-      isDragging: false,
-      isPointerInsideImage: false,
-      isPassThroughActive: false,
-      pointerScreenPx: null,
-      dragMode: null,
-    });
+    const runtimeStore = createOverlayRuntimeHarness();
 
     let snapshot = {
       viewportElement: env.document.getElementById("map") ?? env.document.body,
@@ -910,7 +885,7 @@ test("trace-mode overlay applies live surface motion from the page adapter", asy
           return false;
         },
         handleDoubleClick() {
-          return { ok: false };
+          return false;
         },
       },
     });

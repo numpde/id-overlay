@@ -5,6 +5,11 @@ export const MACHINE_EVENT_KIND = Object.freeze({
   CLEAR_IMAGE: "clear-image",
   RESTORE_IMAGE_SESSION: "restore-image-session",
   SELECT_MODE: "select-mode",
+  UPDATE_POINTER_RUNTIME: "update-pointer-runtime",
+  BEGIN_POINTER_GESTURE: "begin-pointer-gesture",
+  END_POINTER_GESTURE: "end-pointer-gesture",
+  SET_INPUT_OVERRIDE: "set-input-override",
+  RESET_INPUT_RUNTIME: "reset-input-runtime",
   SET_OPACITY: "set-opacity",
   TOGGLE_PIN: "toggle-pin",
   ADD_PIN: "add-pin",
@@ -71,6 +76,15 @@ export const MACHINE_PLACEMENT_EDIT_KIND = Object.freeze({
   MOVE: "move",
   ROTATE: "rotate",
   SCALE: "scale",
+});
+
+export const MACHINE_POINTER_GESTURE_KIND = Object.freeze({
+  MAP_PAN: "map-pan",
+  MOVE_OVERLAY: "move-overlay",
+});
+
+export const MACHINE_INPUT_OVERRIDE = Object.freeze({
+  PASS_THROUGH: "pass-through",
 });
 
 export function createLoadImageEvent({

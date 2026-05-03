@@ -9,8 +9,10 @@ import {
   normalizeSessionOpacity,
 } from "../session.js";
 import {
+  MACHINE_INPUT_OVERRIDE,
   MACHINE_PANEL_INTENT,
   MACHINE_PLACEMENT_EDIT_KIND,
+  MACHINE_POINTER_GESTURE_KIND,
   MACHINE_STATUS_NOTICE_KIND,
 } from "./events.js";
 
@@ -144,15 +146,45 @@ export function replacePlacementEdit(state, placementEdit) {
   return replaceRuntime(state, { placementEdit });
 }
 
+export function replaceInputRuntime(state, {
+  pointerScreenPx = state.runtime.pointer.screenPx,
+  activeGesture = state.runtime.activeGesture,
+  inputOverride = state.runtime.inputOverride,
+} = {}) {
+  return replaceRuntime(state, {
+    pointer: {
+      screenPx: pointerScreenPx,
+    },
+    activeGesture,
+    inputOverride,
+  });
+}
+
 function normalizeRuntime(runtime = {}) {
   return {
     pointer: {
       screenPx: normalizePoint(runtime.pointer?.screenPx),
     },
-    activeGesture: runtime.activeGesture ?? null,
-    inputOverride: runtime.inputOverride ?? null,
+    activeGesture: normalizeActiveGesture(runtime.activeGesture),
+    inputOverride: normalizeInputOverride(runtime.inputOverride),
     placementEdit: normalizePlacementEdit(runtime.placementEdit),
   };
+}
+
+function normalizeActiveGesture(activeGesture) {
+  if (!activeGesture || typeof activeGesture !== "object") {
+    return null;
+  }
+  if (!Object.values(MACHINE_POINTER_GESTURE_KIND).includes(activeGesture.kind)) {
+    return null;
+  }
+  return {
+    kind: activeGesture.kind,
+  };
+}
+
+function normalizeInputOverride(inputOverride) {
+  return inputOverride === MACHINE_INPUT_OVERRIDE.PASS_THROUGH ? inputOverride : null;
 }
 
 function normalizeStatus(status = {}) {
