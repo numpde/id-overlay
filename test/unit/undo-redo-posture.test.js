@@ -12,7 +12,7 @@ import {
 } from "../../src/core/machine/state.js";
 import {
   selectPanelView,
-} from "../../src/core/machine/selectors.js";
+} from "../../src/content/panel-view-model.js";
 import { transitionMachine } from "../../src/core/machine/transition.js";
 import { normalizeSessionImage } from "../../src/core/session.js";
 

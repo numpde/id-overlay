@@ -1,6 +1,7 @@
 import { cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { createChromeManifest } from "./chrome-manifest.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, "..");
@@ -13,8 +14,12 @@ async function main() {
   const manifestSource = path.join(root, "manifest.chrome.json");
   const manifestTarget = path.join(distDir, "manifest.json");
   const manifestBuffer = await readFile(manifestSource);
-  await writeFile(manifestTarget, manifestBuffer);
   const manifest = JSON.parse(String(manifestBuffer));
+  const chromeManifest = await createChromeManifest({
+    root,
+    sourceManifest: manifest,
+  });
+  await writeFile(manifestTarget, `${JSON.stringify(chromeManifest, null, 2)}\n`);
 
   for (const entry of ["src", "assets"]) {
     const source = path.join(root, entry);
@@ -34,7 +39,7 @@ async function main() {
     buildInfoTarget,
     [
       "export const BUILD_INFO = Object.freeze({",
-      `  version: ${JSON.stringify(manifest.version)},`,
+      `  version: ${JSON.stringify(chromeManifest.version)},`,
       `  builtAt: ${JSON.stringify(builtAt)},`,
       "});",
       "",

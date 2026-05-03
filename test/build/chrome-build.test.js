@@ -3,12 +3,17 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 
 import { DIST_DIR, repoPath } from "../helpers/paths.js";
+import { createChromeManifest } from "../../scripts/chrome-manifest.mjs";
 
 test("chrome build output includes the manifest and source tree", async () => {
   const distManifest = JSON.parse(await fs.readFile(repoPath("dist", "manifest.json"), "utf8"));
   const sourceManifest = JSON.parse(await fs.readFile(repoPath("manifest.chrome.json"), "utf8"));
 
-  assert.deepEqual(distManifest, sourceManifest);
+  assert.deepEqual(distManifest, await createChromeManifest({
+    root: repoPath(),
+    sourceManifest,
+  }));
+  assert.ok(distManifest.web_accessible_resources[0].resources.includes("src/content/main.js"));
 
   for (const requiredPath of [
     "src/content/content.js",

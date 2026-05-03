@@ -14,10 +14,12 @@ import {
 } from "../../src/core/machine/policy.js";
 import {
   selectOverlayPresentation,
-  selectPanelView,
   selectIsCurrentPanelRequest,
-  selectStatus,
 } from "../../src/core/machine/selectors.js";
+import {
+  selectPanelView,
+  selectStatus,
+} from "../../src/content/panel-view-model.js";
 import { createInitialMachineState } from "../../src/core/machine/state.js";
 import { transitionMachine } from "../../src/core/machine/transition.js";
 import { normalizeSessionImage } from "../../src/core/session.js";

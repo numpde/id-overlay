@@ -9,7 +9,7 @@ import {
 import { MACHINE_EFFECT_KIND } from "../../src/core/machine/effects.js";
 import {
   selectStatus,
-} from "../../src/core/machine/selectors.js";
+} from "../../src/content/panel-view-model.js";
 import { createInitialMachineState } from "../../src/core/machine/state.js";
 import { transitionMachine } from "../../src/core/machine/transition.js";
 

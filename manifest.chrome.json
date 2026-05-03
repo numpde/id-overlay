@@ -19,48 +19,5 @@
       ],
       "run_at": "document_start"
     }
-  ],
-  "web_accessible_resources": [
-    {
-      "resources": [
-        "src/content/content.css",
-        "src/content/main.js",
-        "src/content/panel.js",
-        "src/content/overlay.js",
-        "src/content/page-adapter.js",
-        "src/content/paste-adapter.js",
-        "src/platform/browser-image-normalization.js",
-        "src/platform/keyboard-listeners.js",
-        "src/platform/storage.js",
-        "src/core/build-info.js",
-        "src/core/logger.js",
-        "src/core/runtime-error.js",
-        "src/core/interaction-policy.js",
-        "src/core/input-projection.js",
-        "src/core/session.js",
-        "src/core/overlay-pointer-sequence.js",
-        "src/core/image-policy.js",
-        "src/core/image-normalization.js",
-        "src/core/geometry.js",
-        "src/core/transform.js",
-        "src/core/interactions.js",
-        "src/core/placement-edit-render-state.js",
-        "src/core/machine/effect-runner.js",
-        "src/core/machine/effects.js",
-        "src/core/machine/events.js",
-        "src/core/machine/history.js",
-        "src/core/machine/host.js",
-        "src/core/machine/paste-outcome.js",
-        "src/core/machine/persistence.js",
-        "src/core/machine/policy.js",
-        "src/core/machine/runtime.js",
-        "src/core/machine/selectors.js",
-        "src/core/machine/state.js",
-        "src/core/machine/transition.js"
-      ],
-      "matches": [
-        "https://www.openstreetmap.org/*"
-      ]
-    }
   ]
 }

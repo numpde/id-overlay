@@ -5,7 +5,7 @@ import {
 } from "../core/machine/events.js";
 import {
   selectPanelView,
-} from "../core/machine/selectors.js";
+} from "./panel-view-model.js";
 import { formatBuildLabel } from "../core/logger.js";
 
 const PANEL_MARGIN_PX = 8;

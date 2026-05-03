@@ -27,7 +27,7 @@ import {
 import { createMachineHost } from "../../src/core/machine/host.js";
 import {
   selectStatus,
-} from "../../src/core/machine/selectors.js";
+} from "../../src/content/panel-view-model.js";
 import { createInitialMachineState } from "../../src/core/machine/state.js";
 import {
   createPlacementScreenTransform,
