@@ -23,7 +23,6 @@ import { RUNTIME_ERROR_SOURCE } from "../../src/core/runtime-error.js";
 import {
   SESSION_MODE,
   createEmptySession,
-  nextSessionMode,
 } from "../../src/core/session.js";
 import {
   MACHINE_EVENT_KIND,
@@ -42,43 +41,16 @@ import {
   screenPointToImagePoint,
 } from "../../src/core/transform.js";
 
-test("nextSessionMode toggles between align and trace", () => {
-  assert.equal(nextSessionMode(SESSION_MODE.TRACE), SESSION_MODE.ALIGN);
-  assert.equal(nextSessionMode(SESSION_MODE.ALIGN), SESSION_MODE.TRACE);
-});
-
-test("loading an image seeds align mode and the current map center placement", () => {
-  const { controller, store, machineHost } = createHarness();
-
-  controller.loadImage({
-    src: "data:image/png;base64,abc",
-    width: 800,
-    height: 400,
-  });
-
-  const state = store.getState();
-  assert.equal(state.mode, "align");
-  const transform = createPlacementScreenTransform({
-    snapshot: {
-      viewportRect: { left: 100, top: 100, width: 800, height: 400 },
-      mapView: { center: { lat: -1.23, lon: 36.84 }, zoom: 16 },
-    },
-    placement: state.placement,
-  });
-  assert.deepEqual(imagePointToScreenPoint({
-    imagePoint: { x: 400, y: 200 },
-    transform,
-  }), { x: 500, y: 300 });
-  assert.equal(state.registration.pins.length, 0);
+const TEST_IMAGE = Object.freeze({
+  src: "data:image/png;base64,abc",
+  width: 800,
+  height: 400,
 });
 
 test("shift-dragging updates placement through the adapter only", () => {
-  const { controller, store, machineHost } = createHarness();
-  controller.loadImage({
-    src: "data:image/png;base64,abc",
-    width: 800,
-    height: 400,
-  });
+  const harness = createHarness();
+  const { controller, store, machineHost } = harness;
+  seedMachineImageSession(harness);
 
   controller.handlePointerDown({
     button: 0,
@@ -142,14 +114,11 @@ test("shift-dragging stays anchored to the visible overlay under live surface mo
       transformOriginCss: "0px 0px",
     },
   };
-  const { controller, store, pageAdapter } = createHarness({
+  const harness = createHarness({
     snapshot: surfaceMotionSnapshot,
   });
-  controller.loadImage({
-    src: "data:image/png;base64,abc",
-    width: 800,
-    height: 400,
-  });
+  const { controller, store, pageAdapter } = harness;
+  seedMachineImageSession(harness);
 
   const beforeTransform = resolveOverlayScreenTransform({
     state: store.getState(),
@@ -188,12 +157,9 @@ test("shift-dragging stays anchored to the visible overlay under live surface mo
 });
 
 test("plain drag uses the map-pan adapter path and keeps placement unchanged", () => {
-  const { controller, store, adapterCalls } = createHarness();
-  controller.loadImage({
-    src: "data:image/png;base64,abc",
-    width: 800,
-    height: 400,
-  });
+  const harness = createHarness();
+  const { controller, store, adapterCalls } = harness;
+  seedMachineImageSession(harness);
   const initialPlacement = store.getState().placement;
 
   controller.handlePointerDown({
@@ -218,12 +184,9 @@ test("plain drag uses the map-pan adapter path and keeps placement unchanged", (
 });
 
 test("double-click adds a pin at the correct image and map coordinates", () => {
-  const { controller, store } = createHarness();
-  controller.loadImage({
-    src: "data:image/png;base64,abc",
-    width: 800,
-    height: 400,
-  });
+  const harness = createHarness();
+  const { controller, store } = harness;
+  seedMachineImageSession(harness);
 
   const result = controller.handleDoubleClick({ x: 600, y: 320 });
   assert.equal(result.ok, true);
@@ -237,18 +200,15 @@ test("double-click adds a pin at the correct image and map coordinates", () => {
 });
 
 test("interaction boundaries emit a runtime error event instead of throwing raw adapter failures", () => {
-  const { controller, machineHost } = createHarness({
+  const harness = createHarness({
     screenToMapThrows: new Error("adapter exploded"),
   });
+  const { controller, machineHost } = harness;
   const events = [];
   controller.subscribeEvents((event) => {
     events.push(event);
   });
-  controller.loadImage({
-    src: "data:image/png;base64,abc",
-    width: 800,
-    height: 400,
-  });
+  seedMachineImageSession(harness);
 
   const result = controller.handleDoubleClick({ x: 600, y: 320 });
 
@@ -262,12 +222,9 @@ test("interaction boundaries emit a runtime error event instead of throwing raw 
 });
 
 test("double-click on an existing pin removes it", () => {
-  const { controller, store } = createHarness();
-  controller.loadImage({
-    src: "data:image/png;base64,abc",
-    width: 800,
-    height: 400,
-  });
+  const harness = createHarness();
+  const { controller, store } = harness;
+  seedMachineImageSession(harness);
 
   controller.handleDoubleClick({ x: 600, y: 320 });
   const result = controller.handleDoubleClick({ x: 600, y: 320 });
@@ -277,19 +234,17 @@ test("double-click on an existing pin removes it", () => {
   assert.equal(store.getState().registration.pins.length, 0);
 });
 
-test("computeTransform solves from pins and clears the dirty flag", () => {
-  const { controller, store } = createHarness();
-  controller.loadImage({
-    src: "data:image/png;base64,abc",
-    width: 800,
-    height: 400,
-  });
+test("machine fit event solves from interaction-created pins and clears the dirty flag", () => {
+  const harness = createHarness();
+  const { controller, store } = harness;
+  seedMachineImageSession(harness);
 
   controller.handleDoubleClick({ x: 500, y: 300 });
   controller.handleDoubleClick({ x: 700, y: 300 });
 
-  const result = controller.computeTransform();
-  assert.equal(result.ok, true);
+  const result = dispatchMachineFitOverlayForSetup(harness);
+
+  assert.ok(result.state.session.registration.solvedTransform);
   assert.equal(store.getState().registration.dirty, false);
   assert.ok(store.getState().registration.solvedTransform);
 });
@@ -297,11 +252,7 @@ test("computeTransform solves from pins and clears the dirty flag", () => {
 test("interaction runtime transitions are single-source through the runtime reducer", () => {
   const state = createEmptySession({
     mode: SESSION_MODE.ALIGN,
-    image: {
-      src: "data:image/png;base64,abc",
-      width: 800,
-      height: 400,
-    },
+    image: TEST_IMAGE,
   });
   const baseRuntime = {
     // Final semantic-history shape: this fixture is raw interaction runtime.
@@ -347,16 +298,13 @@ test("interaction runtime transitions are single-source through the runtime redu
 });
 
 test("adding a pin preserves the current rendered placement after a solved transform exists", () => {
-  const { controller, store, pageAdapter } = createHarness();
-  controller.loadImage({
-    src: "data:image/png;base64,abc",
-    width: 800,
-    height: 400,
-  });
+  const harness = createHarness();
+  const { controller, store, pageAdapter } = harness;
+  seedMachineImageSession(harness);
 
   controller.handleDoubleClick({ x: 500, y: 300 });
   controller.handleDoubleClick({ x: 700, y: 300 });
-  controller.computeTransform();
+  seedMachineSolvedRegistrationForAlignSetup(harness);
 
   const before = resolveOverlayScreenTransform({
     state: store.getState(),
@@ -376,16 +324,13 @@ test("adding a pin preserves the current rendered placement after a solved trans
 });
 
 test("removing a pin preserves the current rendered placement after a solved transform exists", () => {
-  const { controller, store, pageAdapter } = createHarness();
-  controller.loadImage({
-    src: "data:image/png;base64,abc",
-    width: 800,
-    height: 400,
-  });
+  const harness = createHarness();
+  const { controller, store, pageAdapter } = harness;
+  seedMachineImageSession(harness);
 
   controller.handleDoubleClick({ x: 500, y: 300 });
   controller.handleDoubleClick({ x: 700, y: 300 });
-  controller.computeTransform();
+  seedMachineSolvedRegistrationForAlignSetup(harness);
 
   const before = resolveOverlayScreenTransform({
     state: store.getState(),
@@ -405,23 +350,20 @@ test("removing a pin preserves the current rendered placement after a solved tra
 });
 
 test("clearing pins preserves the current rendered placement after a solved transform exists", () => {
-  const { controller, store, pageAdapter } = createHarness();
-  controller.loadImage({
-    src: "data:image/png;base64,abc",
-    width: 800,
-    height: 400,
-  });
+  const harness = createHarness();
+  const { controller, store, pageAdapter } = harness;
+  seedMachineImageSession(harness);
 
   controller.handleDoubleClick({ x: 500, y: 300 });
   controller.handleDoubleClick({ x: 700, y: 300 });
-  controller.computeTransform();
+  seedMachineSolvedRegistrationForAlignSetup(harness);
 
   const before = resolveOverlayScreenTransform({
     state: store.getState(),
     snapshot: pageAdapter.getSnapshot(),
   });
 
-  controller.clearPins();
+  dispatchMachineClearPinsPreservingRenderedPlacement(harness);
 
   const after = resolveOverlayScreenTransform({
     state: store.getState(),
@@ -437,16 +379,13 @@ test("clearing pins preserves the current rendered placement after a solved tran
 });
 
 test("ctrl-wheel rotates the overlay only and marks a solved transform dirty again", () => {
-  const { controller, store, machineHost } = createHarness();
-  controller.loadImage({
-    src: "data:image/png;base64,abc",
-    width: 800,
-    height: 400,
-  });
+  const harness = createHarness();
+  const { controller, store, machineHost } = harness;
+  seedMachineImageSession(harness);
 
   controller.handleDoubleClick({ x: 500, y: 300 });
   controller.handleDoubleClick({ x: 700, y: 300 });
-  controller.computeTransform();
+  seedMachineSolvedRegistrationForAlignSetup(harness);
   assert.equal(store.getState().registration.dirty, false);
 
   controller.handleWheel({
@@ -477,12 +416,9 @@ test("ctrl-wheel rotates the overlay only and marks a solved transform dirty aga
 });
 
 test("ctrl-wheel rotates around the image point under the mouse", () => {
-  const { controller, store, pageAdapter } = createHarness();
-  controller.loadImage({
-    src: "data:image/png;base64,abc",
-    width: 800,
-    height: 400,
-  });
+  const harness = createHarness();
+  const { controller, store, pageAdapter } = harness;
+  seedMachineImageSession(harness);
 
   const anchorScreenPoint = { x: 650, y: 260 };
   const beforeTransform = resolveOverlayScreenTransform({
@@ -516,12 +452,9 @@ test("ctrl-wheel rotates around the image point under the mouse", () => {
 });
 
 test("plain wheel zooms the map only and leaves overlay placement unchanged", () => {
-  const { controller, store, adapterCalls } = createHarness();
-  controller.loadImage({
-    src: "data:image/png;base64,abc",
-    width: 800,
-    height: 400,
-  });
+  const harness = createHarness();
+  const { controller, store, adapterCalls } = harness;
+  seedMachineImageSession(harness);
 
   const initialPlacement = store.getState().placement;
   controller.handleWheel({
@@ -539,12 +472,9 @@ test("plain wheel zooms the map only and leaves overlay placement unchanged", ()
 });
 
 test("shift-wheel scales around the image point under the mouse", () => {
-  const { controller, store, pageAdapter, machineHost } = createHarness();
-  controller.loadImage({
-    src: "data:image/png;base64,abc",
-    width: 800,
-    height: 400,
-  });
+  const harness = createHarness();
+  const { controller, store, pageAdapter, machineHost } = harness;
+  seedMachineImageSession(harness);
 
   const anchorScreenPoint = { x: 650, y: 260 };
   const initialPlacement = store.getState().placement;
@@ -592,16 +522,13 @@ test("shift-wheel scales around the image point under the mouse", () => {
 });
 
 test("map pan/zoom gestures keep a solved transform clean until overlay-only editing begins", () => {
-  const { controller, store, adapterCalls } = createHarness();
-  controller.loadImage({
-    src: "data:image/png;base64,abc",
-    width: 800,
-    height: 400,
-  });
+  const harness = createHarness();
+  const { controller, store, adapterCalls } = harness;
+  seedMachineImageSession(harness);
 
   controller.handleDoubleClick({ x: 500, y: 300 });
   controller.handleDoubleClick({ x: 700, y: 300 });
-  controller.computeTransform();
+  seedMachineSolvedRegistrationForAlignSetup(harness);
 
   const solvedPlacement = store.getState().placement;
   assert.equal(store.getState().registration.dirty, false);
@@ -637,12 +564,9 @@ test("map pan/zoom gestures keep a solved transform clean until overlay-only edi
 });
 
 test("ctrl-wheel rotates the overlay without zooming the map", () => {
-  const { controller, store, adapterCalls } = createHarness();
-  controller.loadImage({
-    src: "data:image/png;base64,abc",
-    width: 800,
-    height: 400,
-  });
+  const harness = createHarness();
+  const { controller, store, adapterCalls } = harness;
+  seedMachineImageSession(harness);
 
   controller.handleWheel({
     deltaY: 100,
@@ -657,12 +581,9 @@ test("ctrl-wheel rotates the overlay without zooming the map", () => {
 });
 
 test("alt-wheel adjusts the overlay opacity in align mode without zooming the map", () => {
-  const { controller, store, adapterCalls } = createHarness();
-  controller.loadImage({
-    src: "data:image/png;base64,abc",
-    width: 800,
-    height: 400,
-  });
+  const harness = createHarness();
+  const { controller, store, adapterCalls } = harness;
+  seedMachineImageSession(harness);
 
   const initialOpacity = store.getState().opacity;
   controller.handleWheel({
@@ -680,13 +601,13 @@ test("alt-wheel adjusts the overlay opacity in align mode without zooming the ma
 });
 
 test("alt-wheel adjusts the overlay opacity in trace mode", () => {
-  const { controller, store, adapterCalls } = createHarness();
-  controller.loadImage({
-    src: "data:image/png;base64,abc",
-    width: 800,
-    height: 400,
+  const harness = createHarness();
+  const { controller, store, adapterCalls, machineHost } = harness;
+  seedMachineImageSession(harness);
+  machineHost.dispatch({
+    type: MACHINE_EVENT_KIND.SELECT_MODE,
+    mode: SESSION_MODE.TRACE,
   });
-  controller.toggleMode();
 
   const initialOpacity = store.getState().opacity;
   const handled = controller.handleWheel({
@@ -705,12 +626,9 @@ test("alt-wheel adjusts the overlay opacity in trace mode", () => {
 });
 
 test("opacity changes do not create undo steps and survive placement undo", () => {
-  const { controller, store, machineHost } = createHarness();
-  controller.loadImage({
-    src: "data:image/png;base64,abc",
-    width: 800,
-    height: 400,
-  });
+  const harness = createHarness();
+  const { controller, store, machineHost } = harness;
+  seedMachineImageSession(harness);
 
   const initialOpacity = store.getState().opacity;
   controller.handleWheel({
@@ -738,22 +656,22 @@ test("opacity changes do not create undo steps and survive placement undo", () =
   assert.equal(store.getState().opacity, adjustedOpacity);
 });
 
-test("toggleing to trace auto-computes a dirty transform when enough pins exist", () => {
+test("toggling to trace auto-computes a dirty transform when enough pins exist", () => {
   // Final semantic-history shape: keep the visible solve behavior, but assert
   // it as an undoable fit-overlay transition rather than an untracked side
   // effect of toggling mode.
-  const { controller, store } = createHarness();
-  controller.loadImage({
-    src: "data:image/png;base64,abc",
-    width: 800,
-    height: 400,
-  });
+  const harness = createHarness();
+  const { controller, store, machineHost } = harness;
+  seedMachineImageSession(harness);
 
   controller.handleDoubleClick({ x: 500, y: 300 });
   controller.handleDoubleClick({ x: 700, y: 300 });
   assert.equal(store.getState().registration.dirty, true);
 
-  controller.toggleMode();
+  machineHost.dispatch({
+    type: MACHINE_EVENT_KIND.SELECT_MODE,
+    mode: SESSION_MODE.TRACE,
+  });
 
   assert.equal(store.getState().mode, "trace");
   assert.equal(store.getState().registration.dirty, false);
@@ -761,13 +679,14 @@ test("toggleing to trace auto-computes a dirty transform when enough pins exist"
 });
 
 test("clearing pins emits no low-level telemetry when nothing changed", () => {
-  const { controller } = createHarness();
+  const harness = createHarness();
+  const { controller, machineHost } = harness;
   const events = [];
   controller.subscribeEvents((event) => {
     events.push(event);
   });
 
-  controller.clearPins();
+  machineHost.dispatch({ type: MACHINE_EVENT_KIND.CLEAR_PINS });
 
   assert.deepEqual(events, []);
 });
@@ -775,14 +694,11 @@ test("clearing pins emits no low-level telemetry when nothing changed", () => {
 test("switching mode clears pass-through and ends any active map pan through one transition path", () => {
   // Final semantic-history shape: keep the low-level runtime reset guarantee,
   // but mode switching itself should be triggered through canonical
-  // MODE_SELECTED events, not controller.toggleMode().
+  // SELECT_MODE events.
   const keyTarget = createKeyTarget();
-  const { controller, adapterCalls } = createHarness({ keyTarget });
-  controller.loadImage({
-    src: "data:image/png;base64,abc",
-    width: 800,
-    height: 400,
-  });
+  const harness = createHarness({ keyTarget });
+  const { controller, adapterCalls, machineHost } = harness;
+  seedMachineImageSession(harness);
 
   controller.handlePointerDown({
     button: 0,
@@ -793,7 +709,10 @@ test("switching mode clears pass-through and ends any active map pan through one
   controller.handlePointerEnter({ x: 520, y: 310 });
   keyTarget.dispatch("keydown", createKeyEvent({ code: "Space" }));
 
-  controller.toggleMode();
+  machineHost.dispatch({
+    type: MACHINE_EVENT_KIND.SELECT_MODE,
+    mode: SESSION_MODE.TRACE,
+  });
 
   assert.equal(controller.getRuntimeState().isDragging, false);
   assert.equal(controller.getRuntimeState().dragMode, null);
@@ -804,13 +723,10 @@ test("switching mode clears pass-through and ends any active map pan through one
 test("clearing the image resets runtime and ends any active map pan through one transition path", () => {
   // Final semantic-history shape: runtime cleanup can remain interaction-side,
   // but clear-image semantics and history should be reducer-owned rather than
-  // driven by controller.clearImage().
-  const { controller, adapterCalls, store } = createHarness();
-  controller.loadImage({
-    src: "data:image/png;base64,abc",
-    width: 800,
-    height: 400,
-  });
+  // routed through an interaction-controller convenience API.
+  const harness = createHarness();
+  const { controller, adapterCalls, store, machineHost } = harness;
+  seedMachineImageSession(harness);
 
   controller.handlePointerDown({
     button: 0,
@@ -818,7 +734,7 @@ test("clearing the image resets runtime and ends any active map pan through one 
     shiftKey: false,
   });
   controller.handlePointerMove({ x: 520, y: 310 });
-  controller.clearImage();
+  machineHost.dispatch({ type: MACHINE_EVENT_KIND.CLEAR_IMAGE });
 
   assert.equal(store.getState().image, null);
   assert.equal(controller.getRuntimeState().isDragging, false);
@@ -834,12 +750,9 @@ test("space activates temporary pass-through while aligning", () => {
   // coverage. User-visible pass-through status should be asserted through
   // canonical UI runtime projection.
   const keyTarget = createKeyTarget();
-  const { controller } = createHarness({ keyTarget });
-  controller.loadImage({
-    src: "data:image/png;base64,abc",
-    width: 800,
-    height: 400,
-  });
+  const harness = createHarness({ keyTarget });
+  const { controller } = harness;
+  seedMachineImageSession(harness);
 
   const keydown = createKeyEvent({ code: "Space" });
   keyTarget.dispatch("keydown", keydown);
@@ -854,14 +767,11 @@ test("space activates temporary pass-through while aligning", () => {
 test("pressing P toggles a pin at the current pointer location", () => {
   // Final semantic-history shape: KeyP should eventually assert dispatch of a
   // semantic pin-toggle event, not direct mutation through the interaction
-  // controller.
+  // adapter.
   const keyTarget = createKeyTarget();
-  const { controller, store } = createHarness({ keyTarget });
-  controller.loadImage({
-    src: "data:image/png;base64,abc",
-    width: 800,
-    height: 400,
-  });
+  const harness = createHarness({ keyTarget });
+  const { controller, store } = harness;
+  seedMachineImageSession(harness);
 
   controller.handlePointerEnter({ x: 600, y: 320 });
   const keydown = createKeyEvent({ code: "KeyP" });
@@ -875,12 +785,9 @@ test("pressing P toggles a pin at the current pointer location", () => {
 
 test("pressing P still toggles when focus is on an extension button", () => {
   const keyTarget = createKeyTarget();
-  const { controller, store } = createHarness({ keyTarget });
-  controller.loadImage({
-    src: "data:image/png;base64,abc",
-    width: 800,
-    height: 400,
-  });
+  const harness = createHarness({ keyTarget });
+  const { controller, store } = harness;
+  seedMachineImageSession(harness);
 
   controller.handlePointerEnter({ x: 600, y: 320 });
   const keydown = createKeyEvent({
@@ -904,12 +811,9 @@ test("keyboard shortcuts can be delivered through the early keyboard gateway", (
   // Final semantic-history shape: keep this as delivery/wiring coverage only.
   // The gateway should not define shortcut semantics.
   const keyboardGateway = createKeyboardGatewayHarness();
-  const { controller, store } = createHarness({ keyboardGateway });
-  controller.loadImage({
-    src: "data:image/png;base64,abc",
-    width: 800,
-    height: 400,
-  });
+  const harness = createHarness({ keyboardGateway });
+  const { controller, store } = harness;
+  seedMachineImageSession(harness);
 
   controller.handlePointerEnter({ x: 600, y: 320 });
   const keydown = createKeyEvent({ code: "KeyP" });
@@ -921,11 +825,7 @@ test("keyboard shortcuts can be delivered through the early keyboard gateway", (
 test("keyboard shortcut resolution is single-source and mode-aware", () => {
   const state = createEmptySession({
     mode: SESSION_MODE.ALIGN,
-    image: {
-      src: "data:image/png;base64,abc",
-      width: 800,
-      height: 400,
-    },
+    image: TEST_IMAGE,
   });
 
   assert.equal(
@@ -1280,14 +1180,11 @@ test("overlay activation policy is single-source", () => {
 });
 
 test("map pan does nothing when the page adapter cannot start it", () => {
-  const { controller, store, adapterCalls } = createHarness({
+  const harness = createHarness({
     beginMapPanReturns: false,
   });
-  controller.loadImage({
-    src: "data:image/png;base64,abc",
-    width: 800,
-    height: 400,
-  });
+  const { controller, store, adapterCalls } = harness;
+  seedMachineImageSession(harness);
 
   const initialPlacement = store.getState().placement;
   const handled = controller.handlePointerDown({
@@ -1303,14 +1200,11 @@ test("map pan does nothing when the page adapter cannot start it", () => {
 });
 
 test("map zoom does nothing when the page adapter cannot forward it", () => {
-  const { controller, store, adapterCalls } = createHarness({
+  const harness = createHarness({
     forwardMapZoomReturns: false,
   });
-  controller.loadImage({
-    src: "data:image/png;base64,abc",
-    width: 800,
-    height: 400,
-  });
+  const { controller, store, adapterCalls } = harness;
+  seedMachineImageSession(harness);
 
   const initialPlacement = store.getState().placement;
   const handled = controller.handleWheel({
@@ -1388,58 +1282,54 @@ function createHarness({
     keyboardGateway,
     pageAdapter,
   });
-  const controller = {
-    ...interactions,
-    loadImage(image) {
-      const snapshot = pageAdapter.getSnapshot();
-      machineHost.dispatch({
-        type: MACHINE_EVENT_KIND.LOAD_IMAGE,
-        image,
-        placement: createPlacementTransform({
-          image,
-          centerMapLatLon: snapshot.mapView.center,
-          scale: 1,
-          rotationRad: 0,
-          zoom: snapshot.mapView.zoom,
-        }),
-      });
-    },
-    clearImage() {
-      machineHost.dispatch({ type: MACHINE_EVENT_KIND.CLEAR_IMAGE });
-    },
-    toggleMode() {
-      machineHost.dispatch({
-        type: MACHINE_EVENT_KIND.SELECT_MODE,
-        mode: nextSessionMode(machineHost.getState().session.mode),
-      });
-    },
-    computeTransform() {
-      const result = machineHost.dispatch({ type: MACHINE_EVENT_KIND.FIT_OVERLAY });
-      const solvedTransform = result.state.session.registration.solvedTransform;
-      if (solvedTransform && machineHost.getState().session.mode !== SESSION_MODE.ALIGN) {
-        machineHost.dispatch({
-          type: MACHINE_EVENT_KIND.SELECT_MODE,
-          mode: SESSION_MODE.ALIGN,
-        });
-      }
-      return {
-        ok: Boolean(solvedTransform),
-        solvedTransform,
-        pinCount: result.state.session.registration.pins.length,
-      };
-    },
-    clearPins() {
-      machineHost.dispatch({
-        type: MACHINE_EVENT_KIND.CLEAR_PINS,
-        preservedPlacement: derivePreservedPlacement({
-          state: machineHost.getState().session,
-          pageAdapter,
-        }),
-      });
-    },
+  return {
+    controller: interactions,
+    store,
+    machineHost,
+    keyTarget,
+    adapterCalls,
+    pageAdapter,
   };
+}
 
-  return { controller, store, machineHost, keyTarget, adapterCalls, pageAdapter };
+function seedMachineImageSession({ machineHost, pageAdapter }, image = TEST_IMAGE) {
+  const snapshot = pageAdapter.getSnapshot();
+  machineHost.dispatch({
+    type: MACHINE_EVENT_KIND.LOAD_IMAGE,
+    image,
+    placement: createPlacementTransform({
+      image,
+      centerMapLatLon: snapshot.mapView.center,
+      scale: 1,
+      rotationRad: 0,
+      zoom: snapshot.mapView.zoom,
+    }),
+  });
+}
+
+function dispatchMachineFitOverlayForSetup({ machineHost }) {
+  return machineHost.dispatch({ type: MACHINE_EVENT_KIND.FIT_OVERLAY });
+}
+
+function seedMachineSolvedRegistrationForAlignSetup(harness) {
+  const result = dispatchMachineFitOverlayForSetup(harness);
+  if (result.state.session.registration.solvedTransform) {
+    harness.machineHost.dispatch({
+      type: MACHINE_EVENT_KIND.SELECT_MODE,
+      mode: SESSION_MODE.ALIGN,
+    });
+  }
+  return result;
+}
+
+function dispatchMachineClearPinsPreservingRenderedPlacement({ machineHost, pageAdapter }) {
+  return machineHost.dispatch({
+    type: MACHINE_EVENT_KIND.CLEAR_PINS,
+    preservedPlacement: derivePreservedPlacement({
+      state: machineHost.getState().session,
+      pageAdapter,
+    }),
+  });
 }
 
 function derivePreservedPlacement({ state, pageAdapter }) {

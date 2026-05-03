@@ -192,6 +192,25 @@ test("interaction adapter does not own registration solve or pin mutation semant
   assert.deepEqual(violations, []);
 });
 
+test("interaction tests do not recreate semantic controller facade APIs", () => {
+  const source = fs.readFileSync(repoPath("test/unit/interactions.test.js"), "utf8");
+  const forbiddenPatterns = [
+    [
+      "controller semantic helper calls",
+      /\bcontroller\.(?:loadImage|clearImage|toggleMode|computeTransform|clearPins)\s*\(/,
+    ],
+    [
+      "controller-shaped semantic helper methods",
+      /\b(?:loadImage|clearImage|toggleMode|computeTransform|clearPins)\s*\([^)]*\)\s*\{/,
+    ],
+  ];
+  const violations = forbiddenPatterns
+    .filter(([, pattern]) => pattern.test(source))
+    .map(([name]) => name);
+
+  assert.deepEqual(violations, []);
+});
+
 test("interaction adapter does not own placement edit lifecycle semantics", () => {
   const source = fs.readFileSync(repoPath("src/core/interactions.js"), "utf8");
   const forbiddenPatterns = [
