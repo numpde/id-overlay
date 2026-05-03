@@ -1,11 +1,14 @@
 import {
-  MACHINE_FEEDBACK_KIND,
   MACHINE_MODE,
   MACHINE_PANEL_INTENT,
+  MACHINE_PLACEMENT_EDIT_KIND,
+  MACHINE_STATUS_NOTICE_KIND,
 } from "./events.js";
 import { peekRedoRecord, peekUndoRecord } from "./history.js";
 import { selectPanelPolicy } from "./policy.js";
 import { isValidPanelRequestId } from "./state.js";
+import { getOverlayImageLoadStats } from "../image-normalization.js";
+import { RUNTIME_ERROR_SOURCE } from "../runtime-error.js";
 
 export const MACHINE_PANEL_MAIN_ACTION = Object.freeze({
   PASTE: "paste",
@@ -71,6 +74,7 @@ export function selectPanelView(state) {
     canRedo,
     undoTooltip,
     redoTooltip,
+    status: selectStatus(state),
     historyControls: {
       undo: createHistoryControl({
         fallbackLabel: "Undo",
@@ -87,17 +91,22 @@ export function selectPanelView(state) {
 }
 
 export function selectStatus(state) {
-  if (state.status.messageOverride?.message) {
-    return state.status.messageOverride.message;
-  }
-  if (state.panel.intent === MACHINE_PANEL_INTENT.PASTE_ARMED) {
-    return MACHINE_STATUS_MESSAGE.PASTE_ARMED;
-  }
   if (state.panel.intent === MACHINE_PANEL_INTENT.CLEAR_IMAGE_CONFIRM) {
     return MACHINE_STATUS_MESSAGE.CLEAR_IMAGE_CONFIRM;
   }
   if (state.panel.intent === MACHINE_PANEL_INTENT.CLEAR_PINS_CONFIRM) {
     return MACHINE_STATUS_MESSAGE.CLEAR_PINS_CONFIRM;
+  }
+  const noticeMessage = formatStatusNotice(state.status.notice, state);
+  if (noticeMessage) {
+    return noticeMessage;
+  }
+  return selectBaselineStatus(state);
+}
+
+export function selectBaselineStatus(state) {
+  if (state.panel.intent === MACHINE_PANEL_INTENT.PASTE_ARMED) {
+    return MACHINE_STATUS_MESSAGE.PASTE_ARMED;
   }
   if (!state.session.image) {
     return MACHINE_STATUS_MESSAGE.EMPTY_SESSION;
@@ -128,17 +137,49 @@ export function selectOverlayPolicy(state, runtime = null) {
   };
 }
 
-export function formatFeedback(feedback) {
-  if (!feedback || feedback.kind === MACHINE_FEEDBACK_KIND.NONE) {
+export function formatStatusNotice(notice, state = null) {
+  if (!notice) {
     return "";
   }
-  if (feedback.kind === MACHINE_FEEDBACK_KIND.UNDO) {
-    return feedback.message ? `Undid: ${feedback.message}.` : "Undid change.";
+  const payload = notice.payload ?? {};
+  switch (notice.kind) {
+    case MACHINE_STATUS_NOTICE_KIND.IMAGE_LOADED:
+      return describeLoadedImage(payload.image) ?? "Loaded image.";
+    case MACHINE_STATUS_NOTICE_KIND.IMAGE_CLEARED:
+      return "Cleared image.";
+    case MACHINE_STATUS_NOTICE_KIND.IMAGE_RESTORED:
+      return "Restored image.";
+    case MACHINE_STATUS_NOTICE_KIND.MODE_SELECTED:
+      return payload.mode ? `Switched to ${payload.mode}.` : "";
+    case MACHINE_STATUS_NOTICE_KIND.PIN_ADDED:
+      return Number.isInteger(payload.pinId) ? `Added pin ${payload.pinId}.` : "Added pin.";
+    case MACHINE_STATUS_NOTICE_KIND.PIN_REMOVED:
+      return Number.isInteger(payload.pinId) ? `Removed pin ${payload.pinId}.` : "Removed pin.";
+    case MACHINE_STATUS_NOTICE_KIND.PINS_CLEARED:
+      return `Cleared ${formatPinCount(payload.pinCount)}.`;
+    case MACHINE_STATUS_NOTICE_KIND.OVERLAY_FITTED:
+      return `Fit overlay from ${formatPinCount(payload.pinCount)}.`;
+    case MACHINE_STATUS_NOTICE_KIND.PLACEMENT_CHANGED:
+      return describePlacementNotice(payload.editKind);
+    case MACHINE_STATUS_NOTICE_KIND.PASTE_CANCELLED:
+      return "Paste cancelled.";
+    case MACHINE_STATUS_NOTICE_KIND.CLIPBOARD_MISSING_IMAGE:
+      return formatClipboardMissingImageNotice(state);
+    case MACHINE_STATUS_NOTICE_KIND.CLIPBOARD_IMAGE_UNREADABLE:
+      return "Clipboard image could not be read.";
+    case MACHINE_STATUS_NOTICE_KIND.RUNTIME_ERROR:
+      return describeRuntimeError(payload.error);
+    case MACHINE_STATUS_NOTICE_KIND.UNDO:
+      return payload.label ? `Undid: ${payload.label}.` : "Undid change.";
+    case MACHINE_STATUS_NOTICE_KIND.REDO:
+      return payload.label ? `Redid: ${payload.label}.` : "Redid change.";
+    case MACHINE_STATUS_NOTICE_KIND.UNDO_EMPTY:
+      return "Nothing to undo.";
+    case MACHINE_STATUS_NOTICE_KIND.REDO_EMPTY:
+      return "Nothing to redo.";
+    default:
+      return "";
   }
-  if (feedback.kind === MACHINE_FEEDBACK_KIND.REDO) {
-    return feedback.message ? `Redid: ${feedback.message}.` : "Redid change.";
-  }
-  return feedback.message ?? "";
 }
 
 function resolveMainAction(state) {
@@ -220,4 +261,56 @@ function resolveClearPinsLabel(pinCount) {
     return `Clear ${pinCount} pins`;
   }
   return "Clear pins";
+}
+
+function describeLoadedImage(image) {
+  const stats = getOverlayImageLoadStats(image);
+  if (!stats) {
+    return null;
+  }
+  if (stats.wasResized) {
+    return `Loaded screenshot ${stats.workingWidth}×${stats.workingHeight} from ${stats.originalWidth}×${stats.originalHeight}.`;
+  }
+  return `Loaded screenshot ${stats.workingWidth}×${stats.workingHeight}.`;
+}
+
+function describeRuntimeError(runtimeError) {
+  if (!runtimeError) {
+    return "The overlay hit an unexpected error.";
+  }
+  if (runtimeError.source === RUNTIME_ERROR_SOURCE.OVERLAY) {
+    return "The overlay gesture failed. Try the action again.";
+  }
+  if (runtimeError.source === RUNTIME_ERROR_SOURCE.PAGE_ADAPTER) {
+    return "The map bridge failed temporarily. Try the action again.";
+  }
+  if (runtimeError.source === RUNTIME_ERROR_SOURCE.INTERACTIONS) {
+    return "The overlay interaction failed. Try the action again.";
+  }
+  return runtimeError.message;
+}
+
+function describePlacementNotice(editKind) {
+  if (editKind === MACHINE_PLACEMENT_EDIT_KIND.ROTATE) {
+    return "Rotated overlay.";
+  }
+  if (editKind === MACHINE_PLACEMENT_EDIT_KIND.SCALE) {
+    return "Scaled overlay.";
+  }
+  if (editKind === MACHINE_PLACEMENT_EDIT_KIND.MOVE) {
+    return "Moved overlay.";
+  }
+  return "Adjusted overlay.";
+}
+
+function formatClipboardMissingImageNotice(state) {
+  const message = "Clipboard does not contain an image.";
+  if (state?.panel?.intent !== MACHINE_PANEL_INTENT.PASTE_ARMED) {
+    return message;
+  }
+  return `${message} ${MACHINE_STATUS_MESSAGE.PASTE_ARMED}`;
+}
+
+function formatPinCount(pinCount) {
+  return pinCount === 1 ? "1 pin" : `${Number(pinCount) || 0} pins`;
 }

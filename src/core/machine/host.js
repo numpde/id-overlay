@@ -1,5 +1,5 @@
 import {
-  MACHINE_FEEDBACK_KIND,
+  MACHINE_EVENT_KIND,
   createCancelPanelIntentEvent,
 } from "./events.js";
 import { createMachineEffectRunner } from "./effect-runner.js";
@@ -10,10 +10,7 @@ import {
 import { createMachineRuntime } from "./runtime.js";
 
 const DEFAULT_PANEL_TIMEOUT_MS = 1800;
-const NO_OP_RESULT_FEEDBACK = Object.freeze({
-  kind: MACHINE_FEEDBACK_KIND.NONE,
-  message: "",
-});
+const DEFAULT_STATUS_TIMEOUT_MS = 1800;
 
 export function createMachineHost({
   persistedSession = null,
@@ -22,12 +19,15 @@ export function createMachineHost({
   setPanelTimeout = null,
   clearPanelTimeout = null,
   panelTimeoutMs = DEFAULT_PANEL_TIMEOUT_MS,
+  setStatusTimeout = null,
+  clearStatusTimeout = null,
+  statusTimeoutMs = DEFAULT_STATUS_TIMEOUT_MS,
   onError = null,
 } = {}) {
   let destroyed = false;
   const panelTimers = new Map();
+  const statusTimers = new Map();
   const subscriberUnsubscribes = new Set();
-  const resultListeners = new Set();
   let runtime = null;
   let unsubscribePersistence = null;
   let lastPersistedKey = "";
@@ -36,6 +36,8 @@ export function createMachineHost({
     readPasteImage,
     startPanelTimeout,
     cancelPanelTimeout,
+    startStatusTimeout,
+    cancelStatusTimeout,
     dispatch: (event) => dispatch(event),
     getState: () => runtime?.getState(),
     onError: reportError,
@@ -68,20 +70,11 @@ export function createMachineHost({
     return unsubscribe;
   }
 
-  function subscribeResults(listener) {
-    if (destroyed) {
-      return () => {};
-    }
-    resultListeners.add(listener);
-    return () => resultListeners.delete(listener);
-  }
-
   function dispatch(event) {
     if (destroyed) {
       return createDestroyedDispatchResult(runtime.getState());
     }
     const result = runtime.dispatch(event);
-    notifyResult({ event, result });
     return result;
   }
 
@@ -92,8 +85,8 @@ export function createMachineHost({
     destroyed = true;
     unsubscribePersistence?.();
     clearSubscribers();
-    resultListeners.clear();
     clearAllPanelTimers();
+    clearAllStatusTimers();
   }
 
   function persistState(state) {
@@ -138,11 +131,46 @@ export function createMachineHost({
     clearPanelTimeout?.(handle);
   }
 
+  function startStatusTimeout({ requestId, context }) {
+    cancelStatusTimeout({ requestId });
+    if (!setStatusTimeout) {
+      return;
+    }
+    const handle = setStatusTimeout(() => {
+      statusTimers.delete(requestId);
+      dispatch({
+        type: MACHINE_EVENT_KIND.CLEAR_STATUS_NOTICE,
+        requestId,
+      });
+    }, {
+      requestId,
+      delayMs: statusTimeoutMs,
+      context,
+    });
+    statusTimers.set(requestId, handle);
+  }
+
+  function cancelStatusTimeout({ requestId }) {
+    if (!statusTimers.has(requestId)) {
+      return;
+    }
+    const handle = statusTimers.get(requestId);
+    statusTimers.delete(requestId);
+    clearStatusTimeout?.(handle);
+  }
+
   function clearAllPanelTimers() {
     for (const handle of panelTimers.values()) {
       clearPanelTimeout?.(handle);
     }
     panelTimers.clear();
+  }
+
+  function clearAllStatusTimers() {
+    for (const handle of statusTimers.values()) {
+      clearStatusTimeout?.(handle);
+    }
+    statusTimers.clear();
   }
 
   function clearSubscribers() {
@@ -156,16 +184,9 @@ export function createMachineHost({
     onError?.(error, context);
   }
 
-  function notifyResult(outcome) {
-    for (const listener of resultListeners) {
-      listener(outcome);
-    }
-  }
-
   return {
     getState,
     subscribe,
-    subscribeResults,
     dispatch,
     destroy,
   };
@@ -175,7 +196,6 @@ function createDestroyedDispatchResult(state) {
   return {
     state,
     effects: [],
-    feedback: NO_OP_RESULT_FEEDBACK,
     historyRecord: null,
     consumedHistoryRecord: null,
   };

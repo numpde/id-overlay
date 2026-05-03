@@ -3,11 +3,11 @@ import assert from "node:assert/strict";
 
 import {
   MACHINE_EVENT_KIND,
-  MACHINE_FEEDBACK_KIND,
   MACHINE_HISTORY_KIND,
   MACHINE_MODE,
   MACHINE_PANEL_INTENT,
   MACHINE_PLACEMENT_EDIT_KIND,
+  MACHINE_STATUS_NOTICE_KIND,
   createInitialMachineState,
   selectOverlayPolicy,
   selectPanelView,
@@ -70,6 +70,8 @@ test("loading an image enters Align and records a user-facing reloadable edit", 
   assert.deepEqual(result.state.session.image, NORMALIZED_IMAGE);
   assert.deepEqual(result.state.session.placement, PLACEMENT);
   assert.equal(result.historyRecord.kind, MACHINE_HISTORY_KIND.LOAD_IMAGE);
+  assert.equal(result.state.status.notice.kind, MACHINE_STATUS_NOTICE_KIND.IMAGE_LOADED);
+  assert.equal(selectStatus(result.state), "Loaded screenshot 800×400.");
   assert.equal(selectPanelView(result.state).undoTooltip, "Remove image");
   assert.equal(result.state.history.future.length, 0);
   assert.equal(result.state.history.past.length, 1);
@@ -184,7 +186,7 @@ test("pin toggle is a machine-owned semantic transition over adapter facts", () 
     mapLatLon: { lat: -1.23, lon: 36.84 },
   });
 
-  assert.equal(add.feedback.kind, MACHINE_FEEDBACK_KIND.PIN_ADDED);
+  assert.equal(add.state.status.notice.kind, MACHINE_STATUS_NOTICE_KIND.PIN_ADDED);
   assert.equal(add.state.session.registration.pins.length, 1);
   assert.equal(add.historyRecord.kind, MACHINE_HISTORY_KIND.ADD_PIN);
 
@@ -196,7 +198,7 @@ test("pin toggle is a machine-owned semantic transition over adapter facts", () 
     mapLatLon: { lat: -1.23, lon: 36.84 },
   });
 
-  assert.equal(remove.feedback.kind, MACHINE_FEEDBACK_KIND.PIN_REMOVED);
+  assert.equal(remove.state.status.notice.kind, MACHINE_STATUS_NOTICE_KIND.PIN_REMOVED);
   assert.equal(remove.state.session.registration.pins.length, 0);
   assert.equal(remove.historyRecord.kind, MACHINE_HISTORY_KIND.REMOVE_PIN);
 });
@@ -216,7 +218,6 @@ test("pin toggle is invalid outside visible Align editing", () => {
 
   assert.deepEqual(result.state, state);
   assert.equal(result.historyRecord, null);
-  assert.equal(result.feedback.kind, MACHINE_FEEDBACK_KIND.NONE);
 });
 
 test("registration edits can preserve adapter-derived visible placement", () => {
@@ -270,31 +271,30 @@ test("clear-pins is invalid in Trace because pins are not visible there", () => 
 
   assert.deepEqual(result.state, state);
   assert.equal(result.historyRecord, null);
-  assert.equal(result.feedback.kind, MACHINE_FEEDBACK_KIND.NONE);
 });
 
-test("semantic feedback describes the concrete visible edit", () => {
+test("semantic status notices describe the concrete visible edit", () => {
   let state = loadImage();
 
   const add = addPin(state);
-  assert.equal(add.feedback.message, "Added pin 1.");
+  assert.equal(selectStatus(add.state), "Added pin 1.");
 
   const remove = transitionMachine(add.state, {
     type: MACHINE_EVENT_KIND.REMOVE_PIN,
     id: 1,
   });
-  assert.equal(remove.feedback.message, "Removed pin 1.");
+  assert.equal(selectStatus(remove.state), "Removed pin 1.");
 
   state = addTwoPins(loadImage());
   const clear = transitionMachine(state, { type: MACHINE_EVENT_KIND.CLEAR_PINS });
-  assert.equal(clear.feedback.message, "Cleared 2 pins.");
+  assert.equal(selectStatus(clear.state), "Cleared 2 pins.");
 
   state = addTwoPins(loadImage());
   const fit = transitionMachine(state, {
     type: MACHINE_EVENT_KIND.SELECT_MODE,
     mode: MACHINE_MODE.TRACE,
   });
-  assert.equal(fit.feedback.message, "Fit overlay from 2 pins.");
+  assert.equal(selectStatus(fit.state), "Fit overlay from 2 pins.");
 });
 
 test("placement undo and redo preserve the user's current mode", () => {
@@ -424,7 +424,6 @@ test("unchanged placement edit commit only clears transient runtime", () => {
   assert.deepEqual(commit.state.session.placement, PLACEMENT);
   assert.equal(commit.state.runtime.placementEdit, null);
   assert.equal(commit.historyRecord, null);
-  assert.equal(commit.feedback.kind, MACHINE_FEEDBACK_KIND.NONE);
 });
 
 test("cancelled placement edit drops preview without changing session", () => {

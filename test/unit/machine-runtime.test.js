@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import {
   MACHINE_EVENT_KIND,
   MACHINE_MODE,
+  MACHINE_STATUS_NOTICE_KIND,
   createInitialMachineState,
   createMachineRuntime,
 } from "../../src/core/machine/index.js";
@@ -123,12 +124,9 @@ test("effects execute after state commit with event, state, and result context",
     transition: (state) => ({
       state: {
         ...state,
-        status: {
-          messageOverride: { message: "committed" },
-        },
+        status: committedStatus(),
       },
       effects: [{ type: "external-work" }],
-      feedback: { kind: "none", message: "" },
       historyRecord: null,
       consumedHistoryRecord: null,
     }),
@@ -156,7 +154,7 @@ test("sync effect failures are reported without rolling back committed state", (
   const result = dispatchEffectfulTransition(runtime);
 
   assert.equal(runtime.getState(), result.state);
-  assert.equal(runtime.getState().status.messageOverride.message, "committed");
+  assert.equal(runtime.getState().status.notice.kind, MACHINE_STATUS_NOTICE_KIND.PASTE_CANCELLED);
   assert.equal(errors.length, 1);
   assert.equal(errors[0].error.message, "boom");
   assert.equal(errors[0].context.result, result);
@@ -177,7 +175,7 @@ test("async effect rejections are reported without rolling back committed state"
   await Promise.resolve();
 
   assert.equal(runtime.getState(), result.state);
-  assert.equal(runtime.getState().status.messageOverride.message, "committed");
+  assert.equal(runtime.getState().status.notice.kind, MACHINE_STATUS_NOTICE_KIND.PASTE_CANCELLED);
   assert.equal(errors.length, 1);
   assert.equal(errors[0].error.message, "async boom");
   assert.equal(errors[0].context.result, result);
@@ -196,14 +194,22 @@ function dispatchEffectfulTransition(runtime) {
     transition: (state) => ({
       state: {
         ...state,
-        status: {
-          messageOverride: { message: "committed" },
-        },
+        status: committedStatus(),
       },
       effects: [{ type: "external-work" }],
-      feedback: { kind: "none", message: "" },
       historyRecord: null,
       consumedHistoryRecord: null,
     }),
   });
+}
+
+function committedStatus() {
+  return {
+    notice: {
+      requestId: 1,
+      kind: MACHINE_STATUS_NOTICE_KIND.PASTE_CANCELLED,
+      payload: null,
+    },
+    lastRequestId: 1,
+  };
 }

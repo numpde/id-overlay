@@ -179,7 +179,7 @@ test("request-bound panel cancellation clears only the matching request id", () 
   ]);
 });
 
-test("requesting clear-image confirmation emits a timeout effect", () => {
+test("requesting clear-image confirmation clears stale status and emits a timeout effect", () => {
   const state = loadImageState();
 
   const result = transitionMachine(state, {
@@ -191,6 +191,10 @@ test("requesting clear-image confirmation emits a timeout effect", () => {
   assert.equal(result.state.panel.requestId, 1);
   assert.deepEqual(result.effects, [
     {
+      kind: MACHINE_EFFECT_KIND.CANCEL_STATUS_TIMEOUT,
+      requestId: 1,
+    },
+    {
       kind: MACHINE_EFFECT_KIND.START_PANEL_TIMEOUT,
       intent: MACHINE_PANEL_INTENT.CLEAR_IMAGE_CONFIRM,
       requestId: 1,
@@ -198,7 +202,7 @@ test("requesting clear-image confirmation emits a timeout effect", () => {
   ]);
 });
 
-test("requesting clear-pins confirmation emits a timeout effect", () => {
+test("requesting clear-pins confirmation clears stale status and emits a timeout effect", () => {
   const state = addPin(loadImageState()).state;
 
   const result = transitionMachine(state, {
@@ -209,6 +213,10 @@ test("requesting clear-pins confirmation emits a timeout effect", () => {
   assert.equal(result.state.panel.intent, MACHINE_PANEL_INTENT.CLEAR_PINS_CONFIRM);
   assert.equal(result.state.panel.requestId, 1);
   assert.deepEqual(result.effects, [
+    {
+      kind: MACHINE_EFFECT_KIND.CANCEL_STATUS_TIMEOUT,
+      requestId: 2,
+    },
     {
       kind: MACHINE_EFFECT_KIND.START_PANEL_TIMEOUT,
       intent: MACHINE_PANEL_INTENT.CLEAR_PINS_CONFIRM,
@@ -234,6 +242,10 @@ test("confirmed clear-image cancels timeout and records clear-image history", ()
       kind: MACHINE_EFFECT_KIND.CANCEL_PANEL_TIMEOUT,
       requestId: 1,
     },
+    {
+      kind: MACHINE_EFFECT_KIND.START_STATUS_TIMEOUT,
+      requestId: 2,
+    },
   ]);
   assert.equal(result.historyRecord.kind, MACHINE_HISTORY_KIND.CLEAR_IMAGE);
 });
@@ -254,6 +266,10 @@ test("confirmed clear-pins cancels timeout and records clear-pins history", () =
     {
       kind: MACHINE_EFFECT_KIND.CANCEL_PANEL_TIMEOUT,
       requestId: 1,
+    },
+    {
+      kind: MACHINE_EFFECT_KIND.START_STATUS_TIMEOUT,
+      requestId: 3,
     },
   ]);
   assert.equal(result.historyRecord.kind, MACHINE_HISTORY_KIND.CLEAR_PINS);
@@ -296,6 +312,10 @@ test("restoring image session cancels active panel timeout", () => {
       kind: MACHINE_EFFECT_KIND.CANCEL_PANEL_TIMEOUT,
       requestId: 1,
     },
+    {
+      kind: MACHINE_EFFECT_KIND.START_STATUS_TIMEOUT,
+      requestId: 2,
+    },
   ]);
 });
 
@@ -318,6 +338,10 @@ test("undoing clear-image while paste is armed cancels active panel timeout", ()
       kind: MACHINE_EFFECT_KIND.CANCEL_PANEL_TIMEOUT,
       requestId: 1,
     },
+    {
+      kind: MACHINE_EFFECT_KIND.START_STATUS_TIMEOUT,
+      requestId: 3,
+    },
   ]);
 });
 
@@ -339,6 +363,10 @@ test("loading image after paste cancels timeout and records load-image history",
   assert.deepEqual(result.effects, [
     {
       kind: MACHINE_EFFECT_KIND.CANCEL_PANEL_TIMEOUT,
+      requestId: 1,
+    },
+    {
+      kind: MACHINE_EFFECT_KIND.START_STATUS_TIMEOUT,
       requestId: 1,
     },
   ]);

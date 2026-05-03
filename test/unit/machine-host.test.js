@@ -5,6 +5,7 @@ import {
   MACHINE_EVENT_KIND,
   MACHINE_MODE,
   MACHINE_PANEL_INTENT,
+  MACHINE_STATUS_NOTICE_KIND,
   createIdlePanel,
   createMachineHost,
   createInitialMachineState,
@@ -177,14 +178,56 @@ test("machine host starts, replaces, expires, and cancels request-bound panel ti
   assert.equal(timers.pendingCount(), 0);
 });
 
+test("machine host starts, replaces, expires, and cancels request-bound status timers", () => {
+  const timers = createTimerHarness();
+  const host = createMachineHost({
+    setStatusTimeout: timers.set,
+    clearStatusTimeout: timers.clear,
+  });
+
+  host.dispatch({
+    type: MACHINE_EVENT_KIND.REPORT_STATUS_NOTICE,
+    noticeKind: MACHINE_STATUS_NOTICE_KIND.CLIPBOARD_MISSING_IMAGE,
+  });
+  assert.equal(timers.pendingCount(), 1);
+  assert.equal(host.getState().status.notice.requestId, 1);
+
+  host.dispatch({
+    type: MACHINE_EVENT_KIND.REPORT_STATUS_NOTICE,
+    noticeKind: MACHINE_STATUS_NOTICE_KIND.PASTE_CANCELLED,
+  });
+  assert.equal(timers.pendingCount(), 1);
+  assert.deepEqual(timers.cleared, [1]);
+  assert.equal(host.getState().status.notice.requestId, 2);
+
+  timers.fireLatest();
+  assert.equal(host.getState().status.notice, null);
+  assert.equal(timers.pendingCount(), 0);
+
+  host.dispatch({
+    type: MACHINE_EVENT_KIND.REPORT_STATUS_NOTICE,
+    noticeKind: MACHINE_STATUS_NOTICE_KIND.PASTE_CANCELLED,
+  });
+  host.dispatch({
+    type: MACHINE_EVENT_KIND.CLEAR_STATUS_NOTICE,
+    requestId: host.getState().status.notice.requestId,
+  });
+
+  assert.equal(host.getState().status.notice, null);
+  assert.equal(timers.pendingCount(), 0);
+});
+
 test("machine host destroy unsubscribes persistence and cancels outstanding timers", () => {
   const saves = [];
   const observedStates = [];
   const timers = createTimerHarness();
+  const statusTimers = createTimerHarness();
   const host = createMachineHost({
     savePersistedSession: (session) => saves.push(session),
     setPanelTimeout: timers.set,
     clearPanelTimeout: timers.clear,
+    setStatusTimeout: statusTimers.set,
+    clearStatusTimeout: statusTimers.clear,
   });
   host.dispatch({
     type: MACHINE_EVENT_KIND.LOAD_IMAGE,
@@ -201,10 +244,16 @@ test("machine host destroy unsubscribes persistence and cancels outstanding time
     type: MACHINE_EVENT_KIND.REQUEST_PANEL_INTENT,
     intent: MACHINE_PANEL_INTENT.CLEAR_IMAGE_CONFIRM,
   });
+  host.dispatch({
+    type: MACHINE_EVENT_KIND.REPORT_STATUS_NOTICE,
+    noticeKind: MACHINE_STATUS_NOTICE_KIND.PASTE_CANCELLED,
+  });
   assert.equal(timers.pendingCount(), 1);
+  assert.equal(statusTimers.pendingCount(), 1);
 
   host.destroy();
   assert.equal(timers.pendingCount(), 0);
+  assert.equal(statusTimers.pendingCount(), 0);
 
   const before = host.getState();
   const result = host.dispatch({
@@ -216,7 +265,7 @@ test("machine host destroy unsubscribes persistence and cancels outstanding time
   assert.equal(result.state, before);
   assert.equal(host.getState(), before);
   assert.deepEqual(saves, []);
-  assert.equal(observedStates.length, 1);
+  assert.equal(observedStates.length, 2);
   assert.doesNotThrow(() => unsubscribe());
 });
 

@@ -43,9 +43,11 @@ const CONTENT_BRIDGE_FORBIDDEN_IMPORTS = Object.freeze([
 
 const LEGACY_BRIDGE_FILES = Object.freeze([
   "src/content/panel-live-effects.js",
+  "src/content/status-controller.js",
   "src/core/interaction-mode.js",
   "src/core/machine-store-adapter.js",
   "src/core/panel-state.js",
+  "src/core/presentation.js",
   "src/core/session-defaults.js",
   "src/core/state.js",
   "src/core/ui-effect-model.js",
@@ -121,16 +123,36 @@ test("content bootstrap uses the machine host instead of the legacy state store"
   assert.doesNotMatch(source, /"\.\.\/core\/machine-store-adapter\.js"/);
 });
 
-test("live panel and status controllers do not import the legacy ui bridge", () => {
+test("live panel controller does not import the legacy ui bridge", () => {
   const violations = [];
-  for (const relativePath of [
-    "src/content/panel.js",
-    "src/content/status-controller.js",
-  ]) {
+  for (const relativePath of ["src/content/panel.js"]) {
     const source = fs.readFileSync(repoPath(relativePath), "utf8");
     for (const importPath of parseStaticImports(source)) {
       if (CONTENT_BRIDGE_FORBIDDEN_IMPORTS.includes(importPath)) {
         violations.push(`${relativePath} -> ${importPath}`);
+      }
+    }
+  }
+
+  assert.deepEqual(violations, []);
+});
+
+test("status notices are machine-owned, not content-controller feedback", () => {
+  const forbiddenPatterns = [
+    ["legacy feedback enum", /\bMACHINE_FEEDBACK_KIND\b/],
+    ["legacy feedback event", /\bREPORT_FEEDBACK\b/],
+    ["legacy feedback formatter", /\bformatFeedback\b/],
+    ["legacy status override state", /\bmessageOverride\b/],
+    ["transition result status stream", /\bsubscribeResults\b/],
+    ["adapter-authored loaded-image message", /\bfeedbackMessage\b/],
+    ["adapter-authored feedback kind", /\bfeedbackKind\b/],
+  ];
+  const violations = [];
+  for (const filePath of listJavaScriptFiles(repoPath("src"))) {
+    const source = fs.readFileSync(filePath, "utf8");
+    for (const [name, pattern] of forbiddenPatterns) {
+      if (pattern.test(source)) {
+        violations.push(`${path.relative(repoPath(), filePath)}: ${name}`);
       }
     }
   }

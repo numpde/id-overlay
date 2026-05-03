@@ -48,7 +48,7 @@ Not allowed to port directly:
 
 - snapshot undo/redo implementation
 - panel live-effect durable mutations
-- status-controller feedback composition
+- status-controller status composition
 - UI history descriptor tables
 - stale intent repair paths
 - mode side effects hidden in low-level session helpers
@@ -82,14 +82,17 @@ The new machine owns one canonical UI state:
     },
     activeGesture,
     inputOverride,
+    placementEdit,
   },
 
   panel: {
     intent,
+    requestId,
   },
 
   status: {
-    messageOverride,
+    notice,
+    lastRequestId,
   },
 
   history: {
@@ -135,8 +138,8 @@ Every transition returns the same shape:
 {
   state,
   effects,
-  feedback,
   historyRecord,
+  consumedHistoryRecord,
 }
 ```
 
@@ -145,8 +148,10 @@ Rules:
 - `state` is the complete next canonical machine state
 - `effects` are external commands only, such as reading paste data or starting a
   timeout
-- `feedback` is the semantic user-facing outcome, not a composed status string
 - `historyRecord` is present only for undoable semantic edits
+- `consumedHistoryRecord` is present only when undo/redo consumes history
+- transient user notices are committed into `state.status.notice`; rendered
+  status text is selector output, not a transition-result side channel
 
 Undo/redo replay stored semantic events. They do not restore raw snapshots.
 
@@ -194,7 +199,8 @@ The rewrite should be a clean cut-over, not an incremental transplant.
 Phase 1. Contract tests
 
 - replace the current controller-driven target tests with direct machine tests
-- assert state, feedback, history labels, undo events, redo events, and effects
+- assert state, status notices, history labels, undo events, redo events, and
+  effects
 - include adapter-boundary tests only for translation into machine events
 
 Phase 2. Pure machine
@@ -232,7 +238,7 @@ The cut-over is not complete until:
 - no adapter owns semantic validity or history policy
 - persistence writes only the explicit durable projection
 - all user-visible labels/tooltips/status messages are derived from machine
-  state, transition feedback, or pending history records
+  state or pending history records
 - old fossils are deleted rather than left as unused compatibility paths
 
 

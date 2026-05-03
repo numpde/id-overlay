@@ -25,7 +25,7 @@ different kinds of facts:
 - durable overlay/session reality
 - ephemeral interaction reality
 - transient panel intent
-- transient status override
+- transient semantic status notice
 
 
 Canonical Shape
@@ -52,20 +52,24 @@ The current canonical shape is:
     },
     activeGesture,
     inputOverride,
+    placementEdit,
   },
 
   panel: {
     intent,
+    requestId,
   },
 
   status: {
-    messageOverride,
+    notice,
+    lastRequestId,
   },
 }
 ```
 
 The corresponding vocabulary is defined in
-[`src/core/ui-state-model.js`](../src/core/ui-state-model.js).
+[`src/core/machine/state.js`](../src/core/machine/state.js) and
+[`src/core/machine/events.js`](../src/core/machine/events.js).
 
 
 Why These Domains Exist
@@ -89,6 +93,7 @@ This is ephemeral interaction reality:
 - current pointer point in shared coordinates
 - currently active sustained gesture, if any
 - currently active input override, if any
+- currently previewed placement edit, if any
 
 This is not durable state. It exists to support interaction semantics.
 
@@ -100,16 +105,19 @@ This is transient panel intent:
 - paste armed
 - clear-pins confirm
 - clear-image confirm
+- the request id used for request-bound timeout clearing
 
 This is not overlay reality. It is pending intent.
 
 4. `status`
 
-This is transient status override state:
+This is transient status notice state:
 
-- a temporarily forced message
+- a semantic notice, such as `pin-added` or `clipboard-missing-image`
+- the latest status request id used for request-bound timeout clearing
 
-The visible status text is otherwise derived from `session` and `runtime`.
+The visible status text is always derived by selectors. The machine stores the
+semantic notice, not the rendered message.
 
 
 Primary Facts vs Derived Views
@@ -156,6 +164,7 @@ Why `runtime` Is Shaped This Way
 - pointer position
 - active gesture kind
 - active input override
+- active placement-edit preview
 
 It does not store:
 
@@ -172,9 +181,10 @@ The guiding rule is:
 
 Why `panel.intent` Is Nested
 ----------------------------
-The panel domain currently only stores one primary fact:
+The panel domain currently stores the pending intent and its request identity:
 
 - `intent`
+- `requestId`
 
 It still deserves its own domain because:
 
@@ -183,16 +193,17 @@ It still deserves its own domain because:
 - future panel-specific state can grow there without polluting the top level
 
 
-Why `status.messageOverride` Is Nested
---------------------------------------
-The status domain currently only stores one primary fact:
+Why `status.notice` Is Nested
+-----------------------------
+The status domain stores transient status facts:
 
-- `messageOverride`
+- `notice`
+- `lastRequestId`
 
 It remains nested for the same reason as `panel`:
 
 - it is conceptually its own transient state domain
-- it separates forced messages from the derived default status message
+- it separates semantic notices from the derived default status message
 
 
 How This Should Be Used
@@ -205,14 +216,11 @@ This model should guide future refactors:
 - `interactions.js`
   should map primarily onto `runtime`
 
-- `panel-state.js`
-  should map primarily onto `panel`
+- `machine/policy.js`
+  should derive transition eligibility from machine state
 
-- `status-controller.js`
-  should map primarily onto `status`
-
-- `presentation.js`
-  should derive visible UI from these domains rather than inventing new state
+- `machine/selectors.js`
+  should derive visible UI, including status text, from machine state
 
 
 What This Note Does Not Define

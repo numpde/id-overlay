@@ -1,6 +1,6 @@
 import {
   createLoadImageEvent,
-  createReportFeedbackEvent,
+  createReportStatusNoticeEvent,
 } from "./events.js";
 
 export function createPasteReadOutcomeEvent(outcome, { requestId = null } = {}) {
@@ -13,13 +13,12 @@ export function createPasteReadOutcomeEvent(outcome, { requestId = null } = {}) 
       image: normalizedOutcome.image,
       placement: normalizedOutcome.placement,
       requestId,
-      feedbackMessage: normalizedOutcome.feedbackMessage,
     });
   }
-  if (normalizedOutcome.message) {
-    return createReportFeedbackEvent({
-      feedbackKind: normalizedOutcome.feedbackKind,
-      message: normalizedOutcome.message,
+  if (normalizedOutcome.noticeKind) {
+    return createReportStatusNoticeEvent({
+      noticeKind: normalizedOutcome.noticeKind,
+      noticePayload: normalizedOutcome.noticePayload,
     });
   }
   return null;
@@ -29,20 +28,18 @@ export function normalizePasteReadOutcome(outcome) {
   if (!outcome) {
     return null;
   }
-  if (outcome.image || outcome.message) {
+  if (outcome.image || outcome.noticeKind) {
     return {
       image: outcome.image ?? null,
       placement: outcome.placement ?? null,
-      feedbackMessage: outcome.feedbackMessage ?? "",
-      feedbackKind: outcome.feedbackKind,
-      message: outcome.message ?? "",
+      noticeKind: outcome.noticeKind,
+      noticePayload: outcome.noticePayload ?? null,
     };
   }
   return {
     image: outcome,
     placement: null,
-    feedbackMessage: "",
-    feedbackKind: undefined,
-    message: "",
+    noticeKind: undefined,
+    noticePayload: null,
   };
 }

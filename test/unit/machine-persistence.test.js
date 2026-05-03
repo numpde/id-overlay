@@ -5,6 +5,7 @@ import {
   MACHINE_EVENT_KIND,
   MACHINE_MODE,
   MACHINE_PANEL_INTENT,
+  MACHINE_STATUS_NOTICE_KIND,
   createInitialMachineState,
   fromPersistedMachineSession,
   toPersistedMachineSession,
@@ -80,7 +81,12 @@ test("toPersistedMachineSessionSnapshot keys only durable session fields", () =>
       requestId: 7,
     },
     status: {
-      messageOverride: { message: "different" },
+      notice: {
+        requestId: 9,
+        kind: MACHINE_STATUS_NOTICE_KIND.PASTE_CANCELLED,
+        payload: null,
+      },
+      lastRequestId: 9,
     },
     history: {
       past: [{ kind: "different" }],
@@ -148,7 +154,14 @@ test("fromPersistedMachineSession drops extra persisted keys", () => {
     registration: REGISTRATION,
     runtime: { activeGesture: "move-overlay" },
     panel: { intent: MACHINE_PANEL_INTENT.CLEAR_IMAGE_CONFIRM },
-    status: { messageOverride: { message: "stale" } },
+    status: {
+      notice: {
+        requestId: 9,
+        kind: MACHINE_STATUS_NOTICE_KIND.PASTE_CANCELLED,
+        payload: null,
+      },
+      lastRequestId: 9,
+    },
     history: { past: [{ kind: "load-image" }], future: [{ kind: "clear-image" }] },
     unexpected: true,
   });
@@ -235,7 +248,12 @@ function createNoisyMachineState() {
       intent: MACHINE_PANEL_INTENT.CLEAR_IMAGE_CONFIRM,
     },
     status: {
-      messageOverride: { message: "stale" },
+      notice: {
+        requestId: 9,
+        kind: MACHINE_STATUS_NOTICE_KIND.PASTE_CANCELLED,
+        payload: null,
+      },
+      lastRequestId: 9,
     },
     history: {
       past: [{ kind: "load-image" }],

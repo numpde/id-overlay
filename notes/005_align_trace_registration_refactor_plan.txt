@@ -214,16 +214,13 @@ Do not make panel code decide geometry or solve validity itself. It should consu
 
 7. Status
 
-Revise `src/content/status-controller.js`:
+Status is now machine-owned. Do not reintroduce `src/content/status-controller.js`.
+Keep status copy as selector output from canonical machine state:
 
 - align copy should describe registration workflow
 - trace copy should describe passive overlay behavior
-- add messages for:
-  - pin added
-  - pin removed
-  - transform computed
-  - insufficient pins
-  - dirty solved transform
+- semantic notices should cover pin edits, fitting, paste failures, and runtime
+  errors
 
 
 Migration / Cleanup Sequence

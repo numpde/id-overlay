@@ -11,6 +11,7 @@ import {
 import {
   MACHINE_PANEL_INTENT,
   MACHINE_PLACEMENT_EDIT_KIND,
+  MACHINE_STATUS_NOTICE_KIND,
 } from "./events.js";
 
 export {
@@ -35,7 +36,8 @@ export function createInitialMachineState(overrides = {}) {
     },
     panel: createIdlePanel(),
     status: {
-      messageOverride: null,
+      notice: null,
+      lastRequestId: 0,
     },
     history: {
       past: [],
@@ -63,9 +65,7 @@ export function normalizeMachineState(state = {}) {
     session: normalizeSession(session),
     runtime: normalizeRuntime(runtime),
     panel: normalizePanel(panel),
-    status: {
-      messageOverride: status.messageOverride ?? null,
-    },
+    status: normalizeStatus(status),
     history: {
       past: Array.isArray(history.past) ? history.past : [],
       future: Array.isArray(history.future) ? history.future : [],
@@ -120,13 +120,13 @@ export function replacePanel(state, panel) {
   };
 }
 
-export function replaceHistory(state, history) {
+export function replaceStatus(state, status) {
   return {
     ...state,
-    history: {
-      past: history.past ?? state.history.past,
-      future: history.future ?? state.history.future,
-    },
+    status: normalizeStatus({
+      ...state.status,
+      ...status,
+    }),
   };
 }
 
@@ -153,6 +153,42 @@ function normalizeRuntime(runtime = {}) {
     inputOverride: runtime.inputOverride ?? null,
     placementEdit: normalizePlacementEdit(runtime.placementEdit),
   };
+}
+
+function normalizeStatus(status = {}) {
+  const notice = normalizeStatusNotice(status.notice);
+  const lastRequestId = normalizeStatusRequestId(status.lastRequestId);
+  return {
+    notice,
+    lastRequestId: Math.max(lastRequestId, notice?.requestId ?? 0),
+  };
+}
+
+function normalizeStatusNotice(notice) {
+  if (!notice || typeof notice !== "object") {
+    return null;
+  }
+  if (!isKnownStatusNoticeKind(notice.kind)) {
+    return null;
+  }
+  const requestId = normalizeRequestId(notice.requestId);
+  if (requestId === null) {
+    return null;
+  }
+  return {
+    requestId,
+    kind: notice.kind,
+    payload: notice.payload ?? null,
+  };
+}
+
+function isKnownStatusNoticeKind(kind) {
+  return Object.values(MACHINE_STATUS_NOTICE_KIND).includes(kind);
+}
+
+function normalizeStatusRequestId(requestId) {
+  const value = Number(requestId);
+  return Number.isInteger(value) && value >= 0 ? value : 0;
 }
 
 function normalizePlacementEdit(edit) {

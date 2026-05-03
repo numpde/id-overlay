@@ -1,10 +1,10 @@
 import {
   MACHINE_EVENT_KIND,
-  MACHINE_FEEDBACK_KIND,
   MACHINE_HISTORY_KIND,
   MACHINE_MODE,
   MACHINE_PANEL_INTENT,
   MACHINE_PLACEMENT_EDIT_KIND,
+  MACHINE_STATUS_NOTICE_KIND,
 } from "./events.js";
 import {
   createEmptyRegistration,
@@ -15,11 +15,11 @@ import {
   isValidPanelRequestId,
   normalizeMachineState,
   normalizeOpacity,
-  replaceHistory,
   replacePanel,
   replacePlacementEdit,
   replaceRegistration,
   replaceSession,
+  replaceStatus,
 } from "./state.js";
 import {
   createInvalidatedRegistration,
@@ -34,8 +34,10 @@ import {
 import { solveSimilarityTransform } from "../geometry.js";
 import {
   createCancelPanelTimeoutEffect,
+  createCancelStatusTimeoutEffect,
   createReadPasteImageEffect,
   createStartPanelTimeoutEffect,
+  createStartStatusTimeoutEffect,
 } from "./effects.js";
 import {
   isPanelIntentValidForState,
@@ -51,65 +53,64 @@ export function transitionMachine(state = createInitialMachineState(), event = {
   if (event.type === MACHINE_EVENT_KIND.REDO) {
     return transitionRedo(currentState);
   }
-  return transitionSemantic(currentState, event, { commitHistory: true });
+  return finalizeTransitionResult(transitionSemantic(currentState, event), {
+    commitHistory: true,
+    commitStatus: true,
+  });
 }
 
-function transitionSemantic(state, event, { commitHistory }) {
+function transitionSemantic(state, event) {
   switch (event.type) {
     case MACHINE_EVENT_KIND.LOAD_IMAGE:
-      return withOptionalHistory(loadImage(state, event), commitHistory);
+      return loadImage(state, event);
     case MACHINE_EVENT_KIND.CLEAR_IMAGE:
-      return withOptionalHistory(clearImage(state), commitHistory);
+      return clearImage(state);
     case MACHINE_EVENT_KIND.RESTORE_IMAGE_SESSION:
-      return withoutHistory(restoreImageSession(state, event));
+      return restoreImageSession(state, event);
     case MACHINE_EVENT_KIND.SELECT_MODE:
-      return withOptionalHistory(selectMode(state, event), commitHistory);
+      return selectMode(state, event);
     case MACHINE_EVENT_KIND.SET_OPACITY:
-      return withoutHistory(setOpacity(state, event));
+      return setOpacity(state, event);
     case MACHINE_EVENT_KIND.TOGGLE_PIN:
-      return withOptionalHistory(togglePin(state, event), commitHistory);
+      return togglePin(state, event);
     case MACHINE_EVENT_KIND.ADD_PIN:
-      return withOptionalHistory(addPin(state, event), commitHistory);
+      return addPin(state, event);
     case MACHINE_EVENT_KIND.REMOVE_PIN:
-      return withOptionalHistory(removePin(state, event), commitHistory);
+      return removePin(state, event);
     case MACHINE_EVENT_KIND.CLEAR_PINS:
-      return withOptionalHistory(clearPins(state, event), commitHistory);
+      return clearPins(state, event);
     case MACHINE_EVENT_KIND.RESTORE_REGISTRATION:
-      return withoutHistory(restoreRegistration(state, event));
+      return restoreRegistration(state, event);
     case MACHINE_EVENT_KIND.FIT_OVERLAY:
-      return withOptionalHistory(fitOverlay(state), commitHistory);
+      return fitOverlay(state);
     case MACHINE_EVENT_KIND.BEGIN_PLACEMENT_EDIT:
-      return withoutHistory(beginPlacementEdit(state, event));
+      return beginPlacementEdit(state, event);
     case MACHINE_EVENT_KIND.PREVIEW_PLACEMENT_EDIT:
-      return withoutHistory(previewPlacementEdit(state, event));
+      return previewPlacementEdit(state, event);
     case MACHINE_EVENT_KIND.COMMIT_PLACEMENT_EDIT:
-      return withOptionalHistory(commitPlacementEdit(state), commitHistory);
+      return commitPlacementEdit(state);
     case MACHINE_EVENT_KIND.CANCEL_PLACEMENT_EDIT:
-      return withoutHistory(cancelPlacementEdit(state));
+      return cancelPlacementEdit(state);
     case MACHINE_EVENT_KIND.APPLY_PLACEMENT_EDIT:
-      return withOptionalHistory(applyPlacementEdit(state, event), commitHistory);
+      return applyPlacementEdit(state, event);
     case MACHINE_EVENT_KIND.RESTORE_PLACEMENT:
-      return withoutHistory(restorePlacement(state, event));
+      return restorePlacement(state, event);
     case MACHINE_EVENT_KIND.REQUEST_PANEL_INTENT:
-      return withoutHistory(requestPanelIntent(state, event));
+      return requestPanelIntent(state, event);
     case MACHINE_EVENT_KIND.CANCEL_PANEL_INTENT:
       if (!canCancelPanelIntent(state, event)) {
         return createTransitionResult({
           state,
-          feedback: createFeedback(MACHINE_FEEDBACK_KIND.NONE),
         });
       }
-      return withoutHistory(cancelPanelIntent(state, event));
-    case MACHINE_EVENT_KIND.REPORT_FEEDBACK:
-      return withoutHistory(reportFeedback(state, event));
-    case MACHINE_EVENT_KIND.SET_STATUS_OVERRIDE:
-      return withoutHistory(setStatusOverride(state, event.message));
-    case MACHINE_EVENT_KIND.CLEAR_STATUS_OVERRIDE:
-      return withoutHistory(setStatusOverride(state, null));
+      return cancelPanelIntent(state, event);
+    case MACHINE_EVENT_KIND.REPORT_STATUS_NOTICE:
+      return reportStatusNotice(state, event);
+    case MACHINE_EVENT_KIND.CLEAR_STATUS_NOTICE:
+      return clearStatusNotice(state, event);
     default:
       return createTransitionResult({
         state,
-        feedback: createFeedback(MACHINE_FEEDBACK_KIND.NONE),
       });
   }
 }
@@ -117,38 +118,56 @@ function transitionSemantic(state, event, { commitHistory }) {
 function transitionUndo(state) {
   const moved = moveUndoRecordToFuture(state);
   if (!moved.record) {
-    return createTransitionResult({
+    return finalizeTransitionResult(createTransitionResult({
       state,
-      feedback: createFeedback(MACHINE_FEEDBACK_KIND.UNDO_EMPTY, "Nothing to undo."),
+      statusNotice: createStatusNotice(MACHINE_STATUS_NOTICE_KIND.UNDO_EMPTY),
+    }), {
+      commitHistory: false,
+      commitStatus: true,
     });
   }
-  const replay = transitionSemantic(moved.state, moved.record.undoEvent, {
+  const replay = finalizeTransitionResult(transitionSemantic(moved.state, moved.record.undoEvent), {
     commitHistory: false,
+    commitStatus: false,
   });
-  return createTransitionResult({
+  return finalizeTransitionResult(createTransitionResult({
     state: replay.state,
     effects: replay.effects,
-    feedback: createFeedback(MACHINE_FEEDBACK_KIND.UNDO, moved.record.undoLabel),
+    statusNotice: createStatusNotice(MACHINE_STATUS_NOTICE_KIND.UNDO, {
+      label: moved.record.undoLabel,
+    }),
     consumedHistoryRecord: moved.record,
+  }), {
+    commitHistory: false,
+    commitStatus: true,
   });
 }
 
 function transitionRedo(state) {
   const moved = moveRedoRecordToPast(state);
   if (!moved.record) {
-    return createTransitionResult({
+    return finalizeTransitionResult(createTransitionResult({
       state,
-      feedback: createFeedback(MACHINE_FEEDBACK_KIND.REDO_EMPTY, "Nothing to redo."),
+      statusNotice: createStatusNotice(MACHINE_STATUS_NOTICE_KIND.REDO_EMPTY),
+    }), {
+      commitHistory: false,
+      commitStatus: true,
     });
   }
-  const replay = transitionSemantic(moved.state, moved.record.redoEvent, {
+  const replay = finalizeTransitionResult(transitionSemantic(moved.state, moved.record.redoEvent), {
     commitHistory: false,
+    commitStatus: false,
   });
-  return createTransitionResult({
+  return finalizeTransitionResult(createTransitionResult({
     state: replay.state,
     effects: replay.effects,
-    feedback: createFeedback(MACHINE_FEEDBACK_KIND.REDO, moved.record.redoLabel),
+    statusNotice: createStatusNotice(MACHINE_STATUS_NOTICE_KIND.REDO, {
+      label: moved.record.redoLabel,
+    }),
     consumedHistoryRecord: moved.record,
+  }), {
+    commitHistory: false,
+    commitStatus: true,
   });
 }
 
@@ -156,7 +175,6 @@ function loadImage(state, event) {
   if (!event.image || !canLoadImageForRequest(state, event)) {
     return createTransitionResult({
       state,
-      feedback: createFeedback(MACHINE_FEEDBACK_KIND.NONE),
     });
   }
   const nextSession = {
@@ -170,10 +188,9 @@ function loadImage(state, event) {
   return createTransitionResult({
     state: panelTransition.state,
     effects: panelTransition.effects,
-    feedback: createFeedback(
-      MACHINE_FEEDBACK_KIND.IMAGE_LOADED,
-      event.feedbackMessage || "Loaded image.",
-    ),
+    statusNotice: createStatusNotice(MACHINE_STATUS_NOTICE_KIND.IMAGE_LOADED, {
+      image: nextState.session.image,
+    }),
     historyRecord: {
       kind: MACHINE_HISTORY_KIND.LOAD_IMAGE,
       label: "Loaded image",
@@ -192,7 +209,6 @@ function clearImage(state) {
   if (!state.session.image) {
     return createTransitionResult({
       state,
-      feedback: createFeedback(MACHINE_FEEDBACK_KIND.NONE),
     });
   }
   const previousSession = state.session;
@@ -206,7 +222,7 @@ function clearImage(state) {
   return createTransitionResult({
     state: panelTransition.state,
     effects: panelTransition.effects,
-    feedback: createFeedback(MACHINE_FEEDBACK_KIND.IMAGE_CLEARED, "Cleared image."),
+    statusNotice: createStatusNotice(MACHINE_STATUS_NOTICE_KIND.IMAGE_CLEARED),
     historyRecord: {
       kind: MACHINE_HISTORY_KIND.CLEAR_IMAGE,
       label: "Cleared image",
@@ -229,7 +245,7 @@ function restoreImageSession(state, event) {
   return createTransitionResult({
     state: panelTransition.state,
     effects: panelTransition.effects,
-    feedback: createFeedback(MACHINE_FEEDBACK_KIND.IMAGE_RESTORED, "Restored image."),
+    statusNotice: createStatusNotice(MACHINE_STATUS_NOTICE_KIND.IMAGE_RESTORED),
   });
 }
 
@@ -237,20 +253,17 @@ function selectMode(state, event) {
   if (!isKnownMachineMode(event.mode)) {
     return createTransitionResult({
       state,
-      feedback: createFeedback(MACHINE_FEEDBACK_KIND.NONE),
     });
   }
   const mode = event.mode;
   if (!state.session.image && mode === MACHINE_MODE.ALIGN) {
     return createTransitionResult({
       state,
-      feedback: createFeedback(MACHINE_FEEDBACK_KIND.NONE),
     });
   }
   if (mode === state.session.mode && !(mode === MACHINE_MODE.TRACE && shouldFitOnTrace(state))) {
     return createTransitionResult({
       state,
-      feedback: createFeedback(MACHINE_FEEDBACK_KIND.NONE),
     });
   }
   if (mode === MACHINE_MODE.TRACE && shouldFitOnTrace(state)) {
@@ -263,7 +276,7 @@ function selectMode(state, event) {
   return createTransitionResult({
     state: panelTransition.state,
     effects: panelTransition.effects,
-    feedback: createFeedback(MACHINE_FEEDBACK_KIND.MODE_SELECTED, `Switched to ${mode}.`),
+    statusNotice: createStatusNotice(MACHINE_STATUS_NOTICE_KIND.MODE_SELECTED, { mode }),
   });
 }
 
@@ -271,12 +284,10 @@ function setOpacity(state, event) {
   if (!Number.isFinite(event.opacity)) {
     return createTransitionResult({
       state,
-      feedback: createFeedback(MACHINE_FEEDBACK_KIND.NONE),
     });
   }
   return createTransitionResult({
     state: replaceSession(state, { opacity: normalizeOpacity(event.opacity) }),
-    feedback: createFeedback(MACHINE_FEEDBACK_KIND.NONE),
   });
 }
 
@@ -284,7 +295,6 @@ function togglePin(state, event) {
   if (!canEditPins(state)) {
     return createTransitionResult({
       state,
-      feedback: createFeedback(MACHINE_FEEDBACK_KIND.NONE),
     });
   }
   if (event.existingPinId != null) {
@@ -294,7 +304,6 @@ function togglePin(state, event) {
     if (!existingPin) {
       return createTransitionResult({
         state,
-        feedback: createFeedback(MACHINE_FEEDBACK_KIND.NONE),
       });
     }
     return removePin(prepareRegistrationEditState(state, event), {
@@ -313,7 +322,6 @@ function addPin(state, event) {
   if (!state.session.image || !event.imagePx || !event.mapLatLon) {
     return createTransitionResult({
       state,
-      feedback: createFeedback(MACHINE_FEEDBACK_KIND.NONE),
     });
   }
   const pin = {
@@ -334,7 +342,9 @@ function addPin(state, event) {
   return createTransitionResult({
     state: panelTransition.state,
     effects: panelTransition.effects,
-    feedback: createFeedback(MACHINE_FEEDBACK_KIND.PIN_ADDED, `Added pin ${pin.id}.`),
+    statusNotice: createStatusNotice(MACHINE_STATUS_NOTICE_KIND.PIN_ADDED, {
+      pinId: pin.id,
+    }),
     historyRecord: {
       kind: MACHINE_HISTORY_KIND.ADD_PIN,
       label: "Added pin",
@@ -344,13 +354,11 @@ function addPin(state, event) {
         type: MACHINE_EVENT_KIND.RESTORE_REGISTRATION,
         registration: previousRegistration,
         mode: MACHINE_MODE.ALIGN,
-        feedbackKind: MACHINE_FEEDBACK_KIND.PIN_REMOVED,
       },
       redoEvent: {
         type: MACHINE_EVENT_KIND.RESTORE_REGISTRATION,
         registration: nextRegistration,
         mode: MACHINE_MODE.ALIGN,
-        feedbackKind: MACHINE_FEEDBACK_KIND.PIN_ADDED,
       },
     },
   });
@@ -363,7 +371,6 @@ function removePin(state, event) {
   if (nextPins.length === previousRegistration.pins.length) {
     return createTransitionResult({
       state,
-      feedback: createFeedback(MACHINE_FEEDBACK_KIND.NONE),
     });
   }
   const nextRegistration = createInvalidatedRegistration({
@@ -378,10 +385,9 @@ function removePin(state, event) {
   return createTransitionResult({
     state: panelTransition.state,
     effects: panelTransition.effects,
-    feedback: createFeedback(
-      MACHINE_FEEDBACK_KIND.PIN_REMOVED,
-      `Removed pin ${removedPin.id}.`,
-    ),
+    statusNotice: createStatusNotice(MACHINE_STATUS_NOTICE_KIND.PIN_REMOVED, {
+      pinId: removedPin.id,
+    }),
     historyRecord: {
       kind: MACHINE_HISTORY_KIND.REMOVE_PIN,
       label: "Removed pin",
@@ -391,13 +397,11 @@ function removePin(state, event) {
         type: MACHINE_EVENT_KIND.RESTORE_REGISTRATION,
         registration: previousRegistration,
         mode: MACHINE_MODE.ALIGN,
-        feedbackKind: MACHINE_FEEDBACK_KIND.PIN_ADDED,
       },
       redoEvent: {
         type: MACHINE_EVENT_KIND.RESTORE_REGISTRATION,
         registration: nextRegistration,
         mode: MACHINE_MODE.ALIGN,
-        feedbackKind: MACHINE_FEEDBACK_KIND.PIN_REMOVED,
       },
     },
   });
@@ -408,7 +412,6 @@ function clearPins(state, event = {}) {
   if (!selectPanelPolicy(state).canClearPins) {
     return createTransitionResult({
       state,
-      feedback: createFeedback(MACHINE_FEEDBACK_KIND.NONE),
     });
   }
   const nextRegistration = createEmptyRegistration();
@@ -420,10 +423,9 @@ function clearPins(state, event = {}) {
   return createTransitionResult({
     state: panelTransition.state,
     effects: panelTransition.effects,
-    feedback: createFeedback(
-      MACHINE_FEEDBACK_KIND.PINS_CLEARED,
-      `Cleared ${formatPinCount(previousRegistration.pins.length)}.`,
-    ),
+    statusNotice: createStatusNotice(MACHINE_STATUS_NOTICE_KIND.PINS_CLEARED, {
+      pinCount: previousRegistration.pins.length,
+    }),
     historyRecord: {
       kind: MACHINE_HISTORY_KIND.CLEAR_PINS,
       label: "Cleared pins",
@@ -433,13 +435,11 @@ function clearPins(state, event = {}) {
         type: MACHINE_EVENT_KIND.RESTORE_REGISTRATION,
         registration: previousRegistration,
         mode: MACHINE_MODE.ALIGN,
-        feedbackKind: MACHINE_FEEDBACK_KIND.PINS_RESTORED,
       },
       redoEvent: {
         type: MACHINE_EVENT_KIND.RESTORE_REGISTRATION,
         registration: nextRegistration,
         mode: MACHINE_MODE.ALIGN,
-        feedbackKind: MACHINE_FEEDBACK_KIND.PINS_CLEARED,
       },
     },
   });
@@ -455,7 +455,6 @@ function restoreRegistration(state, event) {
   return createTransitionResult({
     state: panelTransition.state,
     effects: panelTransition.effects,
-    feedback: createFeedback(event.feedbackKind ?? MACHINE_FEEDBACK_KIND.NONE),
   });
 }
 
@@ -486,7 +485,9 @@ function fitOverlay(state) {
     return createTransitionResult({
       state: panelTransition.state,
       effects: panelTransition.effects,
-      feedback: createFeedback(MACHINE_FEEDBACK_KIND.MODE_SELECTED, "Switched to trace."),
+      statusNotice: createStatusNotice(MACHINE_STATUS_NOTICE_KIND.MODE_SELECTED, {
+        mode: MACHINE_MODE.TRACE,
+      }),
     });
   }
   const nextSession = {
@@ -505,10 +506,9 @@ function fitOverlay(state) {
   return createTransitionResult({
     state: panelTransition.state,
     effects: panelTransition.effects,
-    feedback: createFeedback(
-      MACHINE_FEEDBACK_KIND.OVERLAY_FITTED,
-      `Fit overlay from ${formatPinCount(state.session.registration.pins.length)}.`,
-    ),
+    statusNotice: createStatusNotice(MACHINE_STATUS_NOTICE_KIND.OVERLAY_FITTED, {
+      pinCount: state.session.registration.pins.length,
+    }),
     historyRecord: {
       kind: MACHINE_HISTORY_KIND.FIT_OVERLAY,
       label: "Fit overlay from pins",
@@ -530,7 +530,6 @@ function beginPlacementEdit(state, event) {
   if (!canEditPlacement(state)) {
     return createTransitionResult({
       state,
-      feedback: createFeedback(MACHINE_FEEDBACK_KIND.NONE),
     });
   }
   const kind = normalizePlacementEditKind(event.editKind);
@@ -538,7 +537,6 @@ function beginPlacementEdit(state, event) {
   if (!kind || !renderedPlacement) {
     return createTransitionResult({
       state,
-      feedback: createFeedback(MACHINE_FEEDBACK_KIND.NONE),
     });
   }
   return createTransitionResult({
@@ -548,7 +546,6 @@ function beginPlacementEdit(state, event) {
       beforeRegistration: state.session.registration,
       previewPlacement: renderedPlacement,
     }),
-    feedback: createFeedback(MACHINE_FEEDBACK_KIND.NONE),
   });
 }
 
@@ -556,20 +553,17 @@ function previewPlacementEdit(state, event) {
   if (!state.runtime.placementEdit) {
     return createTransitionResult({
       state,
-      feedback: createFeedback(MACHINE_FEEDBACK_KIND.NONE),
     });
   }
   if (!canEditPlacement(state)) {
     return createTransitionResult({
       state: clearPlacementEditRuntime(state),
-      feedback: createFeedback(MACHINE_FEEDBACK_KIND.NONE),
     });
   }
   const previewPlacement = normalizePlacement(event.placement);
   if (!previewPlacement) {
     return createTransitionResult({
       state,
-      feedback: createFeedback(MACHINE_FEEDBACK_KIND.NONE),
     });
   }
   return createTransitionResult({
@@ -577,7 +571,6 @@ function previewPlacementEdit(state, event) {
       ...state.runtime.placementEdit,
       previewPlacement,
     }),
-    feedback: createFeedback(MACHINE_FEEDBACK_KIND.NONE),
   });
 }
 
@@ -586,20 +579,17 @@ function commitPlacementEdit(state) {
   if (!edit) {
     return createTransitionResult({
       state,
-      feedback: createFeedback(MACHINE_FEEDBACK_KIND.NONE),
     });
   }
   if (!canEditPlacement(state)) {
     return createTransitionResult({
       state: clearPlacementEditRuntime(state),
-      feedback: createFeedback(MACHINE_FEEDBACK_KIND.NONE),
     });
   }
   const stateWithoutPreview = replacePlacementEdit(state, null);
   if (areEqualPlacements(edit.beforePlacement, edit.previewPlacement)) {
     return createTransitionResult({
       state: stateWithoutPreview,
-      feedback: createFeedback(MACHINE_FEEDBACK_KIND.NONE),
     });
   }
   return commitPlacementChange(stateWithoutPreview, {
@@ -614,12 +604,10 @@ function cancelPlacementEdit(state) {
   if (!state.runtime.placementEdit) {
     return createTransitionResult({
       state,
-      feedback: createFeedback(MACHINE_FEEDBACK_KIND.NONE),
     });
   }
   return createTransitionResult({
     state: replacePlacementEdit(state, null),
-    feedback: createFeedback(MACHINE_FEEDBACK_KIND.NONE),
   });
 }
 
@@ -627,7 +615,6 @@ function applyPlacementEdit(state, event) {
   if (!canEditPlacement(state)) {
     return createTransitionResult({
       state: clearPlacementEditRuntime(state),
-      feedback: createFeedback(MACHINE_FEEDBACK_KIND.NONE),
     });
   }
   const kind = normalizePlacementEditKind(event.editKind);
@@ -636,13 +623,11 @@ function applyPlacementEdit(state, event) {
   if (!kind || !renderedPlacement || !nextPlacement) {
     return createTransitionResult({
       state,
-      feedback: createFeedback(MACHINE_FEEDBACK_KIND.NONE),
     });
   }
   if (areEqualPlacements(renderedPlacement, nextPlacement)) {
     return createTransitionResult({
       state: replacePlacementEdit(state, null),
-      feedback: createFeedback(MACHINE_FEEDBACK_KIND.NONE),
     });
   }
   return commitPlacementChange(replacePlacementEdit(state, null), {
@@ -657,7 +642,6 @@ function commitPlacementChange(state, event) {
   if (!state.session.image || !Object.hasOwn(event, "placement")) {
     return createTransitionResult({
       state,
-      feedback: createFeedback(MACHINE_FEEDBACK_KIND.NONE),
     });
   }
   const previousPlacement = Object.hasOwn(event, "previousPlacement")
@@ -672,7 +656,9 @@ function commitPlacementChange(state, event) {
   const kind = placementHistoryKind(event.editKind);
   return createTransitionResult({
     state: nextState,
-    feedback: createFeedback(MACHINE_FEEDBACK_KIND.PLACEMENT_CHANGED, "Adjusted overlay."),
+    statusNotice: createStatusNotice(MACHINE_STATUS_NOTICE_KIND.PLACEMENT_CHANGED, {
+      editKind: event.editKind,
+    }),
     historyRecord: {
       kind,
       label: placementLabel(event.editKind),
@@ -696,7 +682,6 @@ function restorePlacement(state, event) {
   if (!state.session.image || !Object.hasOwn(event, "placement")) {
     return createTransitionResult({
       state,
-      feedback: createFeedback(MACHINE_FEEDBACK_KIND.NONE),
     });
   }
   const nextRegistration = event.registration ?? state.session.registration;
@@ -704,7 +689,6 @@ function restorePlacement(state, event) {
     state: replacePlacementEdit(replaceRegistration(replaceSession(state, {
       placement: event.placement,
     }), nextRegistration), null),
-    feedback: createFeedback(MACHINE_FEEDBACK_KIND.NONE),
   });
 }
 
@@ -727,7 +711,6 @@ function requestPanelIntent(state, event) {
   if (!isKnownPanelIntent(event.intent)) {
     return createTransitionResult({
       state,
-      feedback: createFeedback(MACHINE_FEEDBACK_KIND.NONE),
     });
   }
   const intent = event.intent;
@@ -737,17 +720,19 @@ function requestPanelIntent(state, event) {
   if (!isPanelIntentValidForState(state, intent)) {
     return createTransitionResult({
       state,
-      feedback: createFeedback(MACHINE_FEEDBACK_KIND.NONE),
     });
   }
   const requestId = nextPanelRequestId(state);
+  const nextState = replaceStatus(replacePanel(state, { intent, requestId }), {
+    notice: null,
+  });
   return createTransitionResult({
-    state: replacePanel(state, { intent, requestId }),
+    state: nextState,
     effects: [
       ...createCancelPanelTimeoutEffects(state),
+      ...createCancelStatusTimeoutEffects(state),
       ...createPanelIntentEffects({ intent, requestId }),
     ],
-    feedback: createFeedback(MACHINE_FEEDBACK_KIND.PANEL_INTENT_CHANGED),
   });
 }
 
@@ -756,17 +741,14 @@ function cancelPanelIntent(state, event = {}) {
   return createTransitionResult({
     state: panelTransition.state,
     effects: panelTransition.effects,
-    feedback: createFeedback(
-      event.feedbackKind ?? MACHINE_FEEDBACK_KIND.PANEL_INTENT_CHANGED,
-      event.feedbackMessage ?? "",
-    ),
+    statusNotice: createStatusNotice(event.noticeKind, event.noticePayload),
   });
 }
 
-function reportFeedback(state, event) {
+function reportStatusNotice(state, event) {
   return createTransitionResult({
     state,
-    feedback: createFeedback(event.feedbackKind ?? MACHINE_FEEDBACK_KIND.NONE, event.message ?? ""),
+    statusNotice: createStatusNotice(event.noticeKind, event.noticePayload),
   });
 }
 
@@ -788,53 +770,77 @@ function canLoadImageForRequest(state, event) {
   );
 }
 
-function setStatusOverride(state, message) {
+function clearStatusNotice(state, event) {
+  if (!state.status.notice) {
+    return createTransitionResult({ state });
+  }
+  if (event.requestId != null && event.requestId !== state.status.notice.requestId) {
+    return createTransitionResult({ state });
+  }
   return createTransitionResult({
-    state: {
-      ...state,
-      status: {
-        messageOverride: message ? { message } : null,
-      },
-    },
-    feedback: createFeedback(MACHINE_FEEDBACK_KIND.STATUS_OVERRIDE_CHANGED),
+    state: replaceStatus(state, { notice: null }),
+    effects: createCancelStatusTimeoutEffects(state),
   });
 }
 
-function withOptionalHistory(result, commitHistory) {
-  if (!commitHistory || !result.historyRecord) {
-    return result;
+function finalizeTransitionResult(result, { commitHistory, commitStatus }) {
+  let state = result.state;
+  let effects = result.effects;
+  let historyRecord = result.historyRecord;
+  if (commitHistory && historyRecord) {
+    state = commitHistoryRecord(state, historyRecord);
+  } else {
+    historyRecord = null;
+  }
+  if (commitStatus && result.statusNotice) {
+    const statusTransition = applyStatusNotice(state, result.statusNotice);
+    state = statusTransition.state;
+    effects = [...effects, ...statusTransition.effects];
   }
   return {
-    ...result,
-    state: commitHistoryRecord(result.state, result.historyRecord),
-  };
-}
-
-function withoutHistory(result) {
-  return {
-    ...result,
-    historyRecord: null,
+    state,
+    effects,
+    historyRecord,
+    consumedHistoryRecord: result.consumedHistoryRecord,
   };
 }
 
 function createTransitionResult({
   state,
   effects = [],
-  feedback = createFeedback(MACHINE_FEEDBACK_KIND.NONE),
+  statusNotice = null,
   historyRecord = null,
   consumedHistoryRecord = null,
 }) {
   return {
     state,
     effects,
-    feedback,
+    statusNotice,
     historyRecord,
     consumedHistoryRecord,
   };
 }
 
-function createFeedback(kind, message = "") {
-  return { kind, message };
+function createStatusNotice(kind, payload = null) {
+  return kind ? { kind, payload } : null;
+}
+
+function applyStatusNotice(state, statusNotice) {
+  const requestId = nextStatusRequestId(state);
+  return {
+    state: replaceStatus(state, {
+      notice: {
+        requestId,
+        kind: statusNotice.kind,
+        payload: statusNotice.payload,
+      },
+      lastRequestId: requestId,
+    }),
+    effects: [
+      ...createCancelStatusTimeoutEffects(state),
+      createStartStatusTimeoutEffect({ requestId }),
+    ],
+  };
 }
 
 function clearPanelIntent(state, nextState = state) {
@@ -858,6 +864,10 @@ function nextPanelRequestId(state) {
   return state.panel.requestId === null ? 1 : state.panel.requestId + 1;
 }
 
+function nextStatusRequestId(state) {
+  return state.status.lastRequestId + 1;
+}
+
 function createCancelPanelTimeoutEffects(state) {
   if (state.panel.requestId === null) {
     return [];
@@ -865,6 +875,17 @@ function createCancelPanelTimeoutEffects(state) {
   return [
     createCancelPanelTimeoutEffect({
       requestId: state.panel.requestId,
+    }),
+  ];
+}
+
+function createCancelStatusTimeoutEffects(state) {
+  if (!state.status.notice) {
+    return [];
+  }
+  return [
+    createCancelStatusTimeoutEffect({
+      requestId: state.status.notice.requestId,
     }),
   ];
 }
@@ -882,10 +903,6 @@ function createPanelIntentEffects({ intent, requestId }) {
 
 function nextPinId(pins) {
   return pins.reduce((maxId, pin) => Math.max(maxId, Number(pin.id) || 0), 0) + 1;
-}
-
-function formatPinCount(pinCount) {
-  return pinCount === 1 ? "1 pin" : `${pinCount} pins`;
 }
 
 function placementHistoryKind(editKind) {

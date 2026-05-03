@@ -2,7 +2,6 @@ import { createExtensionStorage } from "../core/storage.js";
 import { createInteractionController } from "../core/interactions.js";
 import { createMachineHost } from "../core/machine/host.js";
 import { createPageAdapter } from "./page-adapter.js";
-import { createStatusController } from "./status-controller.js";
 import { createPanel } from "./panel.js";
 import { createOverlay } from "./overlay.js";
 import { createClipboardImageReader } from "./paste-adapter.js";
@@ -44,14 +43,13 @@ export async function bootstrapIdOverlay({ keyboardGateway = null } = {}) {
     readPasteImage: () => clipboardReader.readClipboardApiImage(),
     setPanelTimeout: (callback, { delayMs }) => globalThis.setTimeout(callback, delayMs),
     clearPanelTimeout: (handle) => globalThis.clearTimeout(handle),
+    setStatusTimeout: (callback, { delayMs }) => globalThis.setTimeout(callback, delayMs),
+    clearStatusTimeout: (handle) => globalThis.clearTimeout(handle),
   });
   const interactions = createInteractionController({
     machineHost,
     pageAdapter,
     keyboardGateway,
-  });
-  const status = createStatusController({
-    machineHost,
   });
   const shadow = host.shadowRoot ?? host.attachShadow({ mode: "open" });
   await attachShadowStyles(shadow);
@@ -66,7 +64,6 @@ export async function bootstrapIdOverlay({ keyboardGateway = null } = {}) {
   const panel = createPanel({
     shadow,
     clipboardReader,
-    statusController: status,
     machineHost,
   });
 
@@ -75,7 +72,6 @@ export async function bootstrapIdOverlay({ keyboardGateway = null } = {}) {
     machineHost,
     panel,
     overlay,
-    status,
     interactions,
     pageAdapter,
   });
@@ -171,7 +167,6 @@ function createSession({
   machineHost,
   panel,
   overlay,
-  status,
   interactions,
   pageAdapter,
 }) {
@@ -186,7 +181,6 @@ function createSession({
     machineHost.destroy();
     panel.destroy();
     overlay.destroy();
-    status.destroy();
     interactions.destroy();
     pageAdapter.destroy();
     if (host[SESSION_KEY] === session) {

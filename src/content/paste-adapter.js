@@ -2,9 +2,7 @@ import {
   createBrowserImageNormalizationDeps,
   normalizeOverlayImageBlob,
 } from "../core/image-normalization.js";
-import { MACHINE_FEEDBACK_KIND } from "../core/machine/events.js";
-import { MACHINE_STATUS_MESSAGE } from "../core/machine/selectors.js";
-import { describeLoadedImagePresentation } from "../core/presentation.js";
+import { MACHINE_STATUS_NOTICE_KIND } from "../core/machine/events.js";
 import { createPlacementTransform } from "../core/transform.js";
 
 export function createClipboardImageReader({
@@ -27,9 +25,8 @@ export function createClipboardImageReader({
 
       if (!imageType) {
         logger?.warn?.("Clipboard API read succeeded but no image type was present");
-        return createFeedbackOutcome({
-          feedbackKind: MACHINE_FEEDBACK_KIND.CLIPBOARD_MISSING_IMAGE,
-          message: `Clipboard does not contain an image. ${MACHINE_STATUS_MESSAGE.PASTE_ARMED}`,
+        return createStatusNoticeOutcome({
+          noticeKind: MACHINE_STATUS_NOTICE_KIND.CLIPBOARD_MISSING_IMAGE,
         });
       }
 
@@ -49,18 +46,16 @@ export function createClipboardImageReader({
     );
     if (!item) {
       logger?.warn?.("Window paste event did not contain an image");
-      return createFeedbackOutcome({
-        feedbackKind: MACHINE_FEEDBACK_KIND.CLIPBOARD_MISSING_IMAGE,
-        message: "Clipboard does not contain an image.",
+      return createStatusNoticeOutcome({
+        noticeKind: MACHINE_STATUS_NOTICE_KIND.CLIPBOARD_MISSING_IMAGE,
       });
     }
 
     const file = item.getAsFile();
     if (!file) {
       logger?.warn?.("Window paste event image could not be converted to a file");
-      return createFeedbackOutcome({
-        feedbackKind: MACHINE_FEEDBACK_KIND.CLIPBOARD_IMAGE_UNREADABLE,
-        message: "Clipboard image could not be read.",
+      return createStatusNoticeOutcome({
+        noticeKind: MACHINE_STATUS_NOTICE_KIND.CLIPBOARD_IMAGE_UNREADABLE,
       });
     }
 
@@ -71,9 +66,8 @@ export function createClipboardImageReader({
     try {
       const image = await normalizeOverlayImageBlob(blob, imageNormalizationDeps);
       if (!image) {
-        return createFeedbackOutcome({
-          feedbackKind: MACHINE_FEEDBACK_KIND.CLIPBOARD_IMAGE_UNREADABLE,
-          message: "Clipboard image could not be read.",
+        return createStatusNoticeOutcome({
+          noticeKind: MACHINE_STATUS_NOTICE_KIND.CLIPBOARD_IMAGE_UNREADABLE,
         });
       }
       logger?.info?.("Loaded clipboard image", {
@@ -85,9 +79,8 @@ export function createClipboardImageReader({
         source: sourceLabel,
         message: error?.message ?? String(error),
       });
-      return createFeedbackOutcome({
-        feedbackKind: MACHINE_FEEDBACK_KIND.CLIPBOARD_IMAGE_UNREADABLE,
-        message: "Clipboard image could not be read.",
+      return createStatusNoticeOutcome({
+        noticeKind: MACHINE_STATUS_NOTICE_KIND.CLIPBOARD_IMAGE_UNREADABLE,
       });
     }
   }
@@ -109,15 +102,14 @@ export function createLoadedImageOutcome({ image, pageAdapter }) {
       rotationRad: 0,
       zoom: snapshot.mapView.zoom,
     }),
-    feedbackMessage: describeLoadedImagePresentation(image) ?? "Loaded image.",
   };
 }
 
-export function createFeedbackOutcome({ feedbackKind, message }) {
+export function createStatusNoticeOutcome({ noticeKind, noticePayload = null }) {
   return {
     image: null,
     placement: null,
-    feedbackKind,
-    message,
+    noticeKind,
+    noticePayload,
   };
 }

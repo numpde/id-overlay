@@ -6,6 +6,8 @@ export function createMachineEffectRunner({
   readPasteImage = null,
   startPanelTimeout = null,
   cancelPanelTimeout = null,
+  startStatusTimeout = null,
+  cancelStatusTimeout = null,
   dispatch = null,
   getState = null,
   onError = null,
@@ -30,6 +32,16 @@ export function createMachineEffectRunner({
         });
       case MACHINE_EFFECT_KIND.CANCEL_PANEL_TIMEOUT:
         return cancelPanelTimeout?.({
+          requestId: effect.requestId,
+          context,
+        });
+      case MACHINE_EFFECT_KIND.START_STATUS_TIMEOUT:
+        return startStatusTimeout?.({
+          requestId: effect.requestId,
+          context,
+        });
+      case MACHINE_EFFECT_KIND.CANCEL_STATUS_TIMEOUT:
+        return cancelStatusTimeout?.({
           requestId: effect.requestId,
           context,
         });

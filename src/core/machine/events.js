@@ -22,9 +22,8 @@ export const MACHINE_EVENT_KIND = Object.freeze({
   REDO: "redo",
   REQUEST_PANEL_INTENT: "request-panel-intent",
   CANCEL_PANEL_INTENT: "cancel-panel-intent",
-  REPORT_FEEDBACK: "report-feedback",
-  SET_STATUS_OVERRIDE: "set-status-override",
-  CLEAR_STATUS_OVERRIDE: "clear-status-override",
+  REPORT_STATUS_NOTICE: "report-status-notice",
+  CLEAR_STATUS_NOTICE: "clear-status-notice",
 });
 
 export const MACHINE_MODE = SESSION_MODE;
@@ -48,8 +47,7 @@ export const MACHINE_HISTORY_KIND = Object.freeze({
   SCALE_OVERLAY: "scale-overlay",
 });
 
-export const MACHINE_FEEDBACK_KIND = Object.freeze({
-  NONE: "none",
+export const MACHINE_STATUS_NOTICE_KIND = Object.freeze({
   IMAGE_LOADED: "image-loaded",
   IMAGE_CLEARED: "image-cleared",
   IMAGE_RESTORED: "image-restored",
@@ -57,7 +55,6 @@ export const MACHINE_FEEDBACK_KIND = Object.freeze({
   PIN_ADDED: "pin-added",
   PIN_REMOVED: "pin-removed",
   PINS_CLEARED: "pins-cleared",
-  PINS_RESTORED: "pins-restored",
   OVERLAY_FITTED: "overlay-fitted",
   PLACEMENT_CHANGED: "placement-changed",
   PASTE_CANCELLED: "paste-cancelled",
@@ -68,8 +65,6 @@ export const MACHINE_FEEDBACK_KIND = Object.freeze({
   REDO: "redo",
   UNDO_EMPTY: "undo-empty",
   REDO_EMPTY: "redo-empty",
-  PANEL_INTENT_CHANGED: "panel-intent-changed",
-  STATUS_OVERRIDE_CHANGED: "status-override-changed",
 });
 
 export const MACHINE_PLACEMENT_EDIT_KIND = Object.freeze({
@@ -82,37 +77,35 @@ export function createLoadImageEvent({
   image,
   placement = null,
   requestId = null,
-  feedbackMessage = "",
 } = {}) {
   return {
     type: MACHINE_EVENT_KIND.LOAD_IMAGE,
     image,
     placement,
     requestId,
-    feedbackMessage,
   };
 }
 
 export function createCancelPanelIntentEvent({
   requestId = null,
-  feedbackKind = MACHINE_FEEDBACK_KIND.PANEL_INTENT_CHANGED,
-  feedbackMessage = "",
+  noticeKind = null,
+  noticePayload = null,
 } = {}) {
   return {
     type: MACHINE_EVENT_KIND.CANCEL_PANEL_INTENT,
     requestId,
-    feedbackKind,
-    feedbackMessage,
+    noticeKind,
+    noticePayload,
   };
 }
 
-export function createReportFeedbackEvent({
-  feedbackKind = MACHINE_FEEDBACK_KIND.NONE,
-  message = "",
+export function createReportStatusNoticeEvent({
+  noticeKind,
+  noticePayload = null,
 } = {}) {
   return {
-    type: MACHINE_EVENT_KIND.REPORT_FEEDBACK,
-    feedbackKind,
-    message,
+    type: MACHINE_EVENT_KIND.REPORT_STATUS_NOTICE,
+    noticeKind,
+    noticePayload,
   };
 }

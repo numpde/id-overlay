@@ -2,6 +2,8 @@ export const MACHINE_EFFECT_KIND = Object.freeze({
   READ_PASTE_IMAGE: "read-paste-image",
   START_PANEL_TIMEOUT: "start-panel-timeout",
   CANCEL_PANEL_TIMEOUT: "cancel-panel-timeout",
+  START_STATUS_TIMEOUT: "start-status-timeout",
+  CANCEL_STATUS_TIMEOUT: "cancel-status-timeout",
 });
 
 export function createReadPasteImageEffect({ requestId }) {
@@ -22,6 +24,20 @@ export function createStartPanelTimeoutEffect({ intent, requestId }) {
 export function createCancelPanelTimeoutEffect({ requestId }) {
   return {
     kind: MACHINE_EFFECT_KIND.CANCEL_PANEL_TIMEOUT,
+    requestId,
+  };
+}
+
+export function createStartStatusTimeoutEffect({ requestId }) {
+  return {
+    kind: MACHINE_EFFECT_KIND.START_STATUS_TIMEOUT,
+    requestId,
+  };
+}
+
+export function createCancelStatusTimeoutEffect({ requestId }) {
+  return {
+    kind: MACHINE_EFFECT_KIND.CANCEL_STATUS_TIMEOUT,
     requestId,
   };
 }

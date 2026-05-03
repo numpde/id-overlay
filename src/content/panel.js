@@ -1,9 +1,9 @@
 import { clampOpacity, opacityFromWheelDelta } from "../core/transform.js";
 import {
-  MACHINE_FEEDBACK_KIND,
   MACHINE_EVENT_KIND,
   MACHINE_MODE,
   MACHINE_PANEL_INTENT,
+  MACHINE_STATUS_NOTICE_KIND,
   createCancelPanelIntentEvent,
 } from "../core/machine/events.js";
 import { createPasteReadOutcomeEvent } from "../core/machine/paste-outcome.js";
@@ -26,7 +26,6 @@ const SVG_NS = "http://www.w3.org/2000/svg";
 export function createPanel({
   shadow,
   clipboardReader,
-  statusController,
   machineHost,
 }) {
   const logger = createLogger("panel");
@@ -195,14 +194,9 @@ export function createPanel({
     syncMachineSideEffects(state);
     applyPanelView(selectPanelView(state));
   }, { emitCurrent: false });
-  const unsubscribeStatus = statusController.subscribe((message) => {
-    statusElement.textContent = message;
-    statusDetailSurface.textContent = message;
-  });
 
   syncMachineSideEffects(machineHost.getState());
   applyPanelView(selectPanelView(machineHost.getState()));
-  statusController.refresh();
 
   return {
     destroy() {
@@ -210,7 +204,6 @@ export function createPanel({
       endPanelDrag();
       window.removeEventListener("resize", handleWindowResize);
       unsubscribeMachine();
-      unsubscribeStatus();
       root.remove();
     },
   };
@@ -231,8 +224,7 @@ export function createPanel({
       case MACHINE_PANEL_MAIN_ACTION.PASTE_ARMED:
         dispatchMachineEvent(createCancelPanelIntentEvent({
           requestId: machineHost.getState().panel.requestId,
-          feedbackKind: MACHINE_FEEDBACK_KIND.PASTE_CANCELLED,
-          feedbackMessage: "Paste cancelled.",
+          noticeKind: MACHINE_STATUS_NOTICE_KIND.PASTE_CANCELLED,
         }));
         return;
       case MACHINE_PANEL_MAIN_ACTION.CLEAR_PINS:
@@ -277,6 +269,8 @@ export function createPanel({
     );
     applyHistoryButtonPresentation(undoButton, panelView.historyControls.undo);
     applyHistoryButtonPresentation(redoButton, panelView.historyControls.redo);
+    statusElement.textContent = panelView.status;
+    statusDetailSurface.textContent = panelView.status;
   }
 
   function applyHistoryButtonPresentation(button, presentation) {

@@ -41,10 +41,9 @@ import {
 } from "./transform.js";
 import {
   MACHINE_EVENT_KIND,
-  MACHINE_FEEDBACK_KIND,
   MACHINE_PLACEMENT_EDIT_KIND,
+  MACHINE_STATUS_NOTICE_KIND,
 } from "./machine/events.js";
-import { describeRuntimeErrorPresentation } from "./presentation.js";
 
 export function createInteractionController({
   machineHost,
@@ -651,9 +650,11 @@ export function createInteractionController({
       error: runtimeError,
     });
     dispatchMachine({
-      type: MACHINE_EVENT_KIND.REPORT_FEEDBACK,
-      feedbackKind: MACHINE_FEEDBACK_KIND.RUNTIME_ERROR,
-      message: describeRuntimeErrorPresentation(runtimeError),
+      type: MACHINE_EVENT_KIND.REPORT_STATUS_NOTICE,
+      noticeKind: MACHINE_STATUS_NOTICE_KIND.RUNTIME_ERROR,
+      noticePayload: {
+        error: runtimeError,
+      },
     });
     logger.error("Runtime boundary failed", runtimeError, error);
     return runtimeError;
@@ -844,14 +845,15 @@ function findAddedPin(previousPins, nextPins) {
 }
 
 function createPinResultFromTransition({ result, pinContext, previousPins }) {
-  if (result.feedback.kind === MACHINE_FEEDBACK_KIND.PIN_REMOVED) {
+  const nextPins = result.state.session.registration.pins;
+  const addedPin = findAddedPin(previousPins, nextPins);
+  const removedExistingPin = pinContext.existingPin &&
+    !nextPins.some((pin) => pin.id === pinContext.existingPin.id);
+  if (removedExistingPin) {
     return createPinSuccessResult(PIN_RESULT_ACTION.REMOVED, pinContext.existingPin);
   }
-  if (result.feedback.kind === MACHINE_FEEDBACK_KIND.PIN_ADDED) {
-    return createPinSuccessResult(
-      PIN_RESULT_ACTION.ADDED,
-      findAddedPin(previousPins, result.state.session.registration.pins),
-    );
+  if (addedPin) {
+    return createPinSuccessResult(PIN_RESULT_ACTION.ADDED, addedPin);
   }
   return createPinFailureResult(PIN_RESULT_REASON.NO_POINTER);
 }

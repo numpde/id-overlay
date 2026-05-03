@@ -27,9 +27,10 @@ import {
 } from "../../src/core/session.js";
 import {
   MACHINE_EVENT_KIND,
-  MACHINE_FEEDBACK_KIND,
   MACHINE_HISTORY_KIND,
+  MACHINE_STATUS_NOTICE_KIND,
   createMachineHost,
+  selectStatus,
 } from "../../src/core/machine/index.js";
 import {
   createPlacementScreenTransform,
@@ -248,12 +249,6 @@ test("interaction boundaries emit a runtime error event instead of throwing raw 
     width: 800,
     height: 400,
   });
-  const feedback = [];
-  machineHost.subscribeResults(({ result }) => {
-    if (result.feedback.kind === MACHINE_FEEDBACK_KIND.RUNTIME_ERROR) {
-      feedback.push(result.feedback);
-    }
-  });
 
   const result = controller.handleDoubleClick({ x: 600, y: 320 });
 
@@ -262,10 +257,8 @@ test("interaction boundaries emit a runtime error event instead of throwing raw 
   assert.equal(events[0].type, INTERACTION_EVENT.RUNTIME_ERROR);
   assert.equal(events[0].error.source, RUNTIME_ERROR_SOURCE.INTERACTIONS);
   assert.equal(events[0].error.operation, "handle-double-click");
-  assert.deepEqual(feedback, [{
-    kind: MACHINE_FEEDBACK_KIND.RUNTIME_ERROR,
-    message: "The overlay interaction failed. Try the action again.",
-  }]);
+  assert.equal(machineHost.getState().status.notice.kind, MACHINE_STATUS_NOTICE_KIND.RUNTIME_ERROR);
+  assert.equal(selectStatus(machineHost.getState()), "The overlay interaction failed. Try the action again.");
 });
 
 test("double-click on an existing pin removes it", () => {
