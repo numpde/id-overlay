@@ -5,9 +5,6 @@ import fs from "node:fs/promises";
 import { DIST_DIR, repoPath } from "../helpers/paths.js";
 
 test("chrome build output includes the manifest and source tree", async () => {
-  // Final semantic-history shape: build tests should remain packaging checks.
-  // They should not assert architectural module boundaries for the state
-  // machine beyond required files being shipped.
   const distManifest = JSON.parse(await fs.readFile(repoPath("dist", "manifest.json"), "utf8"));
   const sourceManifest = JSON.parse(await fs.readFile(repoPath("manifest.chrome.json"), "utf8"));
 

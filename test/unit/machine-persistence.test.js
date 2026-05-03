@@ -3,16 +3,22 @@ import assert from "node:assert/strict";
 
 import {
   MACHINE_EVENT_KIND,
+  MACHINE_HISTORY_KIND,
+  MACHINE_INPUT_OVERRIDE,
   MACHINE_MODE,
   MACHINE_PANEL_INTENT,
+  MACHINE_PLACEMENT_EDIT_KIND,
+  MACHINE_POINTER_GESTURE_KIND,
   MACHINE_STATUS_NOTICE_KIND,
   createInitialMachineState,
   fromPersistedMachineSession,
+  migratePersistedMachineSessionForMap,
   toPersistedMachineSession,
   toPersistedMachineSessionSnapshot,
   transitionMachine,
 } from "../../src/core/machine/index.js";
 import { normalizeSessionImage } from "../../src/core/session.js";
+import { createPlacementTransform } from "../../src/core/transform.js";
 
 const IMAGE = Object.freeze({
   src: "data:image/png;base64,abc",
@@ -152,7 +158,7 @@ test("fromPersistedMachineSession drops extra persisted keys", () => {
     image: IMAGE,
     placement: PLACEMENT,
     registration: REGISTRATION,
-    runtime: { activeGesture: "move-overlay" },
+    runtime: { activeGesture: MACHINE_POINTER_GESTURE_KIND.MOVE_OVERLAY },
     panel: { intent: MACHINE_PANEL_INTENT.CLEAR_IMAGE_CONFIRM },
     status: {
       notice: {
@@ -162,7 +168,10 @@ test("fromPersistedMachineSession drops extra persisted keys", () => {
       },
       lastRequestId: 9,
     },
-    history: { past: [{ kind: "load-image" }], future: [{ kind: "clear-image" }] },
+    history: {
+      past: [{ kind: MACHINE_HISTORY_KIND.LOAD_IMAGE }],
+      future: [{ kind: MACHINE_HISTORY_KIND.CLEAR_IMAGE }],
+    },
     unexpected: true,
   });
 
@@ -191,6 +200,40 @@ test("fromPersistedMachineSession normalizes invalid registration", () => {
     solvedTransform: null,
     dirty: false,
   });
+});
+
+test("migratePersistedMachineSessionForMap upgrades legacy map-centered placement", () => {
+  const legacyPlacement = {
+    centerMapLatLon: { lat: 1, lon: 2 },
+    scale: 1.25,
+    rotationRad: 0.5,
+  };
+  const snapshot = {
+    mapView: {
+      zoom: 17,
+    },
+  };
+
+  assert.deepEqual(
+    migratePersistedMachineSessionForMap({
+      mode: MACHINE_MODE.ALIGN,
+      image: IMAGE,
+      placement: legacyPlacement,
+      registration: REGISTRATION,
+    }, snapshot),
+    {
+      mode: MACHINE_MODE.ALIGN,
+      image: IMAGE,
+      placement: createPlacementTransform({
+        image: IMAGE,
+        centerMapLatLon: legacyPlacement.centerMapLatLon,
+        scale: legacyPlacement.scale,
+        rotationRad: legacyPlacement.rotationRad,
+        zoom: snapshot.mapView.zoom,
+      }),
+      registration: REGISTRATION,
+    },
+  );
 });
 
 test("round trip preserves durable session facts only", () => {
@@ -235,10 +278,10 @@ function createNoisyMachineState() {
       pointer: {
         screenPx: { x: 1, y: 2 },
       },
-      activeGesture: "move-overlay",
-      inputOverride: "pass-through",
+      activeGesture: MACHINE_POINTER_GESTURE_KIND.MOVE_OVERLAY,
+      inputOverride: MACHINE_INPUT_OVERRIDE.PASS_THROUGH,
       placementEdit: {
-        kind: "move",
+        kind: MACHINE_PLACEMENT_EDIT_KIND.MOVE,
         beforePlacement: PLACEMENT,
         beforeRegistration: REGISTRATION,
         previewPlacement: PLACEMENT,

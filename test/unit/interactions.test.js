@@ -4,7 +4,8 @@ import assert from "node:assert/strict";
 import { createInteractionController } from "../../src/core/interactions.js";
 import {
   DRAG_MODE,
-  INTERACTION_EVENT,
+  isKnownDragMode,
+  isKnownWheelMode,
   isMapPanDragMode,
   KEYBOARD_SHORTCUT_ACTION,
   resolveDragMode,
@@ -22,6 +23,7 @@ import {
   MACHINE_HISTORY_KIND,
   MACHINE_INPUT_OVERRIDE,
   MACHINE_STATUS_NOTICE_KIND,
+  createInitialMachineState,
   createMachineHost,
   selectStatus,
 } from "../../src/core/machine/index.js";
@@ -43,13 +45,13 @@ const TEST_IMAGE = Object.freeze({
 
 test("shift-dragging updates placement through the adapter only", () => {
   const harness = createHarness();
-  const { controller, store, machineHost } = harness;
+  const { controller, machineHost } = harness;
   seedMachineImageSession(harness);
 
   controller.handlePointerDown({
     button: 0,
     screenPoint: { x: 500, y: 300 },
-    shiftKey: true,
+    dragMode: DRAG_MODE.MOVE_OVERLAY,
   });
   controller.handlePointerMove({ x: 560, y: 280 });
   controller.handlePointerUp({ x: 560, y: 280 });
@@ -59,7 +61,7 @@ test("shift-dragging updates placement through the adapter only", () => {
       viewportRect: { left: 100, top: 100, width: 800, height: 400 },
       mapView: { center: { lat: -1.23, lon: 36.84 }, zoom: 16 },
     },
-    placement: store.getState().placement,
+    placement: getSession(harness).placement,
   });
   assert.deepEqual(imagePointToScreenPoint({
     imagePoint: { x: 400, y: 200 },
@@ -75,7 +77,7 @@ test("shift-dragging updates placement through the adapter only", () => {
       viewportRect: { left: 100, top: 100, width: 800, height: 400 },
       mapView: { center: { lat: -1.23, lon: 36.84 }, zoom: 16 },
     },
-    placement: store.getState().placement,
+    placement: getSession(harness).placement,
   });
   assert.deepEqual(imagePointToScreenPoint({
     imagePoint: { x: 400, y: 200 },
@@ -91,7 +93,7 @@ test("shift-dragging updates placement through the adapter only", () => {
       viewportRect: { left: 100, top: 100, width: 800, height: 400 },
       mapView: { center: { lat: -1.23, lon: 36.84 }, zoom: 16 },
     },
-    placement: store.getState().placement,
+    placement: getSession(harness).placement,
   });
   assert.deepEqual(imagePointToScreenPoint({
     imagePoint: { x: 400, y: 200 },
@@ -111,11 +113,11 @@ test("shift-dragging stays anchored to the visible overlay under live surface mo
   const harness = createHarness({
     snapshot: surfaceMotionSnapshot,
   });
-  const { controller, store, pageAdapter } = harness;
+  const { controller, pageAdapter } = harness;
   seedMachineImageSession(harness);
 
   const beforeTransform = resolveOverlayScreenTransform({
-    state: store.getState(),
+    state: getSession(harness),
     snapshot: pageAdapter.getSnapshot(),
   });
   const startScreenPoint = imagePointToRenderedScreenPoint({
@@ -131,13 +133,13 @@ test("shift-dragging stays anchored to the visible overlay under live surface mo
   controller.handlePointerDown({
     button: 0,
     screenPoint: startScreenPoint,
-    shiftKey: true,
+    dragMode: DRAG_MODE.MOVE_OVERLAY,
   });
   controller.handlePointerMove(endScreenPoint);
   controller.handlePointerUp(endScreenPoint);
 
   const afterTransform = resolveOverlayScreenTransform({
-    state: store.getState(),
+    state: getSession(harness),
     snapshot: pageAdapter.getSnapshot(),
   });
   const afterCenterScreenPoint = imagePointToRenderedScreenPoint({
@@ -152,19 +154,19 @@ test("shift-dragging stays anchored to the visible overlay under live surface mo
 
 test("plain drag uses the map-pan adapter path and keeps placement unchanged", () => {
   const harness = createHarness();
-  const { controller, store, adapterCalls } = harness;
+  const { controller, adapterCalls } = harness;
   seedMachineImageSession(harness);
-  const initialPlacement = store.getState().placement;
+  const initialPlacement = getSession(harness).placement;
 
   controller.handlePointerDown({
     button: 0,
     screenPoint: { x: 500, y: 300 },
-    shiftKey: false,
+    dragMode: DRAG_MODE.MAP_PAN,
   });
   controller.handlePointerMove({ x: 520, y: 310 });
   controller.handlePointerUp({ x: 520, y: 310 });
 
-  assert.deepEqual(store.getState().placement, initialPlacement);
+  assert.deepEqual(getSession(harness).placement, initialPlacement);
   assert.deepEqual(adapterCalls.mapPan.starts, [{ x: 500, y: 300 }]);
   assert.deepEqual(adapterCalls.mapPan.moves, [
     {
@@ -177,68 +179,62 @@ test("plain drag uses the map-pan adapter path and keeps placement unchanged", (
   assert.deepEqual(adapterCalls.mapPan.ends, [{ x: 520, y: 310 }]);
 });
 
-test("double-click adds a pin at the correct image and map coordinates", () => {
+test("pin-toggle command adds a pin at the correct image and map coordinates", () => {
   const harness = createHarness();
-  const { controller, store } = harness;
+  const { controller } = harness;
   seedMachineImageSession(harness);
 
-  const handled = controller.handleDoubleClick({ x: 600, y: 320 });
+  const handled = controller.handleTogglePin({ screenPoint: { x: 600, y: 320 } });
   assert.equal(handled, true);
-  assert.equal(store.getState().registration.pins.length, 1);
-  assert.deepEqual(store.getState().registration.pins[0], {
+  assert.equal(getSession(harness).registration.pins.length, 1);
+  assert.deepEqual(getSession(harness).registration.pins[0], {
     id: 1,
     imagePx: { x: 500, y: 220 },
     mapLatLon: { lat: -1.03, lon: 37.84 },
   });
 });
 
-test("interaction boundaries emit a runtime error event instead of throwing raw adapter failures", () => {
+test("interaction boundaries report machine status instead of throwing raw adapter failures", () => {
   const harness = createHarness({
     screenToMapThrows: new Error("adapter exploded"),
   });
   const { controller, machineHost } = harness;
-  const events = [];
-  controller.subscribeEvents((event) => {
-    events.push(event);
-  });
   seedMachineImageSession(harness);
 
-  const handled = controller.handleDoubleClick({ x: 600, y: 320 });
+  const handled = controller.handleTogglePin({ screenPoint: { x: 600, y: 320 } });
 
   assert.equal(handled, false);
-  assert.equal(events.length, 1);
-  assert.equal(events[0].type, INTERACTION_EVENT.RUNTIME_ERROR);
-  assert.equal(events[0].error.source, RUNTIME_ERROR_SOURCE.INTERACTIONS);
-  assert.equal(events[0].error.operation, "handle-double-click");
   assert.equal(machineHost.getState().status.notice.kind, MACHINE_STATUS_NOTICE_KIND.RUNTIME_ERROR);
+  assert.equal(machineHost.getState().status.notice.payload.error.source, RUNTIME_ERROR_SOURCE.INTERACTIONS);
+  assert.equal(machineHost.getState().status.notice.payload.error.operation, "handle-toggle-pin");
   assert.equal(selectStatus(machineHost.getState()), "The overlay interaction failed. Try the action again.");
 });
 
-test("double-click on an existing pin removes it", () => {
+test("pin-toggle command on an existing pin removes it", () => {
   const harness = createHarness();
-  const { controller, store } = harness;
+  const { controller } = harness;
   seedMachineImageSession(harness);
 
-  controller.handleDoubleClick({ x: 600, y: 320 });
-  const handled = controller.handleDoubleClick({ x: 600, y: 320 });
+  controller.handleTogglePin({ screenPoint: { x: 600, y: 320 } });
+  const handled = controller.handleTogglePin({ screenPoint: { x: 600, y: 320 } });
 
   assert.equal(handled, true);
-  assert.equal(store.getState().registration.pins.length, 0);
+  assert.equal(getSession(harness).registration.pins.length, 0);
 });
 
 test("machine fit event solves from interaction-created pins and clears the dirty flag", () => {
   const harness = createHarness();
-  const { controller, store } = harness;
+  const { controller } = harness;
   seedMachineImageSession(harness);
 
-  controller.handleDoubleClick({ x: 500, y: 300 });
-  controller.handleDoubleClick({ x: 700, y: 300 });
+  controller.handleTogglePin({ screenPoint: { x: 500, y: 300 } });
+  controller.handleTogglePin({ screenPoint: { x: 700, y: 300 } });
 
   const result = dispatchMachineFitOverlayForSetup(harness);
 
   assert.ok(result.state.session.registration.solvedTransform);
-  assert.equal(store.getState().registration.dirty, false);
-  assert.ok(store.getState().registration.solvedTransform);
+  assert.equal(getSession(harness).registration.dirty, false);
+  assert.ok(getSession(harness).registration.solvedTransform);
 });
 
 test("input runtime transitions are canonical machine transitions", () => {
@@ -268,89 +264,84 @@ test("input runtime transitions are canonical machine transitions", () => {
     type: MACHINE_EVENT_KIND.RESET_INPUT_RUNTIME,
     screenPx: null,
   });
-  assert.deepEqual(machineHost.getState().runtime, {
-    pointer: { screenPx: null },
-    activeGesture: null,
-    inputOverride: null,
-    placementEdit: null,
-  });
+  assert.deepEqual(machineHost.getState().runtime, createInitialMachineState().runtime);
 });
 
 test("adding a pin preserves the current rendered placement after a solved transform exists", () => {
   const harness = createHarness();
-  const { controller, store, pageAdapter } = harness;
+  const { controller, pageAdapter } = harness;
   seedMachineImageSession(harness);
 
-  controller.handleDoubleClick({ x: 500, y: 300 });
-  controller.handleDoubleClick({ x: 700, y: 300 });
+  controller.handleTogglePin({ screenPoint: { x: 500, y: 300 } });
+  controller.handleTogglePin({ screenPoint: { x: 700, y: 300 } });
   seedMachineSolvedRegistrationForAlignSetup(harness);
 
   const before = resolveOverlayScreenTransform({
-    state: store.getState(),
+    state: getSession(harness),
     snapshot: pageAdapter.getSnapshot(),
   });
 
-  controller.handleDoubleClick({ x: 650, y: 340 });
+  controller.handleTogglePin({ screenPoint: { x: 650, y: 340 } });
 
   const after = resolveOverlayScreenTransform({
-    state: store.getState(),
+    state: getSession(harness),
     snapshot: pageAdapter.getSnapshot(),
   });
 
   assert.deepEqual(after, before);
-  assert.equal(store.getState().registration.dirty, true);
-  assert.equal(store.getState().registration.pins.length, 3);
+  assert.equal(getSession(harness).registration.dirty, true);
+  assert.equal(getSession(harness).registration.pins.length, 3);
 });
 
 test("removing a pin preserves the current rendered placement after a solved transform exists", () => {
   const harness = createHarness();
-  const { controller, store, pageAdapter } = harness;
+  const { controller, pageAdapter } = harness;
   seedMachineImageSession(harness);
 
-  controller.handleDoubleClick({ x: 500, y: 300 });
-  controller.handleDoubleClick({ x: 700, y: 300 });
+  controller.handleTogglePin({ screenPoint: { x: 500, y: 300 } });
+  controller.handleTogglePin({ screenPoint: { x: 700, y: 300 } });
   seedMachineSolvedRegistrationForAlignSetup(harness);
 
   const before = resolveOverlayScreenTransform({
-    state: store.getState(),
+    state: getSession(harness),
     snapshot: pageAdapter.getSnapshot(),
   });
 
-  controller.handleDoubleClick({ x: 500, y: 300 });
+  controller.handleTogglePin({ screenPoint: { x: 500, y: 300 } });
 
   const after = resolveOverlayScreenTransform({
-    state: store.getState(),
+    state: getSession(harness),
     snapshot: pageAdapter.getSnapshot(),
   });
 
   assert.deepEqual(after, before);
-  assert.equal(store.getState().registration.dirty, true);
-  assert.equal(store.getState().registration.pins.length, 1);
+  assert.equal(getSession(harness).registration.dirty, true);
+  assert.equal(getSession(harness).registration.pins.length, 1);
 });
 
 test("clearing pins preserves the current rendered placement after a solved transform exists", () => {
   const harness = createHarness();
-  const { controller, store, pageAdapter } = harness;
+  const { controller, pageAdapter } = harness;
   seedMachineImageSession(harness);
 
-  controller.handleDoubleClick({ x: 500, y: 300 });
-  controller.handleDoubleClick({ x: 700, y: 300 });
+  controller.handleTogglePin({ screenPoint: { x: 500, y: 300 } });
+  controller.handleTogglePin({ screenPoint: { x: 700, y: 300 } });
   seedMachineSolvedRegistrationForAlignSetup(harness);
 
   const before = resolveOverlayScreenTransform({
-    state: store.getState(),
+    state: getSession(harness),
     snapshot: pageAdapter.getSnapshot(),
   });
 
   dispatchMachineClearPinsPreservingRenderedPlacement(harness);
 
   const after = resolveOverlayScreenTransform({
-    state: store.getState(),
+    state: getSession(harness),
     snapshot: pageAdapter.getSnapshot(),
   });
 
   assert.deepEqual(after, before);
-  assert.deepEqual(store.getState().registration, {
+  assert.deepEqual(getSession(harness).registration, {
     pins: [],
     solvedTransform: null,
     dirty: false,
@@ -359,49 +350,47 @@ test("clearing pins preserves the current rendered placement after a solved tran
 
 test("ctrl-wheel rotates the overlay only and marks a solved transform dirty again", () => {
   const harness = createHarness();
-  const { controller, store, machineHost } = harness;
+  const { controller, machineHost } = harness;
   seedMachineImageSession(harness);
 
-  controller.handleDoubleClick({ x: 500, y: 300 });
-  controller.handleDoubleClick({ x: 700, y: 300 });
+  controller.handleTogglePin({ screenPoint: { x: 500, y: 300 } });
+  controller.handleTogglePin({ screenPoint: { x: 700, y: 300 } });
   seedMachineSolvedRegistrationForAlignSetup(harness);
-  assert.equal(store.getState().registration.dirty, false);
+  assert.equal(getSession(harness).registration.dirty, false);
 
   controller.handleWheel({
     deltaY: -100,
-    shiftKey: false,
-    altKey: false,
-    ctrlKey: true,
+    wheelMode: WHEEL_MODE.ROTATE_OVERLAY,
     screenPoint: { x: 600, y: 320 },
   });
 
-  const rotatedPlacement = store.getState().placement;
-  assert.equal(store.getState().registration.dirty, true);
-  assert.ok(store.getState().registration.solvedTransform);
+  const rotatedPlacement = getSession(harness).placement;
+  assert.equal(getSession(harness).registration.dirty, true);
+  assert.ok(getSession(harness).registration.solvedTransform);
 
   assert.equal(
     consumeHistory(machineHost, MACHINE_EVENT_KIND.UNDO).kind,
     MACHINE_HISTORY_KIND.ROTATE_OVERLAY,
   );
-  assert.equal(store.getState().placement.rotationRad, 0);
-  assert.equal(store.getState().registration.dirty, false);
+  assert.equal(getSession(harness).placement.rotationRad, 0);
+  assert.equal(getSession(harness).registration.dirty, false);
 
   assert.equal(
     consumeHistory(machineHost, MACHINE_EVENT_KIND.REDO).kind,
     MACHINE_HISTORY_KIND.ROTATE_OVERLAY,
   );
-  assert.deepEqual(store.getState().placement, rotatedPlacement);
-  assert.equal(store.getState().registration.dirty, true);
+  assert.deepEqual(getSession(harness).placement, rotatedPlacement);
+  assert.equal(getSession(harness).registration.dirty, true);
 });
 
 test("ctrl-wheel rotates around the image point under the mouse", () => {
   const harness = createHarness();
-  const { controller, store, pageAdapter } = harness;
+  const { controller, pageAdapter } = harness;
   seedMachineImageSession(harness);
 
   const anchorScreenPoint = { x: 650, y: 260 };
   const beforeTransform = resolveOverlayScreenTransform({
-    state: store.getState(),
+    state: getSession(harness),
     snapshot: pageAdapter.getSnapshot(),
   });
   const anchorImagePoint = screenPointToImagePoint({
@@ -411,14 +400,12 @@ test("ctrl-wheel rotates around the image point under the mouse", () => {
 
   controller.handleWheel({
     deltaY: -100,
-    shiftKey: false,
-    altKey: false,
-    ctrlKey: true,
+    wheelMode: WHEEL_MODE.ROTATE_OVERLAY,
     screenPoint: anchorScreenPoint,
   });
 
   const afterTransform = resolveOverlayScreenTransform({
-    state: store.getState(),
+    state: getSession(harness),
     snapshot: pageAdapter.getSnapshot(),
   });
   const afterAnchorScreenPoint = imagePointToScreenPoint({
@@ -432,19 +419,17 @@ test("ctrl-wheel rotates around the image point under the mouse", () => {
 
 test("plain wheel zooms the map only and leaves overlay placement unchanged", () => {
   const harness = createHarness();
-  const { controller, store, adapterCalls } = harness;
+  const { controller, adapterCalls } = harness;
   seedMachineImageSession(harness);
 
-  const initialPlacement = store.getState().placement;
+  const initialPlacement = getSession(harness).placement;
   controller.handleWheel({
     deltaY: -100,
-    shiftKey: false,
-    altKey: false,
-    ctrlKey: false,
+    wheelMode: WHEEL_MODE.MAP_ZOOM,
     screenPoint: { x: 600, y: 320 },
   });
 
-  assert.deepEqual(store.getState().placement, initialPlacement);
+  assert.deepEqual(getSession(harness).placement, initialPlacement);
   assert.equal(adapterCalls.mapZoomCalls.length, 1);
   assert.deepEqual(adapterCalls.mapZoomCalls[0].screenPoint, { x: 600, y: 320 });
   assert.equal(adapterCalls.mapZoomCalls[0].deltaY, -100);
@@ -452,13 +437,13 @@ test("plain wheel zooms the map only and leaves overlay placement unchanged", ()
 
 test("shift-wheel scales around the image point under the mouse", () => {
   const harness = createHarness();
-  const { controller, store, pageAdapter, machineHost } = harness;
+  const { controller, pageAdapter, machineHost } = harness;
   seedMachineImageSession(harness);
 
   const anchorScreenPoint = { x: 650, y: 260 };
-  const initialPlacement = store.getState().placement;
+  const initialPlacement = getSession(harness).placement;
   const beforeTransform = resolveOverlayScreenTransform({
-    state: store.getState(),
+    state: getSession(harness),
     snapshot: pageAdapter.getSnapshot(),
   });
   const anchorImagePoint = screenPointToImagePoint({
@@ -468,14 +453,12 @@ test("shift-wheel scales around the image point under the mouse", () => {
 
   controller.handleWheel({
     deltaY: -100,
-    shiftKey: true,
-    altKey: false,
-    ctrlKey: false,
+    wheelMode: WHEEL_MODE.ZOOM_OVERLAY,
     screenPoint: anchorScreenPoint,
   });
 
   const afterTransform = resolveOverlayScreenTransform({
-    state: store.getState(),
+    state: getSession(harness),
     snapshot: pageAdapter.getSnapshot(),
   });
   const afterAnchorScreenPoint = imagePointToScreenPoint({
@@ -486,143 +469,132 @@ test("shift-wheel scales around the image point under the mouse", () => {
   assert.ok(Math.abs(afterAnchorScreenPoint.x - anchorScreenPoint.x) < 1e-9);
   assert.ok(Math.abs(afterAnchorScreenPoint.y - anchorScreenPoint.y) < 1e-9);
 
-  const scaledPlacement = store.getState().placement;
+  const scaledPlacement = getSession(harness).placement;
   assert.equal(
     consumeHistory(machineHost, MACHINE_EVENT_KIND.UNDO).kind,
     MACHINE_HISTORY_KIND.SCALE_OVERLAY,
   );
-  assert.deepEqual(store.getState().placement, initialPlacement);
+  assert.deepEqual(getSession(harness).placement, initialPlacement);
 
   assert.equal(
     consumeHistory(machineHost, MACHINE_EVENT_KIND.REDO).kind,
     MACHINE_HISTORY_KIND.SCALE_OVERLAY,
   );
-  assert.deepEqual(store.getState().placement, scaledPlacement);
+  assert.deepEqual(getSession(harness).placement, scaledPlacement);
 });
 
 test("map pan/zoom gestures keep a solved transform clean until overlay-only editing begins", () => {
   const harness = createHarness();
-  const { controller, store, adapterCalls } = harness;
+  const { controller, adapterCalls } = harness;
   seedMachineImageSession(harness);
 
-  controller.handleDoubleClick({ x: 500, y: 300 });
-  controller.handleDoubleClick({ x: 700, y: 300 });
+  controller.handleTogglePin({ screenPoint: { x: 500, y: 300 } });
+  controller.handleTogglePin({ screenPoint: { x: 700, y: 300 } });
   seedMachineSolvedRegistrationForAlignSetup(harness);
 
-  const solvedPlacement = store.getState().placement;
-  assert.equal(store.getState().registration.dirty, false);
+  const solvedPlacement = getSession(harness).placement;
+  assert.equal(getSession(harness).registration.dirty, false);
 
   controller.handlePointerDown({
     button: 0,
     screenPoint: { x: 500, y: 300 },
-    shiftKey: false,
+    dragMode: DRAG_MODE.MAP_PAN,
   });
   controller.handlePointerMove({ x: 520, y: 310 });
   controller.handlePointerUp({ x: 520, y: 310 });
   controller.handleWheel({
     deltaY: -100,
-    shiftKey: false,
-    altKey: false,
+    wheelMode: WHEEL_MODE.MAP_ZOOM,
     screenPoint: { x: 600, y: 320 },
   });
 
-  assert.deepEqual(store.getState().placement, solvedPlacement);
-  assert.equal(store.getState().registration.dirty, false);
+  assert.deepEqual(getSession(harness).placement, solvedPlacement);
+  assert.equal(getSession(harness).registration.dirty, false);
   assert.equal(adapterCalls.mapPan.starts.length, 1);
   assert.equal(adapterCalls.mapZoomCalls.length, 1);
 
   controller.handleWheel({
     deltaY: -100,
-    shiftKey: false,
-    altKey: false,
-    ctrlKey: true,
+    wheelMode: WHEEL_MODE.ROTATE_OVERLAY,
     screenPoint: { x: 600, y: 320 },
   });
 
-  assert.equal(store.getState().registration.dirty, true);
+  assert.equal(getSession(harness).registration.dirty, true);
 });
 
 test("ctrl-wheel rotates the overlay without zooming the map", () => {
   const harness = createHarness();
-  const { controller, store, adapterCalls } = harness;
+  const { controller, adapterCalls } = harness;
   seedMachineImageSession(harness);
 
   controller.handleWheel({
     deltaY: 100,
-    shiftKey: false,
-    altKey: false,
-    ctrlKey: true,
+    wheelMode: WHEEL_MODE.ROTATE_OVERLAY,
     screenPoint: { x: 600, y: 320 },
   });
 
-  assert.notEqual(store.getState().placement.rotationRad, 0);
+  assert.notEqual(getSession(harness).placement.rotationRad, 0);
   assert.equal(adapterCalls.mapZoomCalls.length, 0);
 });
 
 test("alt-wheel adjusts the overlay opacity in align mode without zooming the map", () => {
   const harness = createHarness();
-  const { controller, store, adapterCalls } = harness;
+  const { controller, adapterCalls } = harness;
   seedMachineImageSession(harness);
 
-  const initialOpacity = store.getState().opacity;
+  const initialOpacity = getSession(harness).opacity;
   controller.handleWheel({
     deltaY: -100,
-    shiftKey: false,
-    altKey: true,
-    ctrlKey: false,
+    wheelMode: WHEEL_MODE.ADJUST_OPACITY,
     screenPoint: { x: 600, y: 320 },
   });
 
-  const adjustedOpacity = store.getState().opacity;
-  assert.ok(store.getState().opacity > initialOpacity);
+  const adjustedOpacity = getSession(harness).opacity;
+  assert.ok(getSession(harness).opacity > initialOpacity);
   assert.equal(adapterCalls.mapZoomCalls.length, 0);
-  assert.equal(adjustedOpacity, store.getState().opacity);
+  assert.equal(adjustedOpacity, getSession(harness).opacity);
 });
 
 test("alt-wheel adjusts the overlay opacity in trace mode", () => {
   const harness = createHarness();
-  const { controller, store, adapterCalls, machineHost } = harness;
+  const { controller, adapterCalls, machineHost } = harness;
   seedMachineImageSession(harness);
   machineHost.dispatch({
     type: MACHINE_EVENT_KIND.SELECT_MODE,
     mode: SESSION_MODE.TRACE,
   });
 
-  const initialOpacity = store.getState().opacity;
+  const initialOpacity = getSession(harness).opacity;
   const handled = controller.handleWheel({
     deltaY: 100,
-    shiftKey: false,
-    altKey: true,
-    ctrlKey: false,
+    wheelMode: WHEEL_MODE.ADJUST_OPACITY,
     screenPoint: { x: 600, y: 320 },
   });
 
-  const adjustedOpacity = store.getState().opacity;
+  const adjustedOpacity = getSession(harness).opacity;
   assert.equal(handled, true);
-  assert.ok(store.getState().opacity < initialOpacity);
+  assert.ok(getSession(harness).opacity < initialOpacity);
   assert.equal(adapterCalls.mapZoomCalls.length, 0);
-  assert.equal(adjustedOpacity, store.getState().opacity);
+  assert.equal(adjustedOpacity, getSession(harness).opacity);
 });
 
 test("opacity changes do not create undo steps and survive placement undo", () => {
   const harness = createHarness();
-  const { controller, store, machineHost } = harness;
+  const { controller, machineHost } = harness;
   seedMachineImageSession(harness);
 
-  const initialOpacity = store.getState().opacity;
+  const initialOpacity = getSession(harness).opacity;
   controller.handleWheel({
     deltaY: -100,
-    shiftKey: false,
-    altKey: true,
-    ctrlKey: false,
+    wheelMode: WHEEL_MODE.ADJUST_OPACITY,
     screenPoint: { x: 600, y: 320 },
   });
-  const adjustedOpacity = store.getState().opacity;
+  const adjustedOpacity = getSession(harness).opacity;
 
   controller.handlePointerDown({
     button: 0,
     screenPoint: { x: 500, y: 300 },
-    shiftKey: true,
+    dragMode: DRAG_MODE.MOVE_OVERLAY,
   });
   controller.handlePointerMove({ x: 560, y: 280 });
   controller.handlePointerUp({ x: 560, y: 280 });
@@ -632,48 +604,40 @@ test("opacity changes do not create undo steps and survive placement undo", () =
     consumeHistory(machineHost, MACHINE_EVENT_KIND.UNDO).kind,
     MACHINE_HISTORY_KIND.MOVE_OVERLAY,
   );
-  assert.equal(store.getState().opacity, adjustedOpacity);
+  assert.equal(getSession(harness).opacity, adjustedOpacity);
 });
 
 test("toggling to trace auto-computes a dirty transform when enough pins exist", () => {
-  // Final semantic-history shape: keep the visible solve behavior, but assert
-  // it as an undoable fit-overlay transition rather than an untracked side
-  // effect of toggling mode.
   const harness = createHarness();
-  const { controller, store, machineHost } = harness;
+  const { controller, machineHost } = harness;
   seedMachineImageSession(harness);
 
-  controller.handleDoubleClick({ x: 500, y: 300 });
-  controller.handleDoubleClick({ x: 700, y: 300 });
-  assert.equal(store.getState().registration.dirty, true);
+  controller.handleTogglePin({ screenPoint: { x: 500, y: 300 } });
+  controller.handleTogglePin({ screenPoint: { x: 700, y: 300 } });
+  assert.equal(getSession(harness).registration.dirty, true);
 
   machineHost.dispatch({
     type: MACHINE_EVENT_KIND.SELECT_MODE,
     mode: SESSION_MODE.TRACE,
   });
 
-  assert.equal(store.getState().mode, "trace");
-  assert.equal(store.getState().registration.dirty, false);
-  assert.ok(store.getState().registration.solvedTransform);
+  assert.equal(getSession(harness).mode, SESSION_MODE.TRACE);
+  assert.equal(getSession(harness).registration.dirty, false);
+  assert.ok(getSession(harness).registration.solvedTransform);
 });
 
-test("clearing pins emits no low-level telemetry when nothing changed", () => {
+test("clearing pins with no image is a machine no-op", () => {
   const harness = createHarness();
-  const { controller, machineHost } = harness;
-  const events = [];
-  controller.subscribeEvents((event) => {
-    events.push(event);
-  });
+  const { machineHost } = harness;
+  const beforeState = machineHost.getState();
 
-  machineHost.dispatch({ type: MACHINE_EVENT_KIND.CLEAR_PINS });
+  const result = machineHost.dispatch({ type: MACHINE_EVENT_KIND.CLEAR_PINS });
 
-  assert.deepEqual(events, []);
+  assert.equal(result.state, beforeState);
+  assert.equal(result.historyRecord, null);
 });
 
 test("switching mode clears pass-through and ends any active map pan through one transition path", () => {
-  // Final semantic-history shape: keep the low-level runtime reset guarantee,
-  // but mode switching itself should be triggered through canonical
-  // SELECT_MODE events.
   const keyTarget = createKeyTarget();
   const harness = createHarness({ keyTarget });
   const { controller, adapterCalls, machineHost } = harness;
@@ -682,7 +646,7 @@ test("switching mode clears pass-through and ends any active map pan through one
   controller.handlePointerDown({
     button: 0,
     screenPoint: { x: 500, y: 300 },
-    shiftKey: false,
+    dragMode: DRAG_MODE.MAP_PAN,
   });
   controller.handlePointerMove({ x: 520, y: 310 });
   controller.handlePointerEnter({ x: 520, y: 310 });
@@ -702,18 +666,18 @@ test("clearing the image resets runtime and ends any active map pan through one 
   // The machine owns runtime cleanup; the interaction adapter only releases
   // page-adapter resources tied to the ended gesture.
   const harness = createHarness();
-  const { controller, adapterCalls, store, machineHost } = harness;
+  const { controller, adapterCalls, machineHost } = harness;
   seedMachineImageSession(harness);
 
   controller.handlePointerDown({
     button: 0,
     screenPoint: { x: 500, y: 300 },
-    shiftKey: false,
+    dragMode: DRAG_MODE.MAP_PAN,
   });
   controller.handlePointerMove({ x: 520, y: 310 });
   machineHost.dispatch({ type: MACHINE_EVENT_KIND.CLEAR_IMAGE });
 
-  assert.equal(store.getState().image, null);
+  assert.equal(getSession(harness).image, null);
   assert.equal(controller.getRuntimeState().activeGesture, null);
   assert.equal(controller.getRuntimeState().inputOverride, null);
   assert.equal(controller.getRuntimeState().pointer.screenPx, null);
@@ -741,14 +705,14 @@ test("pressing P toggles a pin at the current pointer location", () => {
   // canonical machine transition.
   const keyTarget = createKeyTarget();
   const harness = createHarness({ keyTarget });
-  const { controller, store } = harness;
+  const { controller } = harness;
   seedMachineImageSession(harness);
 
   controller.handlePointerEnter({ x: 600, y: 320 });
   const keydown = createKeyEvent({ code: "KeyP" });
   keyTarget.dispatch("keydown", keydown);
 
-  assert.equal(store.getState().registration.pins.length, 1);
+  assert.equal(getSession(harness).registration.pins.length, 1);
   assert.equal(keydown.prevented, true);
   assert.equal(keydown.stopped, true);
   assert.equal(keydown.immediatelyStopped, true);
@@ -757,7 +721,7 @@ test("pressing P toggles a pin at the current pointer location", () => {
 test("pressing P still toggles when focus is on an extension button", () => {
   const keyTarget = createKeyTarget();
   const harness = createHarness({ keyTarget });
-  const { controller, store } = harness;
+  const { controller } = harness;
   seedMachineImageSession(harness);
 
   controller.handlePointerEnter({ x: 600, y: 320 });
@@ -774,23 +738,21 @@ test("pressing P still toggles when focus is on an extension button", () => {
   });
   keyTarget.dispatch("keydown", keydown);
 
-  assert.equal(store.getState().registration.pins.length, 1);
+  assert.equal(getSession(harness).registration.pins.length, 1);
   assert.equal(keydown.prevented, true);
 });
 
 test("keyboard shortcuts can be delivered through the early keyboard gateway", () => {
-  // Final semantic-history shape: keep this as delivery/wiring coverage only.
-  // The gateway should not define shortcut semantics.
   const keyboardGateway = createKeyboardGatewayHarness();
   const harness = createHarness({ keyboardGateway });
-  const { controller, store } = harness;
+  const { controller } = harness;
   seedMachineImageSession(harness);
 
   controller.handlePointerEnter({ x: 600, y: 320 });
   const keydown = createKeyEvent({ code: "KeyP" });
   keyboardGateway.dispatch("keydown", keydown);
 
-  assert.equal(store.getState().registration.pins.length, 1);
+  assert.equal(getSession(harness).registration.pins.length, 1);
 });
 
 test("keyboard shortcut resolution is single-source and mode-aware", () => {
@@ -823,93 +785,90 @@ test("keyboard shortcut resolution is single-source and mode-aware", () => {
   assert.equal(
     resolveInputProjection({
       event: createKeyEvent({ code: "KeyP" }),
-      state: { ...state, mode: "trace" },
+      state: { ...state, mode: SESSION_MODE.TRACE },
     }).keyboard.action,
     null,
   );
 });
 
 test("drag mode resolution keeps map pan as the unmodified default", () => {
+  assert.equal(isKnownDragMode(DRAG_MODE.MAP_PAN), true);
+  assert.equal(isKnownDragMode("not-a-drag-mode"), false);
   assert.equal(
     resolveDragMode({ shiftKey: false }),
-    "map-pan",
+    DRAG_MODE.MAP_PAN,
   );
   assert.equal(
     resolveDragMode({ shiftKey: true }),
-    "move-overlay",
+    DRAG_MODE.MOVE_OVERLAY,
   );
 });
 
 test("wheel mode resolution is single-source and modifier-aware", () => {
+  assert.equal(isKnownWheelMode(WHEEL_MODE.MAP_ZOOM), true);
+  assert.equal(isKnownWheelMode("not-a-wheel-mode"), false);
   assert.equal(
     resolveWheelMode({ shiftKey: false, altKey: false, ctrlKey: false }),
-    "map-zoom",
+    WHEEL_MODE.MAP_ZOOM,
   );
   assert.equal(
     resolveWheelMode({ shiftKey: true, altKey: false, ctrlKey: false }),
-    "zoom-overlay",
+    WHEEL_MODE.ZOOM_OVERLAY,
   );
   assert.equal(
     resolveWheelMode({ shiftKey: false, altKey: true, ctrlKey: false }),
-    "adjust-opacity",
+    WHEEL_MODE.ADJUST_OPACITY,
   );
   assert.equal(
     resolveWheelMode({ shiftKey: false, altKey: false, ctrlKey: true }),
-    "rotate-overlay",
+    WHEEL_MODE.ROTATE_OVERLAY,
   );
   assert.equal(
     resolveWheelMode({ shiftKey: true, altKey: true, ctrlKey: true }),
-    "adjust-opacity",
+    WHEEL_MODE.ADJUST_OPACITY,
   );
 });
 
 test("align capability helpers are the single source of truth for editability", () => {
+  const alignSession = createProjectionSession({ mode: SESSION_MODE.ALIGN });
+  const traceSession = createProjectionSession({ mode: SESSION_MODE.TRACE });
+  const emptyAlignSession = createProjectionSession({
+    mode: SESSION_MODE.ALIGN,
+    image: null,
+  });
+
   assert.equal(
-    resolveInputProjection({ state: { mode: "align", image: { src: "x" } } })
+    resolveInputProjection({ state: alignSession })
       .overlayPolicy.canEditOverlay,
     true,
   );
   assert.equal(
-    resolveInputProjection({ state: { mode: "trace", image: { src: "x" } } })
+    resolveInputProjection({ state: traceSession })
       .overlayPolicy.canEditOverlay,
     false,
   );
   assert.equal(
-    resolveInputProjection({ state: { mode: "align", image: null } })
+    resolveInputProjection({ state: emptyAlignSession })
       .overlayPolicy.canEditOverlay,
     false,
   );
   assert.equal(
     resolveInputProjection({
-      state: { mode: "align", image: { src: "x" } },
+      state: alignSession,
       runtime: createInputRuntime(),
     }).overlayPolicy.ownsPointerHitTesting,
     true,
   );
   assert.equal(
     resolveInputProjection({
-      state: { mode: "align", image: { src: "x" } },
+      state: alignSession,
       runtime: createInputRuntime({ passThrough: true }),
     }).overlayPolicy.ownsPointerHitTesting,
     false,
   );
   assert.equal(
     resolveInputProjection({
-      state: { mode: "align", image: { src: "x" } },
-      runtime: createInputRuntime(),
-    }).overlayPolicy.ownsPointerHitTesting,
-    true,
-  );
-  assert.equal(
-    resolveInputProjection({
-      state: { mode: "align", image: { src: "x" } },
-      runtime: createInputRuntime({ passThrough: true }),
-    }).overlayPolicy.ownsPointerHitTesting,
-    false,
-  );
-  assert.equal(
-    resolveInputProjection({
-      state: { mode: "trace", image: { src: "x" } },
+      state: traceSession,
       runtime: createInputRuntime(),
     }).overlayPolicy.ownsPointerHitTesting,
     false,
@@ -922,37 +881,43 @@ test("gesture ownership helpers are the single source of truth for map-vs-overla
 });
 
 test("wheel capability is single-source across modes and modifiers", () => {
+  const alignSession = createProjectionSession({ mode: SESSION_MODE.ALIGN });
+  const traceSession = createProjectionSession({ mode: SESSION_MODE.TRACE });
+
   assert.equal(
     resolveInputProjection({
-      state: { mode: "align", image: { src: "x" } },
+      state: alignSession,
       runtime: createInputRuntime(),
       isPointerOverOverlay: true,
-      wheelMode: "map-zoom",
+      wheelMode: WHEEL_MODE.MAP_ZOOM,
     }).wheel.shouldHandle,
     true,
   );
   assert.equal(
     resolveInputProjection({
-      state: { mode: "trace", image: { src: "x" } },
+      state: traceSession,
       runtime: createInputRuntime(),
       isPointerOverOverlay: true,
-      wheelMode: "map-zoom",
+      wheelMode: WHEEL_MODE.MAP_ZOOM,
     }).wheel.shouldHandle,
     false,
   );
   assert.equal(
     resolveInputProjection({
-      state: { mode: "trace", image: { src: "x" } },
+      state: traceSession,
       runtime: createInputRuntime(),
       isPointerOverOverlay: true,
-      wheelMode: "adjust-opacity",
+      wheelMode: WHEEL_MODE.ADJUST_OPACITY,
     }).wheel.shouldHandle,
     true,
   );
 });
 
 test("overlay wheel policy is single-source", () => {
-  const state = { mode: "align", image: { src: "x" }, opacity: 0.6 };
+  const state = createProjectionSession({
+    mode: SESSION_MODE.ALIGN,
+    opacity: 0.6,
+  });
   const runtime = createInputRuntime();
 
   assert.deepEqual(
@@ -991,7 +956,7 @@ test("overlay wheel policy is single-source", () => {
 });
 
 test("overlay pointer move policy is single-source", () => {
-  const state = { mode: "align", image: { src: "x" } };
+  const state = createProjectionSession({ mode: SESSION_MODE.ALIGN });
   const runtime = createInputRuntime();
 
   assert.deepEqual(
@@ -1030,7 +995,7 @@ test("overlay pointer move policy is single-source", () => {
 });
 
 test("overlay pointer sequence policy is single-source", () => {
-  const state = { mode: "align", image: { src: "x" } };
+  const state = createProjectionSession({ mode: SESSION_MODE.ALIGN });
   const runtime = createInputRuntime();
 
   assert.deepEqual(
@@ -1091,7 +1056,8 @@ test("overlay pointer sequence policy is single-source", () => {
 });
 
 test("overlay activation policy is single-source", () => {
-  const state = { mode: "align", image: { src: "x" } };
+  const state = createProjectionSession({ mode: SESSION_MODE.ALIGN });
+  const traceState = createProjectionSession({ mode: SESSION_MODE.TRACE });
   const runtime = createInputRuntime();
 
   assert.deepEqual(
@@ -1120,7 +1086,7 @@ test("overlay activation policy is single-source", () => {
 
   assert.deepEqual(
     resolveInputProjection({
-      state: { mode: "trace", image: { src: "x" } },
+      state: traceState,
       runtime,
       isPointerOverOverlay: true,
     }).activation,
@@ -1144,18 +1110,18 @@ test("map pan does nothing when the page adapter cannot start it", () => {
   const harness = createHarness({
     beginMapPanReturns: false,
   });
-  const { controller, store, adapterCalls } = harness;
+  const { controller, adapterCalls } = harness;
   seedMachineImageSession(harness);
 
-  const initialPlacement = store.getState().placement;
+  const initialPlacement = getSession(harness).placement;
   const handled = controller.handlePointerDown({
     button: 0,
     screenPoint: { x: 500, y: 300 },
-    shiftKey: false,
+    dragMode: DRAG_MODE.MAP_PAN,
   });
 
   assert.equal(handled, false);
-  assert.deepEqual(store.getState().placement, initialPlacement);
+  assert.deepEqual(getSession(harness).placement, initialPlacement);
   assert.equal(controller.getRuntimeState().activeGesture, null);
   assert.deepEqual(adapterCalls.mapPan.starts, [{ x: 500, y: 300 }]);
 });
@@ -1164,20 +1130,18 @@ test("map zoom does nothing when the page adapter cannot forward it", () => {
   const harness = createHarness({
     forwardMapZoomReturns: false,
   });
-  const { controller, store, adapterCalls } = harness;
+  const { controller, adapterCalls } = harness;
   seedMachineImageSession(harness);
 
-  const initialPlacement = store.getState().placement;
+  const initialPlacement = getSession(harness).placement;
   const handled = controller.handleWheel({
     deltaY: -100,
-    shiftKey: false,
-    altKey: false,
-    ctrlKey: false,
+    wheelMode: WHEEL_MODE.MAP_ZOOM,
     screenPoint: { x: 600, y: 320 },
   });
 
   assert.equal(handled, false);
-  assert.deepEqual(store.getState().placement, initialPlacement);
+  assert.deepEqual(getSession(harness).placement, initialPlacement);
   assert.equal(adapterCalls.mapZoomCalls.length, 1);
 });
 
@@ -1185,7 +1149,10 @@ test("pass-through release stays active until the runtime says it can be release
   assert.equal(
     resolveInputProjection({
       event: createKeyEvent({ code: "Space" }),
-      state: { mode: "align" },
+      state: createProjectionSession({
+        mode: SESSION_MODE.ALIGN,
+        image: null,
+      }),
       runtime: createInputRuntime(),
     }).passThroughRelease.shouldRelease,
     true,
@@ -1193,7 +1160,10 @@ test("pass-through release stays active until the runtime says it can be release
   assert.equal(
     resolveInputProjection({
       event: createKeyEvent({ code: "Space" }),
-      state: { mode: "trace" },
+      state: createProjectionSession({
+        mode: SESSION_MODE.TRACE,
+        image: null,
+      }),
       runtime: createInputRuntime({ passThrough: true }),
     }).passThroughRelease.shouldRelease,
     true,
@@ -1201,7 +1171,10 @@ test("pass-through release stays active until the runtime says it can be release
   assert.equal(
     resolveInputProjection({
       event: createKeyEvent({ code: "KeyP" }),
-      state: { mode: "align" },
+      state: createProjectionSession({
+        mode: SESSION_MODE.ALIGN,
+        image: null,
+      }),
       runtime: createInputRuntime({ passThrough: true }),
     }).passThroughRelease.shouldRelease,
     false,
@@ -1232,11 +1205,6 @@ function createHarness({
     snapshot,
   });
   const machineHost = createMachineHost();
-  const store = {
-    getState() {
-      return machineHost.getState().session;
-    },
-  };
   const interactions = createInteractionController({
     machineHost,
     keyTarget,
@@ -1245,7 +1213,6 @@ function createHarness({
   });
   return {
     controller: interactions,
-    store,
     machineHost,
     keyTarget,
     adapterCalls,
@@ -1253,13 +1220,27 @@ function createHarness({
   };
 }
 
+function getSession({ machineHost }) {
+  return machineHost.getState().session;
+}
+
 function createInputRuntime({ passThrough = false } = {}) {
   return {
-    pointer: { screenPx: null },
-    activeGesture: null,
+    ...createInitialMachineState().runtime,
     inputOverride: passThrough ? MACHINE_INPUT_OVERRIDE.PASS_THROUGH : null,
-    placementEdit: null,
   };
+}
+
+function createProjectionSession({
+  mode = SESSION_MODE.ALIGN,
+  image = TEST_IMAGE,
+  opacity = 0.6,
+} = {}) {
+  return createEmptySession({
+    mode,
+    image,
+    opacity,
+  });
 }
 
 function seedMachineImageSession({ machineHost, pageAdapter }, image = TEST_IMAGE) {

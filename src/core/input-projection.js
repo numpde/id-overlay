@@ -7,8 +7,8 @@ import {
 } from "./interaction-policy.js";
 import {
   selectIsInputPassThroughActive,
-  selectOverlayPolicy,
 } from "./machine/selectors.js";
+import { selectOverlayPolicy } from "./machine/policy.js";
 import { isAlignMode } from "./session.js";
 
 export function resolveInputProjection({

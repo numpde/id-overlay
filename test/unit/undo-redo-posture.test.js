@@ -41,7 +41,7 @@ test("pure mode switches are not history and do not clear redo", () => {
 
   let result = transitionMachine(state, { type: MACHINE_EVENT_KIND.UNDO });
   assert.equal(result.consumedHistoryRecord.kind, MACHINE_HISTORY_KIND.ADD_PIN);
-  assert.equal(selectPanelView(result.state).redoTooltip, "Add pin");
+  assert.equal(selectPanelView(result.state).historyControls.redo.title, "Add pin");
 
   result = transitionMachine(result.state, {
     type: MACHINE_EVENT_KIND.SELECT_MODE,
@@ -50,7 +50,7 @@ test("pure mode switches are not history and do not clear redo", () => {
 
   assert.equal(result.state.session.mode, MACHINE_MODE.TRACE);
   assert.equal(result.state.history.future.length, 1);
-  assert.equal(selectPanelView(result.state).redoTooltip, "Add pin");
+  assert.equal(selectPanelView(result.state).historyControls.redo.title, "Add pin");
 });
 
 test("Trace switch with dirty computable pins is an undoable fit transition", () => {
@@ -66,7 +66,7 @@ test("Trace switch with dirty computable pins is an undoable fit transition", ()
   assert.equal(fit.state.session.registration.dirty, false);
   assert.ok(fit.state.session.registration.solvedTransform);
   assert.equal(fit.historyRecord.kind, MACHINE_HISTORY_KIND.FIT_OVERLAY);
-  assert.equal(selectPanelView(fit.state).undoTooltip, "Undo fit overlay");
+  assert.equal(selectPanelView(fit.state).historyControls.undo.title, "Undo fit overlay");
 
   const undo = transitionMachine(fit.state, { type: MACHINE_EVENT_KIND.UNDO });
   assert.equal(undo.consumedHistoryRecord.kind, MACHINE_HISTORY_KIND.FIT_OVERLAY);

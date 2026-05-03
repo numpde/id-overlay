@@ -29,12 +29,11 @@ export function createEmptyRegistration() {
 
 export function normalizeSession(candidate = {}) {
   const session = candidate ?? {};
-  const placementCandidate = session.placement ?? createLegacyPlacement(session.fit);
   return {
     mode: normalizeSessionMode(session.mode),
     opacity: normalizeSessionOpacity(session.opacity),
     image: normalizeSessionImage(session.image),
-    placement: normalizePlacement(placementCandidate),
+    placement: normalizePlacement(session.placement),
     registration: normalizeRegistration(session.registration),
   };
 }
@@ -45,10 +44,6 @@ export function normalizeSessionMode(mode) {
 
 export function isKnownSessionMode(mode) {
   return Object.values(SESSION_MODE).includes(mode);
-}
-
-export function nextSessionMode(mode) {
-  return isAlignMode(mode) ? SESSION_MODE.TRACE : SESSION_MODE.ALIGN;
 }
 
 export function isAlignMode(mode) {
@@ -280,13 +275,6 @@ function normalizePoint(point) {
     return null;
   }
   return { x, y };
-}
-
-function createLegacyPlacement(legacyFit) {
-  if (!legacyFit || legacyFit.type !== "similarity") {
-    return null;
-  }
-  return normalizeSimilarityTransform(legacyFit);
 }
 
 function placementsEqual(left, right) {

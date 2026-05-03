@@ -1,4 +1,5 @@
 import { createInitialMachineState, normalizeMachineState } from "./state.js";
+import { createPlacementTransform } from "../transform.js";
 
 export function toPersistedMachineSession(machineState) {
   const state = normalizeMachineState(machineState);
@@ -32,4 +33,35 @@ export function fromPersistedMachineSession(persisted) {
       registration: persisted.registration,
     },
   });
+}
+
+export function migratePersistedMachineSessionForMap(persisted, snapshot) {
+  if (!persisted?.image) {
+    return persisted ?? {};
+  }
+
+  const placement = persisted.placement;
+  if (placement?.type === "similarity") {
+    return persisted;
+  }
+
+  if (
+    placement?.centerMapLatLon &&
+    Number.isFinite(placement?.scale) &&
+    Number.isFinite(placement?.rotationRad) &&
+    Number.isFinite(snapshot?.mapView?.zoom)
+  ) {
+    return {
+      ...persisted,
+      placement: createPlacementTransform({
+        image: persisted.image,
+        centerMapLatLon: placement.centerMapLatLon,
+        scale: placement.scale,
+        rotationRad: placement.rotationRad,
+        zoom: snapshot.mapView.zoom,
+      }),
+    };
+  }
+
+  return persisted;
 }

@@ -2,21 +2,15 @@ import { clampOpacity, opacityFromWheelDelta } from "../core/transform.js";
 import {
   MACHINE_EVENT_KIND,
   MACHINE_MODE,
-  MACHINE_PANEL_INTENT,
-  MACHINE_STATUS_NOTICE_KIND,
-  createCancelPanelIntentEvent,
 } from "../core/machine/events.js";
-import { createPasteReadOutcomeEvent } from "../core/machine/paste-outcome.js";
 import {
-  MACHINE_PANEL_MAIN_ACTION,
-  selectIsCurrentPanelRequest,
   selectPanelView,
 } from "../core/machine/selectors.js";
 import {
   PANEL_REPO_URL,
   PANEL_TITLE,
 } from "../core/panel-metadata.js";
-import { formatBuildLabel, createLogger } from "../core/logger.js";
+import { formatBuildLabel } from "../core/logger.js";
 
 const PANEL_MARGIN_PX = 8;
 const PANEL_FALLBACK_WIDTH_PX = 280;
@@ -25,10 +19,8 @@ const SVG_NS = "http://www.w3.org/2000/svg";
 
 export function createPanel({
   shadow,
-  clipboardReader,
   machineHost,
 }) {
-  const logger = createLogger("panel");
   const root = document.createElement("section");
   root.className = "id-overlay-panel";
   root.dataset.idOverlayOwned = "true";
@@ -127,7 +119,6 @@ export function createPanel({
   root.append(header, controlsRow, opacityGroup, statusWrap);
   shadow.append(root);
 
-  let isPasteListenerAttached = false;
   let panelPosition = captureInitialPanelPosition();
   let activePanelDrag = null;
   applyPanelPosition();
@@ -191,16 +182,13 @@ export function createPanel({
   });
 
   const unsubscribeMachine = machineHost.subscribe((state) => {
-    syncMachineSideEffects(state);
     applyPanelView(selectPanelView(state));
   }, { emitCurrent: false });
 
-  syncMachineSideEffects(machineHost.getState());
   applyPanelView(selectPanelView(machineHost.getState()));
 
   return {
     destroy() {
-      detachPasteListener();
       endPanelDrag();
       window.removeEventListener("resize", handleWindowResize);
       unsubscribeMachine();
@@ -208,46 +196,12 @@ export function createPanel({
     },
   };
 
-  async function handleMainActionClick() {
+  function handleMainActionClick() {
     const action = selectPanelView(machineHost.getState()).mainAction;
-    if (action.disabled) {
+    if (action.disabled || !action.event) {
       return;
     }
-
-    switch (action.kind) {
-      case MACHINE_PANEL_MAIN_ACTION.PASTE:
-        dispatchMachineEvent({
-          type: MACHINE_EVENT_KIND.REQUEST_PANEL_INTENT,
-          intent: MACHINE_PANEL_INTENT.PASTE_ARMED,
-        });
-        return;
-      case MACHINE_PANEL_MAIN_ACTION.PASTE_ARMED:
-        dispatchMachineEvent(createCancelPanelIntentEvent({
-          requestId: machineHost.getState().panel.requestId,
-          noticeKind: MACHINE_STATUS_NOTICE_KIND.PASTE_CANCELLED,
-        }));
-        return;
-      case MACHINE_PANEL_MAIN_ACTION.CLEAR_PINS:
-        dispatchMachineEvent({
-          type: MACHINE_EVENT_KIND.REQUEST_PANEL_INTENT,
-          intent: MACHINE_PANEL_INTENT.CLEAR_PINS_CONFIRM,
-        });
-        return;
-      case MACHINE_PANEL_MAIN_ACTION.CONFIRM_CLEAR_PINS:
-        dispatchMachineEvent({ type: MACHINE_EVENT_KIND.CLEAR_PINS });
-        return;
-      case MACHINE_PANEL_MAIN_ACTION.CLEAR_IMAGE:
-        dispatchMachineEvent({
-          type: MACHINE_EVENT_KIND.REQUEST_PANEL_INTENT,
-          intent: MACHINE_PANEL_INTENT.CLEAR_IMAGE_CONFIRM,
-        });
-        return;
-      case MACHINE_PANEL_MAIN_ACTION.CONFIRM_CLEAR_IMAGE:
-        dispatchMachineEvent({ type: MACHINE_EVENT_KIND.CLEAR_IMAGE });
-        return;
-      default:
-        return;
-    }
+    dispatchMachineEvent(action.event);
   }
 
   function dispatchMachineEvent(event) {
@@ -277,31 +231,6 @@ export function createPanel({
     button.disabled = presentation.disabled;
     button.title = presentation.title;
     button.setAttribute("aria-label", presentation.accessibleLabel);
-  }
-
-  function syncMachineSideEffects(state) {
-    if (state.panel.intent !== MACHINE_PANEL_INTENT.PASTE_ARMED) {
-      detachPasteListener();
-      return;
-    }
-
-    attachPasteListener();
-  }
-
-  function attachPasteListener() {
-    if (isPasteListenerAttached) {
-      return;
-    }
-    window.addEventListener("paste", handleWindowPaste, true);
-    isPasteListenerAttached = true;
-  }
-
-  function detachPasteListener() {
-    if (!isPasteListenerAttached) {
-      return;
-    }
-    window.removeEventListener("paste", handleWindowPaste, true);
-    isPasteListenerAttached = false;
   }
 
   function handlePanelDragStart(event) {
@@ -353,44 +282,6 @@ export function createPanel({
 
   function handleWindowResize() {
     setPanelPosition(panelPosition);
-  }
-
-  async function handleWindowPaste(event) {
-    const state = machineHost.getState();
-    const requestId = state.panel.requestId;
-    if (!isPasteArmedRequest(requestId, state)) {
-      return;
-    }
-
-    event.preventDefault();
-    const outcome = await clipboardReader.readClipboardDataImage(event.clipboardData);
-    if (!isPasteArmedRequest(requestId)) {
-      logger.info("Ignoring window paste result because paste capture was cancelled");
-      return;
-    }
-    dispatchPasteOutcome(outcome, { requestId, cancelOnFeedback: true });
-  }
-
-  function isPasteArmedRequest(requestId, state = machineHost.getState()) {
-    return (
-      state.panel.intent === MACHINE_PANEL_INTENT.PASTE_ARMED &&
-      selectIsCurrentPanelRequest(state, requestId)
-    );
-  }
-
-  function dispatchPasteOutcome(outcome, { requestId, cancelOnFeedback }) {
-    const event = createPasteReadOutcomeEvent(outcome, { requestId });
-    if (event?.type === MACHINE_EVENT_KIND.LOAD_IMAGE) {
-      dispatchMachineEvent(event);
-      return;
-    }
-
-    if (cancelOnFeedback) {
-      dispatchMachineEvent(createCancelPanelIntentEvent({ requestId }));
-    }
-    if (event) {
-      dispatchMachineEvent(event);
-    }
   }
 
   function setPanelPosition(nextPosition) {

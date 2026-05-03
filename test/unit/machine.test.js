@@ -9,6 +9,7 @@ import {
   MACHINE_PLACEMENT_EDIT_KIND,
   MACHINE_STATUS_NOTICE_KIND,
   createInitialMachineState,
+  selectOverlayPresentation,
   selectOverlayPolicy,
   selectPanelView,
   selectIsCurrentPanelRequest,
@@ -55,8 +56,14 @@ test("initial no-image state is native Trace with paste as the primary action", 
     arePinsVisible: false,
     ownsPointerHitTesting: false,
   });
+  assert.deepEqual(selectOverlayPresentation(state), {
+    mode: MACHINE_MODE.TRACE,
+    isPassThrough: true,
+    arePinsVisible: false,
+    ownsPointerHitTesting: false,
+  });
   assert.equal(selectPanelView(state).mainAction.kind, "paste");
-  assert.equal(selectPanelView(state).isAlignEnabled, false);
+  assert.equal(selectPanelView(state).modeSwitch.disabled, true);
 });
 
 test("loading an image enters Align and records a user-facing reloadable edit", () => {
@@ -72,7 +79,7 @@ test("loading an image enters Align and records a user-facing reloadable edit", 
   assert.equal(result.historyRecord.kind, MACHINE_HISTORY_KIND.LOAD_IMAGE);
   assert.equal(result.state.status.notice.kind, MACHINE_STATUS_NOTICE_KIND.IMAGE_LOADED);
   assert.equal(selectStatus(result.state), "Loaded screenshot 800×400.");
-  assert.equal(selectPanelView(result.state).undoTooltip, "Remove image");
+  assert.equal(selectPanelView(result.state).historyControls.undo.title, "Remove image");
   assert.equal(result.state.history.future.length, 0);
   assert.equal(result.state.history.past.length, 1);
 });
@@ -83,7 +90,7 @@ test("pure mode switches are not history and do not clear redo", () => {
 
   let result = transitionMachine(state, { type: MACHINE_EVENT_KIND.UNDO });
   assert.equal(result.state.history.future.length, 1);
-  assert.equal(selectPanelView(result.state).redoTooltip, "Add pin");
+  assert.equal(selectPanelView(result.state).historyControls.redo.title, "Add pin");
 
   result = transitionMachine(result.state, {
     type: MACHINE_EVENT_KIND.SELECT_MODE,
@@ -93,7 +100,7 @@ test("pure mode switches are not history and do not clear redo", () => {
   assert.equal(result.state.session.mode, MACHINE_MODE.TRACE);
   assert.equal(result.state.history.future.length, 1);
   assert.equal(result.historyRecord, null);
-  assert.equal(selectPanelView(result.state).redoTooltip, "Add pin");
+  assert.equal(selectPanelView(result.state).historyControls.redo.title, "Add pin");
 });
 
 test("invalid mode selection is a pure no-op", () => {
@@ -122,7 +129,7 @@ test("Trace switch with dirty computable pins is an undoable fit transition", ()
   assert.equal(fit.state.session.registration.dirty, false);
   assert.ok(fit.state.session.registration.solvedTransform);
   assert.equal(fit.historyRecord.kind, MACHINE_HISTORY_KIND.FIT_OVERLAY);
-  assert.equal(selectPanelView(fit.state).undoTooltip, "Undo fit overlay");
+  assert.equal(selectPanelView(fit.state).historyControls.undo.title, "Undo fit overlay");
 
   const undo = transitionMachine(fit.state, { type: MACHINE_EVENT_KIND.UNDO });
   assert.equal(undo.state.session.mode, MACHINE_MODE.ALIGN);
@@ -509,7 +516,7 @@ test("redoing a loaded image restores authored image-load context, not later mod
   const undo = transitionMachine(state, { type: MACHINE_EVENT_KIND.UNDO });
   assert.equal(undo.state.session.image, null);
   assert.equal(undo.state.session.mode, MACHINE_MODE.TRACE);
-  assert.equal(selectPanelView(undo.state).redoTooltip, "Reload image");
+  assert.equal(selectPanelView(undo.state).historyControls.redo.title, "Reload image");
 
   const redo = transitionMachine(undo.state, { type: MACHINE_EVENT_KIND.REDO });
   assert.deepEqual(redo.state.session.image, NORMALIZED_IMAGE);
@@ -588,12 +595,18 @@ test("selectors derive panel intent, status, controls, and pass-through", () => 
     arePinsVisible: true,
     ownsPointerHitTesting: true,
   });
+  assert.deepEqual(selectOverlayPresentation(state), {
+    mode: MACHINE_MODE.ALIGN,
+    isPassThrough: false,
+    arePinsVisible: true,
+    ownsPointerHitTesting: true,
+  });
 
   state = transitionMachine(state, {
     type: MACHINE_EVENT_KIND.SELECT_MODE,
     mode: MACHINE_MODE.TRACE,
   }).state;
-  assert.equal(selectPanelView(state).canClearPins, false);
+  assert.equal(selectPanelView(state).modeSwitch.checked, true);
   assert.equal(selectOverlayPolicy(state).isPassThrough, true);
 });
 

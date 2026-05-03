@@ -8,6 +8,7 @@ import {
   hasPendingOverlayPointerSequence,
   resolveOverlayPointerSequenceActivation,
 } from "../../src/core/overlay-pointer-sequence.js";
+import { DRAG_MODE } from "../../src/core/interaction-policy.js";
 
 test("overlay pointer sequence has a single initial idle state", () => {
   const initial = createInitialOverlayPointerSequenceState();
@@ -16,11 +17,9 @@ test("overlay pointer sequence has a single initial idle state", () => {
 });
 
 test("overlay pointer sequence starts pending and activates after the drag threshold", () => {
-  // Final semantic-history shape: this remains adapter-only coverage. Do not
-  // couple pending pointer sequence state to semantic history records.
   const pending = beginOverlayPointerSequence({
     button: 0,
-    dragMode: "map-pan",
+    dragMode: DRAG_MODE.MAP_PAN,
     startScreenPoint: { x: 100, y: 100 },
   });
 

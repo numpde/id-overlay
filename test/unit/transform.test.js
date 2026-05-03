@@ -82,7 +82,6 @@ test("derivePlacementFromScreenTransform recovers a world-space placement transf
 
 test("resolveOverlayScreenTransform uses solved transforms whenever a clean solve is available", () => {
   const state = {
-    mode: "align",
     image: { width: 100, height: 50 },
     opacity: 0.6,
     placement: createPlacementTransform({
@@ -123,39 +122,31 @@ test("resolveOverlayScreenTransform uses solved transforms whenever a clean solv
 test("resolveOverlayRenderSource exposes whether rendering uses solved or manual placement", () => {
   assert.equal(resolveOverlayRenderSource({
     image: null,
-    mode: "trace",
     registration: { solvedTransform: null, dirty: false },
   }), "none");
 
   assert.equal(resolveOverlayRenderSource({
     image: { width: 1, height: 1 },
-    mode: "trace",
     registration: { solvedTransform: null, dirty: false },
   }), "placement");
 
   assert.equal(resolveOverlayRenderSource({
     image: { width: 1, height: 1 },
-    mode: "align",
     registration: { solvedTransform: { type: "similarity", a: 1, b: 0, tx: 0, ty: 0 }, dirty: false },
   }), "solved");
 
   assert.equal(resolveOverlayRenderSource({
     image: { width: 1, height: 1 },
-    mode: "trace",
     registration: { solvedTransform: { type: "similarity", a: 1, b: 0, tx: 0, ty: 0 }, dirty: false },
   }), "solved");
 
   assert.equal(resolveOverlayRenderSource({
     image: { width: 1, height: 1 },
-    mode: "trace",
     registration: { solvedTransform: { type: "similarity", a: 1, b: 0, tx: 0, ty: 0 }, dirty: true },
   }), "placement");
 });
 
 test("resolveOverlayRenderState centralizes the active render source and transform", () => {
-  // Final semantic-history shape: keep this as render-source coverage. Mode
-  // semantics and fit-overlay history should be tested at the UI transition
-  // layer, not inferred from render source here.
   assert.deepEqual(resolveOverlayRenderState({
     image: null,
     placement: { type: "similarity", a: 1, b: 0, tx: 0, ty: 0 },

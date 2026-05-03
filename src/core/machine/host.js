@@ -16,6 +16,8 @@ export function createMachineHost({
   persistedSession = null,
   savePersistedSession = null,
   readPasteImage = null,
+  startManualPasteCapture = null,
+  cancelManualPasteCapture = null,
   setPanelTimeout = null,
   clearPanelTimeout = null,
   panelTimeoutMs = DEFAULT_PANEL_TIMEOUT_MS,
@@ -34,6 +36,8 @@ export function createMachineHost({
 
   const runEffect = createMachineEffectRunner({
     readPasteImage,
+    startManualPasteCapture,
+    cancelManualPasteCapture,
     startPanelTimeout,
     cancelPanelTimeout,
     startStatusTimeout,
@@ -85,6 +89,7 @@ export function createMachineHost({
     destroyed = true;
     unsubscribePersistence?.();
     clearSubscribers();
+    cancelAllManualPasteCaptures();
     clearAllPanelTimers();
     clearAllStatusTimers();
   }
@@ -178,6 +183,10 @@ export function createMachineHost({
       unsubscribe();
     }
     subscriberUnsubscribes.clear();
+  }
+
+  function cancelAllManualPasteCaptures() {
+    cancelManualPasteCapture?.({ requestId: null });
   }
 
   function reportError(error, context) {

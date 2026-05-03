@@ -116,6 +116,31 @@ test("cancel-panel-timeout delegates the exact request id", async () => {
   }]);
 });
 
+test("manual-paste capture effects delegate request id through the effect runner", async () => {
+  const calls = [];
+  const context = createContext();
+  const runEffect = createMachineEffectRunner({
+    startManualPasteCapture: (payload) => calls.push(["start", payload]),
+    cancelManualPasteCapture: (payload) => calls.push(["cancel", payload]),
+    getState: createIdleState,
+  });
+
+  await runEffect({
+    kind: MACHINE_EFFECT_KIND.START_MANUAL_PASTE_CAPTURE,
+    requestId: 7,
+  }, context);
+  await runEffect({
+    kind: MACHINE_EFFECT_KIND.CANCEL_MANUAL_PASTE_CAPTURE,
+    requestId: 7,
+  }, context);
+
+  assert.equal(calls[0][0], "start");
+  assert.equal(calls[0][1].requestId, 7);
+  assert.equal(calls[0][1].context, context);
+  assert.equal(typeof calls[0][1].onPasteOutcome, "function");
+  assert.deepEqual(calls[1], ["cancel", { requestId: 7, context }]);
+});
+
 test("read-paste-image delegates request id and dispatches load-image when image is returned", async () => {
   const calls = [];
   const context = createContext();
@@ -142,6 +167,88 @@ test("read-paste-image delegates request id and dispatches load-image when image
       requestId: 7,
     }],
   ]);
+});
+
+test("manual-paste outcome dispatches load-image only for the current request", async () => {
+  const calls = [];
+  let onPasteOutcome;
+  const runEffect = createMachineEffectRunner({
+    startManualPasteCapture: ({ onPasteOutcome: handler }) => {
+      onPasteOutcome = handler;
+    },
+    dispatch: (event) => calls.push(event),
+    getState: createPasteState(7),
+  });
+
+  await runEffect({
+    kind: MACHINE_EFFECT_KIND.START_MANUAL_PASTE_CAPTURE,
+    requestId: 7,
+  }, createContext());
+  onPasteOutcome({
+    image: IMAGE,
+    placement: "placement",
+  });
+
+  assert.deepEqual(calls, [{
+    type: MACHINE_EVENT_KIND.LOAD_IMAGE,
+    image: IMAGE,
+    placement: "placement",
+    requestId: 7,
+  }]);
+});
+
+test("manual-paste feedback cancels capture before reporting status", async () => {
+  const calls = [];
+  let onPasteOutcome;
+  const runEffect = createMachineEffectRunner({
+    startManualPasteCapture: ({ onPasteOutcome: handler }) => {
+      onPasteOutcome = handler;
+    },
+    dispatch: (event) => calls.push(event),
+    getState: createPasteState(7),
+  });
+
+  await runEffect({
+    kind: MACHINE_EFFECT_KIND.START_MANUAL_PASTE_CAPTURE,
+    requestId: 7,
+  }, createContext());
+  onPasteOutcome({
+    noticeKind: MACHINE_STATUS_NOTICE_KIND.CLIPBOARD_MISSING_IMAGE,
+  });
+
+  assert.deepEqual(calls, [
+    {
+      type: MACHINE_EVENT_KIND.CANCEL_PANEL_INTENT,
+      requestId: 7,
+      noticeKind: null,
+      noticePayload: null,
+    },
+    {
+      type: MACHINE_EVENT_KIND.REPORT_STATUS_NOTICE,
+      noticeKind: MACHINE_STATUS_NOTICE_KIND.CLIPBOARD_MISSING_IMAGE,
+      noticePayload: null,
+    },
+  ]);
+});
+
+test("manual-paste outcome dispatches nothing when request is stale", async () => {
+  const calls = [];
+  let onPasteOutcome;
+  const runEffect = createMachineEffectRunner({
+    startManualPasteCapture: ({ onPasteOutcome: handler }) => {
+      onPasteOutcome = handler;
+    },
+    dispatch: (event) => calls.push(event),
+    getState: createPasteState(8),
+  });
+
+  await runEffect({
+    kind: MACHINE_EFFECT_KIND.START_MANUAL_PASTE_CAPTURE,
+    requestId: 7,
+  }, createContext());
+  onPasteOutcome(IMAGE);
+
+  assert.deepEqual(calls, []);
 });
 
 test("status-timeout effects delegate request id through the effect runner", async () => {

@@ -37,9 +37,11 @@ import {
 import { solveSimilarityTransform } from "../geometry.js";
 import {
   createCancelPanelTimeoutEffect,
+  createCancelManualPasteCaptureEffect,
   createCancelStatusTimeoutEffect,
   createReadPasteImageEffect,
   createStartPanelTimeoutEffect,
+  createStartManualPasteCaptureEffect,
   createStartStatusTimeoutEffect,
 } from "./effects.js";
 import {
@@ -418,22 +420,14 @@ function addPin(state, event) {
     statusNotice: createStatusNotice(MACHINE_STATUS_NOTICE_KIND.PIN_ADDED, {
       pinId: pin.id,
     }),
-    historyRecord: {
+    historyRecord: createRegistrationHistoryRecord({
       kind: MACHINE_HISTORY_KIND.ADD_PIN,
       label: "Added pin",
       undoLabel: "Remove pin",
       redoLabel: "Add pin",
-      undoEvent: {
-        type: MACHINE_EVENT_KIND.RESTORE_REGISTRATION,
-        registration: previousRegistration,
-        mode: MACHINE_MODE.ALIGN,
-      },
-      redoEvent: {
-        type: MACHINE_EVENT_KIND.RESTORE_REGISTRATION,
-        registration: nextRegistration,
-        mode: MACHINE_MODE.ALIGN,
-      },
-    },
+      previousRegistration,
+      nextRegistration,
+    }),
   });
 }
 
@@ -461,22 +455,14 @@ function removePin(state, event) {
     statusNotice: createStatusNotice(MACHINE_STATUS_NOTICE_KIND.PIN_REMOVED, {
       pinId: removedPin.id,
     }),
-    historyRecord: {
+    historyRecord: createRegistrationHistoryRecord({
       kind: MACHINE_HISTORY_KIND.REMOVE_PIN,
       label: "Removed pin",
       undoLabel: "Restore pin",
       redoLabel: "Remove pin",
-      undoEvent: {
-        type: MACHINE_EVENT_KIND.RESTORE_REGISTRATION,
-        registration: previousRegistration,
-        mode: MACHINE_MODE.ALIGN,
-      },
-      redoEvent: {
-        type: MACHINE_EVENT_KIND.RESTORE_REGISTRATION,
-        registration: nextRegistration,
-        mode: MACHINE_MODE.ALIGN,
-      },
-    },
+      previousRegistration,
+      nextRegistration,
+    }),
   });
 }
 
@@ -499,22 +485,14 @@ function clearPins(state, event = {}) {
     statusNotice: createStatusNotice(MACHINE_STATUS_NOTICE_KIND.PINS_CLEARED, {
       pinCount: previousRegistration.pins.length,
     }),
-    historyRecord: {
+    historyRecord: createRegistrationHistoryRecord({
       kind: MACHINE_HISTORY_KIND.CLEAR_PINS,
       label: "Cleared pins",
       undoLabel: "Restore pins",
       redoLabel: "Clear pins",
-      undoEvent: {
-        type: MACHINE_EVENT_KIND.RESTORE_REGISTRATION,
-        registration: previousRegistration,
-        mode: MACHINE_MODE.ALIGN,
-      },
-      redoEvent: {
-        type: MACHINE_EVENT_KIND.RESTORE_REGISTRATION,
-        registration: nextRegistration,
-        mode: MACHINE_MODE.ALIGN,
-      },
-    },
+      previousRegistration,
+      nextRegistration,
+    }),
   });
 }
 
@@ -541,10 +519,7 @@ function prepareRegistrationEditState(state, event) {
 }
 
 function canEditPins(state) {
-  return (
-    Boolean(state.session.image) &&
-    state.session.mode === MACHINE_MODE.ALIGN
-  );
+  return selectPanelPolicy(state).canEditOverlay;
 }
 
 function fitOverlay(state) {
@@ -732,17 +707,17 @@ function commitPlacementChange(state, event) {
   const nextState = replacePlacementEdit(replaceRegistration(replaceSession(state, {
     placement: nextPlacement,
   }), nextRegistration), null);
-  const kind = placementHistoryKind(event.editKind);
+  const historyMetadata = resolvePlacementHistoryMetadata(event.editKind);
   return createTransitionResult({
     state: nextState,
     statusNotice: createStatusNotice(MACHINE_STATUS_NOTICE_KIND.PLACEMENT_CHANGED, {
       editKind: event.editKind,
     }),
     historyRecord: {
-      kind,
-      label: placementLabel(event.editKind),
-      undoLabel: undoPlacementLabel(event.editKind),
-      redoLabel: redoPlacementLabel(event.editKind),
+      kind: historyMetadata.kind,
+      label: historyMetadata.label,
+      undoLabel: historyMetadata.undoLabel,
+      redoLabel: historyMetadata.redoLabel,
       undoEvent: {
         type: MACHINE_EVENT_KIND.RESTORE_PLACEMENT,
         placement: previousPlacement,
@@ -772,10 +747,7 @@ function restorePlacement(state, event) {
 }
 
 function canEditPlacement(state) {
-  return (
-    Boolean(state.session.image) &&
-    state.session.mode === MACHINE_MODE.ALIGN
-  );
+  return selectPanelPolicy(state).canEditOverlay;
 }
 
 function clearPlacementEditRuntime(state) {
@@ -816,7 +788,7 @@ function requestPanelIntent(state, event) {
   return createTransitionResult({
     state: nextState,
     effects: [
-      ...createCancelPanelTimeoutEffects(state),
+      ...createCancelPanelIntentEffects(state),
       ...createCancelStatusTimeoutEffects(state),
       ...createPanelIntentEffects({ intent, requestId }),
     ],
@@ -933,7 +905,7 @@ function applyStatusNotice(state, statusNotice) {
 function clearPanelIntent(state, nextState = state) {
   return {
     state: replacePanel(nextState, createIdlePanel()),
-    effects: createCancelPanelTimeoutEffects(state),
+    effects: createCancelPanelIntentEffects(state),
   };
 }
 
@@ -955,15 +927,21 @@ function nextStatusRequestId(state) {
   return state.status.lastRequestId + 1;
 }
 
-function createCancelPanelTimeoutEffects(state) {
+function createCancelPanelIntentEffects(state) {
   if (state.panel.requestId === null) {
     return [];
   }
-  return [
+  const effects = [
     createCancelPanelTimeoutEffect({
       requestId: state.panel.requestId,
     }),
   ];
+  if (state.panel.intent === MACHINE_PANEL_INTENT.PASTE_ARMED) {
+    effects.push(createCancelManualPasteCaptureEffect({
+      requestId: state.panel.requestId,
+    }));
+  }
+  return effects;
 }
 
 function createCancelStatusTimeoutEffects(state) {
@@ -984,6 +962,7 @@ function createPanelIntentEffects({ intent, requestId }) {
   }
   return [
     createReadPasteImageEffect({ requestId }),
+    createStartManualPasteCaptureEffect({ requestId }),
     timeoutEffect,
   ];
 }
@@ -992,44 +971,55 @@ function nextPinId(pins) {
   return pins.reduce((maxId, pin) => Math.max(maxId, Number(pin.id) || 0), 0) + 1;
 }
 
-function placementHistoryKind(editKind) {
-  if (editKind === MACHINE_PLACEMENT_EDIT_KIND.ROTATE) {
-    return MACHINE_HISTORY_KIND.ROTATE_OVERLAY;
-  }
-  if (editKind === MACHINE_PLACEMENT_EDIT_KIND.SCALE) {
-    return MACHINE_HISTORY_KIND.SCALE_OVERLAY;
-  }
-  return MACHINE_HISTORY_KIND.MOVE_OVERLAY;
+function createRegistrationHistoryRecord({
+  kind,
+  label,
+  undoLabel,
+  redoLabel,
+  previousRegistration,
+  nextRegistration,
+}) {
+  return {
+    kind,
+    label,
+    undoLabel,
+    redoLabel,
+    undoEvent: createRestoreRegistrationEvent(previousRegistration),
+    redoEvent: createRestoreRegistrationEvent(nextRegistration),
+  };
 }
 
-function placementLabel(editKind) {
-  if (editKind === MACHINE_PLACEMENT_EDIT_KIND.ROTATE) {
-    return "Rotated overlay";
-  }
-  if (editKind === MACHINE_PLACEMENT_EDIT_KIND.SCALE) {
-    return "Scaled overlay";
-  }
-  return "Moved overlay";
+function createRestoreRegistrationEvent(registration) {
+  return {
+    type: MACHINE_EVENT_KIND.RESTORE_REGISTRATION,
+    registration,
+    mode: MACHINE_MODE.ALIGN,
+  };
 }
 
-function undoPlacementLabel(editKind) {
-  if (editKind === MACHINE_PLACEMENT_EDIT_KIND.ROTATE) {
-    return "Undo rotate overlay";
-  }
-  if (editKind === MACHINE_PLACEMENT_EDIT_KIND.SCALE) {
-    return "Undo scale overlay";
-  }
-  return "Undo move overlay";
-}
+const PLACEMENT_HISTORY_METADATA = Object.freeze({
+  [MACHINE_PLACEMENT_EDIT_KIND.MOVE]: Object.freeze({
+    kind: MACHINE_HISTORY_KIND.MOVE_OVERLAY,
+    label: "Moved overlay",
+    undoLabel: "Undo move overlay",
+    redoLabel: "Redo move overlay",
+  }),
+  [MACHINE_PLACEMENT_EDIT_KIND.ROTATE]: Object.freeze({
+    kind: MACHINE_HISTORY_KIND.ROTATE_OVERLAY,
+    label: "Rotated overlay",
+    undoLabel: "Undo rotate overlay",
+    redoLabel: "Redo rotate overlay",
+  }),
+  [MACHINE_PLACEMENT_EDIT_KIND.SCALE]: Object.freeze({
+    kind: MACHINE_HISTORY_KIND.SCALE_OVERLAY,
+    label: "Scaled overlay",
+    undoLabel: "Undo scale overlay",
+    redoLabel: "Redo scale overlay",
+  }),
+});
 
-function redoPlacementLabel(editKind) {
-  if (editKind === MACHINE_PLACEMENT_EDIT_KIND.ROTATE) {
-    return "Redo rotate overlay";
-  }
-  if (editKind === MACHINE_PLACEMENT_EDIT_KIND.SCALE) {
-    return "Redo scale overlay";
-  }
-  return "Redo move overlay";
+function resolvePlacementHistoryMetadata(editKind) {
+  return PLACEMENT_HISTORY_METADATA[editKind] ?? PLACEMENT_HISTORY_METADATA[MACHINE_PLACEMENT_EDIT_KIND.MOVE];
 }
 
 function areEqualPlacements(left, right) {

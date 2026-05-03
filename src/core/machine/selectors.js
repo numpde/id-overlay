@@ -1,12 +1,17 @@
 import {
   MACHINE_INPUT_OVERRIDE,
+  MACHINE_EVENT_KIND,
   MACHINE_MODE,
   MACHINE_PANEL_INTENT,
   MACHINE_PLACEMENT_EDIT_KIND,
   MACHINE_STATUS_NOTICE_KIND,
+  createCancelPanelIntentEvent,
 } from "./events.js";
 import { peekRedoRecord, peekUndoRecord } from "./history.js";
-import { selectPanelPolicy } from "./policy.js";
+import {
+  selectOverlayPolicy,
+  selectPanelPolicy,
+} from "./policy.js";
 import { isValidPanelRequestId } from "./state.js";
 import { getOverlayImageLoadStats } from "../image-normalization.js";
 import { RUNTIME_ERROR_SOURCE } from "../runtime-error.js";
@@ -57,8 +62,6 @@ export function selectPanelView(state) {
   const redoTooltip = selectRedoTooltip(state);
   return {
     mode: state.session.mode,
-    isAlignEnabled: policy.canSelectAlign,
-    isTraceEnabled: policy.canSelectTrace,
     opacityControl: {
       value: String(state.session.opacity),
       disabled: !policy.canSetOpacity,
@@ -70,11 +73,6 @@ export function selectPanelView(state) {
       mode: state.session.mode,
     },
     mainAction: resolveMainAction(state),
-    canClearPins: policy.canClearPins,
-    canUndo,
-    canRedo,
-    undoTooltip,
-    redoTooltip,
     status: selectStatus(state),
     historyControls: {
       undo: createHistoryControl({
@@ -118,22 +116,13 @@ export function selectBaselineStatus(state) {
   return MACHINE_STATUS_MESSAGE.TRACE;
 }
 
-export function selectOverlayPolicy(state, runtime = null) {
-  const session = state.session ?? state;
-  const hasImage = Boolean(session.image);
-  const mode = session.mode;
-  const runtimeState = runtime ?? state.runtime ?? null;
-  const hasInputPassThrough = runtimeState?.inputOverride === MACHINE_INPUT_OVERRIDE.PASS_THROUGH;
-  const isNativeMapInput = !hasImage || mode === MACHINE_MODE.TRACE;
-  const canEditOverlay = hasImage && mode === MACHINE_MODE.ALIGN;
+export function selectOverlayPresentation(state, runtime = null) {
+  const policy = selectOverlayPolicy(state, runtime);
   return {
-    hasImage,
-    mode,
-    isNativeMapInput,
-    isPassThrough: isNativeMapInput || hasInputPassThrough,
-    canEditOverlay,
-    arePinsVisible: canEditOverlay,
-    ownsPointerHitTesting: canEditOverlay && !hasInputPassThrough,
+    mode: policy.mode,
+    isPassThrough: policy.isPassThrough,
+    arePinsVisible: policy.arePinsVisible,
+    ownsPointerHitTesting: policy.ownsPointerHitTesting,
   };
 }
 
@@ -211,7 +200,15 @@ function resolveMainAction(state) {
         : MACHINE_PANEL_MAIN_ACTION.PASTE,
       label: state.panel.intent === MACHINE_PANEL_INTENT.PASTE_ARMED ? "Paste…" : "Paste",
       intent: state.panel.intent,
-      target: MACHINE_PANEL_MAIN_ACTION.PASTE,
+      event: state.panel.intent === MACHINE_PANEL_INTENT.PASTE_ARMED
+        ? createCancelPanelIntentEvent({
+          requestId: state.panel.requestId,
+          noticeKind: MACHINE_STATUS_NOTICE_KIND.PASTE_CANCELLED,
+        })
+        : {
+          type: MACHINE_EVENT_KIND.REQUEST_PANEL_INTENT,
+          intent: MACHINE_PANEL_INTENT.PASTE_ARMED,
+        },
     });
   }
   if (policy.canClearPins) {
@@ -220,7 +217,7 @@ function resolveMainAction(state) {
         kind: MACHINE_PANEL_MAIN_ACTION.CONFIRM_CLEAR_PINS,
         label: "Clear pins?",
         intent: state.panel.intent,
-        target: MACHINE_PANEL_MAIN_ACTION.CLEAR_PINS,
+        event: { type: MACHINE_EVENT_KIND.CLEAR_PINS },
         presentationKind: "confirm",
       });
     }
@@ -228,7 +225,10 @@ function resolveMainAction(state) {
       kind: MACHINE_PANEL_MAIN_ACTION.CLEAR_PINS,
       label: resolveClearPinsLabel(policy.pinCount),
       intent: state.panel.intent,
-      target: MACHINE_PANEL_MAIN_ACTION.CLEAR_PINS,
+      event: {
+        type: MACHINE_EVENT_KIND.REQUEST_PANEL_INTENT,
+        intent: MACHINE_PANEL_INTENT.CLEAR_PINS_CONFIRM,
+      },
     });
   }
   if (state.panel.intent === MACHINE_PANEL_INTENT.CLEAR_IMAGE_CONFIRM) {
@@ -236,7 +236,7 @@ function resolveMainAction(state) {
       kind: MACHINE_PANEL_MAIN_ACTION.CONFIRM_CLEAR_IMAGE,
       label: "Clear image?",
       intent: state.panel.intent,
-      target: MACHINE_PANEL_MAIN_ACTION.CLEAR_IMAGE,
+      event: { type: MACHINE_EVENT_KIND.CLEAR_IMAGE },
       presentationKind: "confirm",
     });
   }
@@ -244,7 +244,10 @@ function resolveMainAction(state) {
     kind: MACHINE_PANEL_MAIN_ACTION.CLEAR_IMAGE,
     label: "Clear image",
     intent: state.panel.intent,
-    target: MACHINE_PANEL_MAIN_ACTION.CLEAR_IMAGE,
+    event: {
+      type: MACHINE_EVENT_KIND.REQUEST_PANEL_INTENT,
+      intent: MACHINE_PANEL_INTENT.CLEAR_IMAGE_CONFIRM,
+    },
   });
 }
 
@@ -252,14 +255,14 @@ function createMainAction({
   kind,
   label,
   intent,
-  target,
+  event,
   presentationKind = "neutral",
 }) {
   return {
     kind,
     label,
     intent,
-    target,
+    event,
     disabled: false,
     presentationKind,
   };

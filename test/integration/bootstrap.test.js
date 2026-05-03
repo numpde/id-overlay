@@ -7,9 +7,6 @@ import { createPlacementTransform } from "../../src/core/transform.js";
 import { PANEL_REPO_URL } from "../../src/core/panel-metadata.js";
 
 function createStoredPlacement({ width, height, scale, rotationRad }) {
-  // Final semantic-history shape: this is persisted/session fixture plumbing.
-  // It should not become a shortcut for authoring semantic placement edits in
-  // integration tests.
   return createPlacementTransform({
     image: { width, height },
     centerMapLatLon: { lat: 0, lon: 0 },

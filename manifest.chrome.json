@@ -43,6 +43,8 @@
         "src/core/transform.js",
         "src/core/storage.js",
         "src/core/interactions.js",
+        "src/core/keyboard-listeners.js",
+        "src/core/placement-edit-render-state.js",
         "src/core/machine/effect-runner.js",
         "src/core/machine/effects.js",
         "src/core/machine/events.js",

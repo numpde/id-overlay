@@ -1,9 +1,6 @@
 const STORAGE_KEY = "id-overlay/state";
 
 export function createExtensionStorage() {
-  // Final semantic-history shape: storage is an opaque persistence adapter. It
-  // should store the explicit durable schema it is given, not know about UI
-  // transition records unless persistence intentionally includes them.
   const extensionApi = resolveExtensionApi();
   if (!extensionApi?.storage?.local) {
     return {
@@ -19,12 +16,9 @@ export function createExtensionStorage() {
       const record = await callStorageLocalMethod(extensionApi, "get", STORAGE_KEY);
       return record?.[STORAGE_KEY] ?? null;
     },
-    async save(state) {
-      // Final semantic-history shape: callers should pass a durable projection
-      // here. Avoid saving live runtime, panel intent, or accidental store
-      // internals through this generic adapter.
+    async save(persistedSession) {
       await callStorageLocalMethod(extensionApi, "set", {
-        [STORAGE_KEY]: state
+        [STORAGE_KEY]: persistedSession
       });
     }
   };

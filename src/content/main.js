@@ -1,13 +1,13 @@
 import { createExtensionStorage } from "../core/storage.js";
 import { createInteractionController } from "../core/interactions.js";
 import { createMachineHost } from "../core/machine/host.js";
+import { migratePersistedMachineSessionForMap } from "../core/machine/persistence.js";
 import { createPageAdapter } from "./page-adapter.js";
 import { createPanel } from "./panel.js";
 import { createOverlay } from "./overlay.js";
 import { createClipboardImageReader } from "./paste-adapter.js";
 import { BUILD_INFO } from "../core/build-info.js";
 import { createLogger } from "../core/logger.js";
-import { createPlacementTransform } from "../core/transform.js";
 
 const HOST_ID = "id-overlay-root";
 const OWNED_NODE_SELECTOR = "[data-id-overlay-owned='true']";
@@ -38,9 +38,14 @@ export async function bootstrapIdOverlay({ keyboardGateway = null } = {}) {
     logger,
   });
   const machineHost = createMachineHost({
-    persistedSession: migratePersistedStateForCurrentMap(persistedState, pageAdapter.getSnapshot()),
+    persistedSession: migratePersistedMachineSessionForMap(persistedState, pageAdapter.getSnapshot()),
     savePersistedSession: (session) => storage.save(session),
     readPasteImage: () => clipboardReader.readClipboardApiImage(),
+    ...createManualPasteCapture({
+      ownerWindow: window,
+      clipboardReader,
+      logger,
+    }),
     setPanelTimeout: (callback, { delayMs }) => globalThis.setTimeout(callback, delayMs),
     clearPanelTimeout: (handle) => globalThis.clearTimeout(handle),
     setStatusTimeout: (callback, { delayMs }) => globalThis.setTimeout(callback, delayMs),
@@ -63,7 +68,6 @@ export async function bootstrapIdOverlay({ keyboardGateway = null } = {}) {
 
   const panel = createPanel({
     shadow,
-    clipboardReader,
     machineHost,
   });
 
@@ -81,37 +85,47 @@ export async function bootstrapIdOverlay({ keyboardGateway = null } = {}) {
   logger.info("Bootstrap complete");
 }
 
-function migratePersistedStateForCurrentMap(persistedState, snapshot) {
-  // Final semantic-history shape: persisted-state migrations should produce
-  // canonical durable session data before machine hydration. They should not need
-  // to understand UI history records or transition internals.
-  if (!persistedState?.image) {
-    return persistedState ?? {};
+function createManualPasteCapture({ ownerWindow, clipboardReader, logger }) {
+  let activeRequestId = null;
+  let activeOutcomeHandler = null;
+
+  return {
+    startManualPasteCapture({ requestId, onPasteOutcome }) {
+      cancelManualPasteCapture({ requestId: null });
+      activeRequestId = requestId;
+      activeOutcomeHandler = onPasteOutcome;
+      ownerWindow.addEventListener("paste", handleWindowPaste, true);
+    },
+    cancelManualPasteCapture,
+  };
+
+  function cancelManualPasteCapture({ requestId }) {
+    if (activeRequestId === null) {
+      return;
+    }
+    if (requestId !== null && requestId !== activeRequestId) {
+      return;
+    }
+    ownerWindow.removeEventListener("paste", handleWindowPaste, true);
+    activeRequestId = null;
+    activeOutcomeHandler = null;
   }
 
-  const placement = persistedState.placement;
-  if (placement?.type === "similarity") {
-    return persistedState;
-  }
+  async function handleWindowPaste(event) {
+    const requestId = activeRequestId;
+    const outcomeHandler = activeOutcomeHandler;
+    if (requestId === null || !outcomeHandler) {
+      return;
+    }
 
-  if (
-    placement?.centerMapLatLon &&
-    Number.isFinite(placement?.scale) &&
-    Number.isFinite(placement?.rotationRad)
-  ) {
-    return {
-      ...persistedState,
-      placement: createPlacementTransform({
-        image: persistedState.image,
-        centerMapLatLon: placement.centerMapLatLon,
-        scale: placement.scale,
-        rotationRad: placement.rotationRad,
-        zoom: snapshot.mapView.zoom,
-      }),
-    };
+    event.preventDefault();
+    const outcome = await clipboardReader.readClipboardDataImage(event.clipboardData);
+    if (activeRequestId !== requestId) {
+      logger.info("Ignoring window paste result because paste capture was cancelled");
+      return;
+    }
+    outcomeHandler(outcome);
   }
-
-  return persistedState;
 }
 
 export function queueBootstrapIdOverlay({ keyboardGateway = null } = {}) {

@@ -17,7 +17,6 @@ import {
   isAlignMode,
   isTraceMode,
   needsSolveRecompute,
-  nextSessionMode,
   normalizeRegistration,
   normalizeSession,
   normalizeSessionImage,
@@ -59,8 +58,6 @@ test("session mode vocabulary and defaults are canonical", () => {
   assert.equal(normalizeSessionMode(SESSION_MODE.ALIGN), SESSION_MODE.ALIGN);
   assert.equal(normalizeSessionMode(SESSION_MODE.TRACE), SESSION_MODE.TRACE);
   assert.equal(normalizeSessionMode("invalid"), SESSION_MODE.TRACE);
-  assert.equal(nextSessionMode(SESSION_MODE.ALIGN), SESSION_MODE.TRACE);
-  assert.equal(nextSessionMode(SESSION_MODE.TRACE), SESSION_MODE.ALIGN);
   assert.equal(isAlignMode(SESSION_MODE.ALIGN), true);
   assert.equal(isAlignMode(SESSION_MODE.TRACE), false);
   assert.equal(isTraceMode(SESSION_MODE.TRACE), true);
@@ -82,8 +79,7 @@ test("normalizeSession owns persisted durable-session normalization", () => {
     mode: "invalid",
     opacity: 4,
     image: IMAGE,
-    placement: null,
-    fit: PLACEMENT,
+    placement: PLACEMENT,
     registration: {
       pins: [
         { id: "2", imagePx: { x: "600", y: "200" }, mapLatLon: { lat: "-1.23", lon: "37.84" } },

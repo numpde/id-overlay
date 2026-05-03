@@ -72,6 +72,10 @@ test("requesting paste arms intent and emits read-paste plus timeout effects", (
       requestId: 1,
     },
     {
+      kind: MACHINE_EFFECT_KIND.START_MANUAL_PASTE_CAPTURE,
+      requestId: 1,
+    },
+    {
       kind: MACHINE_EFFECT_KIND.START_PANEL_TIMEOUT,
       intent: MACHINE_PANEL_INTENT.PASTE_ARMED,
       requestId: 1,
@@ -98,7 +102,15 @@ test("requesting paste again cancels the old request and arms a new one", () => 
       requestId: 1,
     },
     {
+      kind: MACHINE_EFFECT_KIND.CANCEL_MANUAL_PASTE_CAPTURE,
+      requestId: 1,
+    },
+    {
       kind: MACHINE_EFFECT_KIND.READ_PASTE_IMAGE,
+      requestId: 2,
+    },
+    {
+      kind: MACHINE_EFFECT_KIND.START_MANUAL_PASTE_CAPTURE,
       requestId: 2,
     },
     {
@@ -141,6 +153,10 @@ test("cancelling panel intent clears request id and emits cancel-timeout effect"
       kind: MACHINE_EFFECT_KIND.CANCEL_PANEL_TIMEOUT,
       requestId: 1,
     },
+    {
+      kind: MACHINE_EFFECT_KIND.CANCEL_MANUAL_PASTE_CAPTURE,
+      requestId: 1,
+    },
   ]);
 });
 
@@ -174,6 +190,10 @@ test("request-bound panel cancellation clears only the matching request id", () 
   assert.deepEqual(result.effects, [
     {
       kind: MACHINE_EFFECT_KIND.CANCEL_PANEL_TIMEOUT,
+      requestId: 1,
+    },
+    {
+      kind: MACHINE_EFFECT_KIND.CANCEL_MANUAL_PASTE_CAPTURE,
       requestId: 1,
     },
   ]);
@@ -339,6 +359,10 @@ test("undoing clear-image while paste is armed cancels active panel timeout", ()
       requestId: 1,
     },
     {
+      kind: MACHINE_EFFECT_KIND.CANCEL_MANUAL_PASTE_CAPTURE,
+      requestId: 1,
+    },
+    {
       kind: MACHINE_EFFECT_KIND.START_STATUS_TIMEOUT,
       requestId: 3,
     },
@@ -363,6 +387,10 @@ test("loading image after paste cancels timeout and records load-image history",
   assert.deepEqual(result.effects, [
     {
       kind: MACHINE_EFFECT_KIND.CANCEL_PANEL_TIMEOUT,
+      requestId: 1,
+    },
+    {
+      kind: MACHINE_EFFECT_KIND.CANCEL_MANUAL_PASTE_CAPTURE,
       requestId: 1,
     },
     {

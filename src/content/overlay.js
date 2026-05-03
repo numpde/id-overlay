@@ -13,6 +13,7 @@ import {
 import { getOverlayImage, hasOverlayImageSession } from "../core/session.js";
 import {
   selectIsRuntimeDragging,
+  selectOverlayPresentation,
   selectRuntimePointerScreenPx,
 } from "../core/machine/selectors.js";
 import { resolveInputProjection } from "../core/input-projection.js";
@@ -175,15 +176,12 @@ export function createOverlay({ pageAdapter, machineHost, interactions }) {
     const state = machineState.session;
     const viewportRect = latestSnapshot.viewportRect;
     const localViewportRect = latestSnapshot.localViewportRect ?? viewportRect;
-    const overlayPolicy = resolveInputProjection({
+    const overlayPresentation = selectOverlayPresentation(
       machineState,
-      runtime: latestRuntime,
-    }).overlayPolicy;
-    // Final semantic-history shape: this dataset is presentation of canonical
-    // mode. Keep it as a DOM projection only; do not let tests treat it as a
-    // separate source of mode truth.
+      latestRuntime,
+    );
     overlayRoot.dataset.mode = state.mode;
-    overlayRoot.dataset.passThrough = String(overlayPolicy.isPassThrough);
+    overlayRoot.dataset.passThrough = String(overlayPresentation.isPassThrough);
     overlayRoot.style.left = `${localViewportRect.left}px`;
     overlayRoot.style.top = `${localViewportRect.top}px`;
     overlayRoot.style.width = `${localViewportRect.width}px`;
@@ -233,9 +231,9 @@ export function createOverlay({ pageAdapter, machineHost, interactions }) {
     overlayFrame.style.height = `${model.height}px`;
     overlayFrame.style.transformOrigin = "0 0";
     overlayFrame.style.transform = `rotate(${model.rotationDeg}deg)`;
-    overlayFrame.style.pointerEvents = overlayPolicy.ownsPointerHitTesting ? "auto" : "none";
+    overlayFrame.style.pointerEvents = overlayPresentation.ownsPointerHitTesting ? "auto" : "none";
 
-    if (!overlayPolicy.arePinsVisible) {
+    if (!overlayPresentation.arePinsVisible) {
       mapPinLayer.replaceChildren();
       pinLayer.replaceChildren();
       return;
@@ -314,6 +312,19 @@ export function createOverlay({ pageAdapter, machineHost, interactions }) {
     return machineHost.getState();
   }
 
+  function resolveMountedInputProjection(screenPoint, options = {}) {
+    return resolveInputProjection(resolveMountedInputFacts(screenPoint, options));
+  }
+
+  function resolveMountedInputFacts(screenPoint, options = {}) {
+    return {
+      machineState: getMachineState(),
+      runtime: latestRuntime,
+      isPointerOverOverlay: isScreenPointOverOverlay(screenPoint),
+      ...options,
+    };
+  }
+
   return {
     destroy() {
       if (renderFrame !== null && typeof globalThis.cancelAnimationFrame === "function") {
@@ -329,9 +340,6 @@ export function createOverlay({ pageAdapter, machineHost, interactions }) {
   };
 
   function attachWheelListener() {
-    // Final semantic-history shape: listener attachment is adapter plumbing.
-    // It should remain independent from semantic mode/history decisions, which
-    // belong in transition handlers.
     if (!mountElement || wheelTarget === mountElement) {
       return;
     }
@@ -374,10 +382,7 @@ export function createOverlay({ pageAdapter, machineHost, interactions }) {
         consumeOverlayEvent(event);
         return;
       }
-      const pointerPolicy = resolveInputProjection({
-        machineState: getMachineState(),
-        runtime: latestRuntime,
-        isPointerOverOverlay: isScreenPointOverOverlay(screenPoint),
+      const pointerPolicy = resolveMountedInputProjection(screenPoint, {
         buttons: event.buttons,
       }).pointerMove;
       if (pointerPolicy.shouldTrackPointer) {
@@ -405,10 +410,7 @@ export function createOverlay({ pageAdapter, machineHost, interactions }) {
         return;
       }
       const screenPoint = toGlobalScreenPoint(event);
-      const pointerPolicy = resolveInputProjection({
-        machineState: getMachineState(),
-        runtime: latestRuntime,
-        isPointerOverOverlay: isScreenPointOverOverlay(screenPoint),
+      const pointerPolicy = resolveMountedInputProjection(screenPoint, {
         button: event.button,
         shiftKey: event.shiftKey,
       }).pointerSequence;
@@ -430,15 +432,11 @@ export function createOverlay({ pageAdapter, machineHost, interactions }) {
         return;
       }
       const screenPoint = toGlobalScreenPoint(event);
-      const activationPolicy = resolveInputProjection({
-        machineState: getMachineState(),
-        runtime: latestRuntime,
-        isPointerOverOverlay: isScreenPointOverOverlay(screenPoint),
-      }).activation;
+      const activationPolicy = resolveMountedInputProjection(screenPoint).activation;
       if (!activationPolicy.shouldTogglePin) {
         return;
       }
-      if (!interactions.handleDoubleClick(screenPoint)) {
+      if (!interactions.handleTogglePin({ screenPoint })) {
         return;
       }
       consumeOverlayEvent(event);
@@ -451,11 +449,7 @@ export function createOverlay({ pageAdapter, machineHost, interactions }) {
         return;
       }
       const screenPoint = toGlobalScreenPoint(event);
-      const activationPolicy = resolveInputProjection({
-        machineState: getMachineState(),
-        runtime: latestRuntime,
-        isPointerOverOverlay: isScreenPointOverOverlay(screenPoint),
-      }).activation;
+      const activationPolicy = resolveMountedInputProjection(screenPoint).activation;
       if (!activationPolicy.shouldConsumeClick) {
         return;
       }
@@ -469,10 +463,7 @@ export function createOverlay({ pageAdapter, machineHost, interactions }) {
         return;
       }
       const screenPoint = toGlobalScreenPoint(event);
-      const wheelPolicy = resolveInputProjection({
-        machineState: getMachineState(),
-        runtime: latestRuntime,
-        isPointerOverOverlay: isScreenPointOverOverlay(screenPoint),
+      const wheelPolicy = resolveMountedInputProjection(screenPoint, {
         shiftKey: event.shiftKey,
         altKey: event.altKey,
         ctrlKey: event.ctrlKey,
@@ -482,9 +473,7 @@ export function createOverlay({ pageAdapter, machineHost, interactions }) {
       }
       if (!interactions.handleWheel({
         deltaY: event.deltaY,
-        shiftKey: event.shiftKey,
-        altKey: event.altKey,
-        ctrlKey: event.ctrlKey,
+        wheelMode: wheelPolicy.wheelMode,
         screenPoint,
       })) {
         return;
@@ -496,9 +485,6 @@ export function createOverlay({ pageAdapter, machineHost, interactions }) {
   }
 
   function attachGlobalPointerListeners() {
-    // Final semantic-history shape: global listener ownership should be driven
-    // by raw drag runtime only. It should not become another semantic drag
-    // state outside the UI machine.
     const nextWindow = mountElement?.ownerDocument?.defaultView ?? globalThis.window;
     if (!nextWindow || dragEventWindow === nextWindow) {
       return;
@@ -525,27 +511,8 @@ export function createOverlay({ pageAdapter, machineHost, interactions }) {
         return;
       }
       const screenPoint = toGlobalScreenPoint(event);
-      if (hasPendingOverlayPointerSequence(pendingPointerSequence)) {
-        const activation = resolveOverlayPointerSequenceActivation({
-          state: pendingPointerSequence,
-          screenPoint,
-        });
-        if (!activation.shouldStartDrag) {
-          consumeOverlayEvent(event);
-          return;
-        }
-        const pendingSequence = activation.sequence;
-        interactions.handlePointerMove?.(pendingSequence.startScreenPoint);
-        if (!interactions.handlePointerDown({
-          button: pendingSequence.button,
-          screenPoint: pendingSequence.startScreenPoint,
-          dragMode: pendingSequence.dragMode,
-        })) {
-          setPendingPointerSequence(clearOverlayPointerSequence());
-          consumeOverlayEvent(event);
-          return;
-        }
-        setPendingPointerSequence(clearOverlayPointerSequence());
+      if (!advancePendingPointerSequence(event, screenPoint)) {
+        return;
       }
       if (!selectIsRuntimeDragging(latestRuntime)) {
         syncGlobalPointerListeners();
@@ -554,6 +521,33 @@ export function createOverlay({ pageAdapter, machineHost, interactions }) {
       interactions.handlePointerMove?.(screenPoint);
       consumeOverlayEvent(event);
     });
+  }
+
+  function advancePendingPointerSequence(event, screenPoint) {
+    if (!hasPendingOverlayPointerSequence(pendingPointerSequence)) {
+      return true;
+    }
+    const activation = resolveOverlayPointerSequenceActivation({
+      state: pendingPointerSequence,
+      screenPoint,
+    });
+    if (!activation.shouldStartDrag) {
+      consumeOverlayEvent(event);
+      return false;
+    }
+    const pendingSequence = activation.sequence;
+    interactions.handlePointerMove?.(pendingSequence.startScreenPoint);
+    if (!interactions.handlePointerDown({
+      button: pendingSequence.button,
+      screenPoint: pendingSequence.startScreenPoint,
+      dragMode: pendingSequence.dragMode,
+    })) {
+      setPendingPointerSequence(clearOverlayPointerSequence());
+      consumeOverlayEvent(event);
+      return false;
+    }
+    setPendingPointerSequence(clearOverlayPointerSequence());
+    return true;
   }
 
   function handleGlobalPointerUp(event) {
@@ -658,9 +652,6 @@ function ensureOverlayStyles(targetDocument) {
 }
 
 function consumeOverlayEvent(event) {
-  // Final semantic-history shape: event consumption is adapter output. Tests
-  // should assert semantic ownership decisions, not these DOM calls directly
-  // except at the adapter boundary.
   event?.preventDefault?.();
   event?.stopPropagation?.();
   event?.stopImmediatePropagation?.();

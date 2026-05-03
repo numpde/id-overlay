@@ -37,7 +37,7 @@ test("machine runtime normalizes custom initial state", () => {
   const runtime = createMachineRuntime({
     initialState: {
       session: {
-        mode: "align",
+        mode: MACHINE_MODE.ALIGN,
         opacity: 2,
       },
     },

@@ -2,33 +2,32 @@ import { createLogger } from "./logger.js";
 import { createRuntimeError, RUNTIME_ERROR_SOURCE } from "./runtime-error.js";
 import {
   DRAG_MODE,
-  INTERACTION_EVENT,
+  isKnownDragMode,
+  isKnownWheelMode,
   isMapPanDragMode,
   KEYBOARD_SHORTCUT_ACTION,
   WHEEL_MODE,
 } from "./interaction-policy.js";
 import { resolveInputProjection } from "./input-projection.js";
+import { createKeyboardListeners } from "./keyboard-listeners.js";
+import { resolvePlacementEditRenderState } from "./placement-edit-render-state.js";
 import {
-  createPlacementEditedRegistration,
   getOverlayImage,
-  hasCleanSolvedTransform,
   hasOverlayImageSession,
   SESSION_MODE,
 } from "./session.js";
 import {
   buildPinRenderModels,
-  createSimilarityTransformFromAnchor,
-  derivePlacementFromScreenTransform,
+  createRetunedPlacementTransform,
+  derivePlacementFromCurrentRenderState,
   hitTestPin,
   imagePointToRenderedScreenPoint,
   isImagePointWithinBounds,
   opacityFromWheelDelta,
-  removeSurfaceMotionFromScreenPoint,
   resolveOverlayRenderSource,
   resolveOverlayScreenTransform,
   rotationFromWheelDelta,
   scaleFromWheelDelta,
-  screenPointToImagePoint,
   screenPointToRenderedImagePoint,
 } from "./transform.js";
 import {
@@ -51,8 +50,8 @@ export function createInteractionController({
   keyboardGateway = null,
 }) {
   const logger = createLogger("interactions");
-  const eventListeners = new Set();
-  let dragState = null;
+  let isAdapterMapPanActive = false;
+  let adapterOverlayMove = null;
   let observedRuntime = machineHost.getState().runtime;
 
   const unsubscribeMachine = machineHost.subscribe((state) => {
@@ -60,31 +59,17 @@ export function createInteractionController({
     observedRuntime = state.runtime;
     syncAdapterDragFromRuntimeChange(previousRuntime, state.runtime);
   }, { emitCurrent: false });
-  const unsubscribeKeyboardGateway = keyboardGateway?.subscribe?.({
+  const keyboardListeners = createKeyboardListeners({
+    keyTarget,
+    keyboardGateway,
     keydown: handleKeyDown,
     keyup: handleKeyUp,
     blur: handleWindowBlur,
-  }) ?? null;
-  const keyEventTargets = unsubscribeKeyboardGateway ? [] : resolveKeyEventTargets(keyTarget);
-
-  if (!unsubscribeKeyboardGateway) {
-    for (const target of keyEventTargets) {
-      target?.addEventListener?.("keydown", handleKeyDown, true);
-      target?.addEventListener?.("keyup", handleKeyUp, true);
-    }
-    keyTarget?.addEventListener?.("blur", handleWindowBlur);
-  }
+  });
 
   function destroy() {
     unsubscribeMachine();
-    unsubscribeKeyboardGateway?.();
-    for (const target of keyEventTargets) {
-      target?.removeEventListener?.("keydown", handleKeyDown, true);
-      target?.removeEventListener?.("keyup", handleKeyUp, true);
-    }
-    if (!unsubscribeKeyboardGateway) {
-      keyTarget?.removeEventListener?.("blur", handleWindowBlur);
-    }
+    keyboardListeners.destroy();
   }
 
   function subscribe(listener, options) {
@@ -100,13 +85,6 @@ export function createInteractionController({
         listener(nextRuntime);
       }
     }, { emitCurrent: false });
-  }
-
-  function subscribeEvents(listener) {
-    // Low-level telemetry only. User-visible outcomes flow through the machine
-    // result stream.
-    eventListeners.add(listener);
-    return () => eventListeners.delete(listener);
   }
 
   function getRuntimeState() {
@@ -127,10 +105,19 @@ export function createInteractionController({
     });
   }
 
-  function togglePinAtCurrentPointer() {
+  function handleTogglePin({ screenPoint }) {
+    return runInteractionBoundary("handle-toggle-pin", () => {
+      updatePointer(screenPoint);
+      return togglePinAtScreenPoint(screenPoint);
+    }, { fallbackValue: false });
+  }
+
+  function togglePinAtScreenPoint(screenPoint) {
+    const snapshot = pageAdapter.getSnapshot();
     const pinContext = resolvePinContext({
       state: getSession(),
-      runtime: getRuntimeState(),
+      snapshot,
+      screenPoint,
       pageAdapter,
     });
     if (!pinContext.ok) {
@@ -140,7 +127,10 @@ export function createInteractionController({
       return false;
     }
 
-    const preservedPlacement = derivePlacementFromCurrentRenderTransform(getSession());
+    const preservedPlacement = derivePlacementFromCurrentRenderState({
+      state: getMachineState(),
+      snapshot,
+    });
     const event = {
       type: MACHINE_EVENT_KIND.TOGGLE_PIN,
       imagePx: pinContext.imagePx,
@@ -173,10 +163,11 @@ export function createInteractionController({
   function handlePointerMove(screenPoint) {
     return runInteractionBoundary("handle-pointer-move", () => {
       const runtime = getRuntimeState();
-      if (selectIsRuntimeDragging(runtime) && dragState) {
+      const dragMode = getActiveAdapterDragMode();
+      if (selectIsRuntimeDragging(runtime) && dragMode) {
         dragTo(screenPoint);
         startDragRuntime(screenPoint, {
-          dragMode: dragState.mode,
+          dragMode,
         });
         return true;
       }
@@ -185,38 +176,30 @@ export function createInteractionController({
     }, { fallbackValue: false });
   }
 
-  function handlePointerDown({ button, screenPoint, shiftKey, dragMode: explicitDragMode = null }) {
+  function handlePointerDown({ button, screenPoint, dragMode }) {
     return runInteractionBoundary("handle-pointer-down", () => {
-      const inputProjection = resolveInputProjection({
-        machineState: getMachineState(),
-        runtime: getRuntimeState(),
-        isPointerOverOverlay: true,
-        button,
-        shiftKey,
-      });
-      if (!inputProjection.pointerSequence.shouldOwnPointerSequence) {
+      if (button !== 0 || !isKnownDragMode(dragMode)) {
         return false;
       }
 
-      const state = getSession();
-      const dragMode = explicitDragMode ?? inputProjection.pointerSequence.dragMode;
       if (isMapPanDragMode(dragMode)) {
         const beganMapPan = pageAdapter.beginMapPan?.(screenPoint) === true;
         if (!beganMapPan) {
           logger.warn("Map pan requested, but the page adapter could not start it");
           return false;
         }
-        dragState = {
-          mode: DRAG_MODE.MAP_PAN,
-          lastPointerScreenPx: screenPoint,
-        };
-      } else {
-        const interactionState = resolvePlacementEditRenderState(state);
+        isAdapterMapPanActive = true;
+        adapterOverlayMove = null;
+      } else if (dragMode === DRAG_MODE.MOVE_OVERLAY) {
+        const snapshot = pageAdapter.getSnapshot();
+        const interactionState = resolvePlacementEditRenderState({
+          state: getMachineState(),
+          snapshot,
+        });
         if (!interactionState) {
           return false;
         }
         const image = getOverlayImage(interactionState);
-        const snapshot = pageAdapter.getSnapshot();
         const screenTransform = resolveOverlayScreenTransform({
           state: interactionState,
           snapshot,
@@ -229,8 +212,8 @@ export function createInteractionController({
           transform: screenTransform,
           snapshot,
         });
-        dragState = {
-          mode: DRAG_MODE.MOVE_OVERLAY,
+        isAdapterMapPanActive = false;
+        adapterOverlayMove = {
           startPointerScreenPx: screenPoint,
           startCenterScreenPx: centerScreenPx,
         };
@@ -239,6 +222,8 @@ export function createInteractionController({
           editKind: MACHINE_PLACEMENT_EDIT_KIND.MOVE,
           renderedPlacement: interactionState.placement,
         });
+      } else {
+        return false;
       }
       startDragRuntime(screenPoint, {
         dragMode,
@@ -249,18 +234,18 @@ export function createInteractionController({
 
   function handlePointerUp(screenPoint) {
     return runInteractionBoundary("handle-pointer-up", () => {
-      if (!dragState) {
+      if (!hasActiveAdapterDrag()) {
         return false;
       }
       dragTo(screenPoint);
-      if (isMapPanDragMode(dragState.mode)) {
+      if (isAdapterMapPanActive) {
         pageAdapter.endMapPan?.(screenPoint);
       } else {
         dispatchMachine({
           type: MACHINE_EVENT_KIND.COMMIT_PLACEMENT_EDIT,
         });
       }
-      dragState = null;
+      clearAdapterDrag();
       endDragRuntime(screenPoint);
       return true;
     }, { fallbackValue: false });
@@ -276,103 +261,98 @@ export function createInteractionController({
     });
   }
 
-  function handleWheel({ deltaY, shiftKey, altKey, ctrlKey, screenPoint }) {
+  function handleWheel({ deltaY, wheelMode, screenPoint }) {
     return runInteractionBoundary("handle-wheel", () => {
-      const state = getSession();
-      const runtime = getRuntimeState();
-      const inputProjection = resolveInputProjection({
-        machineState: getMachineState(),
-        runtime,
-        isPointerOverOverlay: true,
-        shiftKey,
-        altKey,
-        ctrlKey,
-      });
-      const wheelMode = inputProjection.wheel.wheelMode;
-      if (!inputProjection.wheel.shouldHandle) {
+      if (!isKnownWheelMode(wheelMode)) {
         return false;
       }
       if (wheelMode === WHEEL_MODE.MAP_ZOOM) {
-        const scaleFactor = scaleFromWheelDelta(1, deltaY);
-        const forwarded = pageAdapter.forwardMapZoom({
-          screenPoint,
-          deltaY,
-        });
-        if (!forwarded) {
-          logger.warn("Map zoom requested, but the page adapter could not forward it");
-          return false;
-        }
-        logger.info(
-          "Forwarded native wheel to map zoom; overlay follows through the current render state",
-          {
-            forwarded,
-            scaleFactor,
-            deltaY,
-            renderSource: resolveOverlayRenderSource(state),
-          },
-        );
-        updatePointer(screenPoint);
-        return true;
+        return handleMapZoomWheel({ deltaY, screenPoint });
       }
-
       if (wheelMode === WHEEL_MODE.ADJUST_OPACITY) {
-        const nextOpacity = opacityFromWheelDelta(state.opacity, deltaY);
-        dispatchMachine({
-          type: MACHINE_EVENT_KIND.SET_OPACITY,
-          opacity: nextOpacity,
-        });
-        logger.info("Adjusted overlay opacity", { opacity: nextOpacity, deltaY });
-        updatePointer(screenPoint);
-        return true;
+        return handleOpacityWheel({ deltaY, screenPoint });
       }
-
-      const placementState = resolvePlacementEditRenderState(state);
-      if (!placementState) {
-        return false;
-      }
-      const snapshot = pageAdapter.getSnapshot();
-      if (wheelMode === WHEEL_MODE.ROTATE_OVERLAY) {
-        const nextRotationRad = rotationFromWheelDelta(placementState.placement.rotationRad, deltaY);
-        const nextPlacement = createRetunedPlacementTransform({
-          state: placementState,
-          snapshot,
-          anchorScreenPx: screenPoint,
-          rotationRad: nextRotationRad,
-        });
-        dispatchMachine({
-          type: MACHINE_EVENT_KIND.APPLY_PLACEMENT_EDIT,
-          renderedPlacement: placementState.placement,
-          placement: nextPlacement,
-          editKind: MACHINE_PLACEMENT_EDIT_KIND.ROTATE,
-        });
-        logger.info("Rotated overlay placement", { rotationRad: nextRotationRad, deltaY });
-      } else if (wheelMode === WHEEL_MODE.ZOOM_OVERLAY) {
-        const screenScale = Math.hypot(placementState.placement.a, placementState.placement.b) * (2 ** snapshot.mapView.zoom);
-        const nextScale = scaleFromWheelDelta(screenScale, deltaY);
-        const nextPlacement = createRetunedPlacementTransform({
-          state: placementState,
-          snapshot,
-          anchorScreenPx: screenPoint,
-          screenScale: nextScale,
-        });
-        dispatchMachine({
-          type: MACHINE_EVENT_KIND.APPLY_PLACEMENT_EDIT,
-          renderedPlacement: placementState.placement,
-          placement: nextPlacement,
-          editKind: MACHINE_PLACEMENT_EDIT_KIND.SCALE,
-        });
-        logger.info("Scaled overlay placement", { scale: nextScale, deltaY });
-      }
-      updatePointer(screenPoint);
-      return true;
+      return handlePlacementWheel({ deltaY, wheelMode, screenPoint });
     }, { fallbackValue: false });
   }
 
-  function handleDoubleClick(screenPoint) {
-    return runInteractionBoundary("handle-double-click", () => {
-      updatePointer(screenPoint);
-      return togglePinAtCurrentPointer();
-    }, { fallbackValue: false });
+  function handleMapZoomWheel({ deltaY, screenPoint }) {
+    const forwarded = pageAdapter.forwardMapZoom({
+      screenPoint,
+      deltaY,
+    });
+    if (!forwarded) {
+      logger.warn("Map zoom requested, but the page adapter could not forward it");
+      return false;
+    }
+    logger.info(
+      "Forwarded native wheel to map zoom; overlay follows through the current render state",
+      {
+        forwarded,
+        deltaY,
+        renderSource: resolveOverlayRenderSource(getSession()),
+      },
+    );
+    updatePointer(screenPoint);
+    return true;
+  }
+
+  function handleOpacityWheel({ deltaY, screenPoint }) {
+    const nextOpacity = opacityFromWheelDelta(getSession().opacity, deltaY);
+    dispatchMachine({
+      type: MACHINE_EVENT_KIND.SET_OPACITY,
+      opacity: nextOpacity,
+    });
+    logger.info("Adjusted overlay opacity", { opacity: nextOpacity, deltaY });
+    updatePointer(screenPoint);
+    return true;
+  }
+
+  function handlePlacementWheel({ deltaY, wheelMode, screenPoint }) {
+    const snapshot = pageAdapter.getSnapshot();
+    const placementState = resolvePlacementEditRenderState({
+      state: getMachineState(),
+      snapshot,
+    });
+    if (!placementState) {
+      return false;
+    }
+    if (wheelMode === WHEEL_MODE.ROTATE_OVERLAY) {
+      const nextRotationRad = rotationFromWheelDelta(placementState.placement.rotationRad, deltaY);
+      const nextPlacement = createRetunedPlacementTransform({
+        state: placementState,
+        snapshot,
+        anchorScreenPx: screenPoint,
+        rotationRad: nextRotationRad,
+      });
+      dispatchMachine({
+        type: MACHINE_EVENT_KIND.APPLY_PLACEMENT_EDIT,
+        renderedPlacement: placementState.placement,
+        placement: nextPlacement,
+        editKind: MACHINE_PLACEMENT_EDIT_KIND.ROTATE,
+      });
+      logger.info("Rotated overlay placement", { rotationRad: nextRotationRad, deltaY });
+    } else if (wheelMode === WHEEL_MODE.ZOOM_OVERLAY) {
+      const screenScale = Math.hypot(placementState.placement.a, placementState.placement.b) * (2 ** snapshot.mapView.zoom);
+      const nextScale = scaleFromWheelDelta(screenScale, deltaY);
+      const nextPlacement = createRetunedPlacementTransform({
+        state: placementState,
+        snapshot,
+        anchorScreenPx: screenPoint,
+        screenScale: nextScale,
+      });
+      dispatchMachine({
+        type: MACHINE_EVENT_KIND.APPLY_PLACEMENT_EDIT,
+        renderedPlacement: placementState.placement,
+        placement: nextPlacement,
+        editKind: MACHINE_PLACEMENT_EDIT_KIND.SCALE,
+      });
+      logger.info("Scaled overlay placement", { scale: nextScale, deltaY });
+    } else {
+      return false;
+    }
+    updatePointer(screenPoint);
+    return true;
   }
 
   function handleKeyDown(event) {
@@ -402,12 +382,15 @@ export function createInteractionController({
     }
 
     consumeEvent(event);
+    dispatchKeyboardShortcut(shortcutAction);
+  }
 
+  function dispatchKeyboardShortcut(shortcutAction) {
     if (shortcutAction === KEYBOARD_SHORTCUT_ACTION.TOGGLE_PIN_CURRENT_POINTER) {
       logger.info("Keyboard pin toggle requested", {
         pointerScreenPx: getPointerScreenPx(),
       });
-      togglePinAtCurrentPointer();
+      togglePinAtScreenPoint(getPointerScreenPx());
       return;
     }
 
@@ -448,25 +431,27 @@ export function createInteractionController({
   }
 
   function dragTo(screenPoint) {
-    if (!dragState) {
+    if (!hasActiveAdapterDrag()) {
       return;
     }
 
-    if (isMapPanDragMode(dragState.mode)) {
-      dragState.lastPointerScreenPx = screenPoint;
+    if (isAdapterMapPanActive) {
       pageAdapter.updateMapPan(screenPoint);
       return;
     }
 
     const nextCenterScreenPx = {
-      x: dragState.startCenterScreenPx.x + (screenPoint.x - dragState.startPointerScreenPx.x),
-      y: dragState.startCenterScreenPx.y + (screenPoint.y - dragState.startPointerScreenPx.y),
+      x: adapterOverlayMove.startCenterScreenPx.x + (screenPoint.x - adapterOverlayMove.startPointerScreenPx.x),
+      y: adapterOverlayMove.startCenterScreenPx.y + (screenPoint.y - adapterOverlayMove.startPointerScreenPx.y),
     };
-    const state = resolvePlacementEditRenderState();
+    const snapshot = pageAdapter.getSnapshot();
+    const state = resolvePlacementEditRenderState({
+      state: getMachineState(),
+      snapshot,
+    });
     if (!state) {
       return;
     }
-    const snapshot = pageAdapter.getSnapshot();
     const nextPlacement = createRetunedPlacementTransform({
       state,
       snapshot,
@@ -475,35 +460,6 @@ export function createInteractionController({
     dispatchMachine({
       type: MACHINE_EVENT_KIND.PREVIEW_PLACEMENT_EDIT,
       placement: nextPlacement,
-    });
-  }
-
-  function resolvePlacementEditRenderState(state = getSession()) {
-    const placement = getMachineState().runtime.placementEdit?.previewPlacement ??
-      derivePlacementFromCurrentRenderTransform(state) ??
-      state.placement;
-    if (placement?.type !== "similarity") {
-      return null;
-    }
-    return {
-      ...state,
-      placement,
-      registration: createPlacementEditedRegistration(state.registration),
-    };
-  }
-
-  function derivePlacementFromCurrentRenderTransform(state) {
-    if (!hasOverlayImageSession(state) || !hasCleanSolvedTransform(state.registration)) {
-      return null;
-    }
-    const snapshot = pageAdapter.getSnapshot();
-    const transform = resolveOverlayScreenTransform({
-      state,
-      snapshot,
-    });
-    return derivePlacementFromScreenTransform({
-      snapshot,
-      transform,
     });
   }
 
@@ -557,7 +513,7 @@ export function createInteractionController({
     pointerScreenPx = getPointerScreenPx(),
   } = {}) {
     finishAdapterDrag(endPointerScreenPx, { commitPlacement: true });
-    dragState = null;
+    clearAdapterDrag();
     dispatchMachine({
       type: MACHINE_EVENT_KIND.RESET_INPUT_RUNTIME,
       screenPx: pointerScreenPx,
@@ -566,7 +522,7 @@ export function createInteractionController({
 
   function syncAdapterDragFromRuntimeChange(previousRuntime, nextRuntime) {
     if (
-      !dragState ||
+      !hasActiveAdapterDrag() ||
       !selectIsRuntimeDragging(previousRuntime) ||
       selectIsRuntimeDragging(nextRuntime)
     ) {
@@ -575,25 +531,38 @@ export function createInteractionController({
     finishAdapterDrag(selectRuntimePointerScreenPx(previousRuntime), {
       commitPlacement: false,
     });
-    dragState = null;
+    clearAdapterDrag();
   }
 
   function finishAdapterDrag(endPointerScreenPx, { commitPlacement }) {
-    if (isMapPanDragMode(dragState?.mode)) {
+    if (isAdapterMapPanActive) {
       pageAdapter.endMapPan?.(endPointerScreenPx);
       return;
     }
-    if (commitPlacement && dragState?.mode === DRAG_MODE.MOVE_OVERLAY) {
+    if (commitPlacement && adapterOverlayMove) {
       dispatchMachine({
         type: MACHINE_EVENT_KIND.COMMIT_PLACEMENT_EDIT,
       });
     }
   }
 
-  function emitEvent(event) {
-    for (const listener of eventListeners) {
-      listener(event);
+  function hasActiveAdapterDrag() {
+    return isAdapterMapPanActive || Boolean(adapterOverlayMove);
+  }
+
+  function getActiveAdapterDragMode() {
+    if (isAdapterMapPanActive) {
+      return DRAG_MODE.MAP_PAN;
     }
+    if (adapterOverlayMove) {
+      return DRAG_MODE.MOVE_OVERLAY;
+    }
+    return null;
+  }
+
+  function clearAdapterDrag() {
+    isAdapterMapPanActive = false;
+    adapterOverlayMove = null;
   }
 
   function reportRuntimeError({
@@ -617,10 +586,6 @@ export function createInteractionController({
       message,
       recoverable,
       details,
-    });
-    emitEvent({
-      type: INTERACTION_EVENT.RUNTIME_ERROR,
-      error: runtimeError,
     });
     dispatchMachine({
       type: MACHINE_EVENT_KIND.REPORT_STATUS_NOTICE,
@@ -659,7 +624,6 @@ export function createInteractionController({
   return {
     destroy,
     subscribe,
-    subscribeEvents,
     getRuntimeState,
     handlePointerEnter,
     handlePointerLeave,
@@ -668,73 +632,9 @@ export function createInteractionController({
     handlePointerUp,
     handlePointerCancel,
     handleWheel,
-    handleDoubleClick,
+    handleTogglePin,
     reportRuntimeError,
   };
-}
-
-function createRetunedPlacementTransform({
-  state,
-  snapshot,
-  centerScreenPx = null,
-  anchorScreenPx = null,
-  screenScale = null,
-  rotationRad = null,
-}) {
-  const image = getOverlayImage(state);
-  const screenTransform = resolveOverlayScreenTransform({
-    state,
-    snapshot,
-  });
-  const imageCenter = {
-    x: image.width / 2,
-    y: image.height / 2,
-  };
-  const resolvedScreenScale = screenScale ?? Math.hypot(screenTransform.a, screenTransform.b);
-  const resolvedRotationRad = rotationRad ?? Math.atan2(screenTransform.b, screenTransform.a);
-  const anchorImagePx = anchorScreenPx
-    ? screenPointToRenderedImagePoint({
-      screenPoint: anchorScreenPx,
-      transform: screenTransform,
-      snapshot,
-    })
-    : null;
-
-  if (
-    anchorImagePx &&
-    isImagePointWithinBounds(anchorImagePx, image)
-  ) {
-    return derivePlacementFromScreenTransform({
-      snapshot,
-      transform: createSimilarityTransformFromAnchor({
-        anchorImagePx,
-        anchorTargetPx: removeSurfaceMotionFromScreenPoint({
-          screenPoint: anchorScreenPx,
-          snapshot,
-        }),
-        scale: resolvedScreenScale,
-        rotationRad: resolvedRotationRad,
-      }),
-    });
-  }
-
-  const resolvedCenterScreenPx = centerScreenPx ?? imagePointToRenderedScreenPoint({
-    imagePoint: imageCenter,
-    transform: screenTransform,
-    snapshot,
-  });
-  return derivePlacementFromScreenTransform({
-    snapshot,
-    transform: createSimilarityTransformFromAnchor({
-      anchorImagePx: imageCenter,
-      anchorTargetPx: removeSurfaceMotionFromScreenPoint({
-        screenPoint: resolvedCenterScreenPx,
-        snapshot,
-      }),
-      scale: resolvedScreenScale,
-      rotationRad: resolvedRotationRad,
-    }),
-  });
 }
 
 function consumeEvent(event) {
@@ -743,16 +643,15 @@ function consumeEvent(event) {
   event.stopImmediatePropagation?.();
 }
 
-function resolvePinContext({ state, runtime, pageAdapter }) {
-  if (!resolveInputProjection({ state, runtime }).overlayPolicy.canEditOverlay) {
-    return createPinContextFailure(hasOverlayImageSession(state) ? "not-align-mode" : "no-image");
+function resolvePinContext({ state, snapshot, screenPoint, pageAdapter }) {
+  if (!hasOverlayImageSession(state)) {
+    return createPinContextFailure("no-image");
   }
-  const pointerScreenPx = selectRuntimePointerScreenPx(runtime);
+  const pointerScreenPx = screenPoint;
   if (!pointerScreenPx) {
     return createPinContextFailure("no-pointer");
   }
 
-  const snapshot = pageAdapter.getSnapshot();
   const currentTransform = resolveOverlayScreenTransform({
     state,
     snapshot,
@@ -808,16 +707,4 @@ function areInputRuntimesEqual(left, right) {
     selectRuntimeGestureKind(left) === selectRuntimeGestureKind(right) &&
     selectIsInputPassThroughActive(left) === selectIsInputPassThroughActive(right)
   );
-}
-
-function resolveKeyEventTargets(keyTarget) {
-  const targets = [];
-  if (keyTarget) {
-    targets.push(keyTarget);
-    const documentTarget = keyTarget.document;
-    if (documentTarget && documentTarget !== keyTarget) {
-      targets.push(documentTarget);
-    }
-  }
-  return targets;
 }

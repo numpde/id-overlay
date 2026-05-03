@@ -48,9 +48,6 @@ function createBootstrapRuntime({ keyboardGateway }) {
 }
 
 function createKeyboardGateway(windowTarget) {
-  // Final semantic-history shape: this gateway is early delivery plumbing only.
-  // Shortcut meaning and transition validity belong in canonical event
-  // resolution after bootstrap.
   const subscribers = new Set();
 
   function notify(type, event) {

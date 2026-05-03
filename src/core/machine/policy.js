@@ -1,4 +1,5 @@
 import {
+  MACHINE_INPUT_OVERRIDE,
   MACHINE_MODE,
   MACHINE_PANEL_INTENT,
 } from "./events.js";
@@ -13,12 +14,32 @@ export function selectPanelPolicy(state) {
     isTrace: state.session.mode === MACHINE_MODE.TRACE,
     pinCount,
     hasPins: pinCount > 0,
+    canEditOverlay: hasImage && isAlign,
     canPaste: !hasImage,
     canClearImage: hasImage,
     canClearPins: hasImage && isAlign && pinCount > 0,
     canSelectAlign: hasImage,
     canSelectTrace: true,
     canSetOpacity: hasImage,
+  };
+}
+
+export function selectOverlayPolicy(state, runtime = null) {
+  const session = state.session ?? state;
+  const hasImage = Boolean(session.image);
+  const isAlign = session.mode === MACHINE_MODE.ALIGN;
+  const runtimeState = runtime ?? state.runtime ?? null;
+  const hasInputPassThrough = runtimeState?.inputOverride === MACHINE_INPUT_OVERRIDE.PASS_THROUGH;
+  const isNativeMapInput = !hasImage || !isAlign;
+  const canEditOverlay = hasImage && isAlign;
+  return {
+    hasImage,
+    mode: session.mode,
+    isNativeMapInput,
+    isPassThrough: isNativeMapInput || hasInputPassThrough,
+    canEditOverlay,
+    arePinsVisible: canEditOverlay,
+    ownsPointerHitTesting: canEditOverlay && !hasInputPassThrough,
   };
 }
 

@@ -107,6 +107,10 @@ test("new panel intent clears stale status notice and its timeout", () => {
       requestId: 1,
     },
     {
+      kind: MACHINE_EFFECT_KIND.START_MANUAL_PASTE_CAPTURE,
+      requestId: 1,
+    },
+    {
       kind: MACHINE_EFFECT_KIND.START_PANEL_TIMEOUT,
       intent: MACHINE_PANEL_INTENT.PASTE_ARMED,
       requestId: 1,

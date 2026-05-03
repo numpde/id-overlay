@@ -3,9 +3,35 @@ import assert from "node:assert/strict";
 
 import { createExtensionStorage } from "../../src/core/storage.js";
 
-// Final semantic-history shape: storage tests should pin down the persistence
-// boundary explicitly: durable session data only unless semantic history
-// records are deliberately added to the stored schema.
+const PERSISTED_SESSION = Object.freeze({
+  mode: "align",
+  opacity: 0.75,
+  image: Object.freeze({
+    src: "data:image/png;base64,abc",
+    width: 800,
+    height: 400,
+  }),
+  placement: Object.freeze({
+    type: "similarity",
+    a: 1,
+    b: 0,
+    tx: 10,
+    ty: 20,
+    scale: 1,
+    rotationRad: 0,
+  }),
+  registration: Object.freeze({
+    pins: Object.freeze([
+      Object.freeze({
+        id: 1,
+        imagePx: Object.freeze({ x: 400, y: 200 }),
+        mapLatLon: Object.freeze({ lat: -1.23, lon: 36.84 }),
+      }),
+    ]),
+    solvedTransform: null,
+    dirty: true,
+  }),
+});
 
 test("storage wrapper loads and saves with callback-style chrome storage", async () => {
   const previousChrome = globalThis.chrome;
@@ -30,10 +56,8 @@ test("storage wrapper loads and saves with callback-style chrome storage", async
   try {
     const storage = createExtensionStorage();
     assert.equal(await storage.load(), null);
-    // Final semantic-history shape: replace this toy shape with the explicit
-    // durable persisted schema once the state-machine cut-over lands.
-    await storage.save({ mode: "trace" });
-    assert.deepEqual(await storage.load(), { mode: "trace" });
+    await storage.save(PERSISTED_SESSION);
+    assert.deepEqual(await storage.load(), PERSISTED_SESSION);
   } finally {
     if (previousChrome === undefined) {
       delete globalThis.chrome;
@@ -62,8 +86,8 @@ test("storage wrapper loads and saves with promise-style browser storage", async
   try {
     const storage = createExtensionStorage();
     assert.equal(await storage.load(), null);
-    await storage.save({ mode: "align" });
-    assert.deepEqual(await storage.load(), { mode: "align" });
+    await storage.save(PERSISTED_SESSION);
+    assert.deepEqual(await storage.load(), PERSISTED_SESSION);
   } finally {
     if (previousBrowser === undefined) {
       delete globalThis.browser;

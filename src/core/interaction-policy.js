@@ -6,10 +6,6 @@ export const KEYBOARD_SHORTCUT_ACTION = Object.freeze({
   ENABLE_PASS_THROUGH: "enable-pass-through",
 });
 
-export const INTERACTION_EVENT = Object.freeze({
-  RUNTIME_ERROR: "runtime-error",
-});
-
 export const DRAG_MODE = MACHINE_POINTER_GESTURE_KIND;
 
 export const WHEEL_MODE = Object.freeze({
@@ -21,6 +17,14 @@ export const WHEEL_MODE = Object.freeze({
 
 export function isMapPanDragMode(dragMode) {
   return dragMode === DRAG_MODE.MAP_PAN;
+}
+
+export function isKnownDragMode(dragMode) {
+  return Object.values(DRAG_MODE).includes(dragMode);
+}
+
+export function isKnownWheelMode(wheelMode) {
+  return Object.values(WHEEL_MODE).includes(wheelMode);
 }
 
 export function resolveDragMode({ shiftKey }) {

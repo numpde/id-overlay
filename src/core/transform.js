@@ -1,5 +1,6 @@
 import {
   DEFAULT_SESSION_OPACITY,
+  getOverlayImage,
   hasCleanSolvedTransform,
   hasOverlayImageSession,
 } from "./session.js";
@@ -181,9 +182,6 @@ export function createSolvedScreenTransform({ snapshot, solvedTransform }) {
 }
 
 export function resolveOverlayRenderState(state) {
-  // Final semantic-history shape: this is the render-source selector only. It
-  // should not be used as a proxy for mode, fit-overlay history, or whether a
-  // transition is undoable.
   const { session, runtime } = resolveRenderInputs(state);
   if (!hasOverlayImageSession(session)) {
     return {
@@ -230,6 +228,21 @@ export function resolveOverlayScreenTransform({ state, snapshot }) {
 
 export function resolveOverlayRenderSource(state) {
   return resolveOverlayRenderState(state).source;
+}
+
+export function derivePlacementFromCurrentRenderState({ state, snapshot }) {
+  const { session } = resolveRenderInputs(state);
+  if (!hasOverlayImageSession(session) || !hasCleanSolvedTransform(session.registration)) {
+    return null;
+  }
+  const transform = resolveOverlayScreenTransform({
+    state,
+    snapshot,
+  });
+  return derivePlacementFromScreenTransform({
+    snapshot,
+    transform,
+  });
 }
 
 function resolveRenderInputs(state) {
@@ -300,18 +313,67 @@ export function hitTestPin({
   return bestMatch?.pin ?? null;
 }
 
-function createSimilarityTransformFromCenter({ image, centerScreenPx, scale, rotationRad }) {
-  const nextScale = clampScale(scale);
-  const nextRotationRad = Number.isFinite(rotationRad) ? rotationRad : DEFAULT_ROTATION_RAD;
+export function createRetunedPlacementTransform({
+  state,
+  snapshot,
+  centerScreenPx = null,
+  anchorScreenPx = null,
+  screenScale = null,
+  rotationRad = null,
+}) {
+  const image = getOverlayImage(state);
+  const screenTransform = resolveOverlayScreenTransform({
+    state,
+    snapshot,
+  });
   const imageCenter = {
     x: image.width / 2,
     y: image.height / 2,
   };
-  return createSimilarityTransformFromAnchor({
-    anchorImagePx: imageCenter,
-    anchorTargetPx: centerScreenPx,
-    scale: nextScale,
-    rotationRad: nextRotationRad,
+  const resolvedScreenScale = screenScale ?? Math.hypot(screenTransform.a, screenTransform.b);
+  const resolvedRotationRad = rotationRad ?? Math.atan2(screenTransform.b, screenTransform.a);
+  const anchorImagePx = anchorScreenPx
+    ? screenPointToRenderedImagePoint({
+      screenPoint: anchorScreenPx,
+      transform: screenTransform,
+      snapshot,
+    })
+    : null;
+
+  if (
+    anchorImagePx &&
+    isImagePointWithinBounds(anchorImagePx, image)
+  ) {
+    return derivePlacementFromScreenTransform({
+      snapshot,
+      transform: createSimilarityTransformFromAnchor({
+        anchorImagePx,
+        anchorTargetPx: removeSurfaceMotionFromScreenPoint({
+          screenPoint: anchorScreenPx,
+          snapshot,
+        }),
+        scale: resolvedScreenScale,
+        rotationRad: resolvedRotationRad,
+      }),
+    });
+  }
+
+  const resolvedCenterScreenPx = centerScreenPx ?? imagePointToRenderedScreenPoint({
+    imagePoint: imageCenter,
+    transform: screenTransform,
+    snapshot,
+  });
+  return derivePlacementFromScreenTransform({
+    snapshot,
+    transform: createSimilarityTransformFromAnchor({
+      anchorImagePx: imageCenter,
+      anchorTargetPx: removeSurfaceMotionFromScreenPoint({
+        screenPoint: resolvedCenterScreenPx,
+        snapshot,
+      }),
+      scale: resolvedScreenScale,
+      rotationRad: resolvedRotationRad,
+    }),
   });
 }
 
