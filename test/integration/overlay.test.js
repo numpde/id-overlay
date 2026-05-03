@@ -518,6 +518,90 @@ test("trace-mode overlay applies live surface motion from the page adapter", asy
   }
 });
 
+test("global pointer listeners retarget when the overlay remounts during a pending sequence", async () => {
+  const env = createDomEnvironment({
+    viewportHtml: '<div id="map-a"></div><iframe id="map-frame"></iframe>',
+  });
+
+  try {
+    const { createOverlay } = await import(`${repoFileUrl("src/content/overlay.js")}?retarget=${Date.now()}`);
+    const mapA = env.document.getElementById("map-a");
+    const frame = env.document.getElementById("map-frame");
+    const frameDocument = frame.contentDocument;
+    frameDocument.body.innerHTML = '<div id="map-b"></div>';
+    const mapB = frameDocument.getElementById("map-b");
+    const machineHost = createOverlayMachineHost(createOverlaySession({
+      mode: SESSION_MODE.ALIGN,
+    }));
+    let snapshot = createStaticOverlaySnapshot({ map: mapA });
+    let snapshotListener = null;
+    let handledPointerMoveCount = 0;
+    let handledPointerDownCount = 0;
+
+    const overlay = createOverlay({
+      pageAdapter: {
+        ...createStaticOverlayPageAdapter({ map: mapA }),
+        getSnapshot() {
+          return snapshot;
+        },
+        subscribe(listener) {
+          snapshotListener = listener;
+          listener(snapshot);
+          return () => {
+            snapshotListener = null;
+          };
+        },
+      },
+      machineHost,
+      interactions: createOverlayInteractionsDouble(machineHost, {
+        handlePointerMove() {
+          handledPointerMoveCount += 1;
+        },
+        handlePointerDown() {
+          handledPointerDownCount += 1;
+          return true;
+        },
+      }),
+    });
+
+    mapA.dispatchEvent(new env.window.MouseEvent("pointerdown", {
+      bubbles: true,
+      cancelable: true,
+      clientX: 512,
+      clientY: 288,
+      button: 0,
+    }));
+
+    snapshot = createStaticOverlaySnapshot({ map: mapB });
+    snapshotListener(snapshot);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    env.window.dispatchEvent(new env.window.MouseEvent("pointermove", {
+      bubbles: true,
+      cancelable: true,
+      clientX: 520,
+      clientY: 288,
+    }));
+
+    assert.equal(handledPointerMoveCount, 0);
+    assert.equal(handledPointerDownCount, 0);
+
+    frame.contentWindow.dispatchEvent(new frame.contentWindow.MouseEvent("pointermove", {
+      bubbles: true,
+      cancelable: true,
+      clientX: 520,
+      clientY: 288,
+    }));
+
+    assert.equal(handledPointerMoveCount, 1);
+    assert.equal(handledPointerDownCount, 1);
+
+    overlay.destroy();
+  } finally {
+    env.cleanup();
+  }
+});
+
 function createOverlayMachineHost(session) {
   return createMachineHost({ persistedSession: session });
 }

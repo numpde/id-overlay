@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { createExtensionStorage } from "../../src/core/storage.js";
+import { createExtensionStorage } from "../../src/platform/storage.js";
 
 const PERSISTED_SESSION = Object.freeze({
   mode: "align",

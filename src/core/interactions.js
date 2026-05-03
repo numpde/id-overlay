@@ -9,7 +9,7 @@ import {
   WHEEL_MODE,
 } from "./interaction-policy.js";
 import { resolveInputProjection } from "./input-projection.js";
-import { createKeyboardListeners } from "./keyboard-listeners.js";
+import { createKeyboardListeners } from "../platform/keyboard-listeners.js";
 import { resolvePlacementEditRenderState } from "./placement-edit-render-state.js";
 import {
   getOverlayImage,
@@ -49,6 +49,11 @@ export function createInteractionController({
   keyTarget = globalThis.window,
   keyboardGateway = null,
 }) {
+  // TODO(smell): This is still the broadest live adapter boundary. It owns
+  // keyboard commands, adapter drag state, page-adapter calls, geometry
+  // projection, machine dispatch, and runtime error reporting. Split the next
+  // behavior change along one of those responsibility lines instead of adding
+  // another command family here.
   const logger = createLogger("interactions");
   let isAdapterMapPanActive = false;
   let adapterOverlayMove = null;

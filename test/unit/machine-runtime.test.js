@@ -5,9 +5,13 @@ import {
   MACHINE_EVENT_KIND,
   MACHINE_MODE,
   MACHINE_STATUS_NOTICE_KIND,
+} from "../../src/core/machine/events.js";
+import {
   createInitialMachineState,
+} from "../../src/core/machine/state.js";
+import {
   createMachineRuntime,
-} from "../../src/core/machine/index.js";
+} from "../../src/core/machine/runtime.js";
 import { normalizeSessionImage } from "../../src/core/session.js";
 
 const IMAGE = Object.freeze({

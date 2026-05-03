@@ -28,6 +28,7 @@ import {
   createInvalidatedRegistration,
   createPlacementEditedRegistration,
   normalizePlacement,
+  placementsEqual,
 } from "../session.js";
 import {
   commitHistoryRecord,
@@ -641,7 +642,7 @@ function commitPlacementEdit(state) {
     });
   }
   const stateWithoutPreview = replacePlacementEdit(state, null);
-  if (areEqualPlacements(edit.beforePlacement, edit.previewPlacement)) {
+  if (placementsEqual(edit.beforePlacement, edit.previewPlacement)) {
     return createTransitionResult({
       state: stateWithoutPreview,
     });
@@ -679,7 +680,7 @@ function applyPlacementEdit(state, event) {
       state,
     });
   }
-  if (areEqualPlacements(renderedPlacement, nextPlacement)) {
+  if (placementsEqual(renderedPlacement, nextPlacement)) {
     return createTransitionResult({
       state: replacePlacementEdit(state, null),
     });
@@ -1020,8 +1021,4 @@ const PLACEMENT_HISTORY_METADATA = Object.freeze({
 
 function resolvePlacementHistoryMetadata(editKind) {
   return PLACEMENT_HISTORY_METADATA[editKind] ?? PLACEMENT_HISTORY_METADATA[MACHINE_PLACEMENT_EDIT_KIND.MOVE];
-}
-
-function areEqualPlacements(left, right) {
-  return JSON.stringify(left) === JSON.stringify(right);
 }

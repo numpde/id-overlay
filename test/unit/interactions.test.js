@@ -23,10 +23,12 @@ import {
   MACHINE_HISTORY_KIND,
   MACHINE_INPUT_OVERRIDE,
   MACHINE_STATUS_NOTICE_KIND,
-  createInitialMachineState,
-  createMachineHost,
+} from "../../src/core/machine/events.js";
+import { createMachineHost } from "../../src/core/machine/host.js";
+import {
   selectStatus,
-} from "../../src/core/machine/index.js";
+} from "../../src/core/machine/selectors.js";
+import { createInitialMachineState } from "../../src/core/machine/state.js";
 import {
   createPlacementScreenTransform,
   createPlacementTransform,

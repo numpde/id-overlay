@@ -2,17 +2,19 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  MACHINE_EFFECT_KIND,
   MACHINE_EVENT_KIND,
   MACHINE_PANEL_INTENT,
   MACHINE_STATUS_NOTICE_KIND,
   createCancelPanelIntentEvent,
-  createInitialMachineState,
   createLoadImageEvent,
-  createPasteReadOutcomeEvent,
   createReportStatusNoticeEvent,
-  createMachineEffectRunner,
-} from "../../src/core/machine/index.js";
+} from "../../src/core/machine/events.js";
+import { MACHINE_EFFECT_KIND } from "../../src/core/machine/effects.js";
+import { createMachineEffectRunner } from "../../src/core/machine/effect-runner.js";
+import { createPasteReadOutcomeEvent } from "../../src/core/machine/paste-outcome.js";
+import {
+  createInitialMachineState,
+} from "../../src/core/machine/state.js";
 
 const IMAGE = Object.freeze({
   src: "data:image/png;base64,abc",

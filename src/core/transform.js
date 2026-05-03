@@ -321,6 +321,10 @@ export function createRetunedPlacementTransform({
   screenScale = null,
   rotationRad = null,
 }) {
+  // TODO(smell): This is interaction edit retuning, not pure transform math:
+  // it reads session image metadata and active render state. If placement
+  // editing grows, extract a placement-edit geometry helper with explicit
+  // `image` and `screenTransform` inputs.
   const image = getOverlayImage(state);
   const screenTransform = resolveOverlayScreenTransform({
     state,

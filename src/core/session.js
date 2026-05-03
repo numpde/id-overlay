@@ -133,6 +133,16 @@ export function didRegistrationChange(previousRegistration, nextRegistration) {
   return !registrationsEqual(previousRegistration, nextRegistration);
 }
 
+export function placementsEqual(left, right) {
+  return (
+    left?.type === right?.type &&
+    left?.a === right?.a &&
+    left?.b === right?.b &&
+    left?.tx === right?.tx &&
+    left?.ty === right?.ty
+  );
+}
+
 export function resolveRegistrationSolveState(registration) {
   const pinCount = getRegistrationPinCount(registration);
   const hasSolvedTransform = Boolean(registration?.solvedTransform);
@@ -275,16 +285,6 @@ function normalizePoint(point) {
     return null;
   }
   return { x, y };
-}
-
-function placementsEqual(left, right) {
-  return (
-    left?.type === right?.type &&
-    left?.a === right?.a &&
-    left?.b === right?.b &&
-    left?.tx === right?.tx &&
-    left?.ty === right?.ty
-  );
 }
 
 function registrationsEqual(left, right) {

@@ -1,9 +1,7 @@
-import {
-  createBrowserImageNormalizationDeps,
-  normalizeOverlayImageBlob,
-} from "../core/image-normalization.js";
+import { normalizeOverlayImageBlob } from "../core/image-normalization.js";
 import { MACHINE_STATUS_NOTICE_KIND } from "../core/machine/events.js";
 import { createPlacementTransform } from "../core/transform.js";
+import { createBrowserImageNormalizationDeps } from "../platform/browser-image-normalization.js";
 
 export function createClipboardImageReader({
   ownerWindow = globalThis.window,

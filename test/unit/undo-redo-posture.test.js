@@ -6,10 +6,14 @@ import {
   MACHINE_HISTORY_KIND,
   MACHINE_MODE,
   MACHINE_PLACEMENT_EDIT_KIND,
+} from "../../src/core/machine/events.js";
+import {
   createInitialMachineState,
+} from "../../src/core/machine/state.js";
+import {
   selectPanelView,
-  transitionMachine,
-} from "../../src/core/machine/index.js";
+} from "../../src/core/machine/selectors.js";
+import { transitionMachine } from "../../src/core/machine/transition.js";
 import { normalizeSessionImage } from "../../src/core/session.js";
 
 const IMAGE = Object.freeze({

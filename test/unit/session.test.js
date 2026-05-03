@@ -22,6 +22,7 @@ import {
   normalizeSessionImage,
   normalizeSessionMode,
   normalizeSessionOpacity,
+  placementsEqual,
   resolveRegistrationPinMutation,
   resolveRegistrationSolveState,
 } from "../../src/core/session.js";
@@ -158,6 +159,12 @@ test("registration mutation helpers expose pure pin diffs", () => {
   );
   assert.equal(didRegistrationChange(previousRegistration, previousRegistration), false);
   assert.equal(didRegistrationChange(previousRegistration, nextRegistration), true);
+});
+
+test("placement equality compares canonical similarity components only", () => {
+  assert.equal(placementsEqual(PLACEMENT, { ...PLACEMENT, scale: 99, rotationRad: 12 }), true);
+  assert.equal(placementsEqual(PLACEMENT, { ...PLACEMENT, tx: 11 }), false);
+  assert.equal(placementsEqual(PLACEMENT, null), false);
 });
 
 test("registration solve-state predicates are centralized", () => {

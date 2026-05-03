@@ -1,4 +1,4 @@
-import { createExtensionStorage } from "../core/storage.js";
+import { createExtensionStorage } from "../platform/storage.js";
 import { createInteractionController } from "../core/interactions.js";
 import { createMachineHost } from "../core/machine/host.js";
 import { migratePersistedMachineSessionForMap } from "../core/machine/persistence.js";

@@ -6,15 +6,13 @@ import {
 import {
   selectPanelView,
 } from "../core/machine/selectors.js";
-import {
-  PANEL_REPO_URL,
-  PANEL_TITLE,
-} from "../core/panel-metadata.js";
 import { formatBuildLabel } from "../core/logger.js";
 
 const PANEL_MARGIN_PX = 8;
 const PANEL_FALLBACK_WIDTH_PX = 280;
 const PANEL_FALLBACK_HEIGHT_PX = 200;
+const PANEL_TITLE = "Reference Overlay";
+const PANEL_REPO_URL = "https://github.com/numpde/id-overlay";
 const SVG_NS = "http://www.w3.org/2000/svg";
 
 export function createPanel({

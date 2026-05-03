@@ -19,7 +19,6 @@ export function selectPanelPolicy(state) {
     canClearImage: hasImage,
     canClearPins: hasImage && isAlign && pinCount > 0,
     canSelectAlign: hasImage,
-    canSelectTrace: true,
     canSetOpacity: hasImage,
   };
 }

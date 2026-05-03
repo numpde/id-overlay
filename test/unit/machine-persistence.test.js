@@ -10,13 +10,17 @@ import {
   MACHINE_PLACEMENT_EDIT_KIND,
   MACHINE_POINTER_GESTURE_KIND,
   MACHINE_STATUS_NOTICE_KIND,
+} from "../../src/core/machine/events.js";
+import {
   createInitialMachineState,
+} from "../../src/core/machine/state.js";
+import {
   fromPersistedMachineSession,
   migratePersistedMachineSessionForMap,
   toPersistedMachineSession,
   toPersistedMachineSessionSnapshot,
-  transitionMachine,
-} from "../../src/core/machine/index.js";
+} from "../../src/core/machine/persistence.js";
+import { transitionMachine } from "../../src/core/machine/transition.js";
 import { normalizeSessionImage } from "../../src/core/session.js";
 import { createPlacementTransform } from "../../src/core/transform.js";
 

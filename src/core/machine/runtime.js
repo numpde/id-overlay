@@ -91,5 +91,8 @@ function isPromiseLike(value) {
 }
 
 function areEqual(left, right) {
+  // TODO(smell): Whole-state JSON equality is convenient but brittle and can
+  // hide accidental key-order/state-shape coupling. Prefer transition results
+  // that explicitly say whether state changed, or a canonical state equality.
   return JSON.stringify(left) === JSON.stringify(right);
 }

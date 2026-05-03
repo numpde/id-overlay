@@ -4,7 +4,6 @@ import assert from "node:assert/strict";
 import { createDomEnvironment } from "../helpers/dom-env.js";
 import { repoFileUrl } from "../helpers/paths.js";
 import { createPlacementTransform } from "../../src/core/transform.js";
-import { PANEL_REPO_URL } from "../../src/core/panel-metadata.js";
 
 function createStoredPlacement({ width, height, scale, rotationRad }) {
   return createPlacementTransform({
@@ -64,7 +63,7 @@ test("bootstrap injects one host, one panel, and one overlay into supported page
     assert.equal(host.shadowRoot.querySelector(".id-overlay-panel__title").textContent, "Reference Overlay");
     const repoLink = host.shadowRoot.querySelector(".id-overlay-panel__repo-link");
     assert.ok(repoLink);
-    assert.equal(repoLink.getAttribute("href"), PANEL_REPO_URL);
+    assert.equal(repoLink.getAttribute("href"), "https://github.com/numpde/id-overlay");
     assert.equal(repoLink.getAttribute("aria-label"), "Open id-overlay on GitHub");
     assert.ok(repoLink.querySelector(".id-overlay-panel__repo-icon"));
     assert.equal(host.shadowRoot.querySelectorAll('link[data-id-overlay-styles="true"]').length, 1);

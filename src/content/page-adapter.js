@@ -28,6 +28,10 @@ export function createPageAdapter({
   hashTarget = globalThis.window,
   viewportDocument = globalThis.document,
 } = {}) {
+  // TODO(smell): This adapter still owns several separable browser concerns:
+  // viewport discovery, map-view inference, iframe/window observation, history
+  // patching, and forwarded native gestures. Split by concern before adding
+  // another map-host compatibility path here.
   const logger = createLogger("page-adapter");
   let viewportElement = null;
   let mutationObserver = null;
@@ -547,6 +551,9 @@ function projectRenderedScreenPointToBaseScreenPoint({ snapshot, screenPoint }) 
 }
 
 function patchHistoryMethods({ hashTarget, onHistoryMutation }) {
+  // TODO(smell): Monkey-patching page history is a powerful global side effect.
+  // Keep it isolated behind one owner and prefer an observer/gateway if another
+  // page-navigation signal needs to be added.
   const history = hashTarget.history;
   if (!history) {
     return null;
@@ -1001,6 +1008,9 @@ function getSafeLocation(hashTarget) {
 }
 
 function projectLatLon({ lat, lon }, zoom) {
+  // TODO(smell): This duplicates Web Mercator math from core geometry with an
+  // extra zoom scale. Prefer composing `projectLatLonToWorld` with an explicit
+  // zoom scale so map projection has one mathematical source.
   const scale = TILE_SIZE * Math.pow(2, zoom);
   const sin = Math.sin((lat * Math.PI) / 180);
   const clampedSin = Math.min(0.9999, Math.max(-0.9999, sin));
@@ -1012,6 +1022,8 @@ function projectLatLon({ lat, lon }, zoom) {
 }
 
 function unprojectWorld({ x, y }, zoom) {
+  // TODO(smell): This is the inverse copy of the projection math above. Move
+  // both directions to a shared map-projection helper before changing either.
   const scale = TILE_SIZE * Math.pow(2, zoom);
   const lon = (x / scale) * 360 - 180;
   const n = Math.PI - (2 * Math.PI * y) / scale;

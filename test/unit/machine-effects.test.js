@@ -2,18 +2,20 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  MACHINE_EFFECT_KIND,
   MACHINE_EVENT_KIND,
   MACHINE_HISTORY_KIND,
   MACHINE_MODE,
   MACHINE_PANEL_INTENT,
+} from "../../src/core/machine/events.js";
+import { MACHINE_EFFECT_KIND } from "../../src/core/machine/effects.js";
+import {
   createIdlePanel,
   createInitialMachineState,
   isValidPanelRequestId,
   normalizePanel,
   replacePanel,
-  transitionMachine,
-} from "../../src/core/machine/index.js";
+} from "../../src/core/machine/state.js";
+import { transitionMachine } from "../../src/core/machine/transition.js";
 
 const IMAGE = Object.freeze({
   src: "data:image/png;base64,abc",

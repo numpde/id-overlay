@@ -125,6 +125,9 @@ function resolveKeyboardProjection({ event, overlayPolicy }) {
 }
 
 function resolvePassThroughOverrideRelease({ event, session, runtime }) {
+  // TODO(smell): This reaches back into raw session mode after most input
+  // eligibility has moved through overlay policy. Prefer one policy-owned
+  // pass-through release predicate if this path changes again.
   return (
     event?.code === "Space" &&
     (isAlignMode(session.mode) || selectIsInputPassThroughActive(runtime))

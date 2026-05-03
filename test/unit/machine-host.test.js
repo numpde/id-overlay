@@ -6,10 +6,12 @@ import {
   MACHINE_MODE,
   MACHINE_PANEL_INTENT,
   MACHINE_STATUS_NOTICE_KIND,
+} from "../../src/core/machine/events.js";
+import { createMachineHost } from "../../src/core/machine/host.js";
+import {
   createIdlePanel,
-  createMachineHost,
   createInitialMachineState,
-} from "../../src/core/machine/index.js";
+} from "../../src/core/machine/state.js";
 import { normalizeSessionImage } from "../../src/core/session.js";
 
 const IMAGE = Object.freeze({

@@ -139,7 +139,7 @@ export function createOverlay({ pageAdapter, machineHost, interactions }) {
   let latestRuntime = interactions.getRuntimeState();
   let renderFrame = null;
   let mountElement = null;
-  let wheelTarget = null;
+  let mountedInputTarget = null;
   let dragEventWindow = null;
   let pendingPointerSequence = createInitialOverlayPointerSequenceState();
 
@@ -294,11 +294,12 @@ export function createOverlay({ pageAdapter, machineHost, interactions }) {
     if (mountElement === nextMountElement) {
       return;
     }
-    detachWheelListener();
+    detachMountedInputListeners();
     overlayRoot.remove();
     nextMountElement.prepend(overlayRoot);
     mountElement = nextMountElement;
-    attachWheelListener();
+    attachMountedInputListeners();
+    syncGlobalPointerListeners();
   }
 
   function toGlobalScreenPoint(event) {
@@ -331,7 +332,7 @@ export function createOverlay({ pageAdapter, machineHost, interactions }) {
         globalThis.cancelAnimationFrame(renderFrame);
       }
       detachGlobalPointerListeners();
-      detachWheelListener();
+      detachMountedInputListeners();
       unsubscribeMachine();
       unsubscribeViewport();
       unsubscribeInteractions();
@@ -339,8 +340,8 @@ export function createOverlay({ pageAdapter, machineHost, interactions }) {
     },
   };
 
-  function attachWheelListener() {
-    if (!mountElement || wheelTarget === mountElement) {
+  function attachMountedInputListeners() {
+    if (!mountElement || mountedInputTarget === mountElement) {
       return;
     }
     mountElement.addEventListener("pointermove", handleMountedPointerMove, true);
@@ -352,20 +353,20 @@ export function createOverlay({ pageAdapter, machineHost, interactions }) {
       capture: true,
       passive: false,
     });
-    wheelTarget = mountElement;
+    mountedInputTarget = mountElement;
   }
 
-  function detachWheelListener() {
-    if (!wheelTarget) {
+  function detachMountedInputListeners() {
+    if (!mountedInputTarget) {
       return;
     }
-    wheelTarget.removeEventListener("pointermove", handleMountedPointerMove, true);
-    wheelTarget.removeEventListener("pointerleave", handleMountedPointerLeave, true);
-    wheelTarget.removeEventListener("pointerdown", handleMountedPointerDown, true);
-    wheelTarget.removeEventListener("click", handleMountedClick, true);
-    wheelTarget.removeEventListener("dblclick", handleMountedDoubleClick, true);
-    wheelTarget.removeEventListener("wheel", handleMountedWheel, true);
-    wheelTarget = null;
+    mountedInputTarget.removeEventListener("pointermove", handleMountedPointerMove, true);
+    mountedInputTarget.removeEventListener("pointerleave", handleMountedPointerLeave, true);
+    mountedInputTarget.removeEventListener("pointerdown", handleMountedPointerDown, true);
+    mountedInputTarget.removeEventListener("click", handleMountedClick, true);
+    mountedInputTarget.removeEventListener("dblclick", handleMountedDoubleClick, true);
+    mountedInputTarget.removeEventListener("wheel", handleMountedWheel, true);
+    mountedInputTarget = null;
   }
 
   function handleMountedPointerMove(event) {
@@ -489,6 +490,7 @@ export function createOverlay({ pageAdapter, machineHost, interactions }) {
     if (!nextWindow || dragEventWindow === nextWindow) {
       return;
     }
+    detachGlobalPointerListeners();
     dragEventWindow = nextWindow;
     dragEventWindow.addEventListener("pointermove", handleGlobalPointerMove, true);
     dragEventWindow.addEventListener("pointerup", handleGlobalPointerUp, true);

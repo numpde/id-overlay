@@ -2,14 +2,16 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  MACHINE_EFFECT_KIND,
   MACHINE_EVENT_KIND,
   MACHINE_PANEL_INTENT,
   MACHINE_STATUS_NOTICE_KIND,
-  createInitialMachineState,
+} from "../../src/core/machine/events.js";
+import { MACHINE_EFFECT_KIND } from "../../src/core/machine/effects.js";
+import {
   selectStatus,
-  transitionMachine,
-} from "../../src/core/machine/index.js";
+} from "../../src/core/machine/selectors.js";
+import { createInitialMachineState } from "../../src/core/machine/state.js";
+import { transitionMachine } from "../../src/core/machine/transition.js";
 
 test("status notice is canonical machine state with timeout effects", () => {
   const result = transitionMachine(createInitialMachineState(), {
