@@ -1,5 +1,5 @@
 import { createExtensionStorage } from "../platform/storage.js";
-import { createInteractionController } from "../core/interactions.js";
+import { createInteractionController } from "./interaction-controller.js";
 import { createMachineHost } from "../core/machine/host.js";
 import { migratePersistedMachineSessionForMap } from "../core/machine/persistence.js";
 import { createPageAdapter } from "./page-adapter.js";

@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { createInteractionController } from "../../src/core/interactions.js";
+import { createInteractionController } from "../../src/content/interaction-controller.js";
 import {
   DRAG_MODE,
   isKnownDragMode,

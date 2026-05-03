@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { createDomEnvironment } from "../helpers/dom-env.js";
 import { repoFileUrl } from "../helpers/paths.js";
 import { WHEEL_MODE } from "../../src/core/interaction-policy.js";
-import { createInteractionController } from "../../src/core/interactions.js";
+import { createInteractionController } from "../../src/content/interaction-controller.js";
 import { MACHINE_EVENT_KIND } from "../../src/core/machine/events.js";
 import { createMachineHost } from "../../src/core/machine/host.js";
 import { SESSION_MODE } from "../../src/core/session.js";

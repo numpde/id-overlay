@@ -1,21 +1,18 @@
-import { createLogger } from "./logger.js";
-import { createRuntimeError, RUNTIME_ERROR_SOURCE } from "./runtime-error.js";
+import { createLogger } from "../core/logger.js";
+import { createRuntimeError, RUNTIME_ERROR_SOURCE } from "../core/runtime-error.js";
 import {
-  DRAG_MODE,
-  isKnownDragMode,
   isKnownWheelMode,
-  isMapPanDragMode,
   KEYBOARD_SHORTCUT_ACTION,
   WHEEL_MODE,
-} from "./interaction-policy.js";
-import { resolveInputProjection } from "./input-projection.js";
+} from "../core/interaction-policy.js";
+import { resolveInputProjection } from "../core/input-projection.js";
 import { createKeyboardListeners } from "../platform/keyboard-listeners.js";
-import { resolvePlacementEditRenderState } from "./placement-edit-render-state.js";
+import { resolvePlacementEditRenderState } from "../core/placement-edit-render-state.js";
 import {
   getOverlayImage,
   hasOverlayImageSession,
   SESSION_MODE,
-} from "./session.js";
+} from "../core/session.js";
 import {
   buildPinRenderModels,
   createRetunedPlacementTransform,
@@ -29,19 +26,20 @@ import {
   rotationFromWheelDelta,
   scaleFromWheelDelta,
   screenPointToRenderedImagePoint,
-} from "./transform.js";
+} from "../core/transform.js";
 import {
   MACHINE_INPUT_OVERRIDE,
   MACHINE_EVENT_KIND,
   MACHINE_PLACEMENT_EDIT_KIND,
   MACHINE_STATUS_NOTICE_KIND,
-} from "./machine/events.js";
+} from "../core/machine/events.js";
 import {
   selectIsInputPassThroughActive,
   selectIsRuntimeDragging,
   selectRuntimeGestureKind,
   selectRuntimePointerScreenPx,
-} from "./machine/selectors.js";
+} from "../core/machine/selectors.js";
+import { createAdapterDragController } from "./interactions/adapter-drag.js";
 
 export function createInteractionController({
   machineHost,
@@ -55,9 +53,13 @@ export function createInteractionController({
   // behavior change along one of those responsibility lines instead of adding
   // another command family here.
   const logger = createLogger("interactions");
-  let isAdapterMapPanActive = false;
-  let adapterOverlayMove = null;
   let observedRuntime = machineHost.getState().runtime;
+  const adapterDrag = createAdapterDragController({
+    pageAdapter,
+    getMachineState,
+    dispatchMachine,
+    logger,
+  });
 
   const unsubscribeMachine = machineHost.subscribe((state) => {
     const previousRuntime = observedRuntime;
@@ -168,9 +170,9 @@ export function createInteractionController({
   function handlePointerMove(screenPoint) {
     return runInteractionBoundary("handle-pointer-move", () => {
       const runtime = getRuntimeState();
-      const dragMode = getActiveAdapterDragMode();
+      const dragMode = adapterDrag.getActiveDragMode();
       if (selectIsRuntimeDragging(runtime) && dragMode) {
-        dragTo(screenPoint);
+        adapterDrag.move(screenPoint);
         startDragRuntime(screenPoint, {
           dragMode,
         });
@@ -183,51 +185,7 @@ export function createInteractionController({
 
   function handlePointerDown({ button, screenPoint, dragMode }) {
     return runInteractionBoundary("handle-pointer-down", () => {
-      if (button !== 0 || !isKnownDragMode(dragMode)) {
-        return false;
-      }
-
-      if (isMapPanDragMode(dragMode)) {
-        const beganMapPan = pageAdapter.beginMapPan?.(screenPoint) === true;
-        if (!beganMapPan) {
-          logger.warn("Map pan requested, but the page adapter could not start it");
-          return false;
-        }
-        isAdapterMapPanActive = true;
-        adapterOverlayMove = null;
-      } else if (dragMode === DRAG_MODE.MOVE_OVERLAY) {
-        const snapshot = pageAdapter.getSnapshot();
-        const interactionState = resolvePlacementEditRenderState({
-          state: getMachineState(),
-          snapshot,
-        });
-        if (!interactionState) {
-          return false;
-        }
-        const image = getOverlayImage(interactionState);
-        const screenTransform = resolveOverlayScreenTransform({
-          state: interactionState,
-          snapshot,
-        });
-        const centerScreenPx = imagePointToRenderedScreenPoint({
-          imagePoint: {
-            x: image.width / 2,
-            y: image.height / 2,
-          },
-          transform: screenTransform,
-          snapshot,
-        });
-        isAdapterMapPanActive = false;
-        adapterOverlayMove = {
-          startPointerScreenPx: screenPoint,
-          startCenterScreenPx: centerScreenPx,
-        };
-        dispatchMachine({
-          type: MACHINE_EVENT_KIND.BEGIN_PLACEMENT_EDIT,
-          editKind: MACHINE_PLACEMENT_EDIT_KIND.MOVE,
-          renderedPlacement: interactionState.placement,
-        });
-      } else {
+      if (!adapterDrag.begin({ button, screenPoint, dragMode })) {
         return false;
       }
       startDragRuntime(screenPoint, {
@@ -239,18 +197,9 @@ export function createInteractionController({
 
   function handlePointerUp(screenPoint) {
     return runInteractionBoundary("handle-pointer-up", () => {
-      if (!hasActiveAdapterDrag()) {
+      if (!adapterDrag.end(screenPoint)) {
         return false;
       }
-      dragTo(screenPoint);
-      if (isAdapterMapPanActive) {
-        pageAdapter.endMapPan?.(screenPoint);
-      } else {
-        dispatchMachine({
-          type: MACHINE_EVENT_KIND.COMMIT_PLACEMENT_EDIT,
-        });
-      }
-      clearAdapterDrag();
       endDragRuntime(screenPoint);
       return true;
     }, { fallbackValue: false });
@@ -435,39 +384,6 @@ export function createInteractionController({
     });
   }
 
-  function dragTo(screenPoint) {
-    if (!hasActiveAdapterDrag()) {
-      return;
-    }
-
-    if (isAdapterMapPanActive) {
-      pageAdapter.updateMapPan(screenPoint);
-      return;
-    }
-
-    const nextCenterScreenPx = {
-      x: adapterOverlayMove.startCenterScreenPx.x + (screenPoint.x - adapterOverlayMove.startPointerScreenPx.x),
-      y: adapterOverlayMove.startCenterScreenPx.y + (screenPoint.y - adapterOverlayMove.startPointerScreenPx.y),
-    };
-    const snapshot = pageAdapter.getSnapshot();
-    const state = resolvePlacementEditRenderState({
-      state: getMachineState(),
-      snapshot,
-    });
-    if (!state) {
-      return;
-    }
-    const nextPlacement = createRetunedPlacementTransform({
-      state,
-      snapshot,
-      centerScreenPx: nextCenterScreenPx,
-    });
-    dispatchMachine({
-      type: MACHINE_EVENT_KIND.PREVIEW_PLACEMENT_EDIT,
-      placement: nextPlacement,
-    });
-  }
-
   function updatePointer(pointerScreenPx) {
     dispatchMachine({
       type: MACHINE_EVENT_KIND.UPDATE_POINTER_RUNTIME,
@@ -517,8 +433,7 @@ export function createInteractionController({
     endPointerScreenPx = getPointerScreenPx(),
     pointerScreenPx = getPointerScreenPx(),
   } = {}) {
-    finishAdapterDrag(endPointerScreenPx, { commitPlacement: true });
-    clearAdapterDrag();
+    adapterDrag.cancel(endPointerScreenPx, { commitPlacement: true });
     dispatchMachine({
       type: MACHINE_EVENT_KIND.RESET_INPUT_RUNTIME,
       screenPx: pointerScreenPx,
@@ -527,47 +442,15 @@ export function createInteractionController({
 
   function syncAdapterDragFromRuntimeChange(previousRuntime, nextRuntime) {
     if (
-      !hasActiveAdapterDrag() ||
+      !adapterDrag.hasActive() ||
       !selectIsRuntimeDragging(previousRuntime) ||
       selectIsRuntimeDragging(nextRuntime)
     ) {
       return;
     }
-    finishAdapterDrag(selectRuntimePointerScreenPx(previousRuntime), {
+    adapterDrag.cancel(selectRuntimePointerScreenPx(previousRuntime), {
       commitPlacement: false,
     });
-    clearAdapterDrag();
-  }
-
-  function finishAdapterDrag(endPointerScreenPx, { commitPlacement }) {
-    if (isAdapterMapPanActive) {
-      pageAdapter.endMapPan?.(endPointerScreenPx);
-      return;
-    }
-    if (commitPlacement && adapterOverlayMove) {
-      dispatchMachine({
-        type: MACHINE_EVENT_KIND.COMMIT_PLACEMENT_EDIT,
-      });
-    }
-  }
-
-  function hasActiveAdapterDrag() {
-    return isAdapterMapPanActive || Boolean(adapterOverlayMove);
-  }
-
-  function getActiveAdapterDragMode() {
-    if (isAdapterMapPanActive) {
-      return DRAG_MODE.MAP_PAN;
-    }
-    if (adapterOverlayMove) {
-      return DRAG_MODE.MOVE_OVERLAY;
-    }
-    return null;
-  }
-
-  function clearAdapterDrag() {
-    isAdapterMapPanActive = false;
-    adapterOverlayMove = null;
   }
 
   function reportRuntimeError({

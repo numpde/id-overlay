@@ -78,10 +78,29 @@ const LEGACY_STATE_STORE_PATTERNS = Object.freeze([
   ["duplicated interaction mode vocabulary", /\bINTERACTION_MODE\b|\bnormalizeInteractionMode\b|\bnextMode\b/],
 ]);
 
+const CORE_FORBIDDEN_BOUNDARY_IMPORTS = Object.freeze([
+  "../content/",
+  "../platform/",
+]);
+
 test("legacy bridge, store, and duplicated mode files stay deleted", () => {
   const violations = LEGACY_BRIDGE_FILES.filter((relativePath) => {
     return fs.existsSync(repoPath(relativePath));
   });
+
+  assert.deepEqual(violations, []);
+});
+
+test("core does not import live content or platform adapters", () => {
+  const violations = [];
+  for (const filePath of listJavaScriptFiles(repoPath("src/core"))) {
+    const source = fs.readFileSync(filePath, "utf8");
+    for (const importPath of parseStaticImports(source)) {
+      if (CORE_FORBIDDEN_BOUNDARY_IMPORTS.some((forbidden) => importPath.startsWith(forbidden))) {
+        violations.push(`${path.relative(repoPath(), filePath)} -> ${importPath}`);
+      }
+    }
+  }
 
   assert.deepEqual(violations, []);
 });
@@ -163,7 +182,7 @@ test("status notices are machine-owned, not content-controller feedback", () => 
 
 test("live interactions and overlay read canonical machine host, not the legacy session store", () => {
   const liveSources = new Map([
-    ["src/core/interactions.js", fs.readFileSync(repoPath("src/core/interactions.js"), "utf8")],
+    ["src/content/interaction-controller.js", fs.readFileSync(repoPath("src/content/interaction-controller.js"), "utf8")],
     ["src/content/overlay.js", fs.readFileSync(repoPath("src/content/overlay.js"), "utf8")],
   ]);
   const violations = [];
@@ -178,7 +197,7 @@ test("live interactions and overlay read canonical machine host, not the legacy 
 });
 
 test("interaction adapter does not own registration solve or pin mutation semantics", () => {
-  const source = fs.readFileSync(repoPath("src/core/interactions.js"), "utf8");
+  const source = fs.readFileSync(repoPath("src/content/interaction-controller.js"), "utf8");
   const forbiddenPatterns = [
     ["direct add/remove/restore events", /MACHINE_EVENT_KIND\.(?:ADD_PIN|REMOVE_PIN|RESTORE_REGISTRATION)/],
     ["registration solver import", /\bsolveSimilarityTransform\b/],
@@ -236,7 +255,7 @@ test("interaction tests do not recreate semantic controller facade APIs", () => 
 });
 
 test("interaction adapter does not own placement edit lifecycle semantics", () => {
-  const source = fs.readFileSync(repoPath("src/core/interactions.js"), "utf8");
+  const source = fs.readFileSync(repoPath("src/content/interaction-controller.js"), "utf8");
   const forbiddenPatterns = [
     ["direct placement restore events", /MACHINE_EVENT_KIND\.RESTORE_PLACEMENT/],
     ["interaction-local placement draft", /\bplacementEditDraft\b/],
@@ -252,7 +271,7 @@ test("interaction adapter does not own placement edit lifecycle semantics", () =
 test("input eligibility is centralized in the input projection", () => {
   const sources = new Map([
     ["src/content/overlay.js", fs.readFileSync(repoPath("src/content/overlay.js"), "utf8")],
-    ["src/core/interactions.js", fs.readFileSync(repoPath("src/core/interactions.js"), "utf8")],
+    ["src/content/interaction-controller.js", fs.readFileSync(repoPath("src/content/interaction-controller.js"), "utf8")],
     ["src/core/interaction-policy.js", fs.readFileSync(repoPath("src/core/interaction-policy.js"), "utf8")],
   ]);
   const forbiddenPatterns = [
@@ -263,7 +282,7 @@ test("input eligibility is centralized in the input projection", () => {
     ],
     [
       "interactions imports semantic eligibility helpers",
-      "src/core/interactions.js",
+      "src/content/interaction-controller.js",
       /\b(?:canCaptureOverlayPointer|canHandleWheelGesture|canEditRegistration|resolveKeyboardShortcut|shouldReleasePassThrough)\b/,
     ],
     [
