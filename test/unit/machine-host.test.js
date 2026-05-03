@@ -9,12 +9,14 @@ import {
   createMachineHost,
   createInitialMachineState,
 } from "../../src/core/machine/index.js";
+import { normalizeSessionImage } from "../../src/core/session.js";
 
 const IMAGE = Object.freeze({
   src: "data:image/png;base64,abc",
   width: 800,
   height: 400,
 });
+const NORMALIZED_IMAGE = normalizeSessionImage(IMAGE);
 
 const PLACEMENT = Object.freeze({
   type: "similarity",
@@ -45,7 +47,7 @@ test("machine host hydrates from persisted durable session only", () => {
 
   assert.equal(host.getState().session.mode, MACHINE_MODE.ALIGN);
   assert.equal(host.getState().session.opacity, 0.75);
-  assert.equal(host.getState().session.image, IMAGE);
+  assert.deepEqual(host.getState().session.image, NORMALIZED_IMAGE);
   assert.deepEqual(host.getState().panel, createIdlePanel());
   assert.deepEqual(host.getState().history, createInitialMachineState().history);
 });
@@ -79,7 +81,7 @@ test("machine host persists durable session after state changes only", () => {
   assert.deepEqual(saves[0], {
     mode: MACHINE_MODE.ALIGN,
     opacity: 0.6,
-    image: IMAGE,
+    image: NORMALIZED_IMAGE,
     placement: PLACEMENT,
     registration: {
       pins: [],
@@ -100,7 +102,7 @@ test("machine host routes paste effects back through canonical events", async ()
   });
   await Promise.resolve();
 
-  assert.equal(host.getState().session.image, IMAGE);
+  assert.deepEqual(host.getState().session.image, NORMALIZED_IMAGE);
   assert.deepEqual(host.getState().panel, createIdlePanel());
 });
 

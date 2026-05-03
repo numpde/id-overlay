@@ -29,9 +29,12 @@ import {
   shouldReleasePassThrough,
   WHEEL_MODE,
 } from "../../src/core/interaction-policy.js";
-import { INTERACTION_MODE, nextMode } from "../../src/core/interaction-mode.js";
 import { RUNTIME_ERROR_SOURCE } from "../../src/core/runtime-error.js";
-import { createStateStore } from "../../src/core/state.js";
+import {
+  SESSION_MODE,
+  createEmptySession,
+  nextSessionMode,
+} from "../../src/core/session.js";
 import {
   MACHINE_EVENT_KIND,
   MACHINE_HISTORY_KIND,
@@ -45,9 +48,9 @@ import {
   screenPointToImagePoint,
 } from "../../src/core/transform.js";
 
-test("nextMode toggles between align and trace", () => {
-  assert.equal(nextMode(INTERACTION_MODE.TRACE), INTERACTION_MODE.ALIGN);
-  assert.equal(nextMode(INTERACTION_MODE.ALIGN), INTERACTION_MODE.TRACE);
+test("nextSessionMode toggles between align and trace", () => {
+  assert.equal(nextSessionMode(SESSION_MODE.TRACE), SESSION_MODE.ALIGN);
+  assert.equal(nextSessionMode(SESSION_MODE.ALIGN), SESSION_MODE.TRACE);
 });
 
 test("loading an image seeds align mode and the current map center placement", () => {
@@ -296,14 +299,14 @@ test("computeTransform solves from pins and clears the dirty flag", () => {
 });
 
 test("interaction runtime transitions are single-source through the runtime reducer", () => {
-  const state = createStateStore({
-    mode: "align",
+  const state = createEmptySession({
+    mode: SESSION_MODE.ALIGN,
     image: {
       src: "data:image/png;base64,abc",
       width: 800,
       height: 400,
     },
-  }).getState();
+  });
   const baseRuntime = {
     // Final semantic-history shape: this fixture is raw interaction runtime.
     // Keep tests here focused on adapter/input state.
@@ -925,14 +928,14 @@ test("keyboard shortcuts can be delivered through the early keyboard gateway", (
 test("keyboard shortcut resolution is single-source and mode-aware", () => {
   // Final semantic-history shape: shortcut resolution is adapter policy. The
   // canonical transition must still validate the resulting event.
-  const state = createStateStore({
-    mode: "align",
+  const state = createEmptySession({
+    mode: SESSION_MODE.ALIGN,
     image: {
       src: "data:image/png;base64,abc",
       width: 800,
       height: 400,
     },
-  }).getState();
+  });
 
   assert.equal(
     resolveKeyboardShortcut({

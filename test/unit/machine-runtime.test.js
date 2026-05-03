@@ -7,12 +7,14 @@ import {
   createInitialMachineState,
   createMachineRuntime,
 } from "../../src/core/machine/index.js";
+import { normalizeSessionImage } from "../../src/core/session.js";
 
 const IMAGE = Object.freeze({
   src: "data:image/png;base64,abc",
   width: 800,
   height: 400,
 });
+const NORMALIZED_IMAGE = normalizeSessionImage(IMAGE);
 
 const PLACEMENT = Object.freeze({
   type: "similarity",
@@ -51,7 +53,7 @@ test("dispatch commits transition state and returns the full transition result",
 
   assert.equal(runtime.getState(), result.state);
   assert.equal(result.state.session.mode, MACHINE_MODE.ALIGN);
-  assert.equal(result.state.session.image, IMAGE);
+  assert.deepEqual(result.state.session.image, NORMALIZED_IMAGE);
   assert.equal(result.historyRecord.kind, "load-image");
 });
 
@@ -105,7 +107,7 @@ test("undo and redo flow through the same dispatch path", () => {
   assert.equal(undo.state.history.future.length, 1);
 
   const redo = runtime.dispatch({ type: MACHINE_EVENT_KIND.REDO });
-  assert.equal(redo.state.session.image, IMAGE);
+  assert.deepEqual(redo.state.session.image, NORMALIZED_IMAGE);
   assert.equal(redo.state.history.future.length, 0);
 });
 

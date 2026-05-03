@@ -17,13 +17,8 @@ import {
   doesWheelEditPlacement,
   DRAG_MODE,
   INTERACTION_EVENT,
-  INTERACTION_MODE,
-  isAlignMode,
   isMapPanDragMode,
-  isTraceMode,
   KEYBOARD_SHORTCUT_ACTION,
-  normalizeInteractionMode,
-  nextMode,
   PIN_RESULT_ACTION,
   PIN_RESULT_REASON,
   resolveDragMode,
@@ -42,8 +37,13 @@ import {
   getOverlayImage,
   hasCleanSolvedTransform,
   hasOverlayImageSession,
+  isAlignMode,
+  isTraceMode,
+  nextSessionMode,
+  normalizeSessionMode,
   resolveRegistrationSolveState,
-} from "./state.js";
+  SESSION_MODE,
+} from "./session.js";
 import {
   buildPinRenderModels,
   createPlacementTransform,
@@ -172,12 +172,12 @@ export function createInteractionController({
   }
 
   function toggleMode() {
-    applyMode(nextMode(getSession().mode));
+    applyMode(nextSessionMode(getSession().mode));
   }
 
-  function applyMode(nextMode) {
+  function applyMode(mode) {
     return runInteractionBoundary("apply-mode", () => {
-      const normalizedNextMode = normalizeInteractionMode(nextMode);
+      const normalizedNextMode = normalizeSessionMode(mode);
       resetInteractionState({
         pointerScreenPx: runtimeStore.get().pointerScreenPx,
         isPointerInsideImage: runtimeStore.get().isPointerInsideImage,
@@ -535,7 +535,7 @@ export function createInteractionController({
 
     if (shortcutAction === KEYBOARD_SHORTCUT_ACTION.SWITCH_TO_TRACE) {
       logger.info("Keyboard trace escape requested");
-      applyMode(INTERACTION_MODE.TRACE);
+      applyMode(SESSION_MODE.TRACE);
       return;
     }
 

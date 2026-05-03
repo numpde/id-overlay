@@ -43,8 +43,11 @@ const CONTENT_BRIDGE_FORBIDDEN_IMPORTS = Object.freeze([
 
 const LEGACY_BRIDGE_FILES = Object.freeze([
   "src/content/panel-live-effects.js",
+  "src/core/interaction-mode.js",
   "src/core/machine-store-adapter.js",
   "src/core/panel-state.js",
+  "src/core/session-defaults.js",
+  "src/core/state.js",
   "src/core/ui-effect-model.js",
   "src/core/ui-event-model.js",
   "src/core/ui-history-transition.js",
@@ -62,10 +65,34 @@ const LEGACY_BRIDGE_FILES = Object.freeze([
   "src/core/ui-view-model.js",
 ]);
 
-test("legacy ui bridge and compatibility adapter files stay deleted", () => {
+const LEGACY_STATE_STORE_PATTERNS = Object.freeze([
+  ["legacy state-store factory", /\bcreateStateStore\b/],
+  ["legacy state action enum", /\bSTATE_ACTION\b/],
+  ["legacy state reducer", /\breduceState\b/],
+  ["descriptor-based history", /\bhistoryDescriptor\b/],
+  ["snapshot history batching", /\bbeginHistoryBatch\b|\bendHistoryBatch\b/],
+  ["store-owned history descriptors", /\bgetUndoDescriptor\b|\bgetRedoDescriptor\b/],
+  ["duplicated interaction mode vocabulary", /\bINTERACTION_MODE\b|\bnormalizeInteractionMode\b|\bnextMode\b/],
+]);
+
+test("legacy bridge, store, and duplicated mode files stay deleted", () => {
   const violations = LEGACY_BRIDGE_FILES.filter((relativePath) => {
     return fs.existsSync(repoPath(relativePath));
   });
+
+  assert.deepEqual(violations, []);
+});
+
+test("source does not reintroduce the legacy state-store vocabulary", () => {
+  const violations = [];
+  for (const filePath of listJavaScriptFiles(repoPath("src"))) {
+    const source = fs.readFileSync(filePath, "utf8");
+    for (const [name, pattern] of LEGACY_STATE_STORE_PATTERNS) {
+      if (pattern.test(source)) {
+        violations.push(`${path.relative(repoPath(), filePath)}: ${name}`);
+      }
+    }
+  }
 
   assert.deepEqual(violations, []);
 });

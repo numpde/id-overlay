@@ -10,7 +10,7 @@ import {
   resolveOverlayScreenTransform,
   screenPointToRenderedImagePoint,
 } from "../core/transform.js";
-import { getOverlayImage, hasOverlayImageSession } from "../core/state.js";
+import { getOverlayImage, hasOverlayImageSession } from "../core/session.js";
 import {
   getRuntimePointerScreenPx,
   isRuntimeDragging,

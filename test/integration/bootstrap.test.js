@@ -513,9 +513,6 @@ test("main action button drives the canonical paste flow when no image is presen
     assert.equal(image.style.display, "block");
     assert.equal(image.style.width, "640px");
     assert.equal(mainActionButton.textContent, "Clear image");
-    // Final semantic-history shape: keep this user-facing copy if correct, but
-    // source it from the committed load-image transition record rather than
-    // from store snapshot descriptors.
     assert.equal(undoButton.disabled, false);
     assert.equal(undoButton.title, "Remove image");
     assert.equal(undoButton.getAttribute("aria-label"), "Remove image");
@@ -528,9 +525,6 @@ test("main action button drives the canonical paste flow when no image is presen
   }
 });
 
-// Final semantic-history shape: replace this implementation-shaped test with
-// one that proves undo/redo dispatch semantic transition records and reset
-// transient panel intent as a consequence of transitionUiState.
 test("panel undo and redo restore committed session state and reset confirmation intent", async () => {
   const env = createDomEnvironment({
     storageState: {
@@ -789,9 +783,6 @@ test("main action button clears pins first, then escalates to clear image", asyn
 
     assert.equal(mainActionButton.textContent, "Clear image");
     assert.equal(image.style.display, "block");
-    // Final semantic-history shape: clear-pins and clear-image should be
-    // reducer-owned semantic transitions. These tooltip assertions should come
-    // from their transition records, not from snapshot history kind mapping.
     assert.equal(undoButton.title, "Restore pins");
 
     mainActionButton.click();

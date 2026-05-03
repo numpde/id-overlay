@@ -19,7 +19,7 @@ test("chrome build output includes the manifest and source tree", async () => {
     "src/content/content.css",
     "src/core/build-info.js",
     "src/core/logger.js",
-    "src/core/state.js",
+    "src/core/session.js",
     "src/core/value-store.js",
   ]) {
     const stat = await fs.stat(repoPath("dist", requiredPath));

@@ -1,3 +1,5 @@
+import { SESSION_MODE } from "../session.js";
+
 export const MACHINE_EVENT_KIND = Object.freeze({
   LOAD_IMAGE: "load-image",
   CLEAR_IMAGE: "clear-image",
@@ -19,10 +21,7 @@ export const MACHINE_EVENT_KIND = Object.freeze({
   CLEAR_STATUS_OVERRIDE: "clear-status-override",
 });
 
-export const MACHINE_MODE = Object.freeze({
-  ALIGN: "align",
-  TRACE: "trace",
-});
+export const MACHINE_MODE = SESSION_MODE;
 
 export const MACHINE_PANEL_INTENT = Object.freeze({
   IDLE: "idle",

@@ -1,20 +1,8 @@
-import { hasOverlayImageSession } from "./state.js";
 import { isRuntimePassThroughActive } from "./interaction-runtime.js";
 import {
-  INTERACTION_MODE,
+  hasOverlayImageSession,
   isAlignMode,
-  normalizeInteractionMode,
-  isTraceMode,
-  nextMode,
-} from "./interaction-mode.js";
-
-export {
-  INTERACTION_MODE,
-  isAlignMode,
-  normalizeInteractionMode,
-  isTraceMode,
-  nextMode,
-} from "./interaction-mode.js";
+} from "./session.js";
 
 export const KEYBOARD_SHORTCUT_ACTION = Object.freeze({
   // Final semantic-history shape: shortcut actions are adapter vocabulary.

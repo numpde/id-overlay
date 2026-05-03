@@ -15,12 +15,14 @@ import {
   selectStatus,
   transitionMachine,
 } from "../../src/core/machine/index.js";
+import { normalizeSessionImage } from "../../src/core/session.js";
 
 const IMAGE = Object.freeze({
   src: "data:image/png;base64,abc",
   width: 800,
   height: 400,
 });
+const NORMALIZED_IMAGE = normalizeSessionImage(IMAGE);
 
 const PLACEMENT = Object.freeze({
   type: "similarity",
@@ -63,8 +65,8 @@ test("loading an image enters Align and records a user-facing reloadable edit", 
   });
 
   assert.equal(result.state.session.mode, MACHINE_MODE.ALIGN);
-  assert.equal(result.state.session.image, IMAGE);
-  assert.equal(result.state.session.placement, PLACEMENT);
+  assert.deepEqual(result.state.session.image, NORMALIZED_IMAGE);
+  assert.deepEqual(result.state.session.placement, PLACEMENT);
   assert.equal(result.historyRecord.kind, MACHINE_HISTORY_KIND.LOAD_IMAGE);
   assert.equal(selectPanelView(result.state).undoTooltip, "Remove image");
   assert.equal(result.state.history.future.length, 0);
@@ -217,11 +219,11 @@ test("placement undo and redo preserve the user's current mode", () => {
 
   const undo = transitionMachine(state, { type: MACHINE_EVENT_KIND.UNDO });
   assert.equal(undo.state.session.mode, MACHINE_MODE.TRACE);
-  assert.equal(undo.state.session.placement, PLACEMENT);
+  assert.deepEqual(undo.state.session.placement, PLACEMENT);
 
   const redo = transitionMachine(undo.state, { type: MACHINE_EVENT_KIND.REDO });
   assert.equal(redo.state.session.mode, MACHINE_MODE.TRACE);
-  assert.equal(redo.state.session.placement, MOVED_PLACEMENT);
+  assert.deepEqual(redo.state.session.placement, MOVED_PLACEMENT);
 });
 
 test("placement undo can restore an explicitly empty previous placement", () => {
@@ -275,7 +277,7 @@ test("redoing a loaded image restores authored image-load context, not later mod
   assert.equal(selectPanelView(undo.state).redoTooltip, "Reload image");
 
   const redo = transitionMachine(undo.state, { type: MACHINE_EVENT_KIND.REDO });
-  assert.equal(redo.state.session.image, IMAGE);
+  assert.deepEqual(redo.state.session.image, NORMALIZED_IMAGE);
   assert.equal(redo.state.session.mode, MACHINE_MODE.ALIGN);
 });
 
@@ -291,7 +293,7 @@ test("clear-image undo restores image context and redo returns to native Trace",
   assert.equal(state.session.mode, MACHINE_MODE.TRACE);
 
   const undo = transitionMachine(state, { type: MACHINE_EVENT_KIND.UNDO });
-  assert.equal(undo.state.session.image, IMAGE);
+  assert.deepEqual(undo.state.session.image, NORMALIZED_IMAGE);
   assert.equal(undo.state.session.mode, MACHINE_MODE.TRACE);
 
   const redo = transitionMachine(undo.state, { type: MACHINE_EVENT_KIND.REDO });

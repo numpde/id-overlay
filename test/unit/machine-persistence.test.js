@@ -11,12 +11,14 @@ import {
   toPersistedMachineSessionSnapshot,
   transitionMachine,
 } from "../../src/core/machine/index.js";
+import { normalizeSessionImage } from "../../src/core/session.js";
 
 const IMAGE = Object.freeze({
   src: "data:image/png;base64,abc",
   width: 800,
   height: 400,
 });
+const NORMALIZED_IMAGE = normalizeSessionImage(IMAGE);
 
 const PLACEMENT = Object.freeze({
   type: "similarity",
@@ -54,7 +56,7 @@ test("toPersistedMachineSession saves only durable session fields", () => {
   assert.deepEqual(toPersistedMachineSession(state), {
     mode: MACHINE_MODE.ALIGN,
     opacity: 0.75,
-    image: IMAGE,
+    image: NORMALIZED_IMAGE,
     placement: PLACEMENT,
     registration: REGISTRATION,
   });
@@ -131,7 +133,7 @@ test("fromPersistedMachineSession restores durable session facts", () => {
   assert.deepEqual(state.session, {
     mode: MACHINE_MODE.ALIGN,
     opacity: 0.75,
-    image: IMAGE,
+    image: NORMALIZED_IMAGE,
     placement: PLACEMENT,
     registration: REGISTRATION,
   });

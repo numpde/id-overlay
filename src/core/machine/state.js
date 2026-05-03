@@ -1,16 +1,26 @@
-import { MACHINE_MODE, MACHINE_PANEL_INTENT } from "./events.js";
+import {
+  createEmptyRegistration,
+  createEmptySession,
+  isKnownSessionMode,
+  normalizeRegistration,
+  normalizeSession,
+  normalizeSessionMode,
+  normalizeSessionOpacity,
+} from "../session.js";
+import { MACHINE_PANEL_INTENT } from "./events.js";
 
-const DEFAULT_OPACITY = 0.6;
+export {
+  createEmptyRegistration,
+  normalizeRegistration,
+};
+
+export const normalizeMode = normalizeSessionMode;
+export const isKnownMachineMode = isKnownSessionMode;
+export const normalizeOpacity = normalizeSessionOpacity;
 
 export function createInitialMachineState(overrides = {}) {
   return normalizeMachineState({
-    session: {
-      mode: MACHINE_MODE.TRACE,
-      opacity: DEFAULT_OPACITY,
-      image: null,
-      placement: null,
-      registration: createEmptyRegistration(),
-    },
+    session: createEmptySession(),
     runtime: {
       pointer: {
         screenPx: null,
@@ -30,14 +40,6 @@ export function createInitialMachineState(overrides = {}) {
   });
 }
 
-export function createEmptyRegistration() {
-  return {
-    pins: [],
-    solvedTransform: null,
-    dirty: false,
-  };
-}
-
 export function createIdlePanel() {
   return {
     intent: MACHINE_PANEL_INTENT.IDLE,
@@ -53,13 +55,7 @@ export function normalizeMachineState(state = {}) {
   const history = state.history ?? {};
 
   return {
-    session: {
-      mode: normalizeMode(session.mode),
-      opacity: normalizeOpacity(session.opacity),
-      image: session.image ?? null,
-      placement: session.placement ?? null,
-      registration: normalizeRegistration(session.registration),
-    },
+    session: normalizeSession(session),
     runtime: {
       pointer: {
         screenPx: normalizePoint(runtime.pointer?.screenPx),
@@ -99,36 +95,13 @@ export function isValidPanelRequestId(requestId) {
   return Number.isInteger(requestId) && requestId > 0;
 }
 
-export function normalizeRegistration(registration = {}) {
-  return {
-    pins: Array.isArray(registration.pins) ? registration.pins : [],
-    solvedTransform: registration.solvedTransform ?? null,
-    dirty: registration.dirty === true,
-  };
-}
-
-// TODO(machine-cutover): Keep normalizers for persisted/foreign input only.
-// Transition predicates should validate event payloads instead of relying on
-// default coercion to produce a legal state.
-export function normalizeMode(mode) {
-  return isKnownMachineMode(mode) ? mode : MACHINE_MODE.TRACE;
-}
-
-export function isKnownMachineMode(mode) {
-  return Object.values(MACHINE_MODE).includes(mode);
-}
-
-export function normalizeOpacity(opacity) {
-  return Number.isFinite(opacity) ? Math.min(1, Math.max(0, opacity)) : DEFAULT_OPACITY;
-}
-
 export function replaceSession(state, session) {
   return {
     ...state,
-    session: {
+    session: normalizeSession({
       ...state.session,
       ...session,
-    },
+    }),
   };
 }
 

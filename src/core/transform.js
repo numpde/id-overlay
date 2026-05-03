@@ -1,5 +1,8 @@
-import { hasCleanSolvedTransform, hasOverlayImageSession } from "./state.js";
-import { DEFAULT_SESSION_OPACITY } from "./session-defaults.js";
+import {
+  DEFAULT_SESSION_OPACITY,
+  hasCleanSolvedTransform,
+  hasOverlayImageSession,
+} from "./session.js";
 
 const DEFAULT_SCREEN_SCALE = 1;
 const DEFAULT_ROTATION_RAD = 0;

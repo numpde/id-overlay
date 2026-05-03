@@ -21,6 +21,10 @@ import {
   replaceSession,
 } from "./state.js";
 import {
+  createInvalidatedRegistration,
+  createPlacementEditedRegistration,
+} from "../session.js";
+import {
   commitHistoryRecord,
   moveRedoRecordToPast,
   moveUndoRecordToFuture,
@@ -267,11 +271,9 @@ function addPin(state, event) {
     mapLatLon: event.mapLatLon,
   };
   const previousRegistration = state.session.registration;
-  const nextRegistration = {
+  const nextRegistration = createInvalidatedRegistration({
     pins: [...previousRegistration.pins, pin],
-    solvedTransform: null,
-    dirty: true,
-  };
+  });
   const panelTransition = clearInvalidPanelIntent(
     state,
     replaceSession(replaceRegistration(state, nextRegistration), {
@@ -312,11 +314,9 @@ function removePin(state, event) {
       feedback: createFeedback(MACHINE_FEEDBACK_KIND.NONE),
     });
   }
-  const nextRegistration = {
+  const nextRegistration = createInvalidatedRegistration({
     pins: nextPins,
-    solvedTransform: null,
-    dirty: true,
-  };
+  });
   const panelTransition = clearInvalidPanelIntent(
     state,
     replaceSession(replaceRegistration(state, nextRegistration), {
@@ -644,15 +644,6 @@ function canClearPinsInState(state) {
     state.session.mode === MACHINE_MODE.ALIGN &&
     state.session.registration.pins.length > 0
   );
-}
-
-function createPlacementEditedRegistration(registration) {
-  return {
-    ...registration,
-    dirty: registration.pins.length > 0
-      ? true
-      : registration.dirty,
-  };
 }
 
 function nextPanelRequestId(state) {
