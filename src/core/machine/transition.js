@@ -29,7 +29,7 @@ import {
   moveRedoRecordToPast,
   moveUndoRecordToFuture,
 } from "./history.js";
-import { solveSimilarityTransform } from "./geometry.js";
+import { solveSimilarityTransform } from "../geometry.js";
 import {
   createCancelPanelTimeoutEffect,
   createReadPasteImageEffect,
@@ -64,12 +64,14 @@ function transitionSemantic(state, event, { commitHistory }) {
       return withOptionalHistory(selectMode(state, event), commitHistory);
     case MACHINE_EVENT_KIND.SET_OPACITY:
       return withoutHistory(setOpacity(state, event));
+    case MACHINE_EVENT_KIND.TOGGLE_PIN:
+      return withOptionalHistory(togglePin(state, event), commitHistory);
     case MACHINE_EVENT_KIND.ADD_PIN:
       return withOptionalHistory(addPin(state, event), commitHistory);
     case MACHINE_EVENT_KIND.REMOVE_PIN:
       return withOptionalHistory(removePin(state, event), commitHistory);
     case MACHINE_EVENT_KIND.CLEAR_PINS:
-      return withOptionalHistory(clearPins(state), commitHistory);
+      return withOptionalHistory(clearPins(state, event), commitHistory);
     case MACHINE_EVENT_KIND.RESTORE_REGISTRATION:
       return withoutHistory(restoreRegistration(state, event));
     case MACHINE_EVENT_KIND.FIT_OVERLAY:
@@ -268,6 +270,35 @@ function setOpacity(state, event) {
   });
 }
 
+function togglePin(state, event) {
+  if (!canEditPins(state)) {
+    return createTransitionResult({
+      state,
+      feedback: createFeedback(MACHINE_FEEDBACK_KIND.NONE),
+    });
+  }
+  if (event.existingPinId != null) {
+    const existingPin = state.session.registration.pins.find(
+      (pin) => pin.id === event.existingPinId,
+    );
+    if (!existingPin) {
+      return createTransitionResult({
+        state,
+        feedback: createFeedback(MACHINE_FEEDBACK_KIND.NONE),
+      });
+    }
+    return removePin(prepareRegistrationEditState(state, event), {
+      type: MACHINE_EVENT_KIND.REMOVE_PIN,
+      id: existingPin.id,
+    });
+  }
+  return addPin(prepareRegistrationEditState(state, event), {
+    type: MACHINE_EVENT_KIND.ADD_PIN,
+    imagePx: event.imagePx,
+    mapLatLon: event.mapLatLon,
+  });
+}
+
 function addPin(state, event) {
   if (!state.session.image || !event.imagePx || !event.mapLatLon) {
     return createTransitionResult({
@@ -362,7 +393,7 @@ function removePin(state, event) {
   });
 }
 
-function clearPins(state) {
+function clearPins(state, event = {}) {
   const previousRegistration = state.session.registration;
   if (!selectPanelPolicy(state).canClearPins) {
     return createTransitionResult({
@@ -371,7 +402,8 @@ function clearPins(state) {
     });
   }
   const nextRegistration = createEmptyRegistration();
-  const nextState = replaceSession(replaceRegistration(state, nextRegistration), {
+  const editState = prepareRegistrationEditState(state, event);
+  const nextState = replaceSession(replaceRegistration(editState, nextRegistration), {
     mode: MACHINE_MODE.ALIGN,
   });
   const panelTransition = clearPanelIntent(state, nextState);
@@ -415,6 +447,22 @@ function restoreRegistration(state, event) {
     effects: panelTransition.effects,
     feedback: createFeedback(event.feedbackKind ?? MACHINE_FEEDBACK_KIND.NONE),
   });
+}
+
+function prepareRegistrationEditState(state, event) {
+  if (event.preservedPlacement?.type !== "similarity") {
+    return state;
+  }
+  return replaceSession(state, {
+    placement: event.preservedPlacement,
+  });
+}
+
+function canEditPins(state) {
+  return (
+    Boolean(state.session.image) &&
+    state.session.mode === MACHINE_MODE.ALIGN
+  );
 }
 
 function fitOverlay(state) {

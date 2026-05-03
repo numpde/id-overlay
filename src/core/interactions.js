@@ -30,23 +30,16 @@ import {
   resolveWheelMode,
   shouldIgnoreKeyboardShortcut,
   shouldReleasePassThrough,
-  SOLVE_RESULT_REASON,
   WHEEL_MODE,
 } from "./interaction-policy.js";
 import {
   getOverlayImage,
   hasCleanSolvedTransform,
   hasOverlayImageSession,
-  isAlignMode,
-  isTraceMode,
-  nextSessionMode,
-  normalizeSessionMode,
-  resolveRegistrationSolveState,
   SESSION_MODE,
 } from "./session.js";
 import {
   buildPinRenderModels,
-  createPlacementTransform,
   createSimilarityTransformFromAnchor,
   derivePlacementFromScreenTransform,
   hitTestPin,
@@ -60,9 +53,7 @@ import {
   scaleFromWheelDelta,
   screenPointToImagePoint,
   screenPointToRenderedImagePoint,
-  solveSimilarityTransform,
 } from "./transform.js";
-import { getOverlayImageLoadStats } from "./image-normalization.js";
 import {
   MACHINE_EVENT_KIND,
   MACHINE_FEEDBACK_KIND,
@@ -81,9 +72,12 @@ export function createInteractionController({
   const eventListeners = new Set();
   let dragState = null;
   let placementEditDraft = null;
+  let observedSession = machineHost.getState().session;
 
-  const unsubscribeMachine = machineHost.subscribe(() => {
-    syncRuntimeFromState();
+  const unsubscribeMachine = machineHost.subscribe((state) => {
+    const previousSession = observedSession;
+    observedSession = state.session;
+    syncRuntimeFromSessionChange(previousSession, state.session);
   }, { emitCurrent: false });
   const unsubscribeKeyboardGateway = keyboardGateway?.subscribe?.({
     keydown: handleKeyDown,
@@ -129,85 +123,19 @@ export function createInteractionController({
     return runtimeStore.get();
   }
 
-  function loadImage(image) {
-    return runInteractionBoundary("load-image", () => {
-      const snapshot = pageAdapter.getSnapshot();
-      const placement = createPlacementTransform({
-        image,
-        centerMapLatLon: snapshot.mapView.center,
-        scale: 1,
-        rotationRad: 0,
-        zoom: snapshot.mapView.zoom,
-      });
-      dispatchMachine({
-        type: MACHINE_EVENT_KIND.LOAD_IMAGE,
-        image,
-        placement,
-      });
-      const imageStats = getOverlayImageLoadStats(image);
-      logger.info("Loaded image session", {
-        ...imageStats,
-        centerMapLatLon: snapshot.mapView.center,
-      });
-      syncRuntimeFromState();
-      return true;
-    });
-  }
-
-  function clearImage() {
-    return runInteractionBoundary("clear-image", () => {
-      resetInteractionState({
-        endPointerScreenPx: runtimeStore.get().pointerScreenPx,
-        pointerScreenPx: null,
-        isPointerInsideImage: false,
-      });
-      dispatchMachine({ type: MACHINE_EVENT_KIND.CLEAR_IMAGE });
-      logger.info("Cleared current image session");
-      dispatchRuntime({
-        type: INTERACTION_RUNTIME_ACTION.UPDATE_POINTER,
-        pointerScreenPx: null,
-        isPointerInsideImage: false,
-      });
-      return true;
-    });
-  }
-
-  function toggleMode() {
-    applyMode(nextSessionMode(getSession().mode));
-  }
-
   function applyMode(mode) {
     return runInteractionBoundary("apply-mode", () => {
-      const normalizedNextMode = normalizeSessionMode(mode);
       resetInteractionState({
         pointerScreenPx: runtimeStore.get().pointerScreenPx,
         isPointerInsideImage: runtimeStore.get().isPointerInsideImage,
       });
       dispatchMachine({
         type: MACHINE_EVENT_KIND.SELECT_MODE,
-        mode: normalizedNextMode,
+        mode,
       });
-      logger.info("Switched mode", { mode: normalizedNextMode });
+      logger.info("Requested mode switch", { mode });
       syncRuntimeFromState();
       return true;
-    });
-  }
-
-  function setOpacity(opacity) {
-    dispatchMachine({
-      type: MACHINE_EVENT_KIND.SET_OPACITY,
-      opacity,
-    });
-  }
-
-  function computeTransform() {
-    // Final semantic-history shape: explicit solve/fit should be represented
-    // as a semantic fit-overlay transition, with feedback and history posture
-    // owned by that transition.
-    return runInteractionBoundary("compute-transform", () => {
-      const result = solveRegistrationFromCurrentState();
-      syncRuntimeFromState();
-      return result;
     });
   }
 
@@ -228,62 +156,34 @@ export function createInteractionController({
       return pinContext;
     }
 
-    return preserveRenderedPlacementForRegistrationEdit(() => {
-      if (pinContext.existingPin) {
-        dispatchMachine({
-          type: MACHINE_EVENT_KIND.REMOVE_PIN,
-          id: pinContext.existingPin.id,
-        });
-        logger.info("Removed registration pin", {
-          pinId: pinContext.existingPin.id,
-        });
-        dispatchRuntime({
-          type: INTERACTION_RUNTIME_ACTION.UPDATE_POINTER,
-          pointerScreenPx: pinContext.pointerScreenPx,
-          isPointerInsideImage: true,
-        });
-        return {
-          ...createPinSuccessResult(PIN_RESULT_ACTION.REMOVED, pinContext.existingPin),
-        };
-      }
+    const previousPins = getSession().registration.pins;
+    const preservedPlacement = derivePlacementFromCurrentRenderTransform(getSession());
+    const event = {
+      type: MACHINE_EVENT_KIND.TOGGLE_PIN,
+      imagePx: pinContext.imagePx,
+      mapLatLon: pinContext.mapLatLon,
+      existingPinId: pinContext.existingPin?.id ?? null,
+      ...(preservedPlacement ? { preservedPlacement } : {}),
+    };
+    const result = dispatchMachine(event);
 
-      const previousPins = getSession().registration.pins;
-      dispatchMachine({
-        type: MACHINE_EVENT_KIND.ADD_PIN,
-        imagePx: pinContext.imagePx,
-        mapLatLon: pinContext.mapLatLon,
-      });
-      const pin = findAddedPin(previousPins, getSession().registration.pins);
-      logger.info("Added registration pin", {
-        pinId: pin?.id ?? null,
-        imagePx: pinContext.imagePx,
-        mapLatLon: pinContext.mapLatLon,
+    const pinResult = createPinResultFromTransition({
+      result,
+      pinContext,
+      previousPins,
+    });
+    if (pinResult.ok) {
+      logger.info("Toggled registration pin", {
+        action: pinResult.action,
+        pinId: pinResult.pin?.id ?? null,
       });
       dispatchRuntime({
         type: INTERACTION_RUNTIME_ACTION.UPDATE_POINTER,
         pointerScreenPx: pinContext.pointerScreenPx,
         isPointerInsideImage: true,
       });
-      return {
-        ...createPinSuccessResult(PIN_RESULT_ACTION.ADDED, pin),
-      };
-    });
-  }
-
-  function clearPins() {
-    return runInteractionBoundary("clear-pins", () => {
-      preserveRenderedPlacementForRegistrationEdit(() => {
-        const hadPins = getSession().registration.pins.length > 0;
-        dispatchMachine({ type: MACHINE_EVENT_KIND.CLEAR_PINS });
-        const changed = hadPins && getSession().registration.pins.length === 0;
-        if (!changed) {
-          return;
-        }
-        logger.info("Cleared registration pins");
-        syncRuntimeFromState();
-      });
-      return true;
-    });
+    }
+    return pinResult;
   }
 
   function handlePointerEnter(screenPoint) {
@@ -483,9 +383,6 @@ export function createInteractionController({
   }
 
   function handleDoubleClick(screenPoint) {
-    // Final semantic-history shape: double-click is adapter input. It should
-    // dispatch a pin-toggle intent after resolving pointer context, not perform
-    // the semantic registration mutation directly.
     return runInteractionBoundary("handle-double-click", () => {
       updatePointer(screenPoint, { isPointerInsideImage: true });
       return requestTogglePinAtCurrentPointer();
@@ -602,11 +499,6 @@ export function createInteractionController({
     return getSession();
   }
 
-  function preserveRenderedPlacementForRegistrationEdit(mutateRegistration) {
-    syncPlacementBaselineToCurrentRenderTransform();
-    return mutateRegistration();
-  }
-
   function derivePlacementFromCurrentRenderTransform(state) {
     if (!hasOverlayImageSession(state) || !hasCleanSolvedTransform(state.registration)) {
       return null;
@@ -660,6 +552,23 @@ export function createInteractionController({
     });
   }
 
+  function syncRuntimeFromSessionChange(previousSession, nextSession) {
+    const imageWasRemoved = Boolean(previousSession.image) && !nextSession.image;
+    const modeChanged = previousSession.mode !== nextSession.mode;
+    if (!imageWasRemoved && !modeChanged) {
+      syncRuntimeFromState();
+      return;
+    }
+
+    resetInteractionState({
+      endPointerScreenPx: runtimeStore.get().pointerScreenPx,
+      pointerScreenPx: imageWasRemoved ? null : runtimeStore.get().pointerScreenPx,
+      isPointerInsideImage: imageWasRemoved
+        ? false
+        : runtimeStore.get().isPointerInsideImage,
+    });
+  }
+
   function dispatchRuntime(action) {
     runtimeStore.set(
       reduceInteractionRuntime(runtimeStore.get(), action, getSession()),
@@ -700,45 +609,6 @@ export function createInteractionController({
       editKind: draft.editKind,
     });
     return Boolean(result.historyRecord);
-  }
-
-  function solveRegistrationFromCurrentState() {
-    const state = getSession();
-    const solveState = resolveRegistrationSolveState(state.registration);
-    if (!solveState.canCompute) {
-      const result = createSolveFailureResult(
-        SOLVE_RESULT_REASON.INSUFFICIENT_PINS,
-        solveState.pinCount,
-      );
-      logger.warn("Solve requested without enough pins", result);
-      return result;
-    }
-
-    const solvedTransform = solveSimilarityTransform(state.registration.pins);
-    if (!solvedTransform) {
-      const result = createSolveFailureResult(
-        SOLVE_RESULT_REASON.SOLVE_FAILED,
-        solveState.pinCount,
-      );
-      logger.warn("Solve requested but transform computation failed", result);
-      return result;
-    }
-
-    dispatchMachine({
-      type: MACHINE_EVENT_KIND.RESTORE_REGISTRATION,
-      registration: {
-        ...state.registration,
-        solvedTransform,
-        dirty: false,
-      },
-    });
-    const result = createSolveSuccessResult(solvedTransform, solveState.pinCount);
-    logger.info("Computed registration transform", {
-      pinCount: result.pinCount,
-      scale: solvedTransform.scale,
-      rotationRad: solvedTransform.rotationRad,
-    });
-    return result;
   }
 
   function resetInteractionState({
@@ -829,12 +699,6 @@ export function createInteractionController({
     subscribe,
     subscribeEvents,
     getRuntimeState,
-    loadImage,
-    clearImage,
-    toggleMode,
-    setOpacity,
-    computeTransform,
-    clearPins,
     handlePointerEnter,
     handlePointerLeave,
     handlePointerMove,
@@ -986,25 +850,22 @@ function createPinFailureResult(reason, extra = {}) {
   };
 }
 
-function createSolveSuccessResult(solvedTransform, pinCount) {
-  return {
-    ok: true,
-    solvedTransform,
-    pinCount,
-  };
-}
-
-function createSolveFailureResult(reason, pinCount) {
-  return {
-    ok: false,
-    reason,
-    pinCount,
-  };
-}
-
 function findAddedPin(previousPins, nextPins) {
   const previousIds = new Set(previousPins.map((pin) => pin.id));
   return nextPins.find((pin) => !previousIds.has(pin.id)) ?? null;
+}
+
+function createPinResultFromTransition({ result, pinContext, previousPins }) {
+  if (result.feedback.kind === MACHINE_FEEDBACK_KIND.PIN_REMOVED) {
+    return createPinSuccessResult(PIN_RESULT_ACTION.REMOVED, pinContext.existingPin);
+  }
+  if (result.feedback.kind === MACHINE_FEEDBACK_KIND.PIN_ADDED) {
+    return createPinSuccessResult(
+      PIN_RESULT_ACTION.ADDED,
+      findAddedPin(previousPins, result.state.session.registration.pins),
+    );
+  }
+  return createPinFailureResult(PIN_RESULT_REASON.NO_POINTER);
 }
 
 function areEqualPlacements(left, right) {

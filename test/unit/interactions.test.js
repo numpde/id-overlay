@@ -43,6 +43,8 @@ import {
 } from "../../src/core/machine/index.js";
 import {
   createPlacementScreenTransform,
+  createPlacementTransform,
+  derivePlacementFromScreenTransform,
   imagePointToRenderedScreenPoint,
   imagePointToScreenPoint,
   resolveOverlayScreenTransform,
@@ -1386,14 +1388,75 @@ function createHarness({
       return machineHost.getState().session;
     },
   };
-  const controller = createInteractionController({
+  const interactions = createInteractionController({
     machineHost,
     keyTarget,
     keyboardGateway,
     pageAdapter,
   });
+  const controller = {
+    ...interactions,
+    loadImage(image) {
+      const snapshot = pageAdapter.getSnapshot();
+      machineHost.dispatch({
+        type: MACHINE_EVENT_KIND.LOAD_IMAGE,
+        image,
+        placement: createPlacementTransform({
+          image,
+          centerMapLatLon: snapshot.mapView.center,
+          scale: 1,
+          rotationRad: 0,
+          zoom: snapshot.mapView.zoom,
+        }),
+      });
+    },
+    clearImage() {
+      machineHost.dispatch({ type: MACHINE_EVENT_KIND.CLEAR_IMAGE });
+    },
+    toggleMode() {
+      machineHost.dispatch({
+        type: MACHINE_EVENT_KIND.SELECT_MODE,
+        mode: nextSessionMode(machineHost.getState().session.mode),
+      });
+    },
+    computeTransform() {
+      const result = machineHost.dispatch({ type: MACHINE_EVENT_KIND.FIT_OVERLAY });
+      const solvedTransform = result.state.session.registration.solvedTransform;
+      if (solvedTransform && machineHost.getState().session.mode !== SESSION_MODE.ALIGN) {
+        machineHost.dispatch({
+          type: MACHINE_EVENT_KIND.SELECT_MODE,
+          mode: SESSION_MODE.ALIGN,
+        });
+      }
+      return {
+        ok: Boolean(solvedTransform),
+        solvedTransform,
+        pinCount: result.state.session.registration.pins.length,
+      };
+    },
+    clearPins() {
+      machineHost.dispatch({
+        type: MACHINE_EVENT_KIND.CLEAR_PINS,
+        preservedPlacement: derivePreservedPlacement({
+          state: machineHost.getState().session,
+          pageAdapter,
+        }),
+      });
+    },
+  };
 
   return { controller, store, machineHost, keyTarget, adapterCalls, pageAdapter };
+}
+
+function derivePreservedPlacement({ state, pageAdapter }) {
+  if (!state.image || !state.registration.solvedTransform || state.registration.dirty) {
+    return null;
+  }
+  const snapshot = pageAdapter.getSnapshot();
+  return derivePlacementFromScreenTransform({
+    snapshot,
+    transform: resolveOverlayScreenTransform({ state, snapshot }),
+  });
 }
 
 function consumeHistory(machineHost, eventType) {

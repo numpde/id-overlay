@@ -175,6 +175,72 @@ test("pin undo and redo land in Align because pins are the visible editable obje
   assert.equal(redo.state.session.registration.pins.length, 1);
 });
 
+test("pin toggle is a machine-owned semantic transition over adapter facts", () => {
+  let state = loadImage();
+
+  const add = transitionMachine(state, {
+    type: MACHINE_EVENT_KIND.TOGGLE_PIN,
+    imagePx: { x: 400, y: 200 },
+    mapLatLon: { lat: -1.23, lon: 36.84 },
+  });
+
+  assert.equal(add.feedback.kind, MACHINE_FEEDBACK_KIND.PIN_ADDED);
+  assert.equal(add.state.session.registration.pins.length, 1);
+  assert.equal(add.historyRecord.kind, MACHINE_HISTORY_KIND.ADD_PIN);
+
+  state = add.state;
+  const remove = transitionMachine(state, {
+    type: MACHINE_EVENT_KIND.TOGGLE_PIN,
+    existingPinId: 1,
+    imagePx: { x: 400, y: 200 },
+    mapLatLon: { lat: -1.23, lon: 36.84 },
+  });
+
+  assert.equal(remove.feedback.kind, MACHINE_FEEDBACK_KIND.PIN_REMOVED);
+  assert.equal(remove.state.session.registration.pins.length, 0);
+  assert.equal(remove.historyRecord.kind, MACHINE_HISTORY_KIND.REMOVE_PIN);
+});
+
+test("pin toggle is invalid outside visible Align editing", () => {
+  let state = loadImage();
+  state = transitionMachine(state, {
+    type: MACHINE_EVENT_KIND.SELECT_MODE,
+    mode: MACHINE_MODE.TRACE,
+  }).state;
+
+  const result = transitionMachine(state, {
+    type: MACHINE_EVENT_KIND.TOGGLE_PIN,
+    imagePx: { x: 400, y: 200 },
+    mapLatLon: { lat: -1.23, lon: 36.84 },
+  });
+
+  assert.deepEqual(result.state, state);
+  assert.equal(result.historyRecord, null);
+  assert.equal(result.feedback.kind, MACHINE_FEEDBACK_KIND.NONE);
+});
+
+test("registration edits can preserve adapter-derived visible placement", () => {
+  let state = addTwoPins(loadImage());
+  state = transitionMachine(state, {
+    type: MACHINE_EVENT_KIND.FIT_OVERLAY,
+  }).state;
+  state = transitionMachine(state, {
+    type: MACHINE_EVENT_KIND.SELECT_MODE,
+    mode: MACHINE_MODE.ALIGN,
+  }).state;
+
+  const result = transitionMachine(state, {
+    type: MACHINE_EVENT_KIND.TOGGLE_PIN,
+    imagePx: { x: 300, y: 150 },
+    mapLatLon: { lat: -1.1, lon: 37.1 },
+    preservedPlacement: MOVED_PLACEMENT,
+  });
+
+  assert.deepEqual(result.state.session.placement, MOVED_PLACEMENT);
+  assert.equal(result.state.session.registration.pins.length, 3);
+  assert.equal(result.state.session.registration.dirty, true);
+});
+
 test("clear-pins undo and redo land in Align because pin state is invisible in Trace", () => {
   let state = loadImage();
   state = addTwoPins(state);

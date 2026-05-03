@@ -6,6 +6,7 @@ export const MACHINE_EVENT_KIND = Object.freeze({
   RESTORE_IMAGE_SESSION: "restore-image-session",
   SELECT_MODE: "select-mode",
   SET_OPACITY: "set-opacity",
+  TOGGLE_PIN: "toggle-pin",
   ADD_PIN: "add-pin",
   REMOVE_PIN: "remove-pin",
   CLEAR_PINS: "clear-pins",

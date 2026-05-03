@@ -154,6 +154,34 @@ test("live interactions and overlay read canonical machine host, not the legacy 
   assert.deepEqual(violations, []);
 });
 
+test("interaction adapter does not own registration solve or pin mutation semantics", () => {
+  const source = fs.readFileSync(repoPath("src/core/interactions.js"), "utf8");
+  const forbiddenPatterns = [
+    ["direct add/remove/restore events", /MACHINE_EVENT_KIND\.(?:ADD_PIN|REMOVE_PIN|RESTORE_REGISTRATION)/],
+    ["registration solver import", /\bsolveSimilarityTransform\b/],
+    ["controller solve method", /\bsolveRegistrationFromCurrentState\b|\bcomputeTransform\b/],
+    ["controller pin clearing method", /\bfunction\s+clearPins\b/],
+    ["controller image load/clear methods", /\bfunction\s+(?:loadImage|clearImage)\b/],
+  ];
+  const violations = forbiddenPatterns
+    .filter(([, pattern]) => pattern.test(source))
+    .map(([name]) => name);
+
+  assert.deepEqual(violations, []);
+});
+
+test("similarity solving has one implementation", () => {
+  const definitions = [];
+  for (const filePath of listJavaScriptFiles(repoPath("src"))) {
+    const source = fs.readFileSync(filePath, "utf8");
+    if (/\bexport\s+function\s+solveSimilarityTransform\b/.test(source)) {
+      definitions.push(path.relative(repoPath(), filePath));
+    }
+  }
+
+  assert.deepEqual(definitions, ["src/core/geometry.js"]);
+});
+
 function findLegacySessionStoreUsage(source) {
   const forbiddenPatterns = [
     ["compat adapter", /createMachineBackedStateStore|machine-store-adapter/],
