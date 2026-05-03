@@ -15,6 +15,15 @@ export const MACHINE_PANEL_MAIN_ACTION = Object.freeze({
   CONFIRM_CLEAR_IMAGE: "confirm-clear-image",
 });
 
+export const MACHINE_STATUS_MESSAGE = Object.freeze({
+  PASTE_ARMED: "Press Ctrl/Cmd+V to paste an image from your clipboard.",
+  CLEAR_IMAGE_CONFIRM: "Click Clear image? again to remove the current screenshot, placement, and pins.",
+  CLEAR_PINS_CONFIRM: "Click Clear pins? again to remove the current registration pins.",
+  EMPTY_SESSION: "Paste a screenshot to begin.",
+  ALIGN: "Align image to the map.",
+  TRACE: "Trace using the aligned image.",
+});
+
 export function selectCanUndo(state) {
   return Boolean(peekUndoRecord(state));
 }
@@ -87,21 +96,21 @@ export function selectStatus(state, feedback = null) {
     return state.status.messageOverride.message;
   }
   if (state.panel.intent === MACHINE_PANEL_INTENT.PASTE_ARMED) {
-    return "Press Ctrl/Cmd+V to paste an image from your clipboard.";
+    return MACHINE_STATUS_MESSAGE.PASTE_ARMED;
   }
   if (state.panel.intent === MACHINE_PANEL_INTENT.CLEAR_IMAGE_CONFIRM) {
-    return "Click Clear image? again to remove the current screenshot, placement, and pins.";
+    return MACHINE_STATUS_MESSAGE.CLEAR_IMAGE_CONFIRM;
   }
   if (state.panel.intent === MACHINE_PANEL_INTENT.CLEAR_PINS_CONFIRM) {
-    return "Click Clear pins? again to remove the current registration pins.";
+    return MACHINE_STATUS_MESSAGE.CLEAR_PINS_CONFIRM;
   }
   if (!state.session.image) {
-    return "Paste a screenshot to begin.";
+    return MACHINE_STATUS_MESSAGE.EMPTY_SESSION;
   }
   if (state.session.mode === MACHINE_MODE.ALIGN) {
-    return "Align image to the map.";
+    return MACHINE_STATUS_MESSAGE.ALIGN;
   }
-  return "Trace using the aligned image.";
+  return MACHINE_STATUS_MESSAGE.TRACE;
 }
 
 export function selectOverlayPolicy(state) {

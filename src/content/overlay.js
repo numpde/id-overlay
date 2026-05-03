@@ -187,7 +187,7 @@ export function createOverlay({ pageAdapter, machineHost, interactions }) {
     const localViewportRect = latestSnapshot.localViewportRect ?? viewportRect;
     // Final semantic-history shape: overlay rendering should consume canonical
     // UI affordance/selectors rather than recomputing panel/registration
-    // policy from raw session state in parallel with ui-view-model.
+    // policy from raw session state.
     const registrationUi = resolveRegistrationUiPolicy(state);
     const overlayOwnsPointerHitTesting = doesOverlayOwnPointerHitTesting({
       state,

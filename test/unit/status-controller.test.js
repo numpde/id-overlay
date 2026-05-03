@@ -9,198 +9,12 @@ import {
   describePinResultPresentation,
   describeSolveResultPresentation,
 } from "../../src/core/presentation.js";
-import { resolveUiViewModel } from "../../src/core/ui-view-model.js";
-import { projectLiveUiState } from "../../src/core/ui-live-state.js";
-import { createInitialPanelActionState } from "../../src/core/panel-state.js";
-import { UI_PANEL_INTENT_KIND } from "../../src/core/ui-state-model.js";
-import {
-  UI_STATUS_CASE,
-  describeUiStatusCase,
-  resolveUiStatusBaseline,
-} from "../../src/core/ui-status-model.js";
 import {
   MACHINE_EVENT_KIND,
+  MACHINE_FEEDBACK_KIND,
   MACHINE_PANEL_INTENT,
   createMachineHost,
 } from "../../src/core/machine/index.js";
-
-test("resolveUiStatusBaseline explains the current registration workflow", () => {
-  assert.equal(
-    resolveUiStatusBaseline({
-      uiState: projectLiveUiState({
-        state: { image: null, mode: "trace" },
-        runtime: {},
-        panelActionState: { kind: UI_PANEL_INTENT_KIND.IDLE },
-      }),
-    }),
-    describeUiStatusCase(UI_STATUS_CASE.EMPTY_SESSION),
-  );
-
-  assert.equal(
-    resolveUiStatusBaseline({
-      uiState: projectLiveUiState({
-        state: {
-          image: { src: "x", width: 1, height: 1 },
-          mode: "trace",
-          registration: { solvedTransform: null, dirty: false },
-        },
-        runtime: {},
-        panelActionState: { kind: UI_PANEL_INTENT_KIND.IDLE },
-      }),
-    }),
-    describeUiStatusCase(UI_STATUS_CASE.TRACE_MANUAL),
-  );
-
-  assert.equal(
-    resolveUiStatusBaseline({
-      uiState: projectLiveUiState({
-        state: {
-          image: { src: "x", width: 1, height: 1 },
-          mode: "align",
-          registration: {
-            solvedTransform: { type: "similarity", a: 1, b: 0, tx: 0, ty: 0 },
-            dirty: false,
-          },
-        },
-        runtime: {},
-        panelActionState: { kind: UI_PANEL_INTENT_KIND.IDLE },
-      }),
-    }),
-    describeUiStatusCase(UI_STATUS_CASE.ALIGN_SOLVED_PREVIEW),
-  );
-
-  assert.equal(
-    resolveUiStatusBaseline({
-      uiState: projectLiveUiState({
-        state: {
-          image: { src: "x", width: 1, height: 1 },
-          mode: "trace",
-          registration: {
-            solvedTransform: { type: "similarity", a: 1, b: 0, tx: 0, ty: 0 },
-            dirty: false,
-          },
-        },
-        runtime: {},
-        panelActionState: { kind: UI_PANEL_INTENT_KIND.IDLE },
-      }),
-    }),
-    describeUiStatusCase(UI_STATUS_CASE.TRACE_SOLVED),
-  );
-});
-
-test("resolveUiStatusBaseline prioritizes live interaction state over static render copy", () => {
-  const solvedState = {
-    image: { src: "x", width: 1, height: 1 },
-    mode: "align",
-    registration: {
-      solvedTransform: { type: "similarity", a: 1, b: 0, tx: 0, ty: 0 },
-      dirty: false,
-    },
-  };
-
-  assert.equal(
-    resolveUiStatusBaseline({
-      uiState: projectLiveUiState({
-        state: solvedState,
-        runtime: { isPassThroughActive: true, isDragging: false, dragMode: null },
-        panelActionState: { kind: UI_PANEL_INTENT_KIND.IDLE },
-      }),
-    }),
-    describeUiStatusCase(UI_STATUS_CASE.PASS_THROUGH),
-  );
-
-  assert.equal(
-    resolveUiStatusBaseline({
-      uiState: projectLiveUiState({
-        state: solvedState,
-        runtime: { isPassThroughActive: false, isDragging: true, dragMode: "map-pan" },
-        panelActionState: { kind: UI_PANEL_INTENT_KIND.IDLE },
-      }),
-    }),
-    describeUiStatusCase(UI_STATUS_CASE.ACTIVE_MAP_PAN),
-  );
-});
-
-test("resolveUiViewModel describes the current mode state for the panel switch", () => {
-  // Final semantic-history shape: keep testing switch presentation, but source
-  // disabled/checked facts from canonical UI state selectors after panel-local
-  // projection disappears.
-  const traceViewModel = resolveUiViewModel({
-    uiState: projectLiveUiState({
-      state: { image: null, mode: "trace", opacity: 0.6, registration: { pins: [], solvedTransform: null, dirty: false } },
-      panelActionState: createInitialPanelActionState(),
-    }),
-  });
-  assert.deepEqual(traceViewModel.modeSwitch, {
-    checked: true,
-    disabled: true,
-    accessibleLabel: "Mode: Trace",
-    mode: "trace",
-  });
-
-  const alignViewModel = resolveUiViewModel({
-    uiState: projectLiveUiState({
-      state: { image: { src: "x", width: 1, height: 1 }, mode: "align", opacity: 0.6, registration: { pins: [], solvedTransform: null, dirty: false } },
-      panelActionState: createInitialPanelActionState(),
-    }),
-  });
-  assert.deepEqual(alignViewModel.modeSwitch, {
-    checked: false,
-    disabled: false,
-    accessibleLabel: "Mode: Align",
-    mode: "align",
-  });
-});
-
-test("describePinResultPresentation is the single source of truth for pin feedback", () => {
-  assert.equal(
-    describePinResultPresentation({ ok: true, action: "added", pin: { id: 3 } }),
-    "Added pin 3.",
-  );
-  assert.equal(
-    describePinResultPresentation({ ok: true, action: "removed", pin: { id: 3 } }),
-    "Removed pin 3.",
-  );
-  assert.equal(
-    describePinResultPresentation({ ok: false, reason: "pointer-outside-image" }),
-    "Move the pointer over the screenshot before adding a pin.",
-  );
-});
-
-test("describeSolveResultPresentation is the single source of truth for solve feedback", () => {
-  assert.equal(
-    describeSolveResultPresentation({ ok: true, pinCount: 3 }),
-    "Computed transform from 3 pin(s).",
-  );
-  assert.equal(
-    describeSolveResultPresentation({ ok: false, reason: "insufficient-pins", pinCount: 1 }),
-    "Need at least 2 pins to compute a transform. Current pins: 1.",
-  );
-});
-
-test("describeInteractionEventPresentation centralizes interaction event feedback", () => {
-  // Final semantic-history shape: replace or narrow this if interaction events
-  // become canonical UI outcome events. Avoid preserving a second user-facing
-  // feedback taxonomy.
-  assert.equal(
-    describeInteractionEventPresentation({
-      type: INTERACTION_EVENT.PIN_RESULT,
-      result: { ok: true, action: "added", pin: { id: 3 } },
-    }),
-    "Added pin 3.",
-  );
-  assert.equal(
-    describeInteractionEventPresentation({
-      type: INTERACTION_EVENT.SOLVE_RESULT,
-      result: { ok: false, reason: "insufficient-pins", pinCount: 1 },
-    }),
-    "Need at least 2 pins to compute a transform. Current pins: 1.",
-  );
-  assert.equal(
-    describeInteractionEventPresentation({ type: INTERACTION_EVENT.PINS_CLEARED }),
-    "Cleared all registration pins.",
-  );
-});
 
 test("status controller falls back to derived status after a transient", async () => {
   const machineHost = createMachineHost();
@@ -228,20 +42,17 @@ test("status controller falls back to derived status after a transient", async (
   machineHost.destroy();
 });
 
-test("status controller renders semantic panel feedback through presentation", () => {
+test("status controller renders machine feedback through the canonical formatter", () => {
   const machineHost = createMachineHost();
-
   const controller = createStatusController({ machineHost });
   const messages = [];
   const unsubscribe = controller.subscribe((message) => {
     messages.push(message);
   });
 
-  // Final semantic-history shape: status feedback should be driven by the
-  // consumed transition record/presentation, not by snapshot undo returning a
-  // historyDescriptor.
-  controller.showPanelFeedback(PANEL_FEEDBACK_ACTION.UNDO, {
-    historyDescriptor: { kind: "move-overlay", label: "Moved overlay" },
+  controller.showMachineFeedback({
+    kind: MACHINE_FEEDBACK_KIND.UNDO,
+    message: "Moved overlay",
   }, { durationMs: 0 });
 
   assert.equal(messages.at(-1), "Undid: Moved overlay.");
@@ -263,8 +74,6 @@ test("status controller reacts to pin and solve events", () => {
 
   const controller = createStatusController({ machineHost, interactions });
   for (const listener of eventListeners) {
-    // Final semantic-history shape: status should receive canonical
-    // transition/outcome feedback instead of raw interaction events.
     listener({
       type: INTERACTION_EVENT.PIN_RESULT,
       result: { ok: true, action: "added", pin: { id: 1 } },
@@ -308,4 +117,26 @@ test("status controller uses machine state for baseline panel prompts", () => {
 
   controller.destroy();
   machineHost.destroy();
+});
+
+test("status presentation helpers remain independent from controller plumbing", () => {
+  assert.equal(
+    describePinResultPresentation({ ok: true, action: "added", pin: { id: 3 } }),
+    "Added pin 3.",
+  );
+  assert.equal(
+    describeSolveResultPresentation({ ok: true, pinCount: 3 }),
+    "Computed transform from 3 pin(s).",
+  );
+  assert.equal(
+    describeInteractionEventPresentation({
+      type: INTERACTION_EVENT.PIN_RESULT,
+      result: { ok: true, action: "added", pin: { id: 3 } },
+    }),
+    "Added pin 3.",
+  );
+  assert.equal(
+    PANEL_FEEDBACK_ACTION.PASTE_CANCELLED,
+    "paste-cancelled",
+  );
 });

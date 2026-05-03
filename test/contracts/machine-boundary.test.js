@@ -41,6 +41,35 @@ const CONTENT_BRIDGE_FORBIDDEN_IMPORTS = Object.freeze([
   "./panel-live-effects.js",
 ]);
 
+const LEGACY_BRIDGE_FILES = Object.freeze([
+  "src/content/panel-live-effects.js",
+  "src/core/machine-store-adapter.js",
+  "src/core/panel-state.js",
+  "src/core/ui-effect-model.js",
+  "src/core/ui-event-model.js",
+  "src/core/ui-history-transition.js",
+  "src/core/ui-live-effect-runner.js",
+  "src/core/ui-live-state.js",
+  "src/core/ui-live-transition.js",
+  "src/core/ui-main-action-transition.js",
+  "src/core/ui-mode-transition.js",
+  "src/core/ui-registration-semantics.js",
+  "src/core/ui-registration-transition.js",
+  "src/core/ui-state-model.js",
+  "src/core/ui-status-model.js",
+  "src/core/ui-transition-result.js",
+  "src/core/ui-transition.js",
+  "src/core/ui-view-model.js",
+]);
+
+test("legacy ui bridge and compatibility adapter files stay deleted", () => {
+  const violations = LEGACY_BRIDGE_FILES.filter((relativePath) => {
+    return fs.existsSync(repoPath(relativePath));
+  });
+
+  assert.deepEqual(violations, []);
+});
+
 test("clean-room machine does not import legacy semantic ownership modules", () => {
   const violations = [];
   for (const filePath of listJavaScriptFiles(MACHINE_DIR)) {

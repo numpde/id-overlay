@@ -3,345 +3,15 @@ import assert from "node:assert/strict";
 
 import {
   PANEL_FEEDBACK_ACTION,
-  describePendingHistoryControl,
-  describeOverlayRenderLabel,
   describePanelActionPresentation,
-  describeRegistrationSolveSummary,
   describeRuntimeErrorPresentation,
-  resolveHistoryControlPresentation,
   describeInteractionEventPresentation,
   describePinResultPresentation,
   describeSolveResultPresentation,
 } from "../../src/core/presentation.js";
+import { INTERACTION_EVENT } from "../../src/core/interaction-policy.js";
+import { MACHINE_STATUS_MESSAGE } from "../../src/core/machine/index.js";
 import { RUNTIME_ERROR_SOURCE } from "../../src/core/runtime-error.js";
-import { resolveRegistrationSolveState } from "../../src/core/state.js";
-import { resolveOverlayRenderState } from "../../src/core/transform.js";
-import { projectLiveUiState } from "../../src/core/ui-live-state.js";
-import {
-  describeUiStatusCase,
-  resolveUiStatusBaseline,
-  UI_STATUS_CASE,
-} from "../../src/core/ui-status-model.js";
-import { resolveUiViewModel } from "../../src/core/ui-view-model.js";
-import { UI_PANEL_INTENT_KIND } from "../../src/core/ui-state-model.js";
-
-function resolveStatusBaseline({ state, runtime, panelActionState = { kind: UI_PANEL_INTENT_KIND.IDLE } }) {
-  return resolveUiStatusBaseline({
-    uiState: projectLiveUiState({
-      state,
-      runtime,
-      panelActionState,
-    }),
-  });
-}
-
-test("presentation centralizes solve summary and render labels from semantic state", () => {
-  assert.deepEqual(resolveRegistrationSolveState({
-    pins: [],
-    solvedTransform: null,
-    dirty: false,
-  }), {
-    kind: "empty",
-    pinCount: 0,
-    solvedPinCount: 0,
-    canCompute: false,
-  });
-  assert.equal(
-    describeRegistrationSolveSummary(resolveRegistrationSolveState({
-      pins: [],
-      solvedTransform: null,
-      dirty: false,
-    })),
-    "No pins yet",
-  );
-
-  assert.deepEqual(resolveRegistrationSolveState({
-    pins: [{ id: 1 }],
-    solvedTransform: null,
-    dirty: true,
-  }), {
-    kind: "insufficient-pins",
-    pinCount: 1,
-    solvedPinCount: 1,
-    canCompute: false,
-  });
-  assert.equal(
-    describeRegistrationSolveSummary(resolveRegistrationSolveState({
-      pins: [{ id: 1 }],
-      solvedTransform: null,
-      dirty: true,
-    })),
-    "Collect at least 2 pins",
-  );
-
-  assert.deepEqual(resolveRegistrationSolveState({
-    pins: [{ id: 1 }, { id: 2 }],
-    solvedTransform: null,
-    dirty: true,
-  }), {
-    kind: "dirty",
-    pinCount: 2,
-    solvedPinCount: 2,
-    canCompute: true,
-  });
-  assert.equal(
-    describeRegistrationSolveSummary(resolveRegistrationSolveState({
-      pins: [{ id: 1 }, { id: 2 }],
-      solvedTransform: null,
-      dirty: true,
-    })),
-    "Pins changed; fit pending",
-  );
-  assert.equal(
-    describeUiStatusCase(UI_STATUS_CASE.ALIGN_REGISTRATION_NEEDS_FIT),
-    "Switch to Trace to fit the overlay from the current pins.",
-  );
-
-  assert.deepEqual(resolveRegistrationSolveState({
-    pins: [{ id: 1 }, { id: 2 }],
-    solvedTransform: { type: "similarity", a: 1, b: 0, tx: 0, ty: 0, pinCount: 3 },
-    dirty: false,
-  }), {
-    kind: "solved",
-    pinCount: 2,
-    solvedPinCount: 3,
-    canCompute: true,
-  });
-  assert.equal(
-    describeRegistrationSolveSummary(resolveRegistrationSolveState({
-      pins: [{ id: 1 }, { id: 2 }],
-      solvedTransform: { type: "similarity", a: 1, b: 0, tx: 0, ty: 0, pinCount: 3 },
-      dirty: false,
-    })),
-    "Solved from 3 pin(s)",
-  );
-
-  const emptyRenderState = resolveOverlayRenderState({
-    image: null,
-    mode: "trace",
-    registration: { solvedTransform: null, dirty: false },
-  });
-  assert.deepEqual(emptyRenderState, {
-    source: "none",
-    similarityTransform: null,
-  });
-  assert.equal(
-    describeOverlayRenderLabel({ renderState: emptyRenderState, mode: "trace" }),
-    "No image",
-  );
-
-  const solvedRenderState = resolveOverlayRenderState({
-    image: { width: 1, height: 1 },
-    mode: "trace",
-    registration: { solvedTransform: { type: "similarity", a: 1, b: 0, tx: 0, ty: 0 }, dirty: false },
-  });
-  assert.equal(solvedRenderState.source, "solved");
-  assert.equal(
-    describeOverlayRenderLabel({ renderState: solvedRenderState, mode: "trace" }),
-    "Solved transform active",
-  );
-});
-
-test("resolveUiStatusBaseline centralizes runtime-aware status copy", () => {
-  assert.equal(
-    resolveStatusBaseline({
-      state: { image: null, mode: "trace", registration: { pins: [], solvedTransform: null, dirty: false } },
-      runtime: {},
-    }),
-    describeUiStatusCase(UI_STATUS_CASE.EMPTY_SESSION),
-  );
-
-  const solvedAlignState = {
-    image: { src: "x", width: 1, height: 1 },
-    mode: "align",
-    registration: {
-      pins: [],
-      solvedTransform: { type: "similarity", a: 1, b: 0, tx: 0, ty: 0 },
-      dirty: false,
-    },
-  };
-
-  assert.equal(
-    resolveStatusBaseline({
-      state: solvedAlignState,
-      runtime: { isPassThroughActive: true, pointerScreenPx: null, dragMode: null },
-    }),
-    describeUiStatusCase(UI_STATUS_CASE.PASS_THROUGH),
-  );
-
-  assert.equal(
-    resolveStatusBaseline({
-      state: solvedAlignState,
-      runtime: { isPassThroughActive: false, pointerScreenPx: null, dragMode: "map-pan" },
-    }),
-    describeUiStatusCase(UI_STATUS_CASE.ACTIVE_MAP_PAN),
-  );
-});
-
-test("resolvePanelPresentation centralizes panel labels and enablement through the canonical main-action descriptor", () => {
-  const presentation = resolveUiViewModel({
-    uiState: projectLiveUiState({
-      state: {
-        image: { src: "x", width: 1, height: 1 },
-        mode: "align",
-        opacity: 0.75,
-        registration: {
-          pins: [
-            { id: 1, imagePx: { x: 1, y: 2 }, mapLatLon: { lat: 1, lon: 2 } },
-            { id: 2, imagePx: { x: 3, y: 4 }, mapLatLon: { lat: 3, lon: 4 } },
-          ],
-          solvedTransform: null,
-          dirty: false,
-        },
-      },
-      panelActionState: {
-        kind: UI_PANEL_INTENT_KIND.PASTE_ARMED,
-        sessionId: 1,
-      },
-    }),
-  });
-
-  assert.deepEqual(presentation, {
-    opacityControl: {
-      value: "0.75",
-      disabled: false,
-    },
-    modeSwitch: {
-      checked: false,
-      disabled: false,
-      accessibleLabel: "Mode: Align",
-      mode: "align",
-    },
-    historyControls: {
-      undo: {
-        disabled: true,
-        title: "",
-        accessibleLabel: "Undo",
-      },
-      redo: {
-        disabled: true,
-        title: "",
-        accessibleLabel: "Redo",
-      },
-    },
-    mainAction: {
-      hasImage: true,
-      pinCount: 2,
-      intent: UI_PANEL_INTENT_KIND.IDLE,
-      target: "clear-pins",
-      shouldReset: true,
-      disabled: false,
-      label: "Clear 2 pins",
-      presentationKind: "neutral",
-    },
-  });
-});
-
-test("resolvePanelPresentation advances the primary action to clear-image when pins are not clearable", () => {
-  const viewModel = resolveUiViewModel({
-    uiState: projectLiveUiState({
-      state: {
-        image: { src: "x", width: 1, height: 1 },
-        mode: "trace",
-        opacity: 0.6,
-        registration: {
-          pins: [
-            { id: 1, imagePx: { x: 1, y: 2 }, mapLatLon: { lat: 1, lon: 2 } },
-            { id: 2, imagePx: { x: 3, y: 4 }, mapLatLon: { lat: 3, lon: 4 } },
-          ],
-          solvedTransform: null,
-          dirty: false,
-        },
-      },
-      panelActionState: {
-        kind: UI_PANEL_INTENT_KIND.IDLE,
-        sessionId: 0,
-      },
-    }),
-  });
-  assert.equal(viewModel.mainAction.target, "clear-image");
-  assert.equal(viewModel.mainAction.label, "Clear image");
-  assert.equal(viewModel.mainAction.disabled, false);
-  assert.equal(viewModel.modeSwitch.disabled, false);
-});
-
-test("resolvePanelViewModel keeps panel semantics on the main-action image source", () => {
-  const viewModel = resolveUiViewModel({
-    uiState: projectLiveUiState({
-      state: {
-        image: null,
-        mode: "align",
-        opacity: 0.6,
-        registration: {
-          pins: [],
-          solvedTransform: null,
-          dirty: false,
-        },
-      },
-      panelActionState: {
-        kind: UI_PANEL_INTENT_KIND.CLEAR_IMAGE_CONFIRM,
-        sessionId: 0,
-      },
-    }),
-  });
-
-  assert.equal(viewModel.mainAction.hasImage, false);
-  assert.equal(viewModel.mainAction.disabled, false);
-  assert.equal(viewModel.mainAction.label, "Paste");
-  assert.equal(viewModel.mainAction.shouldReset, true);
-  assert.equal(viewModel.modeSwitch.disabled, true);
-});
-
-test("resolvePanelPresentation keeps confirmation labels aligned with canonical status prompts", () => {
-  const pinsPresentation = resolveUiViewModel({
-    uiState: projectLiveUiState({
-      state: {
-        image: { src: "x", width: 1, height: 1 },
-        mode: "align",
-        opacity: 0.6,
-        registration: {
-          pins: [{ id: 1 }],
-          solvedTransform: null,
-          dirty: false,
-        },
-      },
-      panelActionState: {
-        kind: UI_PANEL_INTENT_KIND.CLEAR_PINS_CONFIRM,
-        sessionId: 0,
-      },
-    }),
-  });
-
-  assert.equal(pinsPresentation.mainAction.label, "Clear pins?");
-  assert.equal(pinsPresentation.mainAction.presentationKind, "confirm");
-
-  const imagePresentation = resolveUiViewModel({
-    uiState: projectLiveUiState({
-      state: {
-        image: { src: "x", width: 1, height: 1 },
-        mode: "align",
-        opacity: 0.6,
-        registration: {
-          pins: [],
-          solvedTransform: null,
-          dirty: false,
-        },
-      },
-      panelActionState: {
-        kind: UI_PANEL_INTENT_KIND.CLEAR_IMAGE_CONFIRM,
-        sessionId: 0,
-      },
-    }),
-  });
-
-  assert.equal(imagePresentation.mainAction.label, "Clear image?");
-  assert.equal(imagePresentation.mainAction.presentationKind, "confirm");
-  assert.notEqual(
-    describeUiStatusCase(UI_STATUS_CASE.PANEL_CLEAR_PINS_CONFIRM),
-    describeUiStatusCase(UI_STATUS_CASE.PANEL_CLEAR_IMAGE_CONFIRM),
-  );
-  assert.equal(describeUiStatusCase(UI_STATUS_CASE.PANEL_PASTE_ARMED).startsWith("Press"), true);
-});
 
 test("presentation helpers centralize pin and solve feedback copy", () => {
   assert.equal(
@@ -361,7 +31,7 @@ test("presentation helpers centralize pin and solve feedback copy", () => {
     "Need at least 2 pins to compute a transform. Current pins: 1.",
   );
   assert.equal(
-    describeInteractionEventPresentation({ type: "pins-cleared" }),
+    describeInteractionEventPresentation({ type: INTERACTION_EVENT.PINS_CLEARED }),
     "Cleared all registration pins.",
   );
 });
@@ -376,7 +46,7 @@ test("runtime error presentation is centralized", () => {
   );
   assert.equal(
     describeInteractionEventPresentation({
-      type: "runtime-error",
+      type: INTERACTION_EVENT.RUNTIME_ERROR,
       error: {
         source: RUNTIME_ERROR_SOURCE.PAGE_ADAPTER,
         message: "ignored",
@@ -386,41 +56,10 @@ test("runtime error presentation is centralized", () => {
   );
 });
 
-test("presentation centralizes panel action feedback copy", () => {
-  // Final semantic-history shape: this should format transition/outcome
-  // presentations. It should not preserve a panel-only action vocabulary that
-  // duplicates canonical UI events.
+test("presentation centralizes panel-local clipboard feedback copy", () => {
   assert.equal(
     describePanelActionPresentation(PANEL_FEEDBACK_ACTION.PASTE_CANCELLED),
     "Paste cancelled.",
-  );
-  assert.equal(
-    describePanelActionPresentation(PANEL_FEEDBACK_ACTION.CLEAR_IMAGE),
-    "Cleared the current screenshot.",
-  );
-  assert.equal(
-    describePanelActionPresentation(PANEL_FEEDBACK_ACTION.UNDO),
-    "Undid change.",
-  );
-  assert.equal(
-    describePanelActionPresentation(PANEL_FEEDBACK_ACTION.UNDO, {
-      // Final semantic-history shape: action feedback should receive semantic
-      // undo/redo record presentation, not a store historyDescriptor.
-      historyDescriptor: { kind: "rotate-overlay", label: "Rotated overlay" },
-    }),
-    "Undid: Rotated overlay.",
-  );
-  assert.equal(
-    describePanelActionPresentation(PANEL_FEEDBACK_ACTION.REDO),
-    "Redid change.",
-  );
-  assert.equal(
-    describePanelActionPresentation(PANEL_FEEDBACK_ACTION.REDO, {
-      // Final semantic-history shape: this should mirror the redo transition
-      // record that was consumed, including user-first copy.
-      historyDescriptor: { kind: "rotate-overlay", label: "Rotated overlay" },
-    }),
-    "Redid: Rotated overlay.",
   );
   assert.equal(
     describePanelActionPresentation(PANEL_FEEDBACK_ACTION.CLIPBOARD_MISSING_IMAGE),
@@ -432,7 +71,7 @@ test("presentation centralizes panel action feedback copy", () => {
   );
   assert.equal(
     describePanelActionPresentation(PANEL_FEEDBACK_ACTION.CLIPBOARD_MISSING_IMAGE_WITH_PROMPT),
-    `Clipboard does not contain an image. ${describeUiStatusCase(UI_STATUS_CASE.PANEL_PASTE_ARMED)}`,
+    `Clipboard does not contain an image. ${MACHINE_STATUS_MESSAGE.PASTE_ARMED}`,
   );
   assert.equal(
     describePanelActionPresentation(PANEL_FEEDBACK_ACTION.CLIPBOARD_IMAGE_LOADED, {
@@ -469,79 +108,5 @@ test("presentation centralizes panel action feedback copy", () => {
       },
     }),
     "Loaded screenshot 2048×1024 from 5000×2500.",
-  );
-});
-
-test("presentation describes pending history controls by their result", () => {
-  // Final semantic-history shape: pending history control copy should be
-  // derived from semantic transition records. Descriptor-kind lookup should
-  // disappear or become a formatter over transition-owned labels.
-  assert.equal(
-    describePendingHistoryControl({
-      direction: "undo",
-      descriptor: { kind: "clear-image", label: "Cleared image" },
-    }),
-    "Reload image",
-  );
-  assert.equal(
-    describePendingHistoryControl({
-      direction: "redo",
-      descriptor: { kind: "clear-image", label: "Cleared image" },
-    }),
-    "Clear image",
-  );
-  assert.equal(
-    describePendingHistoryControl({
-      direction: "undo",
-      descriptor: { kind: "load-image", label: "Loaded screenshot" },
-    }),
-    "Remove image",
-  );
-  assert.equal(
-    describePendingHistoryControl({
-      direction: "redo",
-      descriptor: { kind: "load-image", label: "Loaded screenshot" },
-    }),
-    "Reload image",
-  );
-  assert.equal(
-    describePendingHistoryControl({
-      direction: "undo",
-      descriptor: { kind: "rotate-overlay", label: "Rotated overlay" },
-    }),
-    "Restore rotation",
-  );
-  assert.equal(
-    describePendingHistoryControl({
-      direction: "later",
-      descriptor: { kind: "rotate-overlay", label: "Rotated overlay" },
-    }),
-    "",
-  );
-  assert.equal(describePendingHistoryControl({ direction: "undo", descriptor: null }), "");
-});
-
-test("presentation resolves complete history control DOM copy", () => {
-  // Final semantic-history shape: this should exercise pending undo/redo
-  // transition records, not store descriptors.
-  assert.deepEqual(
-    resolveHistoryControlPresentation({
-      direction: "undo",
-      descriptor: null,
-    }),
-    {
-      title: "",
-      accessibleLabel: "Undo",
-    },
-  );
-  assert.deepEqual(
-    resolveHistoryControlPresentation({
-      direction: "redo",
-      descriptor: { kind: "load-image", label: "Loaded screenshot" },
-    }),
-    {
-      title: "Reload image",
-      accessibleLabel: "Reload image",
-    },
   );
 });

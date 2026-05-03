@@ -1,101 +1,22 @@
 import { getOverlayImageLoadStats } from "./image-normalization.js";
-import { isTraceMode } from "./interaction-mode.js";
-import { resolveOverlayRenderState } from "./transform.js";
 import {
   INTERACTION_EVENT,
   PIN_RESULT_REASON,
   SOLVE_RESULT_REASON,
 } from "./interaction-policy.js";
 import { RUNTIME_ERROR_SOURCE } from "./runtime-error.js";
-import {
-  UI_STATUS_CASE,
-  describeUiStatusCase,
-} from "./ui-status-model.js";
+import { MACHINE_STATUS_MESSAGE } from "./machine/selectors.js";
 
 export const PANEL_FEEDBACK_ACTION = Object.freeze({
   // Final semantic-history shape: panel feedback should be a presentation of
   // semantic transition/event outcomes. Keep this vocabulary only if it stays
   // a thin formatting layer, not a second action taxonomy parallel to UI events.
   PASTE_CANCELLED: "paste-cancelled",
-  CLEAR_IMAGE: "clear-image",
-  UNDO: "undo",
-  REDO: "redo",
   CLIPBOARD_MISSING_IMAGE: "clipboard-missing-image",
   CLIPBOARD_IMAGE_UNREADABLE: "clipboard-image-unreadable",
   CLIPBOARD_MISSING_IMAGE_WITH_PROMPT: "clipboard-missing-image-with-prompt",
   CLIPBOARD_IMAGE_LOADED: "clipboard-image-loaded",
 });
-
-const PENDING_HISTORY_CONTROL_LABELS_BY_KIND = Object.freeze({
-  // Final semantic-history shape: undo/redo tooltip copy should come from the
-  // pending semantic history record emitted by the transition. This table
-  // should disappear or become a thin formatter over transition-owned labels.
-  "load-image": Object.freeze({
-    undo: "Remove image",
-    redo: "Reload image",
-  }),
-  "clear-image": Object.freeze({
-    undo: "Reload image",
-    redo: "Clear image",
-  }),
-  "add-pin": Object.freeze({
-    undo: "Remove pin",
-    redo: "Add pin",
-  }),
-  "remove-pin": Object.freeze({
-    undo: "Restore pin",
-    redo: "Remove pin",
-  }),
-  "clear-pins": Object.freeze({
-    undo: "Restore pins",
-    redo: "Clear pins",
-  }),
-  "move-overlay": Object.freeze({
-    undo: "Move overlay back",
-    redo: "Move overlay again",
-  }),
-  "rotate-overlay": Object.freeze({
-    undo: "Restore rotation",
-    redo: "Rotate overlay again",
-  }),
-  "scale-overlay": Object.freeze({
-    undo: "Restore scale",
-    redo: "Scale overlay again",
-  }),
-});
-
-const HISTORY_CONTROL_FALLBACK_LABELS = Object.freeze({
-  undo: "Undo",
-  redo: "Redo",
-});
-
-export function describeRegistrationSolveSummary(solveState) {
-  if (solveState.kind === "solved") {
-    return `Solved from ${solveState.solvedPinCount} pin(s)`;
-  }
-  if (solveState.kind === "dirty") {
-    return "Pins changed; fit pending";
-  }
-  if (solveState.kind === "ready") {
-    return "Ready to fit";
-  }
-  if (solveState.kind === "insufficient-pins") {
-    return "Collect at least 2 pins";
-  }
-  return "No pins yet";
-}
-
-export function describeOverlayRenderLabel({ renderState, mode }) {
-  if (renderState.source === "none") {
-    return "No image";
-  }
-  if (renderState.source === "solved") {
-    return isTraceMode(mode)
-      ? "Solved transform active"
-      : "Solved transform preview active";
-  }
-  return "Manual placement active";
-}
 
 export function describePinResultPresentation(result) {
   if (result?.ok && result.action === "added") {
@@ -167,51 +88,17 @@ export function describePanelActionPresentation(action, payload = {}) {
   switch (action) {
     case PANEL_FEEDBACK_ACTION.PASTE_CANCELLED:
       return "Paste cancelled.";
-    case PANEL_FEEDBACK_ACTION.CLEAR_IMAGE:
-      return "Cleared the current screenshot.";
-    case PANEL_FEEDBACK_ACTION.UNDO:
-      // Final semantic-history shape: this payload should be the consumed
-      // transition record or its presentation, not a store historyDescriptor
-      // returned by snapshot undo.
-      return payload.historyDescriptor?.label
-        ? `Undid: ${payload.historyDescriptor.label}.`
-        : "Undid change.";
-    case PANEL_FEEDBACK_ACTION.REDO:
-      // Final semantic-history shape: redo feedback should use the same
-      // semantic transition record that produced the redo event.
-      return payload.historyDescriptor?.label
-        ? `Redid: ${payload.historyDescriptor.label}.`
-        : "Redid change.";
     case PANEL_FEEDBACK_ACTION.CLIPBOARD_MISSING_IMAGE:
       return "Clipboard does not contain an image.";
     case PANEL_FEEDBACK_ACTION.CLIPBOARD_IMAGE_UNREADABLE:
       return "Clipboard image could not be read.";
     case PANEL_FEEDBACK_ACTION.CLIPBOARD_MISSING_IMAGE_WITH_PROMPT:
-      return `Clipboard does not contain an image. ${describeUiStatusCase(UI_STATUS_CASE.PANEL_PASTE_ARMED)}`;
+      return `Clipboard does not contain an image. ${MACHINE_STATUS_MESSAGE.PASTE_ARMED}`;
     case PANEL_FEEDBACK_ACTION.CLIPBOARD_IMAGE_LOADED:
       return describeLoadedImagePresentation(payload);
     default:
       return null;
   }
-}
-
-export function describePendingHistoryControl({ direction, descriptor } = {}) {
-  // Final semantic-history shape: this should accept pending semantic history
-  // record presentation, not low-level descriptors keyed by store history.
-  if (!descriptor?.kind) {
-    return "";
-  }
-  return PENDING_HISTORY_CONTROL_LABELS_BY_KIND[descriptor.kind]?.[direction] ?? "";
-}
-
-export function resolveHistoryControlPresentation({ direction, descriptor } = {}) {
-  // Final semantic-history shape: accessibility copy should describe the exact
-  // semantic undo/redo event that will run.
-  const title = describePendingHistoryControl({ direction, descriptor });
-  return {
-    title,
-    accessibleLabel: title || HISTORY_CONTROL_FALLBACK_LABELS[direction] || "",
-  };
 }
 
 export function describeLoadedImagePresentation(image) {

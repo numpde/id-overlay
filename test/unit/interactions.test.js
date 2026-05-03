@@ -1,10 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import {
-  createInteractionController,
-  INTERACTION_HISTORY_DESCRIPTOR,
-} from "../../src/core/interactions.js";
+import { createInteractionController } from "../../src/core/interactions.js";
 import {
   INTERACTION_RUNTIME_ACTION,
   reduceInteractionRuntime,
@@ -35,7 +32,11 @@ import {
 import { INTERACTION_MODE, nextMode } from "../../src/core/interaction-mode.js";
 import { RUNTIME_ERROR_SOURCE } from "../../src/core/runtime-error.js";
 import { createStateStore } from "../../src/core/state.js";
-import { createMachineHost } from "../../src/core/machine/host.js";
+import {
+  MACHINE_EVENT_KIND,
+  MACHINE_HISTORY_KIND,
+  createMachineHost,
+} from "../../src/core/machine/index.js";
 import {
   createPlacementScreenTransform,
   imagePointToRenderedScreenPoint,
@@ -50,7 +51,7 @@ test("nextMode toggles between align and trace", () => {
 });
 
 test("loading an image seeds align mode and the current map center placement", () => {
-  const { controller, store } = createHarness();
+  const { controller, store, machineHost } = createHarness();
 
   controller.loadImage({
     src: "data:image/png;base64,abc",
@@ -75,7 +76,7 @@ test("loading an image seeds align mode and the current map center placement", (
 });
 
 test("shift-dragging updates placement through the adapter only", () => {
-  const { controller, store } = createHarness();
+  const { controller, store, machineHost } = createHarness();
   controller.loadImage({
     src: "data:image/png;base64,abc",
     width: 800,
@@ -102,10 +103,10 @@ test("shift-dragging updates placement through the adapter only", () => {
     transform: nextTransform,
   }), { x: 560, y: 280 });
 
-  // Final semantic-history shape: this should assert that the move-overlay
-  // transition record is consumed, not that interactions calls store undo and
-  // receives a descriptor.
-  assert.deepEqual(controller.undoSessionHistory(), INTERACTION_HISTORY_DESCRIPTOR.MOVE_OVERLAY);
+  assert.equal(
+    consumeHistory(machineHost, MACHINE_EVENT_KIND.UNDO).kind,
+    MACHINE_HISTORY_KIND.MOVE_OVERLAY,
+  );
   const undoneTransform = createPlacementScreenTransform({
     snapshot: {
       viewportRect: { left: 100, top: 100, width: 800, height: 400 },
@@ -118,9 +119,10 @@ test("shift-dragging updates placement through the adapter only", () => {
     transform: undoneTransform,
   }), { x: 500, y: 300 });
 
-  // Final semantic-history shape: redo should replay the stored move-overlay
-  // event through the transition machine.
-  assert.deepEqual(controller.redoSessionHistory(), INTERACTION_HISTORY_DESCRIPTOR.MOVE_OVERLAY);
+  assert.equal(
+    consumeHistory(machineHost, MACHINE_EVENT_KIND.REDO).kind,
+    MACHINE_HISTORY_KIND.MOVE_OVERLAY,
+  );
   const redoneTransform = createPlacementScreenTransform({
     snapshot: {
       viewportRect: { left: 100, top: 100, width: 800, height: 400 },
@@ -304,8 +306,7 @@ test("interaction runtime transitions are single-source through the runtime redu
   }).getState();
   const baseRuntime = {
     // Final semantic-history shape: this fixture is raw interaction runtime.
-    // Keep tests here focused on adapter/input state; UI runtime projection
-    // belongs in ui-live-state tests.
+    // Keep tests here focused on adapter/input state.
     isDragging: false,
     isPassThroughActive: false,
     isPointerInsideImage: false,
@@ -437,7 +438,7 @@ test("clearing pins preserves the current rendered placement after a solved tran
 });
 
 test("ctrl-wheel rotates the overlay only and marks a solved transform dirty again", () => {
-  const { controller, store } = createHarness();
+  const { controller, store, machineHost } = createHarness();
   controller.loadImage({
     src: "data:image/png;base64,abc",
     width: 800,
@@ -461,14 +462,17 @@ test("ctrl-wheel rotates the overlay only and marks a solved transform dirty aga
   assert.equal(store.getState().registration.dirty, true);
   assert.ok(store.getState().registration.solvedTransform);
 
-  // Final semantic-history shape: rotation undo/redo belongs in semantic
-  // transition tests, not interaction tests that exercise store snapshot
-  // restore through controller.undoSessionHistory().
-  assert.deepEqual(controller.undoSessionHistory(), INTERACTION_HISTORY_DESCRIPTOR.ROTATE_OVERLAY);
+  assert.equal(
+    consumeHistory(machineHost, MACHINE_EVENT_KIND.UNDO).kind,
+    MACHINE_HISTORY_KIND.ROTATE_OVERLAY,
+  );
   assert.equal(store.getState().placement.rotationRad, 0);
   assert.equal(store.getState().registration.dirty, false);
 
-  assert.deepEqual(controller.redoSessionHistory(), INTERACTION_HISTORY_DESCRIPTOR.ROTATE_OVERLAY);
+  assert.equal(
+    consumeHistory(machineHost, MACHINE_EVENT_KIND.REDO).kind,
+    MACHINE_HISTORY_KIND.ROTATE_OVERLAY,
+  );
   assert.deepEqual(store.getState().placement, rotatedPlacement);
   assert.equal(store.getState().registration.dirty, true);
 });
@@ -536,7 +540,7 @@ test("plain wheel zooms the map only and leaves overlay placement unchanged", ()
 });
 
 test("shift-wheel scales around the image point under the mouse", () => {
-  const { controller, store, pageAdapter } = createHarness();
+  const { controller, store, pageAdapter, machineHost } = createHarness();
   controller.loadImage({
     src: "data:image/png;base64,abc",
     width: 800,
@@ -575,12 +579,16 @@ test("shift-wheel scales around the image point under the mouse", () => {
   assert.ok(Math.abs(afterAnchorScreenPoint.y - anchorScreenPoint.y) < 1e-9);
 
   const scaledPlacement = store.getState().placement;
-  // Final semantic-history shape: scale undo/redo should consume scale-overlay
-  // transition records, preserving user-mode semantics outside interactions.
-  assert.deepEqual(controller.undoSessionHistory(), INTERACTION_HISTORY_DESCRIPTOR.SCALE_OVERLAY);
+  assert.equal(
+    consumeHistory(machineHost, MACHINE_EVENT_KIND.UNDO).kind,
+    MACHINE_HISTORY_KIND.SCALE_OVERLAY,
+  );
   assert.deepEqual(store.getState().placement, initialPlacement);
 
-  assert.deepEqual(controller.redoSessionHistory(), INTERACTION_HISTORY_DESCRIPTOR.SCALE_OVERLAY);
+  assert.equal(
+    consumeHistory(machineHost, MACHINE_EVENT_KIND.REDO).kind,
+    MACHINE_HISTORY_KIND.SCALE_OVERLAY,
+  );
   assert.deepEqual(store.getState().placement, scaledPlacement);
 });
 
@@ -698,7 +706,7 @@ test("alt-wheel adjusts the overlay opacity in trace mode", () => {
 });
 
 test("opacity changes do not create undo steps and survive placement undo", () => {
-  const { controller, store } = createHarness();
+  const { controller, store, machineHost } = createHarness();
   controller.loadImage({
     src: "data:image/png;base64,abc",
     width: 800,
@@ -724,9 +732,10 @@ test("opacity changes do not create undo steps and survive placement undo", () =
   controller.handlePointerUp({ x: 560, y: 280 });
 
   assert.ok(adjustedOpacity > initialOpacity);
-  // Final semantic-history shape: this should prove opacity is excluded from
-  // the move-overlay semantic edit record without depending on snapshot undo.
-  assert.deepEqual(controller.undoSessionHistory(), INTERACTION_HISTORY_DESCRIPTOR.MOVE_OVERLAY);
+  assert.equal(
+    consumeHistory(machineHost, MACHINE_EVENT_KIND.UNDO).kind,
+    MACHINE_HISTORY_KIND.MOVE_OVERLAY,
+  );
   assert.equal(store.getState().opacity, adjustedOpacity);
 });
 
@@ -1373,7 +1382,11 @@ function createHarness({
     pageAdapter,
   });
 
-  return { controller, store, keyTarget, adapterCalls, pageAdapter };
+  return { controller, store, machineHost, keyTarget, adapterCalls, pageAdapter };
+}
+
+function consumeHistory(machineHost, eventType) {
+  return machineHost.dispatch({ type: eventType }).consumedHistoryRecord;
 }
 
 function createPageAdapter({

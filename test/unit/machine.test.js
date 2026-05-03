@@ -352,6 +352,34 @@ test("selectors derive panel intent, status, controls, and pass-through", () => 
   assert.equal(selectOverlayPolicy(state).isPassThrough, true);
 });
 
+test("panel view derives primary action and mode switch directly from machine state", () => {
+  let state = createInitialMachineState();
+  assert.deepEqual(selectPanelView(state).modeSwitch, {
+    checked: true,
+    disabled: true,
+    accessibleLabel: "Mode: Trace",
+    mode: MACHINE_MODE.TRACE,
+  });
+  assert.equal(selectPanelView(state).mainAction.label, "Paste");
+
+  state = addTwoPins(loadImage());
+  assert.equal(selectPanelView(state).mainAction.label, "Clear 2 pins");
+
+  state = transitionMachine(state, {
+    type: MACHINE_EVENT_KIND.REQUEST_PANEL_INTENT,
+    intent: MACHINE_PANEL_INTENT.CLEAR_PINS_CONFIRM,
+  }).state;
+  assert.equal(selectPanelView(state).mainAction.label, "Clear pins?");
+  assert.equal(selectPanelView(state).mainAction.presentationKind, "confirm");
+
+  state = transitionMachine(state, {
+    type: MACHINE_EVENT_KIND.SELECT_MODE,
+    mode: MACHINE_MODE.TRACE,
+  }).state;
+  assert.equal(selectPanelView(state).mainAction.label, "Clear image");
+  assert.equal(selectPanelView(state).modeSwitch.disabled, false);
+});
+
 test("machine rejects panel intents that are invalid for the current state", () => {
   let state = createInitialMachineState();
 

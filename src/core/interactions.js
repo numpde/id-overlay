@@ -68,26 +68,6 @@ import {
   MACHINE_PLACEMENT_EDIT_KIND,
 } from "./machine/events.js";
 
-export const INTERACTION_HISTORY_DESCRIPTOR = Object.freeze({
-  // TODO(machine-cutover): Delete interaction-authored history descriptors.
-  // Semantic machine transitions should own labels and undo/redo events.
-  // Final semantic-history shape: these descriptors should move into the
-  // state-machine transition records that create history. Interaction code
-  // should dispatch semantic edit events, not supply presentation descriptors.
-  MOVE_OVERLAY: Object.freeze({
-    kind: "move-overlay",
-    label: "Moved overlay",
-  }),
-  ROTATE_OVERLAY: Object.freeze({
-    kind: "rotate-overlay",
-    label: "Rotated overlay",
-  }),
-  SCALE_OVERLAY: Object.freeze({
-    kind: "scale-overlay",
-    label: "Scaled overlay",
-  }),
-});
-
 export function createInteractionController({
   machineHost,
   pageAdapter,
@@ -191,21 +171,11 @@ export function createInteractionController({
     });
   }
 
-  function undoSessionHistory() {
-    return restoreSessionHistory("undo");
-  }
-
-  function redoSessionHistory() {
-    return restoreSessionHistory("redo");
-  }
-
   function toggleMode() {
     applyMode(nextMode(getSession().mode));
   }
 
-  function applyResolvedModeTransition({
-    nextMode,
-  }) {
+  function applyMode(nextMode) {
     return runInteractionBoundary("apply-mode", () => {
       const normalizedNextMode = normalizeInteractionMode(nextMode);
       resetInteractionState({
@@ -739,12 +709,6 @@ export function createInteractionController({
     return Boolean(result.historyRecord);
   }
 
-  function applyMode(mode) {
-    return applyResolvedModeTransition({
-      nextMode: mode,
-    });
-  }
-
   function solveRegistrationFromCurrentState() {
     const state = getSession();
     const solveState = resolveRegistrationSolveState(state.registration);
@@ -794,25 +758,6 @@ export function createInteractionController({
       rotationRad: solvedTransform.rotationRad,
     });
     return result;
-  }
-
-  function restoreSessionHistory(direction) {
-    return runInteractionBoundary(`${direction}-session-history`, () => {
-      resetInteractionState({
-        endPointerScreenPx: runtimeStore.get().pointerScreenPx,
-        pointerScreenPx: null,
-        isPointerInsideImage: false,
-      });
-      const result = dispatchMachine({
-        type: direction === "undo" ? MACHINE_EVENT_KIND.UNDO : MACHINE_EVENT_KIND.REDO,
-      });
-      const historyDescriptor = historyDescriptorFromRecord(result.consumedHistoryRecord);
-      if (historyDescriptor) {
-        logger.info(`${direction === "undo" ? "Undid" : "Redid"} session history`);
-        syncRuntimeFromState();
-      }
-      return historyDescriptor;
-    }, { fallbackValue: false });
   }
 
   function resetInteractionState({
@@ -900,10 +845,7 @@ export function createInteractionController({
     getRuntimeState,
     loadImage,
     clearImage,
-    undoSessionHistory,
-    redoSessionHistory,
     toggleMode,
-    applyResolvedModeTransition,
     setOpacity,
     computeTransform,
     clearPins,
@@ -1077,16 +1019,6 @@ function createSolveFailureResult(reason, pinCount) {
 function findAddedPin(previousPins, nextPins) {
   const previousIds = new Set(previousPins.map((pin) => pin.id));
   return nextPins.find((pin) => !previousIds.has(pin.id)) ?? null;
-}
-
-function historyDescriptorFromRecord(record) {
-  if (!record) {
-    return null;
-  }
-  return {
-    kind: record.kind,
-    label: record.label ?? null,
-  };
 }
 
 function areEqualPlacements(left, right) {
