@@ -1,12 +1,5 @@
 import { createLogger } from "../core/logger.js";
 import { createRuntimeError, RUNTIME_ERROR_SOURCE } from "../core/runtime-error.js";
-import { KEYBOARD_SHORTCUT_ACTION } from "../core/interaction-policy.js";
-import { resolveInputProjection } from "../core/input-projection.js";
-import { createKeyboardListeners } from "../platform/keyboard-listeners.js";
-import {
-  hasOverlayImageSession,
-  SESSION_MODE,
-} from "../core/session.js";
 import {
   MACHINE_INPUT_OVERRIDE,
   MACHINE_EVENT_KIND,
@@ -21,6 +14,7 @@ import {
 import { createAdapterDragController } from "./interactions/adapter-drag.js";
 import { createPinToggleCommand } from "./interactions/pin-toggle-command.js";
 import { createWheelCommand } from "./interactions/wheel-command.js";
+import { createKeyboardInputRouter } from "./interactions/keyboard-router.js";
 
 export function createInteractionController({
   machineHost,
@@ -29,8 +23,8 @@ export function createInteractionController({
   keyboardGateway = null,
 }) {
   // TODO(smell): This shell is still the widest live interaction boundary:
-  // keyboard routing, runtime sync/reset, error reporting, and command wiring
-  // all meet here. Split those ownership seams before adding another command family.
+  // runtime sync/reset, error reporting, and command wiring still meet here.
+  // Split those ownership seams before adding another command family.
   const logger = createLogger("interactions");
   let observedRuntime = machineHost.getState().runtime;
   const adapterDrag = createAdapterDragController({
@@ -55,17 +49,22 @@ export function createInteractionController({
     observedRuntime = state.runtime;
     syncAdapterDragFromRuntimeChange(previousRuntime, state.runtime);
   }, { emitCurrent: false });
-  const keyboardListeners = createKeyboardListeners({
+  const keyboardRouter = createKeyboardInputRouter({
     keyTarget,
     keyboardGateway,
-    keydown: handleKeyDown,
-    keyup: handleKeyUp,
-    blur: handleWindowBlur,
+    getMachineState,
+    getRuntimeState,
+    getPointerScreenPx,
+    executePinToggleAtScreenPoint,
+    applyMode,
+    setPassThrough,
+    resetInteractionState,
+    logger,
   });
 
   function destroy() {
     unsubscribeMachine();
-    keyboardListeners.destroy();
+    keyboardRouter.destroy();
   }
 
   function subscribe(listener, options) {
@@ -194,81 +193,6 @@ export function createInteractionController({
     }, { fallbackValue: false });
   }
 
-  function handleKeyDown(event) {
-    const state = getSession();
-    if (!hasOverlayImageSession(state)) {
-      return;
-    }
-
-    const keyboardProjection = resolveInputProjection({
-      machineState: getMachineState(),
-      runtime: getRuntimeState(),
-      event,
-    }).keyboard;
-    const shortcutAction = keyboardProjection.action;
-    if (!shortcutAction) {
-      if (!keyboardProjection.shouldIgnore) {
-        logger.debug("Ignoring keydown because it is not an overlay shortcut", {
-          code: event.code,
-          mode: state.mode,
-        });
-      } else {
-        logger.debug("Ignoring keyboard shortcut because the focused target is editable", {
-          code: event.code,
-        });
-      }
-      return;
-    }
-
-    consumeEvent(event);
-    dispatchKeyboardShortcut(shortcutAction);
-  }
-
-  function dispatchKeyboardShortcut(shortcutAction) {
-    if (shortcutAction === KEYBOARD_SHORTCUT_ACTION.TOGGLE_PIN_CURRENT_POINTER) {
-      logger.info("Keyboard pin toggle requested", {
-        pointerScreenPx: getPointerScreenPx(),
-      });
-      executePinToggleAtScreenPoint(getPointerScreenPx());
-      return;
-    }
-
-    if (shortcutAction === KEYBOARD_SHORTCUT_ACTION.SWITCH_TO_TRACE) {
-      logger.info("Keyboard trace escape requested");
-      applyMode(SESSION_MODE.TRACE);
-      return;
-    }
-
-    if (shortcutAction === KEYBOARD_SHORTCUT_ACTION.ENABLE_PASS_THROUGH) {
-      logger.info("Keyboard pass-through activated");
-      setPassThrough(true);
-    }
-  }
-
-  function handleKeyUp(event) {
-    const inputProjection = resolveInputProjection({
-      machineState: getMachineState(),
-      event,
-      runtime: getRuntimeState(),
-    });
-    if (!inputProjection.passThroughRelease.shouldRelease) {
-      logger.debug("Ignoring keyup because pass-through is not active for this event", {
-        code: event.code,
-      });
-      return;
-    }
-    consumeEvent(event);
-    logger.info("Keyboard pass-through released");
-    setPassThrough(false);
-  }
-
-  function handleWindowBlur() {
-    resetInteractionState({
-      endPointerScreenPx: getPointerScreenPx(),
-      pointerScreenPx: null,
-    });
-  }
-
   function logInteractionOutcome(outcome) {
     if (!outcome.log) {
       return;
@@ -308,10 +232,6 @@ export function createInteractionController({
       type: MACHINE_EVENT_KIND.SET_INPUT_OVERRIDE,
       inputOverride: isActive ? MACHINE_INPUT_OVERRIDE.PASS_THROUGH : null,
     });
-  }
-
-  function getSession() {
-    return getMachineState().session;
   }
 
   function getMachineState() {
@@ -420,12 +340,6 @@ export function createInteractionController({
     handleTogglePin,
     reportRuntimeError,
   };
-}
-
-function consumeEvent(event) {
-  event.preventDefault?.();
-  event.stopPropagation?.();
-  event.stopImmediatePropagation?.();
 }
 
 function areInputRuntimesEqual(left, right) {
