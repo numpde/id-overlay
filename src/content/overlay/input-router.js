@@ -18,6 +18,7 @@ import {
   resolveOverlayPointerSequenceActivation,
 } from "../../core/overlay-pointer-sequence.js";
 import { RUNTIME_ERROR_SOURCE } from "../../core/runtime-error.js";
+import { createOverlayInputHost } from "./input-host.js";
 
 export function createOverlayInputRouter({
   pageAdapter,
@@ -27,13 +28,27 @@ export function createOverlayInputRouter({
   getSnapshot,
   getMountElement,
 }) {
-  // TODO(smell): This router still couples listener lifecycle, global drag
-  // retargeting, pending pointer sequences, hit-testing, and error recovery.
-  // Next cleanup: split listener ownership from overlay gesture projection.
-  let mountedInputTarget = null;
-  let dragEventWindow = null;
+  // TODO(smell): This router still couples pending pointer sequences,
+  // hit-testing, and error recovery. Listener ownership now lives in the input
+  // host; next cleanup should split DOM event projection from gesture state.
   let pendingPointerSequence = createInitialOverlayPointerSequenceState();
   let isDestroyed = false;
+  const inputHost = createOverlayInputHost({
+    getMountElement,
+    mountedHandlers: {
+      handleMountedPointerMove,
+      handleMountedPointerLeave,
+      handleMountedPointerDown,
+      handleMountedClick,
+      handleMountedDoubleClick,
+      handleMountedWheel,
+    },
+    globalPointerHandlers: {
+      handleGlobalPointerMove,
+      handleGlobalPointerUp,
+      handleGlobalPointerCancel,
+    },
+  });
 
   return {
     syncMountedInputListeners,
@@ -42,46 +57,12 @@ export function createOverlayInputRouter({
     destroy() {
       isDestroyed = true;
       pendingPointerSequence = clearOverlayPointerSequence();
-      detachGlobalPointerListeners();
-      detachMountedInputListeners();
+      inputHost.destroy();
     },
   };
 
   function syncMountedInputListeners() {
-    if (isDestroyed) {
-      return;
-    }
-    const mountElement = getMountElement();
-    if (mountedInputTarget === mountElement) {
-      return;
-    }
-    detachMountedInputListeners();
-    if (!mountElement) {
-      return;
-    }
-    mountElement.addEventListener("pointermove", handleMountedPointerMove, true);
-    mountElement.addEventListener("pointerleave", handleMountedPointerLeave, true);
-    mountElement.addEventListener("pointerdown", handleMountedPointerDown, true);
-    mountElement.addEventListener("click", handleMountedClick, true);
-    mountElement.addEventListener("dblclick", handleMountedDoubleClick, true);
-    mountElement.addEventListener("wheel", handleMountedWheel, {
-      capture: true,
-      passive: false,
-    });
-    mountedInputTarget = mountElement;
-  }
-
-  function detachMountedInputListeners() {
-    if (!mountedInputTarget) {
-      return;
-    }
-    mountedInputTarget.removeEventListener("pointermove", handleMountedPointerMove, true);
-    mountedInputTarget.removeEventListener("pointerleave", handleMountedPointerLeave, true);
-    mountedInputTarget.removeEventListener("pointerdown", handleMountedPointerDown, true);
-    mountedInputTarget.removeEventListener("click", handleMountedClick, true);
-    mountedInputTarget.removeEventListener("dblclick", handleMountedDoubleClick, true);
-    mountedInputTarget.removeEventListener("wheel", handleMountedWheel, true);
-    mountedInputTarget = null;
+    inputHost.syncMountedInputListeners();
   }
 
   function handleMountedPointerMove(event) {
@@ -199,29 +180,6 @@ export function createOverlayInputRouter({
         consumeOverlayEvent(event);
       }
     });
-  }
-
-  function attachGlobalPointerListeners() {
-    const mountElement = getMountElement();
-    const nextWindow = mountElement?.ownerDocument?.defaultView ?? globalThis.window;
-    if (!nextWindow || dragEventWindow === nextWindow) {
-      return;
-    }
-    detachGlobalPointerListeners();
-    dragEventWindow = nextWindow;
-    dragEventWindow.addEventListener("pointermove", handleGlobalPointerMove, true);
-    dragEventWindow.addEventListener("pointerup", handleGlobalPointerUp, true);
-    dragEventWindow.addEventListener("pointercancel", handleGlobalPointerCancel, true);
-  }
-
-  function detachGlobalPointerListeners() {
-    if (!dragEventWindow) {
-      return;
-    }
-    dragEventWindow.removeEventListener("pointermove", handleGlobalPointerMove, true);
-    dragEventWindow.removeEventListener("pointerup", handleGlobalPointerUp, true);
-    dragEventWindow.removeEventListener("pointercancel", handleGlobalPointerCancel, true);
-    dragEventWindow = null;
   }
 
   function handleGlobalPointerMove(event) {
@@ -368,11 +326,7 @@ export function createOverlayInputRouter({
       hasPendingOverlayPointerSequence(pendingPointerSequence) ||
       selectIsRuntimeDragging(getRuntimeState())
     );
-    if (shouldListenGlobally) {
-      attachGlobalPointerListeners();
-      return;
-    }
-    detachGlobalPointerListeners();
+    inputHost.syncGlobalPointerListeners(shouldListenGlobally);
   }
 }
 
