@@ -7,10 +7,8 @@ import {
   selectPanelView,
 } from "./panel-view-model.js";
 import { formatBuildLabel } from "../core/logger.js";
+import { createPanelDragController } from "./panel-drag.js";
 
-const PANEL_MARGIN_PX = 8;
-const PANEL_FALLBACK_WIDTH_PX = 280;
-const PANEL_FALLBACK_HEIGHT_PX = 200;
 const PANEL_TITLE = "Reference Overlay";
 const PANEL_REPO_URL = "https://github.com/numpde/id-overlay";
 const SVG_NS = "http://www.w3.org/2000/svg";
@@ -20,8 +18,8 @@ export function createPanel({
   machineHost,
 }) {
   // TODO(smell): Panel meaning is view-model-owned, but this DOM shell still
-  // mixes element construction, event binding, render patching, and panel drag.
-  // Extract wiring/render mechanics before adding more panel controls.
+  // mixes element construction, event binding, and render patching. Extract
+  // wiring/render mechanics before adding more panel controls.
   const root = document.createElement("section");
   root.className = "id-overlay-panel";
   root.dataset.idOverlayOwned = "true";
@@ -120,12 +118,11 @@ export function createPanel({
   root.append(header, controlsRow, opacityGroup, statusWrap);
   shadow.append(root);
 
-  let panelPosition = captureInitialPanelPosition();
-  let activePanelDrag = null;
-  applyPanelPosition();
-  window.addEventListener("resize", handleWindowResize);
-
-  header.addEventListener("mousedown", handlePanelDragStart);
+  const panelDrag = createPanelDragController({
+    root,
+    handle: header,
+    ownerWindow: window,
+  });
 
   modeInput.addEventListener("change", () => {
     if (modeInput.disabled) {
@@ -190,8 +187,7 @@ export function createPanel({
 
   return {
     destroy() {
-      endPanelDrag();
-      window.removeEventListener("resize", handleWindowResize);
+      panelDrag.destroy();
       unsubscribeMachine();
       root.remove();
     },
@@ -233,93 +229,6 @@ export function createPanel({
     button.title = presentation.title;
     button.setAttribute("aria-label", presentation.accessibleLabel);
   }
-
-  function handlePanelDragStart(event) {
-    if (event.button !== 0) {
-      return;
-    }
-
-    const rect = root.getBoundingClientRect();
-    panelPosition = {
-      left: rect.left,
-      top: rect.top,
-    };
-    activePanelDrag = {
-      offsetX: event.clientX - rect.left,
-      offsetY: event.clientY - rect.top,
-    };
-    root.classList.add("id-overlay-panel--dragging");
-    window.addEventListener("mousemove", handlePanelDragMove, true);
-    window.addEventListener("mouseup", handlePanelDragEnd, true);
-    event.preventDefault();
-  }
-
-  function handlePanelDragMove(event) {
-    if (!activePanelDrag) {
-      return;
-    }
-
-    setPanelPosition({
-      left: event.clientX - activePanelDrag.offsetX,
-      top: event.clientY - activePanelDrag.offsetY,
-    });
-    event.preventDefault();
-  }
-
-  function handlePanelDragEnd() {
-    endPanelDrag();
-  }
-
-  function endPanelDrag() {
-    if (!activePanelDrag) {
-      return;
-    }
-
-    activePanelDrag = null;
-    root.classList.remove("id-overlay-panel--dragging");
-    window.removeEventListener("mousemove", handlePanelDragMove, true);
-    window.removeEventListener("mouseup", handlePanelDragEnd, true);
-  }
-
-  function handleWindowResize() {
-    setPanelPosition(panelPosition);
-  }
-
-  function setPanelPosition(nextPosition) {
-    panelPosition = clampPanelPosition(nextPosition);
-    applyPanelPosition();
-  }
-
-  function applyPanelPosition() {
-    root.style.left = `${panelPosition.left}px`;
-    root.style.top = `${panelPosition.top}px`;
-    root.style.right = "auto";
-    root.style.bottom = "auto";
-  }
-
-  function captureInitialPanelPosition() {
-    const rect = root.getBoundingClientRect();
-    return clampPanelPosition({
-      left: Number.isFinite(rect.left) ? rect.left : PANEL_MARGIN_PX,
-      top: Number.isFinite(rect.top) ? rect.top : PANEL_MARGIN_PX,
-    });
-  }
-
-  function clampPanelPosition(position) {
-    const rect = root.getBoundingClientRect();
-    const panelWidth = rect.width || root.offsetWidth || readCssPixelVariable(
-      root,
-      "--id-overlay-panel-width",
-      PANEL_FALLBACK_WIDTH_PX,
-    );
-    const panelHeight = rect.height || root.offsetHeight || PANEL_FALLBACK_HEIGHT_PX;
-    const maxLeft = Math.max(PANEL_MARGIN_PX, window.innerWidth - panelWidth - PANEL_MARGIN_PX);
-    const maxTop = Math.max(PANEL_MARGIN_PX, window.innerHeight - panelHeight - PANEL_MARGIN_PX);
-    return {
-      left: clampNumber(position.left, PANEL_MARGIN_PX, maxLeft),
-      top: clampNumber(position.top, PANEL_MARGIN_PX, maxTop),
-    };
-  }
 }
 
 function createGithubIcon() {
@@ -338,17 +247,6 @@ function createGithubIcon() {
   svg.append(path);
 
   return svg;
-}
-
-function clampNumber(value, min, max) {
-  return Math.min(Math.max(value, min), max);
-}
-
-function readCssPixelVariable(element, name, fallbackValue) {
-  const value = Number.parseFloat(
-    window.getComputedStyle(element).getPropertyValue(name),
-  );
-  return Number.isFinite(value) ? value : fallbackValue;
 }
 
 function createButton(label) {
