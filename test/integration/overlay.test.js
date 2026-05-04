@@ -325,6 +325,63 @@ test("plain pointerdown over the overlay in align mode owns the click sequence w
   }
 });
 
+test("failed overlay drag activation clears pending global pointer ownership", async () => {
+  const env = createDomEnvironment({
+    viewportHtml: '<div id="map"></div>',
+  });
+
+  try {
+    const { createOverlay } = await import(`${repoFileUrl("src/content/overlay.js")}?opf=${Date.now()}`);
+    const map = env.document.getElementById("map");
+    const machineHost = createOverlayMachineHost(createOverlaySession({
+      mode: SESSION_MODE.ALIGN,
+    }));
+    let handledPointerDownCount = 0;
+    let handledPointerMoveCount = 0;
+
+    const overlay = createOverlay({
+      pageAdapter: createStaticOverlayPageAdapter({ map }),
+      machineHost,
+      interactions: createOverlayInteractionsDouble(machineHost, {
+        handlePointerMove() {
+          handledPointerMoveCount += 1;
+        },
+        handlePointerDown() {
+          handledPointerDownCount += 1;
+          return false;
+        },
+      }),
+    });
+
+    map.dispatchEvent(new env.window.MouseEvent("pointerdown", {
+      bubbles: true,
+      cancelable: true,
+      clientX: 512,
+      clientY: 288,
+      button: 0,
+    }));
+    env.window.dispatchEvent(new env.window.MouseEvent("pointermove", {
+      bubbles: true,
+      cancelable: true,
+      clientX: 520,
+      clientY: 288,
+    }));
+    env.window.dispatchEvent(new env.window.MouseEvent("pointermove", {
+      bubbles: true,
+      cancelable: true,
+      clientX: 530,
+      clientY: 288,
+    }));
+
+    assert.equal(handledPointerMoveCount, 1);
+    assert.equal(handledPointerDownCount, 1);
+
+    overlay.destroy();
+  } finally {
+    env.cleanup();
+  }
+});
+
 test("trace-mode solved transform follows map view changes from the page adapter", async () => {
   const env = createDomEnvironment();
 

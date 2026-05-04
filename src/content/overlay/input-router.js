@@ -3,16 +3,13 @@ import {
   selectIsRuntimeDragging,
   selectRuntimePointerScreenPx,
 } from "../../core/machine/selectors.js";
-import {
-  beginOverlayPointerSequence,
-  clearOverlayPointerSequence,
-  createInitialOverlayPointerSequenceState,
-  hasPendingOverlayPointerSequence,
-  resolveOverlayPointerSequenceActivation,
-} from "../../core/overlay-pointer-sequence.js";
 import { RUNTIME_ERROR_SOURCE } from "../../core/runtime-error.js";
 import { createOverlayInputHost } from "./input-host.js";
 import { createOverlayInputProjector } from "./input-projector.js";
+import {
+  PENDING_POINTER_SEQUENCE_ADVANCE_KIND,
+  createPendingPointerSequenceSession,
+} from "./pending-pointer-sequence.js";
 
 export function createOverlayInputRouter({
   pageAdapter,
@@ -22,12 +19,13 @@ export function createOverlayInputRouter({
   getSnapshot,
   getMountElement,
 }) {
-  // TODO(smell): This router still couples pending pointer sequences,
-  // DOM gesture routing, and error recovery. Listener ownership lives in the
-  // input host and input projection lives in the projector; next cleanup should
-  // split pending sequence state from interaction dispatch.
-  let pendingPointerSequence = createInitialOverlayPointerSequenceState();
+  // TODO(smell): This router still couples DOM gesture routing, event
+  // consumption, interaction dispatch, and error recovery. Listener ownership,
+  // input projection, and pending sequence state now live behind narrow seams.
   let isDestroyed = false;
+  const pendingPointerSequence = createPendingPointerSequenceSession({
+    onChange: syncGlobalPointerListeners,
+  });
   const inputProjector = createOverlayInputProjector({
     pageAdapter,
     getMachineState,
@@ -57,7 +55,7 @@ export function createOverlayInputRouter({
 
     destroy() {
       isDestroyed = true;
-      pendingPointerSequence = clearOverlayPointerSequence();
+      pendingPointerSequence.clear();
       inputHost.destroy();
     },
   };
@@ -71,7 +69,7 @@ export function createOverlayInputRouter({
       if (isForwardedMapGestureEvent(event)) {
         return;
       }
-      if (hasPendingOverlayPointerSequence(pendingPointerSequence)) {
+      if (pendingPointerSequence.hasPending()) {
         return;
       }
       const runtime = getRuntimeState();
@@ -116,11 +114,11 @@ export function createOverlayInputRouter({
       if (!pointerPolicy.shouldOwnPointerSequence) {
         return;
       }
-      setPendingPointerSequence(beginOverlayPointerSequence({
+      pendingPointerSequence.begin({
         button: event.button,
         dragMode: pointerPolicy.dragMode,
         startScreenPoint: screenPoint,
-      }));
+      });
       consumeOverlayEvent(event);
     });
   }
@@ -202,30 +200,31 @@ export function createOverlayInputRouter({
   }
 
   function advancePendingPointerSequence(event, screenPoint) {
-    if (!hasPendingOverlayPointerSequence(pendingPointerSequence)) {
-      return true;
+    const outcome = pendingPointerSequence.advance(screenPoint);
+    switch (outcome.kind) {
+      case PENDING_POINTER_SEQUENCE_ADVANCE_KIND.NO_PENDING_SEQUENCE:
+        return true;
+      case PENDING_POINTER_SEQUENCE_ADVANCE_KIND.STILL_PENDING:
+        consumeOverlayEvent(event);
+        return false;
+      case PENDING_POINTER_SEQUENCE_ADVANCE_KIND.ACTIVATED:
+        return handlePendingPointerSequenceActivation(event, outcome.sequence);
+      default:
+        return true;
     }
-    const activation = resolveOverlayPointerSequenceActivation({
-      state: pendingPointerSequence,
-      screenPoint,
-    });
-    if (!activation.shouldStartDrag) {
-      consumeOverlayEvent(event);
-      return false;
-    }
-    const pendingSequence = activation.sequence;
+  }
+
+  function handlePendingPointerSequenceActivation(event, pendingSequence) {
     interactions.handlePointerMove?.(pendingSequence.startScreenPoint);
-    if (!interactions.handlePointerDown({
+    if (interactions.handlePointerDown({
       button: pendingSequence.button,
       screenPoint: pendingSequence.startScreenPoint,
       dragMode: pendingSequence.dragMode,
     })) {
-      setPendingPointerSequence(clearOverlayPointerSequence());
-      consumeOverlayEvent(event);
-      return false;
+      return true;
     }
-    setPendingPointerSequence(clearOverlayPointerSequence());
-    return true;
+    consumeOverlayEvent(event);
+    return false;
   }
 
   function handleGlobalPointerUp(event) {
@@ -233,8 +232,8 @@ export function createOverlayInputRouter({
       if (isForwardedMapGestureEvent(event)) {
         return;
       }
-      if (hasPendingOverlayPointerSequence(pendingPointerSequence)) {
-        setPendingPointerSequence(clearOverlayPointerSequence());
+      if (pendingPointerSequence.hasPending()) {
+        pendingPointerSequence.clear();
         consumeOverlayEvent(event);
         return;
       }
@@ -252,7 +251,7 @@ export function createOverlayInputRouter({
       if (isForwardedMapGestureEvent(event)) {
         return;
       }
-      setPendingPointerSequence(clearOverlayPointerSequence());
+      pendingPointerSequence.clear();
       interactions.handlePointerCancel?.();
       consumeOverlayEvent(event);
     });
@@ -262,7 +261,7 @@ export function createOverlayInputRouter({
     try {
       return fn();
     } catch (error) {
-      setPendingPointerSequence(clearOverlayPointerSequence());
+      pendingPointerSequence.clear();
       syncGlobalPointerListeners();
       consumeOverlayEvent(event);
       interactions.reportRuntimeError?.({
@@ -275,20 +274,13 @@ export function createOverlayInputRouter({
     }
   }
 
-  function setPendingPointerSequence(nextState) {
-    pendingPointerSequence = nextState;
-    syncGlobalPointerListeners();
-  }
-
   function syncGlobalPointerListeners() {
     if (isDestroyed) {
       return;
     }
-    const shouldListenGlobally = (
-      hasPendingOverlayPointerSequence(pendingPointerSequence) ||
-      selectIsRuntimeDragging(getRuntimeState())
-    );
-    inputHost.syncGlobalPointerListeners(shouldListenGlobally);
+    inputHost.syncGlobalPointerListeners(pendingPointerSequence.shouldListenGlobally({
+      hasActiveGesture: selectIsRuntimeDragging(getRuntimeState()),
+    }));
   }
 }
 
