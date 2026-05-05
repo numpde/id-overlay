@@ -9,6 +9,9 @@ export function createInteractionErrorBoundary({
   resetInteraction: resetInteractionRuntime,
   logger,
 }) {
+  // TODO(smell): Interaction errors are reported by constructing status notice
+  // commands in content. The final boundary should report runtime failure facts
+  // and let the machine derive status presentation and recovery effects.
   return {
     report,
     run,

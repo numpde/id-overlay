@@ -42,6 +42,10 @@ export function createPinToggleCommand({
       state: machineState,
       snapshot,
     });
+    // TODO(smell): Content decides whether the user toggled an existing pin and
+    // sends a low-level TOGGLE_PIN command. The final boundary should pass the
+    // projected click facts to the machine, which should own hit interpretation,
+    // preserved placement, and add/remove semantics.
     const result = dispatchMachine({
       type: MACHINE_EVENT_KIND.TOGGLE_PIN,
       imagePx: pinContext.imagePx,

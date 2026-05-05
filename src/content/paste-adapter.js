@@ -97,6 +97,9 @@ export function createClipboardImageReader({
 }
 
 export function createLoadedImageOutcome({ image, pageAdapter }) {
+  // TODO(smell): Paste completion still derives initial placement in the
+  // platform adapter. The final paste ingress should return the decoded image
+  // plus page snapshot facts, leaving placement policy to the machine.
   const snapshot = pageAdapter.getSnapshot();
   return {
     image,
@@ -111,6 +114,9 @@ export function createLoadedImageOutcome({ image, pageAdapter }) {
 }
 
 export function createStatusNoticeOutcome({ noticeKind, noticePayload = null }) {
+  // TODO(smell): Clipboard failure outcomes are status-notice-shaped. The final
+  // adapter should report clipboard result facts; the machine should decide the
+  // user-facing status and request lifecycle effects.
   return {
     image: null,
     placement: null,

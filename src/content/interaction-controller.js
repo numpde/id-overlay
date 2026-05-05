@@ -124,6 +124,9 @@ export function createInteractionController({
   }
 
   function dispatchMachine(event) {
+    // TODO(smell): This generic dispatch port lets interaction modules author
+    // low-level machine commands. Replace it with a user-intent ingress port so
+    // content cannot bypass machine-owned semantic interpretation.
     return machineHost.dispatch(event);
   }
 

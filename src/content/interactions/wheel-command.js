@@ -65,6 +65,9 @@ export function createWheelCommand({
   }
 
   function handleOpacityWheel({ deltaY, screenPoint }) {
+    // TODO(smell): Content computes the next durable opacity and dispatches the
+    // state command. The final boundary should report an opacity adjustment
+    // intent/fact; clamping and state mutation should remain machine-owned.
     const nextOpacity = opacityFromWheelDelta(getMachineState().session.opacity, deltaY);
     dispatchMachine({
       type: MACHINE_EVENT_KIND.SET_OPACITY,
@@ -101,6 +104,9 @@ export function createWheelCommand({
     if (!rotatePlan) {
       return createUnhandledOutcome("no-placement");
     }
+    // TODO(smell): Placement planners return executable machine events. They
+    // should return geometry facts; the machine should decide how a user
+    // rotation request becomes preview/history/status state.
     dispatchMachine(rotatePlan.event);
     return createHandledOutcome({
       pointerScreenPx: screenPoint,
@@ -122,6 +128,9 @@ export function createWheelCommand({
     if (!scalePlan) {
       return createUnhandledOutcome("no-placement");
     }
+    // TODO(smell): Placement planners return executable machine events. They
+    // should return geometry facts; the machine should decide how a user scale
+    // request becomes preview/history/status state.
     dispatchMachine(scalePlan.event);
     return createHandledOutcome({
       pointerScreenPx: screenPoint,

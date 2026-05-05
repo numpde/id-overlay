@@ -1,6 +1,10 @@
 import { SESSION_MODE } from "../session.js";
 
 export const MACHINE_EVENT_KIND = Object.freeze({
+  // TODO(smell): This public vocabulary mixes user intents, internal replay
+  // commands, runtime sensor updates, and durable domain mutations. Split the
+  // final ingress into externally-authored user/fact events and private
+  // machine-internal transition/replay events.
   LOAD_IMAGE: "load-image",
   CLEAR_IMAGE: "clear-image",
   RESTORE_IMAGE_SESSION: "restore-image-session",
@@ -94,8 +98,9 @@ export const MACHINE_PASTE_SOURCE = Object.freeze({
 });
 
 // TODO(smell): Event vocabulary and a few ad hoc event constructors live in the
-// same file. The final event boundary should either provide constructors for
-// every externally-authored event or keep this file as vocabulary only.
+// same file. The final event boundary should expose constructors only for
+// external user/fact events; internal mutation/replay events should stay private
+// to transition modules.
 export function createLoadImageEvent({
   image,
   placement = null,

@@ -36,8 +36,8 @@ export const PANEL_STATUS_MESSAGE = Object.freeze({
 
 export function selectPanelView(state) {
   // TODO(smell): The panel view model still returns executable machine events
-  // for controls. Prefer stable UI action descriptors and keep event creation
-  // in a panel interaction adapter, matching the content interaction boundary.
+  // for controls. The final shape should expose pure render data derived from
+  // canonical machine selectors; activation meaning belongs inside the machine.
   const policy = selectPanelPolicy(state);
   return {
     mode: state.session.mode,
@@ -141,6 +141,9 @@ export function formatStatusNotice(notice, state = null) {
 }
 
 function resolveMainAction(state) {
+  // TODO(smell): Primary-button meaning is currently decided while formatting
+  // the view. Move this to a core selector used by both panel rendering and the
+  // machine's user-intent transition for primary activation.
   const policy = selectPanelPolicy(state);
   if (policy.canPaste) {
     return createMainAction({

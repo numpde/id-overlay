@@ -125,8 +125,9 @@ export function createPanel({
   });
 
   // TODO(smell): These control listeners still construct machine events in the
-  // DOM shell while main-action events come from the view model. Route all panel
-  // intents through one panel interaction layer before adding more controls.
+  // DOM shell while main-action events come from the view model. The final
+  // shape should dispatch product-level user intents only; the machine should
+  // interpret mode, opacity, history, and primary activation against state.
   modeInput.addEventListener("change", () => {
     if (modeInput.disabled) {
       return;
@@ -197,6 +198,9 @@ export function createPanel({
   };
 
   function handleMainActionClick() {
+    // TODO(smell): This reaches back into machine state to fetch an executable
+    // event from the view model. The DOM shell should only report that the
+    // primary panel control was activated.
     const action = selectPanelView(machineHost.getState()).mainAction;
     if (action.disabled || !action.event) {
       return;

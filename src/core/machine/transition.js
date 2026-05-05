@@ -67,6 +67,10 @@ export function transitionMachine(state = createInitialMachineState(), event = {
 }
 
 function transitionSemantic(state, event) {
+  // TODO(smell): This dispatcher treats externally-authored user actions and
+  // internal mutation/replay commands as one flat event space. The final shape
+  // should route public ingress events through semantic interpreters and keep
+  // direct domain mutation events private to machine-owned transitions/history.
   switch (event.type) {
     case MACHINE_EVENT_KIND.LOAD_IMAGE:
       return loadImage(state, event);

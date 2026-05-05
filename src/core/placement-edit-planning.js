@@ -46,6 +46,9 @@ export function planMovePlacementEditStart({
   snapshot,
   startPointerScreenPx,
 }) {
+  // TODO(smell): This planner needs machine state to construct a transition
+  // event. In the final boundary it should be pure geometry over render facts,
+  // with edit lifecycle interpretation performed inside the machine.
   const editState = resolvePlacementEditRenderState({ state, snapshot });
   if (!editState || !isScreenPoint(startPointerScreenPx)) {
     return null;
@@ -103,6 +106,9 @@ export function planRotatePlacementEdit({
   anchorScreenPx,
   deltaY,
 }) {
+  // TODO(smell): Wheel rotation planning returns a durable mutation event. Keep
+  // anchor/transform math here, but move the user-rotation transition decision
+  // and history/status creation into machine ingress handling.
   const editState = resolvePlacementEditRenderState({ state, snapshot });
   if (!editState) {
     return null;
@@ -131,6 +137,9 @@ export function planScalePlacementEdit({
   anchorScreenPx,
   deltaY,
 }) {
+  // TODO(smell): Wheel scale planning returns a durable mutation event. Keep
+  // anchor/transform math here, but move the user-scale transition decision and
+  // history/status creation into machine ingress handling.
   const editState = resolvePlacementEditRenderState({ state, snapshot });
   if (!editState) {
     return null;
