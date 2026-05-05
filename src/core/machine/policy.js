@@ -1,4 +1,7 @@
 import {
+  INPUT_KEY,
+} from "../input-facts.js";
+import {
   MACHINE_INPUT_OVERRIDE,
   MACHINE_MODE,
   MACHINE_PANEL_INTENT,
@@ -158,13 +161,10 @@ export function shouldFitOnTrace(state) {
   );
 }
 
-export function shouldReleasePassThroughOverride(state, runtime, event) {
-  // TODO(smell): Keyboard release policy accepts a DOM-ish event object in core.
-  // The final input boundary should pass normalized keyboard facts, not browser
-  // event shape, into machine policy.
+export function shouldReleasePassThroughOverride(state, runtime, keyboard = null) {
   const session = state?.session ?? state ?? {};
   return (
-    event?.code === "Space" &&
+    keyboard?.key === INPUT_KEY.SPACE &&
     (
       session.mode === MACHINE_MODE.ALIGN ||
       runtime?.inputOverride === MACHINE_INPUT_OVERRIDE.PASS_THROUGH

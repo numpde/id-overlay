@@ -2,6 +2,7 @@ import { KEYBOARD_SHORTCUT_ACTION } from "../../core/interaction-policy.js";
 import { resolveInputProjection } from "../../core/input-projection.js";
 import { hasOverlayImageSession, SESSION_MODE } from "../../core/session.js";
 import { createKeyboardListeners } from "../../platform/keyboard-listeners.js";
+import { createKeyboardInputFactFromEvent } from "../input-event-facts.js";
 
 export function createKeyboardInputRouter({
   keyTarget = globalThis.window,
@@ -39,10 +40,11 @@ export function createKeyboardInputRouter({
       return;
     }
 
+    const keyboard = createKeyboardInputFactFromEvent(event);
     const keyboardProjection = resolveInputProjection({
       machineState: getMachineState(),
       runtime: getRuntimeState(),
-      event,
+      keyboard,
     }).keyboard;
     const shortcutAction = keyboardProjection.action;
     if (!shortcutAction) {
@@ -89,9 +91,10 @@ export function createKeyboardInputRouter({
   }
 
   function handleKeyUp(event) {
+    const keyboard = createKeyboardInputFactFromEvent(event);
     const inputProjection = resolveInputProjection({
       machineState: getMachineState(),
-      event,
+      keyboard,
       runtime: getRuntimeState(),
     });
     if (!inputProjection.passThroughRelease.shouldRelease) {

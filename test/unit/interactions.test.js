@@ -13,6 +13,12 @@ import {
   WHEEL_MODE,
 } from "../../src/core/interaction-policy.js";
 import { resolveInputProjection } from "../../src/core/input-projection.js";
+import {
+  INPUT_KEY,
+  createKeyboardInputFact,
+  createPointerInputFact,
+  createWheelInputFact,
+} from "../../src/core/input-facts.js";
 import { RUNTIME_ERROR_SOURCE } from "../../src/core/runtime-error.js";
 import {
   SESSION_MODE,
@@ -766,28 +772,28 @@ test("keyboard shortcut resolution is single-source and mode-aware", () => {
 
   assert.equal(
     resolveInputProjection({
-      event: createKeyEvent({ code: "KeyP" }),
+      keyboard: createKeyboardFact(INPUT_KEY.P),
       state,
     }).keyboard.action,
     KEYBOARD_SHORTCUT_ACTION.TOGGLE_PIN_CURRENT_POINTER,
   );
   assert.equal(
     resolveInputProjection({
-      event: createKeyEvent({ code: "Escape" }),
+      keyboard: createKeyboardFact(INPUT_KEY.ESCAPE),
       state,
     }).keyboard.action,
     KEYBOARD_SHORTCUT_ACTION.SWITCH_TO_TRACE,
   );
   assert.equal(
     resolveInputProjection({
-      event: createKeyEvent({ code: "Space" }),
+      keyboard: createKeyboardFact(INPUT_KEY.SPACE),
       state,
     }).keyboard.action,
     KEYBOARD_SHORTCUT_ACTION.ENABLE_PASS_THROUGH,
   );
   assert.equal(
     resolveInputProjection({
-      event: createKeyEvent({ code: "KeyP" }),
+      keyboard: createKeyboardFact(INPUT_KEY.P),
       state: { ...state, mode: SESSION_MODE.TRACE },
     }).keyboard.action,
     null,
@@ -798,11 +804,11 @@ test("drag mode resolution keeps map pan as the unmodified default", () => {
   assert.equal(isKnownDragMode(DRAG_MODE.MAP_PAN), true);
   assert.equal(isKnownDragMode("not-a-drag-mode"), false);
   assert.equal(
-    resolveDragMode({ shiftKey: false }),
+    resolveDragMode(createPointerFact()),
     DRAG_MODE.MAP_PAN,
   );
   assert.equal(
-    resolveDragMode({ shiftKey: true }),
+    resolveDragMode(createPointerFact({ shift: true })),
     DRAG_MODE.MOVE_OVERLAY,
   );
 });
@@ -811,23 +817,23 @@ test("wheel mode resolution is single-source and modifier-aware", () => {
   assert.equal(isKnownWheelMode(WHEEL_MODE.MAP_ZOOM), true);
   assert.equal(isKnownWheelMode("not-a-wheel-mode"), false);
   assert.equal(
-    resolveWheelMode({ shiftKey: false, altKey: false, ctrlKey: false }),
+    resolveWheelMode(createWheelFact()),
     WHEEL_MODE.MAP_ZOOM,
   );
   assert.equal(
-    resolveWheelMode({ shiftKey: true, altKey: false, ctrlKey: false }),
+    resolveWheelMode(createWheelFact({ shift: true })),
     WHEEL_MODE.ZOOM_OVERLAY,
   );
   assert.equal(
-    resolveWheelMode({ shiftKey: false, altKey: true, ctrlKey: false }),
+    resolveWheelMode(createWheelFact({ alt: true })),
     WHEEL_MODE.ADJUST_OPACITY,
   );
   assert.equal(
-    resolveWheelMode({ shiftKey: false, altKey: false, ctrlKey: true }),
+    resolveWheelMode(createWheelFact({ ctrl: true })),
     WHEEL_MODE.ROTATE_OVERLAY,
   );
   assert.equal(
-    resolveWheelMode({ shiftKey: true, altKey: true, ctrlKey: true }),
+    resolveWheelMode(createWheelFact({ shift: true, alt: true, ctrl: true })),
     WHEEL_MODE.ADJUST_OPACITY,
   );
 });
@@ -928,9 +934,7 @@ test("overlay wheel policy is single-source", () => {
       state,
       runtime,
       isPointerOverOverlay: true,
-      shiftKey: false,
-      altKey: false,
-      ctrlKey: false,
+      wheel: createWheelFact(),
     }).wheel,
     {
       wheelMode: WHEEL_MODE.MAP_ZOOM,
@@ -945,9 +949,7 @@ test("overlay wheel policy is single-source", () => {
       state,
       runtime,
       isPointerOverOverlay: true,
-      shiftKey: false,
-      altKey: true,
-      ctrlKey: false,
+      wheel: createWheelFact({ alt: true }),
     }).wheel,
     {
       wheelMode: WHEEL_MODE.ADJUST_OPACITY,
@@ -989,7 +991,7 @@ test("overlay pointer move policy is single-source", () => {
       state,
       runtime,
       isPointerOverOverlay: true,
-      buttons: 1,
+      pointer: createPointerFact({ buttons: 1 }),
     }).pointerMove,
     {
       shouldTrackPointer: false,
@@ -1006,8 +1008,7 @@ test("overlay pointer sequence policy is single-source", () => {
       state,
       runtime,
       isPointerOverOverlay: false,
-      button: 0,
-      shiftKey: false,
+      pointer: createPointerFact(),
     }).pointerSequence,
     {
       shouldOwnPointerSequence: false,
@@ -1020,8 +1021,7 @@ test("overlay pointer sequence policy is single-source", () => {
       state,
       runtime,
       isPointerOverOverlay: true,
-      button: 0,
-      shiftKey: false,
+      pointer: createPointerFact(),
     }).pointerSequence,
     {
       shouldOwnPointerSequence: true,
@@ -1034,8 +1034,7 @@ test("overlay pointer sequence policy is single-source", () => {
       state,
       runtime,
       isPointerOverOverlay: true,
-      button: 0,
-      shiftKey: true,
+      pointer: createPointerFact({ button: 0, shift: true }),
     }).pointerSequence,
     {
       shouldOwnPointerSequence: true,
@@ -1048,8 +1047,7 @@ test("overlay pointer sequence policy is single-source", () => {
       state,
       runtime,
       isPointerOverOverlay: true,
-      button: 1,
-      shiftKey: true,
+      pointer: createPointerFact({ button: 1, shift: true }),
     }).pointerSequence,
     {
       shouldOwnPointerSequence: false,
@@ -1151,7 +1149,7 @@ test("map zoom does nothing when the page adapter cannot forward it", () => {
 test("pass-through release stays active until the runtime says it can be released", () => {
   assert.equal(
     resolveInputProjection({
-      event: createKeyEvent({ code: "Space" }),
+      keyboard: createKeyboardFact(INPUT_KEY.SPACE),
       state: createProjectionSession({
         mode: SESSION_MODE.ALIGN,
         image: null,
@@ -1162,7 +1160,7 @@ test("pass-through release stays active until the runtime says it can be release
   );
   assert.equal(
     resolveInputProjection({
-      event: createKeyEvent({ code: "Space" }),
+      keyboard: createKeyboardFact(INPUT_KEY.SPACE),
       state: createProjectionSession({
         mode: SESSION_MODE.TRACE,
         image: null,
@@ -1173,7 +1171,7 @@ test("pass-through release stays active until the runtime says it can be release
   );
   assert.equal(
     resolveInputProjection({
-      event: createKeyEvent({ code: "KeyP" }),
+      keyboard: createKeyboardFact(INPUT_KEY.P),
       state: createProjectionSession({
         mode: SESSION_MODE.ALIGN,
         image: null,
@@ -1233,6 +1231,48 @@ function createInputRuntime({ passThrough = false } = {}) {
     ...createInitialMachineState().runtime,
     inputOverride: passThrough ? MACHINE_INPUT_OVERRIDE.PASS_THROUGH : null,
   };
+}
+
+function createPointerFact({
+  button = 0,
+  buttons = 0,
+  shift = false,
+  alt = false,
+  ctrl = false,
+  meta = false,
+} = {}) {
+  return createPointerInputFact({
+    button,
+    buttons,
+    modifiers: { shift, alt, ctrl, meta },
+  });
+}
+
+function createWheelFact({
+  shift = false,
+  alt = false,
+  ctrl = false,
+  meta = false,
+} = {}) {
+  return createWheelInputFact({
+    modifiers: { shift, alt, ctrl, meta },
+  });
+}
+
+function createKeyboardFact(key, {
+  shift = false,
+  alt = false,
+  ctrl = false,
+  meta = false,
+  isDefaultPrevented = false,
+  isEditableTarget = false,
+} = {}) {
+  return createKeyboardInputFact({
+    key,
+    modifiers: { shift, alt, ctrl, meta },
+    isDefaultPrevented,
+    isEditableTarget,
+  });
 }
 
 function createProjectionSession({

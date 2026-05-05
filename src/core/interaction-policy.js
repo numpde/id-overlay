@@ -27,58 +27,36 @@ export function isKnownWheelMode(wheelMode) {
   return Object.values(WHEEL_MODE).includes(wheelMode);
 }
 
-export function resolveDragMode({ shiftKey }) {
-  // TODO(smell): Modifier-key policy is encoded as content-facing interaction
-  // modes before machine ingress. The final boundary should report normalized
-  // user gesture facts, with the machine owning which gestures are valid in the
-  // current state.
-  if (shiftKey) {
+export function resolveDragMode(pointer = {}) {
+  if (pointer.modifiers?.shift) {
     return DRAG_MODE.MOVE_OVERLAY;
   }
   return DRAG_MODE.MAP_PAN;
 }
 
-export function resolveWheelMode({ shiftKey, altKey, ctrlKey }) {
-  if (altKey) {
+export function resolveWheelMode(wheel = {}) {
+  const modifiers = wheel.modifiers ?? {};
+  if (modifiers.alt) {
     return WHEEL_MODE.ADJUST_OPACITY;
   }
-  if (ctrlKey) {
+  if (modifiers.ctrl) {
     return WHEEL_MODE.ROTATE_OVERLAY;
   }
-  if (shiftKey) {
+  if (modifiers.shift) {
     return WHEEL_MODE.ZOOM_OVERLAY;
   }
   return WHEEL_MODE.MAP_ZOOM;
 }
 
-export function shouldIgnoreKeyboardShortcut(event) {
-  // TODO(smell): Keyboard policy accepts browser event/target shape in core.
-  // Move DOM target filtering to the content keyboard adapter and pass only
-  // normalized shortcut facts into core policy.
-  if (event.defaultPrevented) {
+export function shouldIgnoreKeyboardShortcut(keyboard = null) {
+  if (!keyboard) {
     return true;
   }
-  if (event.metaKey || event.ctrlKey || event.altKey) {
+  if (keyboard.isDefaultPrevented) {
     return true;
   }
-  const target = event.composedPath?.()[0] ?? event.target ?? null;
-  return isEditableTarget(target);
-}
-
-function isEditableTarget(target) {
-  if (!target || typeof target !== "object") {
-    return false;
-  }
-  if (target.isContentEditable) {
+  if (keyboard.modifiers?.meta || keyboard.modifiers?.ctrl || keyboard.modifiers?.alt) {
     return true;
   }
-  const tagName = typeof target.tagName === "string" ? target.tagName.toUpperCase() : "";
-  if (tagName === "TEXTAREA" || tagName === "SELECT") {
-    return true;
-  }
-  if (tagName !== "INPUT") {
-    return false;
-  }
-  const type = typeof target.type === "string" ? target.type.toLowerCase() : "";
-  return !["button", "range", "checkbox", "radio", "submit", "reset"].includes(type);
+  return keyboard.isEditableTarget;
 }

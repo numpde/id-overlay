@@ -5,6 +5,7 @@ import {
   resolveWheelMode,
   shouldIgnoreKeyboardShortcut,
 } from "./interaction-policy.js";
+import { INPUT_KEY } from "./input-facts.js";
 import {
   selectOverlayPolicy,
   shouldReleasePassThroughOverride,
@@ -15,13 +16,10 @@ export function resolveInputProjection({
   state = null,
   runtime = null,
   isPointerOverOverlay = false,
-  buttons = 0,
-  button = 0,
-  shiftKey = false,
-  altKey = false,
-  ctrlKey = false,
+  pointer = null,
+  wheel = null,
+  keyboard = null,
   wheelMode = null,
-  event = null,
 } = {}) {
   // TODO(smell): Input projection returns pointer, wheel, keyboard, activation,
   // and pass-through release policy in one aggregate. Split per-device
@@ -29,22 +27,24 @@ export function resolveInputProjection({
   // bundle on every DOM event.
   const canonicalState = machineState ?? state ?? {};
   const overlayPolicy = selectOverlayPolicy(canonicalState, runtime);
-  const resolvedWheelMode = wheelMode ?? resolveWheelMode({ shiftKey, altKey, ctrlKey });
+  const resolvedPointer = pointer ?? { button: 0, buttons: 0 };
+  const resolvedWheel = wheel ?? {};
+  const resolvedWheelMode = wheelMode ?? resolveWheelMode(resolvedWheel);
   const canOwnOverlayPointer = (
     isPointerOverOverlay &&
     overlayPolicy.hasImage &&
     overlayPolicy.ownsPointerHitTesting
   );
-  const shouldOwnPointerSequence = canOwnOverlayPointer && button === 0;
+  const shouldOwnPointerSequence = canOwnOverlayPointer && resolvedPointer.button === 0;
 
   return {
     overlayPolicy,
     pointerMove: {
-      shouldTrackPointer: canOwnOverlayPointer && buttons === 0,
+      shouldTrackPointer: canOwnOverlayPointer && (resolvedPointer.buttons ?? 0) === 0,
     },
     pointerSequence: {
       shouldOwnPointerSequence,
-      dragMode: shouldOwnPointerSequence ? resolveDragMode({ shiftKey }) : null,
+      dragMode: shouldOwnPointerSequence ? resolveDragMode(resolvedPointer) : null,
     },
     activation: {
       shouldConsumeClick: canOwnOverlayPointer,
@@ -55,9 +55,9 @@ export function resolveInputProjection({
       isPointerOverOverlay,
       wheelMode: resolvedWheelMode,
     }),
-    keyboard: resolveKeyboardProjection({ event, overlayPolicy }),
+    keyboard: resolveKeyboardProjection({ keyboard, overlayPolicy }),
     passThroughRelease: {
-      shouldRelease: shouldReleasePassThroughOverride(canonicalState, runtime, event),
+      shouldRelease: shouldReleasePassThroughOverride(canonicalState, runtime, keyboard),
     },
   };
 }
@@ -94,27 +94,27 @@ function isWheelGestureAllowed({ overlayPolicy, wheelMode }) {
   return overlayPolicy.ownsPointerHitTesting;
 }
 
-function resolveKeyboardProjection({ event, overlayPolicy }) {
-  const shouldIgnore = !event || shouldIgnoreKeyboardShortcut(event);
+function resolveKeyboardProjection({ keyboard, overlayPolicy }) {
+  const shouldIgnore = !keyboard || shouldIgnoreKeyboardShortcut(keyboard);
   if (shouldIgnore || !overlayPolicy.canEditOverlay) {
     return {
       action: null,
       shouldIgnore,
     };
   }
-  if (event.code === "KeyP") {
+  if (keyboard.key === INPUT_KEY.P) {
     return {
       action: KEYBOARD_SHORTCUT_ACTION.TOGGLE_PIN_CURRENT_POINTER,
       shouldIgnore: false,
     };
   }
-  if (event.code === "Escape") {
+  if (keyboard.key === INPUT_KEY.ESCAPE) {
     return {
       action: KEYBOARD_SHORTCUT_ACTION.SWITCH_TO_TRACE,
       shouldIgnore: false,
     };
   }
-  if (event.code === "Space") {
+  if (keyboard.key === INPUT_KEY.SPACE) {
     return {
       action: KEYBOARD_SHORTCUT_ACTION.ENABLE_PASS_THROUGH,
       shouldIgnore: false,

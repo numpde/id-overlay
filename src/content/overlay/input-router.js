@@ -1,5 +1,9 @@
 import { FORWARDED_MAP_GESTURE_EVENT_FLAG } from "../page-adapter.js";
 import {
+  createPointerInputFactFromEvent,
+  createWheelInputFactFromEvent,
+} from "../input-event-facts.js";
+import {
   selectIsRuntimeDragging,
   selectRuntimePointerScreenPx,
 } from "../../core/machine/selectors.js";
@@ -77,7 +81,7 @@ export function createOverlayInputRouter({
         return;
       }
       const pointerPolicy = inputProjector.resolveMountedInputProjection(screenPoint, {
-        buttons: event.buttons,
+        pointer: createPointerInputFactFromEvent(event),
       }).pointerMove;
       if (pointerPolicy.shouldTrackPointer) {
         interactions.handlePointerMove?.(screenPoint);
@@ -105,8 +109,7 @@ export function createOverlayInputRouter({
       }
       const screenPoint = inputProjector.screenPointFromEvent(event);
       const pointerPolicy = inputProjector.resolveMountedInputProjection(screenPoint, {
-        button: event.button,
-        shiftKey: event.shiftKey,
+        pointer: createPointerInputFactFromEvent(event),
       }).pointerSequence;
       if (!pointerPolicy.shouldOwnPointerSequence) {
         return;
@@ -158,9 +161,7 @@ export function createOverlayInputRouter({
       }
       const screenPoint = inputProjector.screenPointFromEvent(event);
       const wheelPolicy = inputProjector.resolveMountedInputProjection(screenPoint, {
-        shiftKey: event.shiftKey,
-        altKey: event.altKey,
-        ctrlKey: event.ctrlKey,
+        wheel: createWheelInputFactFromEvent(event),
       }).wheel;
       if (!wheelPolicy.shouldHandle) {
         return;
