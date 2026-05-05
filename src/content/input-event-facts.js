@@ -6,7 +6,7 @@ import {
   createWheelInputFact,
 } from "../core/input-facts.js";
 
-export function createModifiersFromEvent(event) {
+function createModifiersFromEvent(event) {
   return createInputModifiers({
     shift: event?.shiftKey,
     alt: event?.altKey,

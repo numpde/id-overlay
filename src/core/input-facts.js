@@ -4,6 +4,12 @@ export const INPUT_KEY = Object.freeze({
   SPACE: "space",
 });
 
+const INPUT_KEYS = new Set(Object.values(INPUT_KEY));
+
+function isKnownInputKey(key) {
+  return INPUT_KEYS.has(key);
+}
+
 export function createInputModifiers({
   shift = false,
   alt = false,
@@ -45,7 +51,7 @@ export function createKeyboardInputFact({
   isEditableTarget = false,
 } = {}) {
   return {
-    key: typeof key === "string" ? key : "",
+    key: normalizeInputKey(key),
     modifiers: normalizeInputModifiers(modifiers),
     isDefaultPrevented: Boolean(isDefaultPrevented),
     isEditableTarget: Boolean(isEditableTarget),
@@ -54,6 +60,10 @@ export function createKeyboardInputFact({
 
 export function normalizeInputModifiers(modifiers = null) {
   return createInputModifiers(modifiers ?? {});
+}
+
+function normalizeInputKey(key) {
+  return isKnownInputKey(key) ? key : "";
 }
 
 function normalizeInteger(value, fallback) {

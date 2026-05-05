@@ -66,6 +66,7 @@ test("input fact builders normalize primitive input facts", () => {
     isDefaultPrevented: true,
     isEditableTarget: false,
   });
+  assert.equal(createKeyboardInputFact({ key: "KeyP" }).key, "");
 });
 
 test("content input normalizers are the DOM event boundary", () => {
