@@ -21,6 +21,10 @@ import {
 } from "./transition-result.js";
 
 export function beginPlacementEdit(state, event) {
+  // TODO(smell): Placement transition owns both the transient preview lifecycle
+  // and committed history replay shape. Split preview state updates from
+  // committed placement edits so one-shot wheel edits and drag commits share
+  // the same semantic commit path.
   if (!canEditPlacement(state)) {
     return createTransitionResult({
       state,

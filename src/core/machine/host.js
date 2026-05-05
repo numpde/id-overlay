@@ -26,6 +26,10 @@ export function createMachineHost({
   statusTimeoutMs = DEFAULT_STATUS_TIMEOUT_MS,
   onError = null,
 } = {}) {
+  // TODO(smell): Host owns runtime lifecycle, persistence, effect adapter
+  // wiring, panel/status timers, and external subscribers. Split effect host
+  // services from durable persistence so machine hosting is not the catch-all
+  // boundary for every side effect.
   let destroyed = false;
   const panelTimers = new Map();
   const statusTimers = new Map();

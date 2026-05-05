@@ -23,6 +23,10 @@ export function resolveInputProjection({
   wheelMode = null,
   event = null,
 } = {}) {
+  // TODO(smell): Input projection returns pointer, wheel, keyboard, activation,
+  // and pass-through release policy in one aggregate. Split per-device
+  // projection helpers once overlay input routing no longer asks for the whole
+  // bundle on every DOM event.
   const canonicalState = machineState ?? state ?? {};
   const overlayPolicy = selectOverlayPolicy(canonicalState, runtime);
   const resolvedWheelMode = wheelMode ?? resolveWheelMode({ shiftKey, altKey, ctrlKey });

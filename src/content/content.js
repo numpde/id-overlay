@@ -3,6 +3,9 @@
 })();
 
 function installContentEntrypoint(windowTarget) {
+  // TODO(smell): The entrypoint installs global keyboard capture before the
+  // lazy bootstrap module loads. Keep early capture, but move gateway lifecycle
+  // ownership into bootstrap so reinjection/teardown is handled in one place.
   const BOOTSTRAP_KEY = "__idOverlayBootstrap__";
   const existingEntrypoint = windowTarget[BOOTSTRAP_KEY];
   if (existingEntrypoint) {

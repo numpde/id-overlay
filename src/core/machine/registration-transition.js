@@ -26,6 +26,10 @@ import {
 } from "./transition-result.js";
 
 export function togglePin(state, event) {
+  // TODO(smell): Registration transitions still repeat mode forcing, placement
+  // preservation, panel cleanup, status notice, and history event construction.
+  // Extract registration edit outcomes so add/remove/clear/fit share one replay
+  // contract instead of hand-building restore events in each branch.
   if (!canEditPins(state)) {
     return createTransitionResult({
       state,
