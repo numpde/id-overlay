@@ -1,12 +1,10 @@
 import { createLogger } from "../core/logger.js";
 import {
-  MACHINE_EVENT_KIND,
-} from "../core/machine/events.js";
-import {
   selectIsRuntimeDragging,
 } from "../core/machine/selectors.js";
 import { createAdapterDragController } from "./interactions/adapter-drag.js";
-import { createPinToggleCommand } from "./interactions/pin-toggle-command.js";
+import { createModeInteraction } from "./interactions/mode-interaction.js";
+import { createPinToggleInteraction } from "./interactions/pin-toggle-interaction.js";
 import { createWheelCommand } from "./interactions/wheel-command.js";
 import { createKeyboardInputRouter } from "./interactions/keyboard-router.js";
 import { createInteractionRuntimeBridge } from "./interactions/runtime-bridge.js";
@@ -27,11 +25,6 @@ export function createInteractionController({
     dispatchMachine,
     logger,
   });
-  const pinToggleCommand = createPinToggleCommand({
-    pageAdapter,
-    getMachineState,
-    dispatchMachine,
-  });
   const wheelCommand = createWheelCommand({
     pageAdapter,
     getMachineState,
@@ -47,14 +40,28 @@ export function createInteractionController({
     resetInteraction: resetRuntimeAfterError,
     logger,
   });
+  const modeInteraction = createModeInteraction({
+    dispatchMachine,
+    runtimeBridge,
+    errorBoundary,
+    logger,
+  });
+  const pinToggleInteraction = createPinToggleInteraction({
+    pageAdapter,
+    getMachineState,
+    dispatchMachine,
+    runtimeBridge,
+    errorBoundary,
+    logger,
+  });
   const keyboardRouter = createKeyboardInputRouter({
     keyTarget,
     keyboardGateway,
     getMachineState,
     getRuntimeState,
     getPointerScreenPx,
-    executePinToggleAtScreenPoint,
-    applyMode,
+    executePinToggleAtScreenPoint: pinToggleInteraction.toggleAtScreenPoint,
+    applyMode: modeInteraction.select,
     setPassThrough: runtimeBridge.setPassThrough,
     resetInteractionState: runtimeBridge.reset,
     logger,
@@ -73,40 +80,8 @@ export function createInteractionController({
     return runtimeBridge.getRuntimeState();
   }
 
-  function applyMode(mode) {
-    return errorBoundary.run("apply-mode", () => {
-      runtimeBridge.reset({
-        pointerScreenPx: getPointerScreenPx(),
-      });
-      dispatchMachine({
-        type: MACHINE_EVENT_KIND.SELECT_MODE,
-        mode,
-      });
-      logger.info("Requested mode switch", { mode });
-      return true;
-    });
-  }
-
   function handleTogglePin({ screenPoint }) {
-    return errorBoundary.run("handle-toggle-pin", () => {
-      runtimeBridge.updatePointer(screenPoint);
-      return executePinToggleAtScreenPoint(screenPoint);
-    }, { fallbackValue: false });
-  }
-
-  function executePinToggleAtScreenPoint(screenPoint) {
-    const outcome = pinToggleCommand.toggleAtScreenPoint(screenPoint);
-    if (!outcome.handled) {
-      logger.warn("Pin toggle requested without a valid pin context", {
-        reason: outcome.reason,
-      });
-      return false;
-    }
-    logger.info("Toggled registration pin", {
-      pinId: outcome.existingPinId,
-    });
-    runtimeBridge.updatePointer(outcome.pointerScreenPx);
-    return true;
+    return pinToggleInteraction.toggleAtScreenPoint(screenPoint);
   }
 
   function handlePointerEnter(screenPoint) {

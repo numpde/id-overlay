@@ -212,6 +212,26 @@ test("interaction boundaries report machine status instead of throwing raw adapt
   assert.equal(selectStatus(machineHost.getState()), "The overlay interaction failed. Try the action again.");
 });
 
+test("keyboard pin toggle uses the same interaction error boundary", () => {
+  const keyTarget = createKeyTarget();
+  const harness = createHarness({
+    keyTarget,
+    screenToMapThrows: new Error("adapter exploded"),
+  });
+  const { controller, machineHost } = harness;
+  seedMachineImageSession(harness);
+  controller.handlePointerEnter({ x: 600, y: 320 });
+
+  const keydown = createKeyEvent({ code: "KeyP" });
+  assert.doesNotThrow(() => keyTarget.dispatch("keydown", keydown));
+
+  assert.equal(keydown.prevented, true);
+  assert.equal(machineHost.getState().status.notice.kind, MACHINE_STATUS_NOTICE_KIND.RUNTIME_ERROR);
+  assert.equal(machineHost.getState().status.notice.payload.error.source, RUNTIME_ERROR_SOURCE.INTERACTIONS);
+  assert.equal(machineHost.getState().status.notice.payload.error.operation, "handle-toggle-pin");
+  assert.equal(selectStatus(machineHost.getState()), "The overlay interaction failed. Try the action again.");
+});
+
 test("pin-toggle command on an existing pin removes it", () => {
   const harness = createHarness();
   const { controller } = harness;
