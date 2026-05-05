@@ -10,9 +10,6 @@ import {
   MACHINE_POINTER_GESTURE_KIND,
 } from "../../src/core/machine/events.js";
 import {
-  MACHINE_COMMAND_KIND,
-} from "../../src/core/machine/private-commands.js";
-import {
   createInitialMachineState,
 } from "../../src/core/machine/state.js";
 import {
@@ -20,12 +17,8 @@ import {
   toPersistedMachineSession,
   toPersistedMachineSessionSnapshot,
 } from "../../src/core/machine/persistence.js";
-import { transitionMachine } from "../../src/core/machine/transition.js";
 import { normalizeSessionImage } from "../../src/core/session.js";
 
-// TODO(smell): Persistence tests still seed history/runtime through raw machine
-// events and validate event-shaped history snapshots. Update them when history
-// records become semantic facts and map-aware migration leaves persistence.
 const IMAGE = Object.freeze({
   src: "data:image/png;base64,abc",
   width: 800,
@@ -274,13 +267,14 @@ test("round trip preserves durable session facts only", () => {
 });
 
 test("round trip does not preserve undo or redo history", () => {
-  let state = transitionMachine(createInitialMachineState(), {
-    type: MACHINE_COMMAND_KIND.LOAD_IMAGE,
-    image: IMAGE,
-    placement: PLACEMENT,
-  }).state;
-  state = transitionMachine(state, { type: MACHINE_COMMAND_KIND.UNDO }).state;
+  const state = createNoisyMachineState({
+    history: {
+      past: [{ kind: MACHINE_HISTORY_KIND.LOAD_IMAGE }],
+      future: [{ kind: MACHINE_HISTORY_KIND.CLEAR_IMAGE }],
+    },
+  });
 
+  assert.equal(state.history.past.length, 1);
   assert.equal(state.history.future.length, 1);
 
   const restored = fromPersistedMachineSession(toPersistedMachineSession(state));
@@ -291,7 +285,7 @@ test("round trip does not preserve undo or redo history", () => {
   });
 });
 
-function createNoisyMachineState() {
+function createNoisyMachineState(overrides = {}) {
   return createInitialMachineState({
     session: {
       mode: MACHINE_MODE.ALIGN,
@@ -328,5 +322,6 @@ function createNoisyMachineState() {
       past: [{ kind: "load-image" }],
       future: [{ kind: "clear-image" }],
     },
+    ...overrides,
   });
 }
