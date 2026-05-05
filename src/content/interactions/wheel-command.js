@@ -91,7 +91,7 @@ export function createWheelCommand({
 
   function handleRotateWheel({ deltaY, screenPoint, snapshot }) {
     const rotatePlan = planRotatePlacementEdit({
-      state: getMachineState(),
+      machineState: getMachineState(),
       snapshot,
       anchorScreenPx: screenPoint,
       deltaY,
@@ -115,7 +115,7 @@ export function createWheelCommand({
 
   function handleScaleWheel({ deltaY, screenPoint, snapshot }) {
     const scalePlan = planScalePlacementEdit({
-      state: getMachineState(),
+      machineState: getMachineState(),
       snapshot,
       anchorScreenPx: screenPoint,
       deltaY,

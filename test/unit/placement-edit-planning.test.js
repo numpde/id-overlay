@@ -2,6 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  PLACEMENT_EDIT_PLAN_KIND,
+  PLACEMENT_EDIT_PLAN_PHASE,
   planMovePlacementEditPreview,
   planMovePlacementEditStart,
   planRotatePlacementEdit,
@@ -9,18 +11,11 @@ import {
   resolvePlacementEditRenderState,
 } from "../../src/core/placement-edit-planning.js";
 import {
-  MACHINE_EVENT_KIND,
-  MACHINE_PLACEMENT_EDIT_KIND,
-} from "../../src/core/machine/events.js";
-import {
   createPlacementScreenTransform,
   imagePointToScreenPoint,
   resolveOverlayScreenTransform,
 } from "../../src/core/transform.js";
 
-// TODO(smell): Placement-planning tests expect planners to return executable
-// machine events. Rewrite them to assert pure geometry facts after placement
-// edit interpretation and history/status authoring move into machine ingress.
 const IMAGE = Object.freeze({
   src: "data:image/png;base64,abc",
   width: 100,
@@ -78,7 +73,7 @@ const SNAPSHOT = Object.freeze({
 test("placement edit render state prefers the machine preview placement", () => {
   const previewPlacement = { ...PLACEMENT, tx: 30, ty: 40 };
   const result = resolvePlacementEditRenderState({
-    state: {
+    machineState: {
       session: createSolvedSession(),
       runtime: {
         placementEdit: {
@@ -99,7 +94,7 @@ test("placement edit render state prefers the machine preview placement", () => 
 
 test("placement edit render state derives placement from the solved render state", () => {
   const result = resolvePlacementEditRenderState({
-    state: createSolvedSession(),
+    machineState: createSolvedSession(),
     snapshot: SNAPSHOT,
   });
 
@@ -124,14 +119,14 @@ test("placement edit render state falls back to durable placement and rejects mi
 
   assert.equal(
     resolvePlacementEditRenderState({
-      state: session,
+      machineState: session,
       snapshot: SNAPSHOT,
     }).placement,
     PLACEMENT,
   );
   assert.equal(
     resolvePlacementEditRenderState({
-      state: {
+      machineState: {
         ...session,
         placement: null,
       },
@@ -141,10 +136,10 @@ test("placement edit render state falls back to durable placement and rejects mi
   );
 });
 
-test("placement edit planner creates move begin and preview events", () => {
+test("placement edit planner creates move begin and preview facts", () => {
   const state = createSolvedSession();
   const editState = resolvePlacementEditRenderState({
-    state,
+    machineState: state,
     snapshot: SNAPSHOT,
   });
   const editTransform = resolveOverlayScreenTransform({
@@ -158,20 +153,22 @@ test("placement edit planner creates move begin and preview events", () => {
   });
   const startPointerScreenPx = { x: 500, y: 250 };
   const start = planMovePlacementEditStart({
-    state,
+    machineState: state,
     snapshot: SNAPSHOT,
     startPointerScreenPx,
   });
 
   assertPointClose(start.startCenterScreenPx, startCenterScreenPx);
-  assert.deepEqual(start.event, {
-    type: MACHINE_EVENT_KIND.BEGIN_PLACEMENT_EDIT,
-    editKind: MACHINE_PLACEMENT_EDIT_KIND.MOVE,
+  assert.deepEqual(start, {
+    phase: PLACEMENT_EDIT_PLAN_PHASE.BEGIN,
+    kind: PLACEMENT_EDIT_PLAN_KIND.MOVE,
+    startPointerScreenPx,
+    startCenterScreenPx: start.startCenterScreenPx,
     renderedPlacement: SOLVED_PLACEMENT,
   });
 
   const preview = planMovePlacementEditPreview({
-    state,
+    machineState: state,
     snapshot: SNAPSHOT,
     startPointerScreenPx,
     startCenterScreenPx: start.startCenterScreenPx,
@@ -179,24 +176,24 @@ test("placement edit planner creates move begin and preview events", () => {
   });
   const previewTransform = createPlacementScreenTransform({
     snapshot: SNAPSHOT,
-    placement: preview.event.placement,
+    placement: preview.placement,
   });
   const movedCenterScreenPx = imagePointToScreenPoint({
     imagePoint: imageCenter,
     transform: previewTransform,
   });
 
-  assert.equal(preview.event.type, MACHINE_EVENT_KIND.PREVIEW_PLACEMENT_EDIT);
+  assert.equal(preview.phase, PLACEMENT_EDIT_PLAN_PHASE.PREVIEW);
   assertPointClose(movedCenterScreenPx, {
     x: startCenterScreenPx.x + 20,
     y: startCenterScreenPx.y + 20,
   });
 });
 
-test("placement edit planner creates anchored rotate and scale edit events", () => {
+test("placement edit planner creates anchored rotate and scale edit facts", () => {
   const state = createSolvedSession();
   const editState = resolvePlacementEditRenderState({
-    state,
+    machineState: state,
     snapshot: SNAPSHOT,
   });
   const anchorImagePx = { x: 60, y: 25 };
@@ -209,28 +206,28 @@ test("placement edit planner creates anchored rotate and scale edit events", () 
   });
 
   const rotate = planRotatePlacementEdit({
-    state,
+    machineState: state,
     snapshot: SNAPSHOT,
     anchorScreenPx,
     deltaY: -100,
   });
-  assert.equal(rotate.event.type, MACHINE_EVENT_KIND.APPLY_PLACEMENT_EDIT);
-  assert.equal(rotate.event.editKind, MACHINE_PLACEMENT_EDIT_KIND.ROTATE);
-  assert.deepEqual(rotate.event.renderedPlacement, SOLVED_PLACEMENT);
+  assert.equal(rotate.phase, PLACEMENT_EDIT_PLAN_PHASE.APPLY);
+  assert.equal(rotate.kind, PLACEMENT_EDIT_PLAN_KIND.ROTATE);
+  assert.deepEqual(rotate.renderedPlacement, SOLVED_PLACEMENT);
   assert.ok(rotate.rotationRad > 0);
-  assertPlacementKeepsAnchor(rotate.event.placement, anchorImagePx, anchorScreenPx);
+  assertPlacementKeepsAnchor(rotate.placement, anchorImagePx, anchorScreenPx);
 
   const scale = planScalePlacementEdit({
-    state,
+    machineState: state,
     snapshot: SNAPSHOT,
     anchorScreenPx,
     deltaY: -100,
   });
-  assert.equal(scale.event.type, MACHINE_EVENT_KIND.APPLY_PLACEMENT_EDIT);
-  assert.equal(scale.event.editKind, MACHINE_PLACEMENT_EDIT_KIND.SCALE);
-  assert.deepEqual(scale.event.renderedPlacement, SOLVED_PLACEMENT);
+  assert.equal(scale.phase, PLACEMENT_EDIT_PLAN_PHASE.APPLY);
+  assert.equal(scale.kind, PLACEMENT_EDIT_PLAN_KIND.SCALE);
+  assert.deepEqual(scale.renderedPlacement, SOLVED_PLACEMENT);
   assert.ok(scale.scale > Math.hypot(SOLVED_PLACEMENT.a, SOLVED_PLACEMENT.b));
-  assertPlacementKeepsAnchor(scale.event.placement, anchorImagePx, anchorScreenPx);
+  assertPlacementKeepsAnchor(scale.placement, anchorImagePx, anchorScreenPx);
 });
 
 function createSolvedSession() {

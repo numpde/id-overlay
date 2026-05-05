@@ -16,6 +16,7 @@ import {
   fromPersistedMachineSession,
 } from "./persistence.js";
 import { createMachineRuntime } from "./runtime.js";
+import { PLACEMENT_EDIT_PLAN_PHASE } from "../placement-edit-planning.js";
 import { clampOpacity, opacityFromWheelDelta } from "../transform.js";
 
 const DEFAULT_PANEL_TIMEOUT_MS = 1800;
@@ -233,10 +234,31 @@ export function createMachineHost({
   }
 
   function applyPlacementEditPlan(plan) {
-    if (!plan?.event) {
+    if (!plan?.phase) {
       return createNoopDispatchResult(runtime.getState());
     }
-    return dispatch(plan.event);
+    if (plan.phase === PLACEMENT_EDIT_PLAN_PHASE.BEGIN) {
+      return dispatch({
+        type: MACHINE_EVENT_KIND.BEGIN_PLACEMENT_EDIT,
+        editKind: plan.kind,
+        renderedPlacement: plan.renderedPlacement,
+      });
+    }
+    if (plan.phase === PLACEMENT_EDIT_PLAN_PHASE.PREVIEW) {
+      return dispatch({
+        type: MACHINE_EVENT_KIND.PREVIEW_PLACEMENT_EDIT,
+        placement: plan.placement,
+      });
+    }
+    if (plan.phase === PLACEMENT_EDIT_PLAN_PHASE.APPLY) {
+      return dispatch({
+        type: MACHINE_EVENT_KIND.APPLY_PLACEMENT_EDIT,
+        editKind: plan.kind,
+        renderedPlacement: plan.renderedPlacement,
+        placement: plan.placement,
+      });
+    }
+    return createNoopDispatchResult(runtime.getState());
   }
 
   function finishPlacementEditPlan() {

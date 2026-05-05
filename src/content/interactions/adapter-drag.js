@@ -42,7 +42,7 @@ export function createAdapterDragController({
 
     const snapshot = pageAdapter.getSnapshot();
     const movePlan = planMovePlacementEditStart({
-      state: getMachineState(),
+      machineState: getMachineState(),
       snapshot,
       startPointerScreenPx: screenPoint,
     });
@@ -74,7 +74,7 @@ export function createAdapterDragController({
 
     const snapshot = pageAdapter.getSnapshot();
     const previewPlan = planMovePlacementEditPreview({
-      state: getMachineState(),
+      machineState: getMachineState(),
       snapshot,
       startPointerScreenPx: overlayMove.startPointerScreenPx,
       startCenterScreenPx: overlayMove.startCenterScreenPx,

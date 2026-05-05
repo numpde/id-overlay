@@ -1,8 +1,4 @@
 import {
-  MACHINE_EVENT_KIND,
-  MACHINE_PLACEMENT_EDIT_KIND,
-} from "./machine/events.js";
-import {
   createPlacementEditedRegistration,
   getOverlayImage,
 } from "./session.js";
@@ -19,17 +15,26 @@ import {
   screenPointToRenderedImagePoint,
 } from "./transform.js";
 
-// TODO(smell): The planner currently returns machine event payloads as well as
-// pure placement calculations. Keep this boundary small; the next cleanup is to
-// split event construction from edit math when geometry gets a second caller.
-export function resolvePlacementEditRenderState({ state, snapshot }) {
-  const session = state?.session ?? state;
-  const runtime = state?.session ? state.runtime ?? null : null;
+export const PLACEMENT_EDIT_PLAN_PHASE = Object.freeze({
+  BEGIN: "begin",
+  PREVIEW: "preview",
+  APPLY: "apply",
+});
+
+export const PLACEMENT_EDIT_PLAN_KIND = Object.freeze({
+  MOVE: "move",
+  ROTATE: "rotate",
+  SCALE: "scale",
+});
+
+export function resolvePlacementEditRenderState({ machineState, snapshot }) {
+  const session = machineState?.session ?? machineState;
+  const runtime = machineState?.session ? machineState.runtime ?? null : null;
   if (!session) {
     return null;
   }
   const placement = runtime?.placementEdit?.previewPlacement ??
-    derivePlacementFromCurrentRenderState({ state, snapshot }) ??
+    derivePlacementFromCurrentRenderState({ state: session, snapshot }) ??
     session.placement;
   if (placement?.type !== "similarity") {
     return null;
@@ -42,40 +47,35 @@ export function resolvePlacementEditRenderState({ state, snapshot }) {
 }
 
 export function planMovePlacementEditStart({
-  state,
+  machineState,
   snapshot,
   startPointerScreenPx,
 }) {
-  // TODO(smell): This planner needs machine state to construct a transition
-  // event. In the final boundary it should be pure geometry over render facts,
-  // with edit lifecycle interpretation performed inside the machine.
-  const editState = resolvePlacementEditRenderState({ state, snapshot });
+  const editState = resolvePlacementEditRenderState({ machineState, snapshot });
   if (!editState || !isScreenPoint(startPointerScreenPx)) {
     return null;
   }
   const startCenterScreenPx = resolveOverlayCenterScreenPoint({
-    state: editState,
+    editState,
     snapshot,
   });
   return {
+    phase: PLACEMENT_EDIT_PLAN_PHASE.BEGIN,
+    kind: PLACEMENT_EDIT_PLAN_KIND.MOVE,
     startPointerScreenPx,
     startCenterScreenPx,
-    event: {
-      type: MACHINE_EVENT_KIND.BEGIN_PLACEMENT_EDIT,
-      editKind: MACHINE_PLACEMENT_EDIT_KIND.MOVE,
-      renderedPlacement: editState.placement,
-    },
+    renderedPlacement: editState.placement,
   };
 }
 
 export function planMovePlacementEditPreview({
-  state,
+  machineState,
   snapshot,
   startPointerScreenPx,
   startCenterScreenPx,
   pointerScreenPx,
 }) {
-  const editState = resolvePlacementEditRenderState({ state, snapshot });
+  const editState = resolvePlacementEditRenderState({ machineState, snapshot });
   if (
     !editState ||
     !isScreenPoint(startPointerScreenPx) ||
@@ -89,58 +89,48 @@ export function planMovePlacementEditPreview({
     y: startCenterScreenPx.y + (pointerScreenPx.y - startPointerScreenPx.y),
   };
   return {
-    event: {
-      type: MACHINE_EVENT_KIND.PREVIEW_PLACEMENT_EDIT,
-      placement: createRetunedPlacementTransform({
-        state: editState,
-        snapshot,
-        centerScreenPx: nextCenterScreenPx,
-      }),
-    },
+    phase: PLACEMENT_EDIT_PLAN_PHASE.PREVIEW,
+    placement: createRetunedPlacementTransform({
+      editState,
+      snapshot,
+      centerScreenPx: nextCenterScreenPx,
+    }),
   };
 }
 
 export function planRotatePlacementEdit({
-  state,
+  machineState,
   snapshot,
   anchorScreenPx,
   deltaY,
 }) {
-  // TODO(smell): Wheel rotation planning returns a durable mutation event. Keep
-  // anchor/transform math here, but move the user-rotation transition decision
-  // and history/status creation into machine ingress handling.
-  const editState = resolvePlacementEditRenderState({ state, snapshot });
+  const editState = resolvePlacementEditRenderState({ machineState, snapshot });
   if (!editState) {
     return null;
   }
   const rotationRad = rotationFromWheelDelta(editState.placement.rotationRad, deltaY);
   const placement = createRetunedPlacementTransform({
-    state: editState,
+    editState,
     snapshot,
     anchorScreenPx,
     rotationRad,
   });
   return {
+    phase: PLACEMENT_EDIT_PLAN_PHASE.APPLY,
+    kind: PLACEMENT_EDIT_PLAN_KIND.ROTATE,
+    renderedPlacement: editState.placement,
+    placement,
     rotationRad,
-    event: {
-      type: MACHINE_EVENT_KIND.APPLY_PLACEMENT_EDIT,
-      renderedPlacement: editState.placement,
-      placement,
-      editKind: MACHINE_PLACEMENT_EDIT_KIND.ROTATE,
-    },
   };
 }
 
 export function planScalePlacementEdit({
-  state,
+  machineState,
   snapshot,
   anchorScreenPx,
   deltaY,
 }) {
-  // TODO(smell): Wheel scale planning returns a durable mutation event. Keep
-  // anchor/transform math here, but move the user-scale transition decision and
-  // history/status creation into machine ingress handling.
-  const editState = resolvePlacementEditRenderState({ state, snapshot });
+  const editState = resolvePlacementEditRenderState({ machineState, snapshot });
   if (!editState) {
     return null;
   }
@@ -150,33 +140,31 @@ export function planScalePlacementEdit({
   ) * (2 ** snapshot.mapView.zoom);
   const scale = scaleFromWheelDelta(screenScale, deltaY);
   const placement = createRetunedPlacementTransform({
-    state: editState,
+    editState,
     snapshot,
     anchorScreenPx,
     screenScale: scale,
   });
   return {
+    phase: PLACEMENT_EDIT_PLAN_PHASE.APPLY,
+    kind: PLACEMENT_EDIT_PLAN_KIND.SCALE,
+    renderedPlacement: editState.placement,
+    placement,
     scale,
-    event: {
-      type: MACHINE_EVENT_KIND.APPLY_PLACEMENT_EDIT,
-      renderedPlacement: editState.placement,
-      placement,
-      editKind: MACHINE_PLACEMENT_EDIT_KIND.SCALE,
-    },
   };
 }
 
 function createRetunedPlacementTransform({
-  state,
+  editState,
   snapshot,
   centerScreenPx = null,
   anchorScreenPx = null,
   screenScale = null,
   rotationRad = null,
 }) {
-  const image = getOverlayImage(state);
+  const image = getOverlayImage(editState);
   const screenTransform = resolveOverlayScreenTransform({
-    state,
+    state: editState,
     snapshot,
   });
   const imageCenter = {
@@ -212,7 +200,7 @@ function createRetunedPlacementTransform({
   }
 
   const resolvedCenterScreenPx = centerScreenPx ?? resolveOverlayCenterScreenPoint({
-    state,
+    editState,
     snapshot,
   });
   return derivePlacementFromScreenTransform({
@@ -229,10 +217,10 @@ function createRetunedPlacementTransform({
   });
 }
 
-function resolveOverlayCenterScreenPoint({ state, snapshot }) {
-  const image = getOverlayImage(state);
+function resolveOverlayCenterScreenPoint({ editState, snapshot }) {
+  const image = getOverlayImage(editState);
   const screenTransform = resolveOverlayScreenTransform({
-    state,
+    state: editState,
     snapshot,
   });
   return imagePointToRenderedScreenPoint({
