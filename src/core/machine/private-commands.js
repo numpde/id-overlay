@@ -1,0 +1,67 @@
+export const MACHINE_COMMAND_KIND = Object.freeze({
+  LOAD_IMAGE: "load-image",
+  CLEAR_IMAGE: "clear-image",
+  RESTORE_IMAGE_SESSION: "restore-image-session",
+  SELECT_MODE: "select-mode",
+  UPDATE_POINTER_RUNTIME: "update-pointer-runtime",
+  BEGIN_POINTER_GESTURE: "begin-pointer-gesture",
+  END_POINTER_GESTURE: "end-pointer-gesture",
+  SET_INPUT_OVERRIDE: "set-input-override",
+  RESET_INPUT_RUNTIME: "reset-input-runtime",
+  SET_OPACITY: "set-opacity",
+  TOGGLE_PIN: "toggle-pin",
+  ADD_PIN: "add-pin",
+  REMOVE_PIN: "remove-pin",
+  CLEAR_PINS: "clear-pins",
+  RESTORE_REGISTRATION: "restore-registration",
+  FIT_OVERLAY: "fit-overlay",
+  BEGIN_PLACEMENT_EDIT: "begin-placement-edit",
+  PREVIEW_PLACEMENT_EDIT: "preview-placement-edit",
+  COMMIT_PLACEMENT_EDIT: "commit-placement-edit",
+  CANCEL_PLACEMENT_EDIT: "cancel-placement-edit",
+  APPLY_PLACEMENT_EDIT: "apply-placement-edit",
+  RESTORE_PLACEMENT: "restore-placement",
+  UNDO: "undo",
+  REDO: "redo",
+  REQUEST_PANEL_INTENT: "request-panel-intent",
+  CANCEL_PANEL_INTENT: "cancel-panel-intent",
+  REPORT_STATUS_NOTICE: "report-status-notice",
+  CLEAR_STATUS_NOTICE: "clear-status-notice",
+});
+
+export function createLoadImageCommand({
+  image,
+  placement = null,
+  requestId = null,
+} = {}) {
+  return {
+    type: MACHINE_COMMAND_KIND.LOAD_IMAGE,
+    image,
+    placement,
+    requestId,
+  };
+}
+
+export function createCancelPanelIntentCommand({
+  requestId = null,
+  noticeKind = null,
+  noticePayload = null,
+} = {}) {
+  return {
+    type: MACHINE_COMMAND_KIND.CANCEL_PANEL_INTENT,
+    requestId,
+    noticeKind,
+    noticePayload,
+  };
+}
+
+export function createReportStatusNoticeCommand({
+  noticeKind,
+  noticePayload = null,
+} = {}) {
+  return {
+    type: MACHINE_COMMAND_KIND.REPORT_STATUS_NOTICE,
+    noticeKind,
+    noticePayload,
+  };
+}

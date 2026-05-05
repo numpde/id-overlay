@@ -2,13 +2,15 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  MACHINE_EVENT_KIND,
   MACHINE_HISTORY_KIND,
   MACHINE_MODE,
   MACHINE_PANEL_INTENT,
   MACHINE_PLACEMENT_EDIT_KIND,
   MACHINE_STATUS_NOTICE_KIND,
 } from "../../src/core/machine/events.js";
+import {
+  MACHINE_COMMAND_KIND,
+} from "../../src/core/machine/private-commands.js";
 import {
   selectOverlayPolicy,
 } from "../../src/core/machine/policy.js";
@@ -76,7 +78,7 @@ test("initial no-image state is native Trace with paste as the primary action", 
 
 test("loading an image enters Align and records a user-facing reloadable edit", () => {
   const result = transitionMachine(createInitialMachineState(), {
-    type: MACHINE_EVENT_KIND.LOAD_IMAGE,
+    type: MACHINE_COMMAND_KIND.LOAD_IMAGE,
     image: IMAGE,
     placement: PLACEMENT,
   });
@@ -96,12 +98,12 @@ test("pure mode switches are not history and do not clear redo", () => {
   let state = loadImage();
   state = addPin(state).state;
 
-  let result = transitionMachine(state, { type: MACHINE_EVENT_KIND.UNDO });
+  let result = transitionMachine(state, { type: MACHINE_COMMAND_KIND.UNDO });
   assert.equal(result.state.history.future.length, 1);
   assert.equal(selectPanelView(result.state).historyControls.redo.title, "Add pin");
 
   result = transitionMachine(result.state, {
-    type: MACHINE_EVENT_KIND.SELECT_MODE,
+    type: MACHINE_COMMAND_KIND.SELECT_MODE,
     mode: MACHINE_MODE.TRACE,
   });
 
@@ -115,7 +117,7 @@ test("invalid mode selection is a pure no-op", () => {
   const state = loadImage();
 
   const result = transitionMachine(state, {
-    type: MACHINE_EVENT_KIND.SELECT_MODE,
+    type: MACHINE_COMMAND_KIND.SELECT_MODE,
     mode: "invalid",
   });
 
@@ -129,7 +131,7 @@ test("Trace switch with dirty computable pins is an undoable fit transition", ()
   state = addTwoPins(state);
 
   const fit = transitionMachine(state, {
-    type: MACHINE_EVENT_KIND.SELECT_MODE,
+    type: MACHINE_COMMAND_KIND.SELECT_MODE,
     mode: MACHINE_MODE.TRACE,
   });
 
@@ -139,12 +141,12 @@ test("Trace switch with dirty computable pins is an undoable fit transition", ()
   assert.equal(fit.historyRecord.kind, MACHINE_HISTORY_KIND.FIT_OVERLAY);
   assert.equal(selectPanelView(fit.state).historyControls.undo.title, "Undo fit overlay");
 
-  const undo = transitionMachine(fit.state, { type: MACHINE_EVENT_KIND.UNDO });
+  const undo = transitionMachine(fit.state, { type: MACHINE_COMMAND_KIND.UNDO });
   assert.equal(undo.state.session.mode, MACHINE_MODE.ALIGN);
   assert.equal(undo.state.session.registration.dirty, true);
   assert.equal(undo.state.session.registration.solvedTransform, null);
 
-  const redo = transitionMachine(undo.state, { type: MACHINE_EVENT_KIND.REDO });
+  const redo = transitionMachine(undo.state, { type: MACHINE_COMMAND_KIND.REDO });
   assert.equal(redo.state.session.mode, MACHINE_MODE.TRACE);
   assert.equal(redo.state.session.registration.dirty, false);
   assert.ok(redo.state.session.registration.solvedTransform);
@@ -166,7 +168,7 @@ test("Trace switch with ready unsolved pins is still an undoable fit transition"
   });
 
   const fit = transitionMachine(state, {
-    type: MACHINE_EVENT_KIND.SELECT_MODE,
+    type: MACHINE_COMMAND_KIND.SELECT_MODE,
     mode: MACHINE_MODE.TRACE,
   });
 
@@ -179,15 +181,15 @@ test("pin undo and redo land in Align because pins are the visible editable obje
   let state = loadImage();
   state = addPin(state).state;
   state = transitionMachine(state, {
-    type: MACHINE_EVENT_KIND.SELECT_MODE,
+    type: MACHINE_COMMAND_KIND.SELECT_MODE,
     mode: MACHINE_MODE.TRACE,
   }).state;
 
-  const undo = transitionMachine(state, { type: MACHINE_EVENT_KIND.UNDO });
+  const undo = transitionMachine(state, { type: MACHINE_COMMAND_KIND.UNDO });
   assert.equal(undo.state.session.mode, MACHINE_MODE.ALIGN);
   assert.equal(undo.state.session.registration.pins.length, 0);
 
-  const redo = transitionMachine(undo.state, { type: MACHINE_EVENT_KIND.REDO });
+  const redo = transitionMachine(undo.state, { type: MACHINE_COMMAND_KIND.REDO });
   assert.equal(redo.state.session.mode, MACHINE_MODE.ALIGN);
   assert.equal(redo.state.session.registration.pins.length, 1);
 });
@@ -196,7 +198,7 @@ test("pin toggle is a machine-owned semantic transition over adapter facts", () 
   let state = loadImage();
 
   const add = transitionMachine(state, {
-    type: MACHINE_EVENT_KIND.TOGGLE_PIN,
+    type: MACHINE_COMMAND_KIND.TOGGLE_PIN,
     imagePx: { x: 400, y: 200 },
     mapLatLon: { lat: -1.23, lon: 36.84 },
   });
@@ -207,7 +209,7 @@ test("pin toggle is a machine-owned semantic transition over adapter facts", () 
 
   state = add.state;
   const remove = transitionMachine(state, {
-    type: MACHINE_EVENT_KIND.TOGGLE_PIN,
+    type: MACHINE_COMMAND_KIND.TOGGLE_PIN,
     existingPinId: 1,
     imagePx: { x: 400, y: 200 },
     mapLatLon: { lat: -1.23, lon: 36.84 },
@@ -221,12 +223,12 @@ test("pin toggle is a machine-owned semantic transition over adapter facts", () 
 test("pin toggle is invalid outside visible Align editing", () => {
   let state = loadImage();
   state = transitionMachine(state, {
-    type: MACHINE_EVENT_KIND.SELECT_MODE,
+    type: MACHINE_COMMAND_KIND.SELECT_MODE,
     mode: MACHINE_MODE.TRACE,
   }).state;
 
   const result = transitionMachine(state, {
-    type: MACHINE_EVENT_KIND.TOGGLE_PIN,
+    type: MACHINE_COMMAND_KIND.TOGGLE_PIN,
     imagePx: { x: 400, y: 200 },
     mapLatLon: { lat: -1.23, lon: 36.84 },
   });
@@ -238,15 +240,15 @@ test("pin toggle is invalid outside visible Align editing", () => {
 test("registration edits can preserve adapter-derived visible placement", () => {
   let state = addTwoPins(loadImage());
   state = transitionMachine(state, {
-    type: MACHINE_EVENT_KIND.FIT_OVERLAY,
+    type: MACHINE_COMMAND_KIND.FIT_OVERLAY,
   }).state;
   state = transitionMachine(state, {
-    type: MACHINE_EVENT_KIND.SELECT_MODE,
+    type: MACHINE_COMMAND_KIND.SELECT_MODE,
     mode: MACHINE_MODE.ALIGN,
   }).state;
 
   const result = transitionMachine(state, {
-    type: MACHINE_EVENT_KIND.TOGGLE_PIN,
+    type: MACHINE_COMMAND_KIND.TOGGLE_PIN,
     imagePx: { x: 300, y: 150 },
     mapLatLon: { lat: -1.1, lon: 37.1 },
     preservedPlacement: MOVED_PLACEMENT,
@@ -260,17 +262,17 @@ test("registration edits can preserve adapter-derived visible placement", () => 
 test("clear-pins undo and redo land in Align because pin state is invisible in Trace", () => {
   let state = loadImage();
   state = addTwoPins(state);
-  state = transitionMachine(state, { type: MACHINE_EVENT_KIND.CLEAR_PINS }).state;
+  state = transitionMachine(state, { type: MACHINE_COMMAND_KIND.CLEAR_PINS }).state;
   state = transitionMachine(state, {
-    type: MACHINE_EVENT_KIND.SELECT_MODE,
+    type: MACHINE_COMMAND_KIND.SELECT_MODE,
     mode: MACHINE_MODE.TRACE,
   }).state;
 
-  const undo = transitionMachine(state, { type: MACHINE_EVENT_KIND.UNDO });
+  const undo = transitionMachine(state, { type: MACHINE_COMMAND_KIND.UNDO });
   assert.equal(undo.state.session.mode, MACHINE_MODE.ALIGN);
   assert.equal(undo.state.session.registration.pins.length, 2);
 
-  const redo = transitionMachine(undo.state, { type: MACHINE_EVENT_KIND.REDO });
+  const redo = transitionMachine(undo.state, { type: MACHINE_COMMAND_KIND.REDO });
   assert.equal(redo.state.session.mode, MACHINE_MODE.ALIGN);
   assert.equal(redo.state.session.registration.pins.length, 0);
 });
@@ -278,11 +280,11 @@ test("clear-pins undo and redo land in Align because pin state is invisible in T
 test("clear-pins is invalid in Trace because pins are not visible there", () => {
   let state = addPin(loadImage()).state;
   state = transitionMachine(state, {
-    type: MACHINE_EVENT_KIND.SELECT_MODE,
+    type: MACHINE_COMMAND_KIND.SELECT_MODE,
     mode: MACHINE_MODE.TRACE,
   }).state;
 
-  const result = transitionMachine(state, { type: MACHINE_EVENT_KIND.CLEAR_PINS });
+  const result = transitionMachine(state, { type: MACHINE_COMMAND_KIND.CLEAR_PINS });
 
   assert.deepEqual(result.state, state);
   assert.equal(result.historyRecord, null);
@@ -295,18 +297,18 @@ test("semantic status notices describe the concrete visible edit", () => {
   assert.equal(selectPanelStatusText(add.state), "Added pin 1.");
 
   const remove = transitionMachine(add.state, {
-    type: MACHINE_EVENT_KIND.REMOVE_PIN,
+    type: MACHINE_COMMAND_KIND.REMOVE_PIN,
     id: 1,
   });
   assert.equal(selectPanelStatusText(remove.state), "Removed pin 1.");
 
   state = addTwoPins(loadImage());
-  const clear = transitionMachine(state, { type: MACHINE_EVENT_KIND.CLEAR_PINS });
+  const clear = transitionMachine(state, { type: MACHINE_COMMAND_KIND.CLEAR_PINS });
   assert.equal(selectPanelStatusText(clear.state), "Cleared 2 pins.");
 
   state = addTwoPins(loadImage());
   const fit = transitionMachine(state, {
-    type: MACHINE_EVENT_KIND.SELECT_MODE,
+    type: MACHINE_COMMAND_KIND.SELECT_MODE,
     mode: MACHINE_MODE.TRACE,
   });
   assert.equal(selectPanelStatusText(fit.state), "Fit overlay from 2 pins.");
@@ -315,34 +317,34 @@ test("semantic status notices describe the concrete visible edit", () => {
 test("placement undo and redo preserve the user's current mode", () => {
   let state = loadImage();
   state = transitionMachine(state, {
-    type: MACHINE_EVENT_KIND.APPLY_PLACEMENT_EDIT,
+    type: MACHINE_COMMAND_KIND.APPLY_PLACEMENT_EDIT,
     renderedPlacement: PLACEMENT,
     placement: MOVED_PLACEMENT,
     editKind: MACHINE_PLACEMENT_EDIT_KIND.MOVE,
   }).state;
   state = transitionMachine(state, {
-    type: MACHINE_EVENT_KIND.SELECT_MODE,
+    type: MACHINE_COMMAND_KIND.SELECT_MODE,
     mode: MACHINE_MODE.TRACE,
   }).state;
 
-  const undo = transitionMachine(state, { type: MACHINE_EVENT_KIND.UNDO });
+  const undo = transitionMachine(state, { type: MACHINE_COMMAND_KIND.UNDO });
   assert.equal(undo.state.session.mode, MACHINE_MODE.TRACE);
   assert.deepEqual(undo.state.session.placement, PLACEMENT);
 
-  const redo = transitionMachine(undo.state, { type: MACHINE_EVENT_KIND.REDO });
+  const redo = transitionMachine(undo.state, { type: MACHINE_COMMAND_KIND.REDO });
   assert.equal(redo.state.session.mode, MACHINE_MODE.TRACE);
   assert.deepEqual(redo.state.session.placement, MOVED_PLACEMENT);
 });
 
 test("placement history replay can restore an explicitly empty placement", () => {
   const state = transitionMachine(createInitialMachineState(), {
-    type: MACHINE_EVENT_KIND.LOAD_IMAGE,
+    type: MACHINE_COMMAND_KIND.LOAD_IMAGE,
     image: IMAGE,
     placement: MOVED_PLACEMENT,
   }).state;
 
   const result = transitionMachine(state, {
-    type: MACHINE_EVENT_KIND.RESTORE_PLACEMENT,
+    type: MACHINE_COMMAND_KIND.RESTORE_PLACEMENT,
     placement: null,
   });
   assert.equal(result.state.session.placement, null);
@@ -353,7 +355,7 @@ test("placement history distinguishes move rotate and scale without tracking opa
   let state = loadImage();
 
   const rotate = transitionMachine(state, {
-    type: MACHINE_EVENT_KIND.APPLY_PLACEMENT_EDIT,
+    type: MACHINE_COMMAND_KIND.APPLY_PLACEMENT_EDIT,
     renderedPlacement: PLACEMENT,
     placement: { ...PLACEMENT, b: 0.5, rotationRad: 0.5 },
     editKind: MACHINE_PLACEMENT_EDIT_KIND.ROTATE,
@@ -362,7 +364,7 @@ test("placement history distinguishes move rotate and scale without tracking opa
   assert.equal(rotate.historyRecord.undoLabel, "Undo rotate overlay");
 
   const scale = transitionMachine(rotate.state, {
-    type: MACHINE_EVENT_KIND.APPLY_PLACEMENT_EDIT,
+    type: MACHINE_COMMAND_KIND.APPLY_PLACEMENT_EDIT,
     renderedPlacement: rotate.state.session.placement,
     placement: { ...PLACEMENT, a: 2, scale: 2 },
     editKind: MACHINE_PLACEMENT_EDIT_KIND.SCALE,
@@ -375,7 +377,7 @@ test("placement edit preview is transient machine runtime, not durable session s
   let state = loadImage();
 
   const begin = transitionMachine(state, {
-    type: MACHINE_EVENT_KIND.BEGIN_PLACEMENT_EDIT,
+    type: MACHINE_COMMAND_KIND.BEGIN_PLACEMENT_EDIT,
     editKind: MACHINE_PLACEMENT_EDIT_KIND.MOVE,
     renderedPlacement: PLACEMENT,
   });
@@ -385,7 +387,7 @@ test("placement edit preview is transient machine runtime, not durable session s
   assert.deepEqual(begin.state.runtime.placementEdit.previewPlacement, PLACEMENT);
 
   const preview = transitionMachine(begin.state, {
-    type: MACHINE_EVENT_KIND.PREVIEW_PLACEMENT_EDIT,
+    type: MACHINE_COMMAND_KIND.PREVIEW_PLACEMENT_EDIT,
     placement: MOVED_PLACEMENT,
   });
   assert.equal(preview.historyRecord, null);
@@ -397,17 +399,17 @@ test("placement edit preview is transient machine runtime, not durable session s
 test("placement edit commit records one semantic history entry and clears the preview", () => {
   let state = loadImage();
   state = transitionMachine(state, {
-    type: MACHINE_EVENT_KIND.BEGIN_PLACEMENT_EDIT,
+    type: MACHINE_COMMAND_KIND.BEGIN_PLACEMENT_EDIT,
     editKind: MACHINE_PLACEMENT_EDIT_KIND.MOVE,
     renderedPlacement: PLACEMENT,
   }).state;
   state = transitionMachine(state, {
-    type: MACHINE_EVENT_KIND.PREVIEW_PLACEMENT_EDIT,
+    type: MACHINE_COMMAND_KIND.PREVIEW_PLACEMENT_EDIT,
     placement: MOVED_PLACEMENT,
   }).state;
 
   const commit = transitionMachine(state, {
-    type: MACHINE_EVENT_KIND.COMMIT_PLACEMENT_EDIT,
+    type: MACHINE_COMMAND_KIND.COMMIT_PLACEMENT_EDIT,
   });
 
   assert.deepEqual(commit.state.session.placement, MOVED_PLACEMENT);
@@ -415,11 +417,11 @@ test("placement edit commit records one semantic history entry and clears the pr
   assert.equal(commit.historyRecord.kind, MACHINE_HISTORY_KIND.MOVE_OVERLAY);
   assert.equal(commit.state.history.past.at(-1).kind, MACHINE_HISTORY_KIND.MOVE_OVERLAY);
 
-  const undo = transitionMachine(commit.state, { type: MACHINE_EVENT_KIND.UNDO });
+  const undo = transitionMachine(commit.state, { type: MACHINE_COMMAND_KIND.UNDO });
   assert.deepEqual(undo.state.session.placement, PLACEMENT);
   assert.equal(undo.state.runtime.placementEdit, null);
 
-  const redo = transitionMachine(undo.state, { type: MACHINE_EVENT_KIND.REDO });
+  const redo = transitionMachine(undo.state, { type: MACHINE_COMMAND_KIND.REDO });
   assert.deepEqual(redo.state.session.placement, MOVED_PLACEMENT);
   assert.equal(redo.state.runtime.placementEdit, null);
 });
@@ -427,13 +429,13 @@ test("placement edit commit records one semantic history entry and clears the pr
 test("unchanged placement edit commit only clears transient runtime", () => {
   let state = loadImage();
   state = transitionMachine(state, {
-    type: MACHINE_EVENT_KIND.BEGIN_PLACEMENT_EDIT,
+    type: MACHINE_COMMAND_KIND.BEGIN_PLACEMENT_EDIT,
     editKind: MACHINE_PLACEMENT_EDIT_KIND.MOVE,
     renderedPlacement: PLACEMENT,
   }).state;
 
   const commit = transitionMachine(state, {
-    type: MACHINE_EVENT_KIND.COMMIT_PLACEMENT_EDIT,
+    type: MACHINE_COMMAND_KIND.COMMIT_PLACEMENT_EDIT,
   });
 
   assert.deepEqual(commit.state.session.placement, PLACEMENT);
@@ -444,17 +446,17 @@ test("unchanged placement edit commit only clears transient runtime", () => {
 test("cancelled placement edit drops preview without changing session", () => {
   let state = loadImage();
   state = transitionMachine(state, {
-    type: MACHINE_EVENT_KIND.BEGIN_PLACEMENT_EDIT,
+    type: MACHINE_COMMAND_KIND.BEGIN_PLACEMENT_EDIT,
     editKind: MACHINE_PLACEMENT_EDIT_KIND.MOVE,
     renderedPlacement: PLACEMENT,
   }).state;
   state = transitionMachine(state, {
-    type: MACHINE_EVENT_KIND.PREVIEW_PLACEMENT_EDIT,
+    type: MACHINE_COMMAND_KIND.PREVIEW_PLACEMENT_EDIT,
     placement: MOVED_PLACEMENT,
   }).state;
 
   const cancel = transitionMachine(state, {
-    type: MACHINE_EVENT_KIND.CANCEL_PLACEMENT_EDIT,
+    type: MACHINE_COMMAND_KIND.CANCEL_PLACEMENT_EDIT,
   });
 
   assert.deepEqual(cancel.state.session.placement, PLACEMENT);
@@ -466,7 +468,7 @@ test("one-shot placement edits are undoable user-visible rotate and scale action
   let state = loadImage();
   const rotatedPlacement = { ...PLACEMENT, a: 0.5, b: 0.5, rotationRad: Math.PI / 4 };
   const rotate = transitionMachine(state, {
-    type: MACHINE_EVENT_KIND.APPLY_PLACEMENT_EDIT,
+    type: MACHINE_COMMAND_KIND.APPLY_PLACEMENT_EDIT,
     editKind: MACHINE_PLACEMENT_EDIT_KIND.ROTATE,
     renderedPlacement: PLACEMENT,
     placement: rotatedPlacement,
@@ -479,7 +481,7 @@ test("one-shot placement edits are undoable user-visible rotate and scale action
   state = rotate.state;
   const scaledPlacement = { ...rotatedPlacement, a: 2, b: 0, scale: 2, rotationRad: 0 };
   const scale = transitionMachine(state, {
-    type: MACHINE_EVENT_KIND.APPLY_PLACEMENT_EDIT,
+    type: MACHINE_COMMAND_KIND.APPLY_PLACEMENT_EDIT,
     editKind: MACHINE_PLACEMENT_EDIT_KIND.SCALE,
     renderedPlacement: rotatedPlacement,
     placement: scaledPlacement,
@@ -492,7 +494,7 @@ test("one-shot placement edits are undoable user-visible rotate and scale action
 test("placement edit lifecycle is invalid outside Align overlay editing", () => {
   let state = createInitialMachineState();
   let result = transitionMachine(state, {
-    type: MACHINE_EVENT_KIND.BEGIN_PLACEMENT_EDIT,
+    type: MACHINE_COMMAND_KIND.BEGIN_PLACEMENT_EDIT,
     editKind: MACHINE_PLACEMENT_EDIT_KIND.MOVE,
     renderedPlacement: PLACEMENT,
   });
@@ -500,11 +502,11 @@ test("placement edit lifecycle is invalid outside Align overlay editing", () => 
 
   state = loadImage();
   state = transitionMachine(state, {
-    type: MACHINE_EVENT_KIND.SELECT_MODE,
+    type: MACHINE_COMMAND_KIND.SELECT_MODE,
     mode: MACHINE_MODE.TRACE,
   }).state;
   result = transitionMachine(state, {
-    type: MACHINE_EVENT_KIND.APPLY_PLACEMENT_EDIT,
+    type: MACHINE_COMMAND_KIND.APPLY_PLACEMENT_EDIT,
     editKind: MACHINE_PLACEMENT_EDIT_KIND.SCALE,
     renderedPlacement: PLACEMENT,
     placement: MOVED_PLACEMENT,
@@ -517,16 +519,16 @@ test("placement edit lifecycle is invalid outside Align overlay editing", () => 
 test("redoing a loaded image restores authored image-load context, not later mode switches", () => {
   let state = loadImage();
   state = transitionMachine(state, {
-    type: MACHINE_EVENT_KIND.SELECT_MODE,
+    type: MACHINE_COMMAND_KIND.SELECT_MODE,
     mode: MACHINE_MODE.TRACE,
   }).state;
 
-  const undo = transitionMachine(state, { type: MACHINE_EVENT_KIND.UNDO });
+  const undo = transitionMachine(state, { type: MACHINE_COMMAND_KIND.UNDO });
   assert.equal(undo.state.session.image, null);
   assert.equal(undo.state.session.mode, MACHINE_MODE.TRACE);
   assert.equal(selectPanelView(undo.state).historyControls.redo.title, "Reload image");
 
-  const redo = transitionMachine(undo.state, { type: MACHINE_EVENT_KIND.REDO });
+  const redo = transitionMachine(undo.state, { type: MACHINE_COMMAND_KIND.REDO });
   assert.deepEqual(redo.state.session.image, NORMALIZED_IMAGE);
   assert.equal(redo.state.session.mode, MACHINE_MODE.ALIGN);
 });
@@ -534,19 +536,19 @@ test("redoing a loaded image restores authored image-load context, not later mod
 test("clear-image undo restores image context and redo returns to native Trace", () => {
   let state = loadImage();
   state = transitionMachine(state, {
-    type: MACHINE_EVENT_KIND.SELECT_MODE,
+    type: MACHINE_COMMAND_KIND.SELECT_MODE,
     mode: MACHINE_MODE.TRACE,
   }).state;
-  state = transitionMachine(state, { type: MACHINE_EVENT_KIND.CLEAR_IMAGE }).state;
+  state = transitionMachine(state, { type: MACHINE_COMMAND_KIND.CLEAR_IMAGE }).state;
 
   assert.equal(state.session.image, null);
   assert.equal(state.session.mode, MACHINE_MODE.TRACE);
 
-  const undo = transitionMachine(state, { type: MACHINE_EVENT_KIND.UNDO });
+  const undo = transitionMachine(state, { type: MACHINE_COMMAND_KIND.UNDO });
   assert.deepEqual(undo.state.session.image, NORMALIZED_IMAGE);
   assert.equal(undo.state.session.mode, MACHINE_MODE.TRACE);
 
-  const redo = transitionMachine(undo.state, { type: MACHINE_EVENT_KIND.REDO });
+  const redo = transitionMachine(undo.state, { type: MACHINE_COMMAND_KIND.REDO });
   assert.equal(redo.state.session.image, null);
   assert.equal(redo.state.session.mode, MACHINE_MODE.TRACE);
 });
@@ -555,22 +557,22 @@ test("new semantic edits clear redo, but pure mode switches do not", () => {
   let state = loadImage();
   state = addPin(state).state;
 
-  state = transitionMachine(state, { type: MACHINE_EVENT_KIND.UNDO }).state;
+  state = transitionMachine(state, { type: MACHINE_COMMAND_KIND.UNDO }).state;
   assert.equal(state.history.future.length, 1);
 
   state = transitionMachine(state, {
-    type: MACHINE_EVENT_KIND.SELECT_MODE,
+    type: MACHINE_COMMAND_KIND.SELECT_MODE,
     mode: MACHINE_MODE.TRACE,
   }).state;
   assert.equal(state.history.future.length, 1);
   state = transitionMachine(state, {
-    type: MACHINE_EVENT_KIND.SELECT_MODE,
+    type: MACHINE_COMMAND_KIND.SELECT_MODE,
     mode: MACHINE_MODE.ALIGN,
   }).state;
   assert.equal(state.history.future.length, 1);
 
   state = transitionMachine(state, {
-    type: MACHINE_EVENT_KIND.APPLY_PLACEMENT_EDIT,
+    type: MACHINE_COMMAND_KIND.APPLY_PLACEMENT_EDIT,
     renderedPlacement: PLACEMENT,
     placement: MOVED_PLACEMENT,
     editKind: MACHINE_PLACEMENT_EDIT_KIND.MOVE,
@@ -582,7 +584,7 @@ test("new semantic edits clear redo, but pure mode switches do not", () => {
 test("selectors derive panel intent, status, controls, and pass-through", () => {
   let state = loadImage();
   state = transitionMachine(state, {
-    type: MACHINE_EVENT_KIND.REQUEST_PANEL_INTENT,
+    type: MACHINE_COMMAND_KIND.REQUEST_PANEL_INTENT,
     intent: MACHINE_PANEL_INTENT.CLEAR_IMAGE_CONFIRM,
   }).state;
 
@@ -608,7 +610,7 @@ test("selectors derive panel intent, status, controls, and pass-through", () => 
   });
 
   state = transitionMachine(state, {
-    type: MACHINE_EVENT_KIND.SELECT_MODE,
+    type: MACHINE_COMMAND_KIND.SELECT_MODE,
     mode: MACHINE_MODE.TRACE,
   }).state;
   assert.equal(selectPanelView(state).modeSwitch.checked, true);
@@ -629,14 +631,14 @@ test("panel view derives primary action and mode switch directly from machine st
   assert.equal(selectPanelView(state).mainAction.label, "Clear 2 pins");
 
   state = transitionMachine(state, {
-    type: MACHINE_EVENT_KIND.REQUEST_PANEL_INTENT,
+    type: MACHINE_COMMAND_KIND.REQUEST_PANEL_INTENT,
     intent: MACHINE_PANEL_INTENT.CLEAR_PINS_CONFIRM,
   }).state;
   assert.equal(selectPanelView(state).mainAction.label, "Clear pins?");
   assert.equal(selectPanelView(state).mainAction.presentationKind, "confirm");
 
   state = transitionMachine(state, {
-    type: MACHINE_EVENT_KIND.SELECT_MODE,
+    type: MACHINE_COMMAND_KIND.SELECT_MODE,
     mode: MACHINE_MODE.TRACE,
   }).state;
   assert.equal(selectPanelView(state).mainAction.label, "Clear image");
@@ -647,7 +649,7 @@ test("machine rejects panel intents that are invalid for the current state", () 
   let state = createInitialMachineState();
 
   let result = transitionMachine(state, {
-    type: MACHINE_EVENT_KIND.REQUEST_PANEL_INTENT,
+    type: MACHINE_COMMAND_KIND.REQUEST_PANEL_INTENT,
     intent: MACHINE_PANEL_INTENT.CLEAR_IMAGE_CONFIRM,
   });
   assert.deepEqual(result.state, state);
@@ -655,11 +657,11 @@ test("machine rejects panel intents that are invalid for the current state", () 
 
   state = addPin(loadImage()).state;
   state = transitionMachine(state, {
-    type: MACHINE_EVENT_KIND.SELECT_MODE,
+    type: MACHINE_COMMAND_KIND.SELECT_MODE,
     mode: MACHINE_MODE.TRACE,
   }).state;
   result = transitionMachine(state, {
-    type: MACHINE_EVENT_KIND.REQUEST_PANEL_INTENT,
+    type: MACHINE_COMMAND_KIND.REQUEST_PANEL_INTENT,
     intent: MACHINE_PANEL_INTENT.CLEAR_PINS_CONFIRM,
   });
 
@@ -669,7 +671,7 @@ test("machine rejects panel intents that are invalid for the current state", () 
 
 function loadImage() {
   return transitionMachine(createInitialMachineState(), {
-    type: MACHINE_EVENT_KIND.LOAD_IMAGE,
+    type: MACHINE_COMMAND_KIND.LOAD_IMAGE,
     image: IMAGE,
     placement: PLACEMENT,
   }).state;
@@ -677,7 +679,7 @@ function loadImage() {
 
 function addPin(state) {
   return transitionMachine(state, {
-    type: MACHINE_EVENT_KIND.ADD_PIN,
+    type: MACHINE_COMMAND_KIND.ADD_PIN,
     imagePx: { x: 400, y: 200 },
     mapLatLon: { lat: -1.23, lon: 36.84 },
   });
@@ -685,13 +687,13 @@ function addPin(state) {
 
 function addTwoPins(state) {
   state = transitionMachine(state, {
-    type: MACHINE_EVENT_KIND.ADD_PIN,
+    type: MACHINE_COMMAND_KIND.ADD_PIN,
     id: 1,
     imagePx: { x: 400, y: 200 },
     mapLatLon: { lat: -1.23, lon: 36.84 },
   }).state;
   return transitionMachine(state, {
-    type: MACHINE_EVENT_KIND.ADD_PIN,
+    type: MACHINE_COMMAND_KIND.ADD_PIN,
     id: 2,
     imagePx: { x: 600, y: 200 },
     mapLatLon: { lat: -1.23, lon: 38.84 },

@@ -2,7 +2,6 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  MACHINE_EVENT_KIND,
   MACHINE_HISTORY_KIND,
   MACHINE_INPUT_OVERRIDE,
   MACHINE_MODE,
@@ -11,6 +10,9 @@ import {
   MACHINE_POINTER_GESTURE_KIND,
   MACHINE_STATUS_NOTICE_KIND,
 } from "../../src/core/machine/events.js";
+import {
+  MACHINE_COMMAND_KIND,
+} from "../../src/core/machine/private-commands.js";
 import {
   createInitialMachineState,
 } from "../../src/core/machine/state.js";
@@ -309,11 +311,11 @@ test("round trip preserves durable session facts only", () => {
 
 test("round trip does not preserve undo or redo history", () => {
   let state = transitionMachine(createInitialMachineState(), {
-    type: MACHINE_EVENT_KIND.LOAD_IMAGE,
+    type: MACHINE_COMMAND_KIND.LOAD_IMAGE,
     image: IMAGE,
     placement: PLACEMENT,
   }).state;
-  state = transitionMachine(state, { type: MACHINE_EVENT_KIND.UNDO }).state;
+  state = transitionMachine(state, { type: MACHINE_COMMAND_KIND.UNDO }).state;
 
   assert.equal(state.history.future.length, 1);
 

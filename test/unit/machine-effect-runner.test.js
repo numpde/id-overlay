@@ -2,14 +2,16 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  MACHINE_EVENT_KIND,
   MACHINE_PANEL_INTENT,
   MACHINE_PASTE_SOURCE,
   MACHINE_STATUS_NOTICE_KIND,
-  createCancelPanelIntentEvent,
-  createLoadImageEvent,
-  createReportStatusNoticeEvent,
 } from "../../src/core/machine/events.js";
+import {
+  MACHINE_COMMAND_KIND,
+  createCancelPanelIntentCommand,
+  createLoadImageCommand,
+  createReportStatusNoticeCommand,
+} from "../../src/core/machine/private-commands.js";
 import {
   MACHINE_EFFECT_KIND,
   MACHINE_EFFECT_RESULT_KIND,
@@ -29,25 +31,25 @@ const IMAGE = Object.freeze({
 });
 
 test("constructors centralize effect-runner request and result shapes", () => {
-  assert.deepEqual(createLoadImageEvent({
+  assert.deepEqual(createLoadImageCommand({
     image: IMAGE,
     requestId: 7,
   }), {
-    type: MACHINE_EVENT_KIND.LOAD_IMAGE,
+    type: MACHINE_COMMAND_KIND.LOAD_IMAGE,
     image: IMAGE,
     placement: null,
     requestId: 7,
   });
-  assert.deepEqual(createCancelPanelIntentEvent({ requestId: 7 }), {
-    type: MACHINE_EVENT_KIND.CANCEL_PANEL_INTENT,
+  assert.deepEqual(createCancelPanelIntentCommand({ requestId: 7 }), {
+    type: MACHINE_COMMAND_KIND.CANCEL_PANEL_INTENT,
     requestId: 7,
     noticeKind: null,
     noticePayload: null,
   });
-  assert.deepEqual(createReportStatusNoticeEvent({
+  assert.deepEqual(createReportStatusNoticeCommand({
     noticeKind: MACHINE_STATUS_NOTICE_KIND.CLIPBOARD_MISSING_IMAGE,
   }), {
-    type: MACHINE_EVENT_KIND.REPORT_STATUS_NOTICE,
+    type: MACHINE_COMMAND_KIND.REPORT_STATUS_NOTICE,
     noticeKind: MACHINE_STATUS_NOTICE_KIND.CLIPBOARD_MISSING_IMAGE,
     noticePayload: null,
   });

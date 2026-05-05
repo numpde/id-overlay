@@ -203,7 +203,7 @@ test("live interactions and overlay read canonical machine host, not the legacy 
 test("interaction adapter does not own registration solve or pin mutation semantics", () => {
   const source = fs.readFileSync(repoPath("src/content/interaction-controller.js"), "utf8");
   const forbiddenPatterns = [
-    ["direct add/remove/restore events", /MACHINE_EVENT_KIND\.(?:ADD_PIN|REMOVE_PIN|RESTORE_REGISTRATION)/],
+    ["direct add/remove/restore events", /MACHINE_COMMAND_KIND\.(?:ADD_PIN|REMOVE_PIN|RESTORE_REGISTRATION)/],
     ["registration solver import", /\bsolveSimilarityTransform\b/],
     ["public pin/solve result vocabulary", /\b(?:PIN_RESULT_(?:ACTION|REASON)|SOLVE_RESULT_REASON)\b/],
     ["public pin toggle command", /\brequestTogglePinAtCurrentPointer\b/],
@@ -261,7 +261,7 @@ test("interaction tests do not recreate semantic controller facade APIs", () => 
 test("interaction adapter does not own placement edit lifecycle semantics", () => {
   const source = fs.readFileSync(repoPath("src/content/interaction-controller.js"), "utf8");
   const forbiddenPatterns = [
-    ["direct placement restore events", /MACHINE_EVENT_KIND\.RESTORE_PLACEMENT/],
+    ["direct placement restore events", /MACHINE_COMMAND_KIND\.RESTORE_PLACEMENT/],
     ["interaction-local placement draft", /\bplacementEditDraft\b/],
     ["interaction-local placement lifecycle", /\b(?:begin|commit)PlacementEdit\b/],
   ];
@@ -275,9 +275,9 @@ test("interaction adapter does not own placement edit lifecycle semantics", () =
 test("interaction controller shell delegates pin and wheel command semantics", () => {
   const source = fs.readFileSync(repoPath("src/content/interaction-controller.js"), "utf8");
   const forbiddenPatterns = [
-    ["direct pin toggle event", /MACHINE_EVENT_KIND\.TOGGLE_PIN/],
-    ["direct opacity event", /MACHINE_EVENT_KIND\.SET_OPACITY/],
-    ["direct placement edit event", /MACHINE_EVENT_KIND\.APPLY_PLACEMENT_EDIT/],
+    ["direct pin toggle event", /MACHINE_COMMAND_KIND\.TOGGLE_PIN/],
+    ["direct opacity event", /MACHINE_COMMAND_KIND\.SET_OPACITY/],
+    ["direct placement edit event", /MACHINE_COMMAND_KIND\.APPLY_PLACEMENT_EDIT/],
     ["placement command kind", /\bMACHINE_PLACEMENT_EDIT_KIND\b/],
     [
       "pin command geometry",

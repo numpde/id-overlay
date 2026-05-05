@@ -1,10 +1,12 @@
 import {
-  MACHINE_EVENT_KIND,
   MACHINE_INPUT_OVERRIDE,
   MACHINE_MODE,
   MACHINE_PANEL_INTENT,
   MACHINE_STATUS_NOTICE_KIND,
 } from "./events.js";
+import {
+  MACHINE_COMMAND_KIND,
+} from "./private-commands.js";
 import { createMachineEffectRunner } from "./effect-runner.js";
 import {
   createPanelTimeoutElapsedResult,
@@ -122,25 +124,25 @@ export function createMachineHost({
     switch (action.kind) {
       case MACHINE_PANEL_PRIMARY_ACTION_KIND.PASTE:
         return ingestMachineEvent({
-          type: MACHINE_EVENT_KIND.REQUEST_PANEL_INTENT,
+          type: MACHINE_COMMAND_KIND.REQUEST_PANEL_INTENT,
           intent: MACHINE_PANEL_INTENT.PASTE_ARMED,
         });
       case MACHINE_PANEL_PRIMARY_ACTION_KIND.PASTE_ARMED:
         return ingestMachineEvent({
-          type: MACHINE_EVENT_KIND.CANCEL_PANEL_INTENT,
+          type: MACHINE_COMMAND_KIND.CANCEL_PANEL_INTENT,
           requestId: state.panel.requestId,
           noticeKind: MACHINE_STATUS_NOTICE_KIND.PASTE_CANCELLED,
         });
       case MACHINE_PANEL_PRIMARY_ACTION_KIND.CLEAR_PINS:
         return ingestMachineEvent({
-          type: MACHINE_EVENT_KIND.REQUEST_PANEL_INTENT,
+          type: MACHINE_COMMAND_KIND.REQUEST_PANEL_INTENT,
           intent: MACHINE_PANEL_INTENT.CLEAR_PINS_CONFIRM,
         });
       case MACHINE_PANEL_PRIMARY_ACTION_KIND.CONFIRM_CLEAR_PINS:
         return clearPins();
       case MACHINE_PANEL_PRIMARY_ACTION_KIND.CLEAR_IMAGE:
         return ingestMachineEvent({
-          type: MACHINE_EVENT_KIND.REQUEST_PANEL_INTENT,
+          type: MACHINE_COMMAND_KIND.REQUEST_PANEL_INTENT,
           intent: MACHINE_PANEL_INTENT.CLEAR_IMAGE_CONFIRM,
         });
       case MACHINE_PANEL_PRIMARY_ACTION_KIND.CONFIRM_CLEAR_IMAGE:
@@ -167,37 +169,37 @@ export function createMachineHost({
   }
 
   function activateUndo() {
-    return ingestMachineEvent({ type: MACHINE_EVENT_KIND.UNDO });
+    return ingestMachineEvent({ type: MACHINE_COMMAND_KIND.UNDO });
   }
 
   function activateRedo() {
-    return ingestMachineEvent({ type: MACHINE_EVENT_KIND.REDO });
+    return ingestMachineEvent({ type: MACHINE_COMMAND_KIND.REDO });
   }
 
   function selectMode(mode) {
     return ingestMachineEvent({
-      type: MACHINE_EVENT_KIND.SELECT_MODE,
+      type: MACHINE_COMMAND_KIND.SELECT_MODE,
       mode,
     });
   }
 
   function setOpacity(opacity) {
     return ingestMachineEvent({
-      type: MACHINE_EVENT_KIND.SET_OPACITY,
+      type: MACHINE_COMMAND_KIND.SET_OPACITY,
       opacity,
     });
   }
 
   function updatePointer(screenPx) {
     return ingestMachineEvent({
-      type: MACHINE_EVENT_KIND.UPDATE_POINTER_RUNTIME,
+      type: MACHINE_COMMAND_KIND.UPDATE_POINTER_RUNTIME,
       screenPx,
     });
   }
 
   function beginPointerGesture(screenPx, { gestureKind }) {
     return ingestMachineEvent({
-      type: MACHINE_EVENT_KIND.BEGIN_POINTER_GESTURE,
+      type: MACHINE_COMMAND_KIND.BEGIN_POINTER_GESTURE,
       screenPx,
       gestureKind,
     });
@@ -205,21 +207,21 @@ export function createMachineHost({
 
   function endPointerGesture(screenPx) {
     return ingestMachineEvent({
-      type: MACHINE_EVENT_KIND.END_POINTER_GESTURE,
+      type: MACHINE_COMMAND_KIND.END_POINTER_GESTURE,
       screenPx,
     });
   }
 
   function setInputPassThrough(isActive) {
     return ingestMachineEvent({
-      type: MACHINE_EVENT_KIND.SET_INPUT_OVERRIDE,
+      type: MACHINE_COMMAND_KIND.SET_INPUT_OVERRIDE,
       inputOverride: isActive ? MACHINE_INPUT_OVERRIDE.PASS_THROUGH : null,
     });
   }
 
   function resetInputRuntime({ screenPx }) {
     return ingestMachineEvent({
-      type: MACHINE_EVENT_KIND.RESET_INPUT_RUNTIME,
+      type: MACHINE_COMMAND_KIND.RESET_INPUT_RUNTIME,
       screenPx,
     });
   }
@@ -235,7 +237,7 @@ export function createMachineHost({
 
   function loadImage({ image, placement = null, requestId = null } = {}) {
     return ingestMachineEvent({
-      type: MACHINE_EVENT_KIND.LOAD_IMAGE,
+      type: MACHINE_COMMAND_KIND.LOAD_IMAGE,
       image,
       placement,
       requestId,
@@ -244,33 +246,33 @@ export function createMachineHost({
 
   function clearImage() {
     return ingestMachineEvent({
-      type: MACHINE_EVENT_KIND.CLEAR_IMAGE,
+      type: MACHINE_COMMAND_KIND.CLEAR_IMAGE,
     });
   }
 
   function clearPins({ preservedPlacement = null } = {}) {
     return ingestMachineEvent({
-      type: MACHINE_EVENT_KIND.CLEAR_PINS,
+      type: MACHINE_COMMAND_KIND.CLEAR_PINS,
       ...(preservedPlacement ? { preservedPlacement } : {}),
     });
   }
 
   function fitOverlay() {
     return ingestMachineEvent({
-      type: MACHINE_EVENT_KIND.FIT_OVERLAY,
+      type: MACHINE_COMMAND_KIND.FIT_OVERLAY,
     });
   }
 
   function requestPanelIntent(intent) {
     return ingestMachineEvent({
-      type: MACHINE_EVENT_KIND.REQUEST_PANEL_INTENT,
+      type: MACHINE_COMMAND_KIND.REQUEST_PANEL_INTENT,
       intent,
     });
   }
 
   function cancelPanelIntent({ requestId = null, noticeKind = null, noticePayload = null } = {}) {
     return ingestMachineEvent({
-      type: MACHINE_EVENT_KIND.CANCEL_PANEL_INTENT,
+      type: MACHINE_COMMAND_KIND.CANCEL_PANEL_INTENT,
       requestId,
       noticeKind,
       noticePayload,
@@ -279,7 +281,7 @@ export function createMachineHost({
 
   function reportStatusNotice({ noticeKind, noticePayload = null } = {}) {
     return ingestMachineEvent({
-      type: MACHINE_EVENT_KIND.REPORT_STATUS_NOTICE,
+      type: MACHINE_COMMAND_KIND.REPORT_STATUS_NOTICE,
       noticeKind,
       noticePayload,
     });
@@ -292,7 +294,7 @@ export function createMachineHost({
     preservedPlacement = null,
   }) {
     return ingestMachineEvent({
-      type: MACHINE_EVENT_KIND.TOGGLE_PIN,
+      type: MACHINE_COMMAND_KIND.TOGGLE_PIN,
       imagePx,
       mapLatLon,
       existingPinId,
@@ -306,20 +308,20 @@ export function createMachineHost({
     }
     if (plan.phase === PLACEMENT_EDIT_PLAN_PHASE.BEGIN) {
       return ingestMachineEvent({
-        type: MACHINE_EVENT_KIND.BEGIN_PLACEMENT_EDIT,
+        type: MACHINE_COMMAND_KIND.BEGIN_PLACEMENT_EDIT,
         editKind: plan.kind,
         renderedPlacement: plan.renderedPlacement,
       });
     }
     if (plan.phase === PLACEMENT_EDIT_PLAN_PHASE.PREVIEW) {
       return ingestMachineEvent({
-        type: MACHINE_EVENT_KIND.PREVIEW_PLACEMENT_EDIT,
+        type: MACHINE_COMMAND_KIND.PREVIEW_PLACEMENT_EDIT,
         placement: plan.placement,
       });
     }
     if (plan.phase === PLACEMENT_EDIT_PLAN_PHASE.APPLY) {
       return ingestMachineEvent({
-        type: MACHINE_EVENT_KIND.APPLY_PLACEMENT_EDIT,
+        type: MACHINE_COMMAND_KIND.APPLY_PLACEMENT_EDIT,
         editKind: plan.kind,
         renderedPlacement: plan.renderedPlacement,
         placement: plan.placement,
@@ -330,7 +332,7 @@ export function createMachineHost({
 
   function finishPlacementEditPlan() {
     return ingestMachineEvent({
-      type: MACHINE_EVENT_KIND.COMMIT_PLACEMENT_EDIT,
+      type: MACHINE_COMMAND_KIND.COMMIT_PLACEMENT_EDIT,
     });
   }
 

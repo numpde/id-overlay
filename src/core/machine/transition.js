@@ -1,6 +1,6 @@
 import {
-  MACHINE_EVENT_KIND,
-} from "./events.js";
+  MACHINE_COMMAND_KIND,
+} from "./private-commands.js";
 import {
   createInitialMachineState,
   normalizeMachineState,
@@ -76,49 +76,49 @@ function interpretIngressEvent(state, event) {
 }
 
 const transitionHistoryIngress = Object.freeze({
-  [MACHINE_EVENT_KIND.UNDO]: transitionUndo,
-  [MACHINE_EVENT_KIND.REDO]: transitionRedo,
+  [MACHINE_COMMAND_KIND.UNDO]: transitionUndo,
+  [MACHINE_COMMAND_KIND.REDO]: transitionRedo,
 });
 
 const transitionSession = Object.freeze({
-  [MACHINE_EVENT_KIND.LOAD_IMAGE]: loadImage,
-  [MACHINE_EVENT_KIND.CLEAR_IMAGE]: clearImage,
-  [MACHINE_EVENT_KIND.RESTORE_IMAGE_SESSION]: restoreImageSession,
-  [MACHINE_EVENT_KIND.SELECT_MODE]: selectMode,
-  [MACHINE_EVENT_KIND.SET_OPACITY]: setOpacity,
+  [MACHINE_COMMAND_KIND.LOAD_IMAGE]: loadImage,
+  [MACHINE_COMMAND_KIND.CLEAR_IMAGE]: clearImage,
+  [MACHINE_COMMAND_KIND.RESTORE_IMAGE_SESSION]: restoreImageSession,
+  [MACHINE_COMMAND_KIND.SELECT_MODE]: selectMode,
+  [MACHINE_COMMAND_KIND.SET_OPACITY]: setOpacity,
 });
 
 const transitionRuntime = Object.freeze({
-  [MACHINE_EVENT_KIND.UPDATE_POINTER_RUNTIME]: updatePointerRuntime,
-  [MACHINE_EVENT_KIND.BEGIN_POINTER_GESTURE]: beginPointerGesture,
-  [MACHINE_EVENT_KIND.END_POINTER_GESTURE]: endPointerGesture,
-  [MACHINE_EVENT_KIND.SET_INPUT_OVERRIDE]: setInputOverride,
-  [MACHINE_EVENT_KIND.RESET_INPUT_RUNTIME]: resetInputRuntime,
+  [MACHINE_COMMAND_KIND.UPDATE_POINTER_RUNTIME]: updatePointerRuntime,
+  [MACHINE_COMMAND_KIND.BEGIN_POINTER_GESTURE]: beginPointerGesture,
+  [MACHINE_COMMAND_KIND.END_POINTER_GESTURE]: endPointerGesture,
+  [MACHINE_COMMAND_KIND.SET_INPUT_OVERRIDE]: setInputOverride,
+  [MACHINE_COMMAND_KIND.RESET_INPUT_RUNTIME]: resetInputRuntime,
 });
 
 const transitionRegistration = Object.freeze({
-  [MACHINE_EVENT_KIND.TOGGLE_PIN]: togglePin,
-  [MACHINE_EVENT_KIND.ADD_PIN]: addPin,
-  [MACHINE_EVENT_KIND.REMOVE_PIN]: removePin,
-  [MACHINE_EVENT_KIND.CLEAR_PINS]: clearPins,
-  [MACHINE_EVENT_KIND.RESTORE_REGISTRATION]: restoreRegistration,
-  [MACHINE_EVENT_KIND.FIT_OVERLAY]: fitOverlay,
+  [MACHINE_COMMAND_KIND.TOGGLE_PIN]: togglePin,
+  [MACHINE_COMMAND_KIND.ADD_PIN]: addPin,
+  [MACHINE_COMMAND_KIND.REMOVE_PIN]: removePin,
+  [MACHINE_COMMAND_KIND.CLEAR_PINS]: clearPins,
+  [MACHINE_COMMAND_KIND.RESTORE_REGISTRATION]: restoreRegistration,
+  [MACHINE_COMMAND_KIND.FIT_OVERLAY]: fitOverlay,
 });
 
 const transitionPlacement = Object.freeze({
-  [MACHINE_EVENT_KIND.BEGIN_PLACEMENT_EDIT]: beginPlacementEdit,
-  [MACHINE_EVENT_KIND.PREVIEW_PLACEMENT_EDIT]: previewPlacementEdit,
-  [MACHINE_EVENT_KIND.COMMIT_PLACEMENT_EDIT]: commitPlacementEdit,
-  [MACHINE_EVENT_KIND.CANCEL_PLACEMENT_EDIT]: cancelPlacementEdit,
-  [MACHINE_EVENT_KIND.APPLY_PLACEMENT_EDIT]: applyPlacementEdit,
-  [MACHINE_EVENT_KIND.RESTORE_PLACEMENT]: restorePlacement,
+  [MACHINE_COMMAND_KIND.BEGIN_PLACEMENT_EDIT]: beginPlacementEdit,
+  [MACHINE_COMMAND_KIND.PREVIEW_PLACEMENT_EDIT]: previewPlacementEdit,
+  [MACHINE_COMMAND_KIND.COMMIT_PLACEMENT_EDIT]: commitPlacementEdit,
+  [MACHINE_COMMAND_KIND.CANCEL_PLACEMENT_EDIT]: cancelPlacementEdit,
+  [MACHINE_COMMAND_KIND.APPLY_PLACEMENT_EDIT]: applyPlacementEdit,
+  [MACHINE_COMMAND_KIND.RESTORE_PLACEMENT]: restorePlacement,
 });
 
 const transitionPanelStatus = Object.freeze({
-  [MACHINE_EVENT_KIND.REQUEST_PANEL_INTENT]: requestPanelIntent,
-  [MACHINE_EVENT_KIND.CANCEL_PANEL_INTENT]: transitionPanelCancelIntent,
-  [MACHINE_EVENT_KIND.REPORT_STATUS_NOTICE]: reportStatusNotice,
-  [MACHINE_EVENT_KIND.CLEAR_STATUS_NOTICE]: clearStatusNotice,
+  [MACHINE_COMMAND_KIND.REQUEST_PANEL_INTENT]: requestPanelIntent,
+  [MACHINE_COMMAND_KIND.CANCEL_PANEL_INTENT]: transitionPanelCancelIntent,
+  [MACHINE_COMMAND_KIND.REPORT_STATUS_NOTICE]: reportStatusNotice,
+  [MACHINE_COMMAND_KIND.CLEAR_STATUS_NOTICE]: clearStatusNotice,
 });
 
 const transitionDomainCommand = Object.freeze({
