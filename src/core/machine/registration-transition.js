@@ -1,8 +1,8 @@
 import {
   MACHINE_HISTORY_KIND,
   MACHINE_MODE,
-  MACHINE_STATUS_NOTICE_KIND,
 } from "./events.js";
+import { MACHINE_STATUS_NOTICE_KIND } from "./status-notices.js";
 import {
   MACHINE_COMMAND_KIND,
 } from "./private-commands.js";

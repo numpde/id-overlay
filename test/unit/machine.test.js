@@ -6,7 +6,6 @@ import {
   MACHINE_MODE,
   MACHINE_PANEL_INTENT,
   MACHINE_PLACEMENT_EDIT_KIND,
-  MACHINE_STATUS_NOTICE_KIND,
 } from "../../src/core/machine/events.js";
 import {
   MACHINE_COMMAND_KIND,
@@ -87,7 +86,6 @@ test("loading an image enters Align and records a user-facing reloadable edit", 
   assert.deepEqual(result.state.session.image, NORMALIZED_IMAGE);
   assert.deepEqual(result.state.session.placement, PLACEMENT);
   assert.equal(result.historyRecord.kind, MACHINE_HISTORY_KIND.LOAD_IMAGE);
-  assert.equal(result.state.status.notice.kind, MACHINE_STATUS_NOTICE_KIND.IMAGE_LOADED);
   assert.equal(selectPanelStatusText(result.state), "Loaded screenshot 800×400.");
   assert.equal(selectPanelView(result.state).historyControls.undo.title, "Remove image");
   assert.equal(result.state.history.future.length, 0);
@@ -203,7 +201,7 @@ test("pin toggle is a machine-owned semantic transition over adapter facts", () 
     mapLatLon: { lat: -1.23, lon: 36.84 },
   });
 
-  assert.equal(add.state.status.notice.kind, MACHINE_STATUS_NOTICE_KIND.PIN_ADDED);
+  assert.equal(selectPanelStatusText(add.state), "Added pin 1.");
   assert.equal(add.state.session.registration.pins.length, 1);
   assert.equal(add.historyRecord.kind, MACHINE_HISTORY_KIND.ADD_PIN);
 
@@ -215,7 +213,7 @@ test("pin toggle is a machine-owned semantic transition over adapter facts", () 
     mapLatLon: { lat: -1.23, lon: 36.84 },
   });
 
-  assert.equal(remove.state.status.notice.kind, MACHINE_STATUS_NOTICE_KIND.PIN_REMOVED);
+  assert.equal(selectPanelStatusText(remove.state), "Removed pin 1.");
   assert.equal(remove.state.session.registration.pins.length, 0);
   assert.equal(remove.historyRecord.kind, MACHINE_HISTORY_KIND.REMOVE_PIN);
 });

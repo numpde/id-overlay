@@ -3,8 +3,8 @@ import {
   MACHINE_MODE,
   MACHINE_PANEL_INTENT,
   MACHINE_PLACEMENT_EDIT_KIND,
-  MACHINE_STATUS_NOTICE_KIND,
 } from "./events.js";
+import { MACHINE_STATUS_NOTICE_KIND } from "./status-notices.js";
 import { getOverlayImageLoadStats } from "../image-normalization.js";
 import { RUNTIME_ERROR_SOURCE } from "../runtime-error.js";
 import { peekRedoRecord, peekUndoRecord } from "./history.js";

@@ -21,7 +21,6 @@ import {
 import {
   MACHINE_HISTORY_KIND,
   MACHINE_INPUT_OVERRIDE,
-  MACHINE_STATUS_NOTICE_KIND,
 } from "../../src/core/machine/events.js";
 import {
   MACHINE_COMMAND_KIND,
@@ -212,7 +211,6 @@ test("interaction boundaries report machine status instead of throwing raw adapt
   const handled = controller.handleTogglePin({ screenPoint: { x: 600, y: 320 } });
 
   assert.equal(handled, false);
-  assert.equal(machineHost.getState().status.notice.kind, MACHINE_STATUS_NOTICE_KIND.RUNTIME_ERROR);
   assert.equal(machineHost.getState().status.notice.payload.error.source, RUNTIME_ERROR_SOURCE.INTERACTIONS);
   assert.equal(machineHost.getState().status.notice.payload.error.operation, "handle-toggle-pin");
   assert.equal(selectPanelStatusText(machineHost.getState()), "The overlay interaction failed. Try the action again.");
@@ -232,7 +230,6 @@ test("keyboard pin toggle uses the same interaction error boundary", () => {
   assert.doesNotThrow(() => keyTarget.dispatch("keydown", keydown));
 
   assert.equal(keydown.prevented, true);
-  assert.equal(machineHost.getState().status.notice.kind, MACHINE_STATUS_NOTICE_KIND.RUNTIME_ERROR);
   assert.equal(machineHost.getState().status.notice.payload.error.source, RUNTIME_ERROR_SOURCE.INTERACTIONS);
   assert.equal(machineHost.getState().status.notice.payload.error.operation, "handle-toggle-pin");
   assert.equal(selectPanelStatusText(machineHost.getState()), "The overlay interaction failed. Try the action again.");

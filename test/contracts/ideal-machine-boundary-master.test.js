@@ -172,6 +172,7 @@ test("public machine event vocabulary contains only user intents and external fa
   const source = readSource(repoPath("src/core/machine/events.js"));
   const forbiddenPatterns = [
     ["public low-level event vocabulary", /\bexport\s+const\s+MACHINE_COMMAND_KIND\b/],
+    ["public status notice vocabulary", /\bexport\s+const\s+MACHINE_STATUS_NOTICE_KIND\b/],
     ["low-level command constructor", /\bexport\s+function\s+create(?:LoadImage|CancelPanelIntent|ReportStatusNotice)Event\b/],
     ["public machine command payload", /\btype:\s*MACHINE_COMMAND_KIND\./],
   ];

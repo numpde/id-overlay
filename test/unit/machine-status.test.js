@@ -3,7 +3,6 @@ import assert from "node:assert/strict";
 
 import {
   MACHINE_PANEL_INTENT,
-  MACHINE_STATUS_NOTICE_KIND,
 } from "../../src/core/machine/events.js";
 import {
   MACHINE_COMMAND_KIND,
@@ -15,19 +14,22 @@ import {
 import { createInitialMachineState } from "../../src/core/machine/state.js";
 import { transitionMachine } from "../../src/core/machine/transition.js";
 
+const CLIPBOARD_MISSING_IMAGE_NOTICE = "clipboard-missing-image";
+const PASTE_CANCELLED_NOTICE = "paste-cancelled";
+
 // TODO(smell): Status tests dispatch report/clear status mutation events
 // directly. Reframe them around typed machine facts that derive status notices
 // once status mutation commands are private.
 test("status notice is canonical machine state with timeout effects", () => {
   const result = transitionMachine(createInitialMachineState(), {
     type: MACHINE_COMMAND_KIND.REPORT_STATUS_NOTICE,
-    noticeKind: MACHINE_STATUS_NOTICE_KIND.CLIPBOARD_MISSING_IMAGE,
+    noticeKind: CLIPBOARD_MISSING_IMAGE_NOTICE,
   });
 
   assert.deepEqual(result.state.status, {
     notice: {
       requestId: 1,
-      kind: MACHINE_STATUS_NOTICE_KIND.CLIPBOARD_MISSING_IMAGE,
+      kind: CLIPBOARD_MISSING_IMAGE_NOTICE,
       payload: null,
     },
     lastRequestId: 1,
@@ -42,7 +44,7 @@ test("status notice is canonical machine state with timeout effects", () => {
 test("clearing a current status notice falls back to derived baseline status", () => {
   const noticed = transitionMachine(createInitialMachineState(), {
     type: MACHINE_COMMAND_KIND.REPORT_STATUS_NOTICE,
-    noticeKind: MACHINE_STATUS_NOTICE_KIND.PASTE_CANCELLED,
+    noticeKind: PASTE_CANCELLED_NOTICE,
   }).state;
 
   const cleared = transitionMachine(noticed, {
@@ -62,7 +64,7 @@ test("clearing a current status notice falls back to derived baseline status", (
 test("stale status notice clear is ignored", () => {
   const noticed = transitionMachine(createInitialMachineState(), {
     type: MACHINE_COMMAND_KIND.REPORT_STATUS_NOTICE,
-    noticeKind: MACHINE_STATUS_NOTICE_KIND.PASTE_CANCELLED,
+    noticeKind: PASTE_CANCELLED_NOTICE,
   }).state;
 
   const staleClear = transitionMachine(noticed, {
@@ -81,7 +83,7 @@ test("clipboard-missing notice composes with active paste instructions", () => {
   }).state;
   state = transitionMachine(state, {
     type: MACHINE_COMMAND_KIND.REPORT_STATUS_NOTICE,
-    noticeKind: MACHINE_STATUS_NOTICE_KIND.CLIPBOARD_MISSING_IMAGE,
+    noticeKind: CLIPBOARD_MISSING_IMAGE_NOTICE,
   }).state;
 
   assert.equal(
@@ -93,7 +95,7 @@ test("clipboard-missing notice composes with active paste instructions", () => {
 test("new panel intent clears stale status notice and its timeout", () => {
   let state = transitionMachine(createInitialMachineState(), {
     type: MACHINE_COMMAND_KIND.REPORT_STATUS_NOTICE,
-    noticeKind: MACHINE_STATUS_NOTICE_KIND.PASTE_CANCELLED,
+    noticeKind: PASTE_CANCELLED_NOTICE,
   }).state;
 
   const result = transitionMachine(state, {

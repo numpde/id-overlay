@@ -4,10 +4,11 @@ import assert from "node:assert/strict";
 import { DRAG_MODE } from "../../src/core/interaction-policy.js";
 import {
   MACHINE_INPUT_OVERRIDE,
-  MACHINE_STATUS_NOTICE_KIND,
 } from "../../src/core/machine/events.js";
 import { createMachineHost } from "../../src/core/machine/host.js";
 import { createInteractionRuntimeBridge } from "../../src/content/interactions/runtime-bridge.js";
+
+const RUNTIME_ERROR_NOTICE = "runtime-error";
 
 // TODO(smell): This suite still exercises runtime mutation through host-backed
 // action methods. Rewrite it around observed pointer/gesture/pass-through facts
@@ -64,7 +65,7 @@ test("interaction runtime bridge subscriber emits only meaningful runtime change
   });
 
   machineHost.reportStatusNotice({
-    noticeKind: MACHINE_STATUS_NOTICE_KIND.RUNTIME_ERROR,
+    noticeKind: RUNTIME_ERROR_NOTICE,
     noticePayload: { error: { message: "ignored for runtime projection" } },
   });
   bridge.updatePointer({ x: 1, y: 2 });

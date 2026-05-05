@@ -4,9 +4,11 @@ import assert from "node:assert/strict";
 import {
   MACHINE_MODE,
   MACHINE_PANEL_INTENT,
-  MACHINE_STATUS_NOTICE_KIND,
 } from "../../src/core/machine/events.js";
 import { createMachineHost } from "../../src/core/machine/host.js";
+import {
+  selectPanelStatusText,
+} from "../../src/core/machine/selectors.js";
 import {
   createIdlePanel,
   createInitialMachineState,
@@ -22,6 +24,8 @@ const IMAGE = Object.freeze({
   height: 400,
 });
 const NORMALIZED_IMAGE = normalizeSessionImage(IMAGE);
+const CLIPBOARD_MISSING_IMAGE_NOTICE = "clipboard-missing-image";
+const PASTE_CANCELLED_NOTICE = "paste-cancelled";
 
 const PLACEMENT = Object.freeze({
   type: "similarity",
@@ -127,7 +131,7 @@ test("machine host interprets primary panel activation from canonical state", ()
 
   host.activatePanelPrimary();
   assert.deepEqual(host.getState().panel, createIdlePanel());
-  assert.equal(host.getState().status.notice.kind, MACHINE_STATUS_NOTICE_KIND.PASTE_CANCELLED);
+  assert.equal(selectPanelStatusText(host.getState()), "Paste cancelled.");
 
   host.loadImage({
     image: IMAGE,
@@ -221,13 +225,13 @@ test("machine host starts, replaces, expires, and cancels request-bound status t
   });
 
   host.reportStatusNotice({
-    noticeKind: MACHINE_STATUS_NOTICE_KIND.CLIPBOARD_MISSING_IMAGE,
+    noticeKind: CLIPBOARD_MISSING_IMAGE_NOTICE,
   });
   assert.equal(timers.pendingCount(), 1);
   assert.equal(host.getState().status.notice.requestId, 1);
 
   host.reportStatusNotice({
-    noticeKind: MACHINE_STATUS_NOTICE_KIND.PASTE_CANCELLED,
+    noticeKind: PASTE_CANCELLED_NOTICE,
   });
   assert.equal(timers.pendingCount(), 1);
   assert.deepEqual(timers.cleared, [1]);
@@ -238,7 +242,7 @@ test("machine host starts, replaces, expires, and cancels request-bound status t
   assert.equal(timers.pendingCount(), 0);
 
   host.reportStatusNotice({
-    noticeKind: MACHINE_STATUS_NOTICE_KIND.PASTE_CANCELLED,
+    noticeKind: PASTE_CANCELLED_NOTICE,
   });
   timers.fireLatest();
 
@@ -270,7 +274,7 @@ test("machine host destroy unsubscribes persistence and cancels outstanding time
 
   host.requestPanelIntent(MACHINE_PANEL_INTENT.CLEAR_IMAGE_CONFIRM);
   host.reportStatusNotice({
-    noticeKind: MACHINE_STATUS_NOTICE_KIND.PASTE_CANCELLED,
+    noticeKind: PASTE_CANCELLED_NOTICE,
   });
   assert.equal(timers.pendingCount(), 1);
   assert.equal(statusTimers.pendingCount(), 1);

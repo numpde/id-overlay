@@ -8,7 +8,6 @@ import {
   MACHINE_PANEL_INTENT,
   MACHINE_PLACEMENT_EDIT_KIND,
   MACHINE_POINTER_GESTURE_KIND,
-  MACHINE_STATUS_NOTICE_KIND,
 } from "../../src/core/machine/events.js";
 import {
   MACHINE_COMMAND_KIND,
@@ -34,6 +33,7 @@ const IMAGE = Object.freeze({
   width: 800,
   height: 400,
 });
+const PASTE_CANCELLED_NOTICE = "paste-cancelled";
 const NORMALIZED_IMAGE = normalizeSessionImage(IMAGE);
 
 const PLACEMENT = Object.freeze({
@@ -98,7 +98,7 @@ test("toPersistedMachineSessionSnapshot keys only durable session fields", () =>
     status: {
       notice: {
         requestId: 9,
-        kind: MACHINE_STATUS_NOTICE_KIND.PASTE_CANCELLED,
+        kind: PASTE_CANCELLED_NOTICE,
         payload: null,
       },
       lastRequestId: 9,
@@ -225,7 +225,7 @@ test("fromPersistedMachineSession drops extra persisted keys", () => {
     status: {
       notice: {
         requestId: 9,
-        kind: MACHINE_STATUS_NOTICE_KIND.PASTE_CANCELLED,
+        kind: PASTE_CANCELLED_NOTICE,
         payload: null,
       },
       lastRequestId: 9,
@@ -355,7 +355,7 @@ function createNoisyMachineState() {
     status: {
       notice: {
         requestId: 9,
-        kind: MACHINE_STATUS_NOTICE_KIND.PASTE_CANCELLED,
+        kind: PASTE_CANCELLED_NOTICE,
         payload: null,
       },
       lastRequestId: 9,

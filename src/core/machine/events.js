@@ -21,26 +21,6 @@ export const MACHINE_HISTORY_KIND = Object.freeze({
   SCALE_OVERLAY: "scale-overlay",
 });
 
-export const MACHINE_STATUS_NOTICE_KIND = Object.freeze({
-  IMAGE_LOADED: "image-loaded",
-  IMAGE_CLEARED: "image-cleared",
-  IMAGE_RESTORED: "image-restored",
-  MODE_SELECTED: "mode-selected",
-  PIN_ADDED: "pin-added",
-  PIN_REMOVED: "pin-removed",
-  PINS_CLEARED: "pins-cleared",
-  OVERLAY_FITTED: "overlay-fitted",
-  PLACEMENT_CHANGED: "placement-changed",
-  PASTE_CANCELLED: "paste-cancelled",
-  CLIPBOARD_MISSING_IMAGE: "clipboard-missing-image",
-  CLIPBOARD_IMAGE_UNREADABLE: "clipboard-image-unreadable",
-  RUNTIME_ERROR: "runtime-error",
-  UNDO: "undo",
-  REDO: "redo",
-  UNDO_EMPTY: "undo-empty",
-  REDO_EMPTY: "redo-empty",
-});
-
 export const MACHINE_PLACEMENT_EDIT_KIND = Object.freeze({
   MOVE: "move",
   ROTATE: "rotate",

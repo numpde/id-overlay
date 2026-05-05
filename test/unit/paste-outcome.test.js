@@ -7,9 +7,11 @@ import {
   createClipboardUnavailableFact,
   createDecodedClipboardImageFact,
 } from "../../src/core/clipboard-facts.js";
-import { MACHINE_STATUS_NOTICE_KIND } from "../../src/core/machine/events.js";
 import { createPasteReadOutcomeFromClipboardFact } from "../../src/core/machine/paste-outcome.js";
 import { createPlacementTransform } from "../../src/core/transform.js";
+
+const CLIPBOARD_MISSING_IMAGE_NOTICE = "clipboard-missing-image";
+const CLIPBOARD_IMAGE_UNREADABLE_NOTICE = "clipboard-image-unreadable";
 
 const IMAGE = Object.freeze({
   src: "data:image/png;base64,abc",
@@ -52,7 +54,7 @@ test("clipboard failure facts become machine-owned paste status outcomes", () =>
   }), {
     image: null,
     placement: null,
-    noticeKind: MACHINE_STATUS_NOTICE_KIND.CLIPBOARD_MISSING_IMAGE,
+    noticeKind: CLIPBOARD_MISSING_IMAGE_NOTICE,
     noticePayload: null,
   });
 
@@ -64,7 +66,7 @@ test("clipboard failure facts become machine-owned paste status outcomes", () =>
   }), {
     image: null,
     placement: null,
-    noticeKind: MACHINE_STATUS_NOTICE_KIND.CLIPBOARD_IMAGE_UNREADABLE,
+    noticeKind: CLIPBOARD_IMAGE_UNREADABLE_NOTICE,
     noticePayload: null,
   });
 });

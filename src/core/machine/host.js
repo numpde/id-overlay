@@ -2,11 +2,11 @@ import {
   MACHINE_INPUT_OVERRIDE,
   MACHINE_MODE,
   MACHINE_PANEL_INTENT,
-  MACHINE_STATUS_NOTICE_KIND,
 } from "./events.js";
 import {
   MACHINE_COMMAND_KIND,
 } from "./private-commands.js";
+import { MACHINE_STATUS_NOTICE_KIND } from "./status-notices.js";
 import { createMachineEffectRunner } from "./effect-runner.js";
 import {
   createPanelTimeoutElapsedResult,

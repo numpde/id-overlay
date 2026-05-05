@@ -4,7 +4,6 @@ import assert from "node:assert/strict";
 import {
   MACHINE_PANEL_INTENT,
   MACHINE_PASTE_SOURCE,
-  MACHINE_STATUS_NOTICE_KIND,
 } from "../../src/core/machine/events.js";
 import {
   MACHINE_COMMAND_KIND,
@@ -30,6 +29,8 @@ const IMAGE = Object.freeze({
   height: 400,
 });
 
+const CLIPBOARD_MISSING_IMAGE_NOTICE = "clipboard-missing-image";
+
 test("constructors centralize effect-runner request and result shapes", () => {
   assert.deepEqual(createLoadImageCommand({
     image: IMAGE,
@@ -47,10 +48,10 @@ test("constructors centralize effect-runner request and result shapes", () => {
     noticePayload: null,
   });
   assert.deepEqual(createReportStatusNoticeCommand({
-    noticeKind: MACHINE_STATUS_NOTICE_KIND.CLIPBOARD_MISSING_IMAGE,
+    noticeKind: CLIPBOARD_MISSING_IMAGE_NOTICE,
   }), {
     type: MACHINE_COMMAND_KIND.REPORT_STATUS_NOTICE,
-    noticeKind: MACHINE_STATUS_NOTICE_KIND.CLIPBOARD_MISSING_IMAGE,
+    noticeKind: CLIPBOARD_MISSING_IMAGE_NOTICE,
     noticePayload: null,
   });
   assert.deepEqual(createReadPasteImageResult({
@@ -232,7 +233,7 @@ test("manual-paste feedback completes with a manual-paste result", async () => {
     requestId: 7,
   }, createContext());
   onPasteOutcome({
-    noticeKind: MACHINE_STATUS_NOTICE_KIND.CLIPBOARD_MISSING_IMAGE,
+    noticeKind: CLIPBOARD_MISSING_IMAGE_NOTICE,
   });
 
   assert.deepEqual(calls, [{
@@ -240,7 +241,7 @@ test("manual-paste feedback completes with a manual-paste result", async () => {
     requestId: 7,
     source: MACHINE_PASTE_SOURCE.MANUAL_PASTE,
     outcome: {
-      noticeKind: MACHINE_STATUS_NOTICE_KIND.CLIPBOARD_MISSING_IMAGE,
+      noticeKind: CLIPBOARD_MISSING_IMAGE_NOTICE,
     },
   }]);
 });
@@ -376,7 +377,7 @@ test("read-paste-image completes explicit status outcomes as clipboard-api resul
   const calls = [];
   const runEffect = createMachineEffectRunner({
     readPasteImage: () => ({
-      noticeKind: MACHINE_STATUS_NOTICE_KIND.CLIPBOARD_MISSING_IMAGE,
+      noticeKind: CLIPBOARD_MISSING_IMAGE_NOTICE,
     }),
     completeEffect: (result) => calls.push(result),
     getState: createPasteState(7),
@@ -392,7 +393,7 @@ test("read-paste-image completes explicit status outcomes as clipboard-api resul
     requestId: 7,
     source: MACHINE_PASTE_SOURCE.CLIPBOARD_API,
     outcome: {
-      noticeKind: MACHINE_STATUS_NOTICE_KIND.CLIPBOARD_MISSING_IMAGE,
+      noticeKind: CLIPBOARD_MISSING_IMAGE_NOTICE,
     },
   }]);
 });

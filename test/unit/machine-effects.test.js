@@ -6,7 +6,6 @@ import {
   MACHINE_MODE,
   MACHINE_PANEL_INTENT,
   MACHINE_PASTE_SOURCE,
-  MACHINE_STATUS_NOTICE_KIND,
 } from "../../src/core/machine/events.js";
 import {
   MACHINE_COMMAND_KIND,
@@ -24,6 +23,9 @@ import {
   normalizePanel,
   replacePanel,
 } from "../../src/core/machine/state.js";
+import {
+  selectPanelStatusText,
+} from "../../src/core/machine/selectors.js";
 import { transitionMachineEffectResult } from "../../src/core/machine/effect-result-transition.js";
 import { transitionMachine } from "../../src/core/machine/transition.js";
 
@@ -35,6 +37,8 @@ const IMAGE = Object.freeze({
   width: 800,
   height: 400,
 });
+
+const CLIPBOARD_MISSING_IMAGE_NOTICE = "clipboard-missing-image";
 
 const PLACEMENT = Object.freeze({
   type: "similarity",
@@ -444,13 +448,16 @@ test("clipboard-api paste status keeps paste armed", () => {
   const result = transitionMachineEffectResult(state, createReadPasteImageResult({
     source: MACHINE_PASTE_SOURCE.CLIPBOARD_API,
     outcome: {
-      noticeKind: MACHINE_STATUS_NOTICE_KIND.CLIPBOARD_MISSING_IMAGE,
+      noticeKind: CLIPBOARD_MISSING_IMAGE_NOTICE,
     },
     requestId: state.panel.requestId,
   }));
 
   assert.equal(result.state.panel.intent, MACHINE_PANEL_INTENT.PASTE_ARMED);
-  assert.equal(result.state.status.notice.kind, MACHINE_STATUS_NOTICE_KIND.CLIPBOARD_MISSING_IMAGE);
+  assert.equal(
+    selectPanelStatusText(result.state),
+    "Clipboard does not contain an image. Press Ctrl/Cmd+V to paste an image from your clipboard.",
+  );
   assert.deepEqual(result.effects, [{
     kind: MACHINE_EFFECT_KIND.START_STATUS_TIMEOUT,
     requestId: 1,
@@ -467,13 +474,13 @@ test("manual paste status cancels paste before reporting status", () => {
   const result = transitionMachineEffectResult(state, createReadPasteImageResult({
     source: MACHINE_PASTE_SOURCE.MANUAL_PASTE,
     outcome: {
-      noticeKind: MACHINE_STATUS_NOTICE_KIND.CLIPBOARD_MISSING_IMAGE,
+      noticeKind: CLIPBOARD_MISSING_IMAGE_NOTICE,
     },
     requestId: state.panel.requestId,
   }));
 
   assert.deepEqual(result.state.panel, createIdlePanel());
-  assert.equal(result.state.status.notice.kind, MACHINE_STATUS_NOTICE_KIND.CLIPBOARD_MISSING_IMAGE);
+  assert.equal(selectPanelStatusText(result.state), "Clipboard does not contain an image.");
   assert.deepEqual(result.effects, [
     {
       kind: MACHINE_EFFECT_KIND.CANCEL_PANEL_TIMEOUT,
@@ -494,7 +501,7 @@ test("manual paste status cancels paste before reporting status", () => {
 test("status timeout effect result clears only the matching request id", () => {
   const state = transitionMachine(createInitialMachineState(), {
     type: MACHINE_COMMAND_KIND.REPORT_STATUS_NOTICE,
-    noticeKind: MACHINE_STATUS_NOTICE_KIND.CLIPBOARD_MISSING_IMAGE,
+    noticeKind: CLIPBOARD_MISSING_IMAGE_NOTICE,
   }).state;
 
   const staleResult = transitionMachineEffectResult(state, createStatusTimeoutElapsedResult({
