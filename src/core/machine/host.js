@@ -21,6 +21,10 @@ import {
   toPersistedMachineSessionSnapshot,
   fromPersistedMachineSession,
 } from "./persistence.js";
+import {
+  needsPageContextReconciliation,
+  reconcilePageContext,
+} from "./page-context.js";
 import { createMachineRuntime } from "./runtime.js";
 import { transitionMachine } from "./transition.js";
 import { PLACEMENT_EDIT_PLAN_PHASE } from "../placement-edit-planning.js";
@@ -54,6 +58,7 @@ export function createMachineHost({
   let runtime = null;
   let unsubscribePersistence = null;
   let lastPersistedKey = "";
+  let pendingPageContextPersistedSession = persistedSession;
 
   const runEffect = createMachineEffectRunner({
     readPasteImage,
@@ -113,6 +118,26 @@ export function createMachineHost({
     return runtime.commitMachineResult(transitionMachineEffectResult(runtime.getState(), result), {
       effectResult: result,
     });
+  }
+
+  function ingestPageContext(pageContext) {
+    if (destroyed) {
+      return createDestroyedDispatchResult(runtime.getState());
+    }
+    const currentState = runtime.getState();
+    const result = runtime.commitMachineResult(reconcilePageContext(currentState, {
+      persistedSession: pendingPageContextPersistedSession,
+      pageContext,
+    }), {
+      pageContext,
+    });
+    if (
+      result.state !== currentState ||
+      !needsPageContextReconciliation(currentState, pendingPageContextPersistedSession)
+    ) {
+      pendingPageContextPersistedSession = null;
+    }
+    return result;
   }
 
   function activatePanelPrimary() {
@@ -458,6 +483,7 @@ export function createMachineHost({
     changePanelOpacityByWheel,
     activateUndo,
     activateRedo,
+    ingestPageContext,
     selectMode,
     loadImage,
     clearImage,

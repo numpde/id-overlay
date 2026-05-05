@@ -82,6 +82,38 @@ test("bootstrap injects one host, one panel, and one overlay into supported page
   }
 });
 
+test("bootstrap reconciles legacy persisted placement through page context", async () => {
+  const env = createDomEnvironment({
+    storageState: {
+      "id-overlay/state": {
+        mode: "align",
+        opacity: 0.5,
+        image: {
+          src: "data:image/png;base64,abc",
+          width: 400,
+          height: 200,
+        },
+        placement: {
+          centerMapLatLon: { lat: 0, lon: 0 },
+          scale: 1,
+          rotationRad: 0,
+        },
+      },
+    },
+  });
+
+  try {
+    const { bootstrapIdOverlay } = await import(`${repoFileUrl("src/content/main.js")}?legacy=${Date.now()}`);
+    await bootstrapIdOverlay();
+
+    const persisted = env.storage["id-overlay/state"];
+    assert.equal(persisted.placement.type, "similarity");
+    assert.equal(Object.hasOwn(persisted.placement, "centerMapLatLon"), false);
+  } finally {
+    env.cleanup();
+  }
+});
+
 test("bootstrap clears previously owned nodes on reinjection", async () => {
   const env = createDomEnvironment();
   const beforeUnloadTracker = trackWindowEventListenerCount(env.window, "beforeunload");

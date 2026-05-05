@@ -1,6 +1,5 @@
 import { createInitialMachineState, normalizeMachineState } from "./state.js";
 import { createSessionSnapshotKey } from "../session.js";
-import { createPlacementTransform } from "../transform.js";
 
 export function toPersistedMachineSession(machineState) {
   const state = normalizeMachineState(machineState);
@@ -34,38 +33,4 @@ export function fromPersistedMachineSession(persisted) {
       registration: persisted.registration,
     },
   });
-}
-
-export function migratePersistedMachineSessionForMap(persisted, snapshot) {
-  // TODO(smell): Persistence still performs a map-aware migration using the
-  // current snapshot. Versioned durable-schema migration should be separated
-  // from page-context projection so persistence stays storage-shaped.
-  if (!persisted?.image) {
-    return persisted ?? {};
-  }
-
-  const placement = persisted.placement;
-  if (placement?.type === "similarity") {
-    return persisted;
-  }
-
-  if (
-    placement?.centerMapLatLon &&
-    Number.isFinite(placement?.scale) &&
-    Number.isFinite(placement?.rotationRad) &&
-    Number.isFinite(snapshot?.mapView?.zoom)
-  ) {
-    return {
-      ...persisted,
-      placement: createPlacementTransform({
-        image: persisted.image,
-        centerMapLatLon: placement.centerMapLatLon,
-        scale: placement.scale,
-        rotationRad: placement.rotationRad,
-        zoom: snapshot.mapView.zoom,
-      }),
-    };
-  }
-
-  return persisted;
 }

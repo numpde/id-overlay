@@ -17,13 +17,11 @@ import {
 } from "../../src/core/machine/state.js";
 import {
   fromPersistedMachineSession,
-  migratePersistedMachineSessionForMap,
   toPersistedMachineSession,
   toPersistedMachineSessionSnapshot,
 } from "../../src/core/machine/persistence.js";
 import { transitionMachine } from "../../src/core/machine/transition.js";
 import { normalizeSessionImage } from "../../src/core/session.js";
-import { createPlacementTransform } from "../../src/core/transform.js";
 
 // TODO(smell): Persistence tests still seed history/runtime through raw machine
 // events and validate event-shaped history snapshots. Update them when history
@@ -262,40 +260,6 @@ test("fromPersistedMachineSession normalizes invalid registration", () => {
     solvedTransform: null,
     dirty: false,
   });
-});
-
-test("migratePersistedMachineSessionForMap upgrades legacy map-centered placement", () => {
-  const legacyPlacement = {
-    centerMapLatLon: { lat: 1, lon: 2 },
-    scale: 1.25,
-    rotationRad: 0.5,
-  };
-  const snapshot = {
-    mapView: {
-      zoom: 17,
-    },
-  };
-
-  assert.deepEqual(
-    migratePersistedMachineSessionForMap({
-      mode: MACHINE_MODE.ALIGN,
-      image: IMAGE,
-      placement: legacyPlacement,
-      registration: REGISTRATION,
-    }, snapshot),
-    {
-      mode: MACHINE_MODE.ALIGN,
-      image: IMAGE,
-      placement: createPlacementTransform({
-        image: IMAGE,
-        centerMapLatLon: legacyPlacement.centerMapLatLon,
-        scale: legacyPlacement.scale,
-        rotationRad: legacyPlacement.rotationRad,
-        zoom: snapshot.mapView.zoom,
-      }),
-      registration: REGISTRATION,
-    },
-  );
 });
 
 test("round trip preserves durable session facts only", () => {

@@ -1,7 +1,6 @@
 import { createExtensionStorage } from "../platform/storage.js";
 import { createInteractionController } from "./interaction-controller.js";
 import { createMachineHost } from "../core/machine/host.js";
-import { migratePersistedMachineSessionForMap } from "../core/machine/persistence.js";
 import { createPageAdapter } from "./page-adapter.js";
 import { createPanel } from "./panel.js";
 import { createOverlay } from "./overlay.js";
@@ -42,7 +41,7 @@ export async function bootstrapIdOverlay({ keyboardGateway = null } = {}) {
     logger,
   });
   const machineHost = createMachineHost({
-    persistedSession: migratePersistedMachineSessionForMap(persistedState, pageAdapter.getSnapshot()),
+    persistedSession: persistedState,
     savePersistedSession: (session) => storage.save(session),
     readPasteImage: () => readClipboardApiPasteOutcome({
       clipboardReader,
@@ -59,6 +58,7 @@ export async function bootstrapIdOverlay({ keyboardGateway = null } = {}) {
     setStatusTimeout: (callback, { delayMs }) => globalThis.setTimeout(callback, delayMs),
     clearStatusTimeout: (handle) => globalThis.clearTimeout(handle),
   });
+  machineHost.ingestPageContext(pageAdapter.getSnapshot());
   const interactions = createInteractionController({
     machineHost,
     pageAdapter,
