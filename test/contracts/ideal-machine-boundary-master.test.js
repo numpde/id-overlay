@@ -126,6 +126,59 @@ test("public machine event vocabulary contains only user intents and external fa
   assert.deepEqual(violations, []);
 });
 
+test("machine host exposes explicit ingress, not generic dispatch", {
+  todo: "Replace host.dispatch with a narrow public user/fact ingress API.",
+}, () => {
+  const source = readSource(repoPath("src/core/machine/host.js"));
+  const forbiddenPatterns = [
+    ["public dispatch function", /\bfunction\s+dispatch\s*\(/],
+    ["dispatch returned from host", /\breturn\s*\{[^}]*\bdispatch\b/s],
+    ["runtime raw dispatch", /\bruntime\.dispatch\s*\(/],
+  ];
+  const requiredPatterns = [
+    ["user ingress export", /\bingest(?:User|External|Machine)?(?:Intent|Fact|Event)\b/],
+    ["effect-result ingress", /\b(?:completeEffect|ingestEffectResult|ingestExternalFact)\b/],
+  ];
+
+  const violations = [
+    ...forbiddenPatterns
+      .filter(([, pattern]) => pattern.test(source))
+      .map(([name]) => `forbidden: ${name}`),
+    ...requiredPatterns
+      .filter(([, pattern]) => !pattern.test(source))
+      .map(([name]) => `missing: ${name}`),
+  ];
+
+  assert.deepEqual(violations, []);
+});
+
+test("transition entrypoint separates public interpretation from private domain operations", {
+  todo: "Replace the flat MACHINE_EVENT_KIND switch with public interpreters and private domain transitions.",
+}, () => {
+  const source = readSource(repoPath("src/core/machine/transition.js"));
+  const forbiddenPatterns = [
+    ["flat event switch", /\bswitch\s*\(\s*event\.type\s*\)/],
+    ["public undo special case", /event\.type\s*===\s*MACHINE_EVENT_KIND\.UNDO/],
+    ["public redo special case", /event\.type\s*===\s*MACHINE_EVENT_KIND\.REDO/],
+    ["mutation command cases", /\bcase\s+MACHINE_EVENT_KIND\.(?:CLEAR_IMAGE|SET_OPACITY|ADD_PIN|REMOVE_PIN|APPLY_PLACEMENT_EDIT|RESTORE_PLACEMENT)\b/],
+  ];
+  const requiredPatterns = [
+    ["public event interpreter", /\binterpret(?:User|External|Ingress)/],
+    ["private domain transition", /\btransition(?:Session|Registration|Placement|Runtime|Panel|History)\b/],
+  ];
+
+  const violations = [
+    ...forbiddenPatterns
+      .filter(([, pattern]) => pattern.test(source))
+      .map(([name]) => `forbidden: ${name}`),
+    ...requiredPatterns
+      .filter(([, pattern]) => !pattern.test(source))
+      .map(([name]) => `missing: ${name}`),
+  ];
+
+  assert.deepEqual(violations, []);
+});
+
 test("history records are semantic facts, not executable events", {
   todo: "Replace undoEvent/redoEvent replay with typed semantic history records.",
 }, () => {
@@ -136,6 +189,30 @@ test("history records are semantic facts, not executable events", {
       violations.push(path.relative(repoPath(), filePath));
     }
   }
+
+  assert.deepEqual(violations, []);
+});
+
+test("history replay never re-enters public ingress", {
+  todo: "Replay history records through private domain operations only.",
+}, () => {
+  const source = readSource(repoPath("src/core/machine/history-replay-transition.js"));
+  const forbiddenPatterns = [
+    ["selects replay event", /\bselectEvent\b/],
+    ["calls transitionSemantic", /\btransitionSemantic\s*\(/],
+    ["reads undo/redo event payload", /\brecord\.(?:undoEvent|redoEvent)\b/],
+  ];
+  const requiredPatterns = [
+    ["semantic record replay", /\breplay(?:History|Semantic|Domain)Record\b/],
+  ];
+  const violations = [
+    ...forbiddenPatterns
+      .filter(([, pattern]) => pattern.test(source))
+      .map(([name]) => `forbidden: ${name}`),
+    ...requiredPatterns
+      .filter(([, pattern]) => !pattern.test(source))
+      .map(([name]) => `missing: ${name}`),
+  ];
 
   assert.deepEqual(violations, []);
 });
@@ -166,6 +243,42 @@ test("effect and timer completion returns typed facts instead of dispatching com
   assert.deepEqual(violations, []);
 });
 
+test("placement planning is pure geometry and never constructs machine events", {
+  todo: "Make placement planners return geometry facts only.",
+}, () => {
+  const source = readSource(repoPath("src/core/placement-edit-planning.js"));
+  const forbiddenPatterns = [
+    ["machine event import", /\bMACHINE_EVENT_KIND\b/],
+    ["placement edit kind import", /\bMACHINE_PLACEMENT_EDIT_KIND\b/],
+    ["event payload property", /\bevent\s*:/],
+    ["event type payload", /\btype:\s*MACHINE_EVENT_KIND\./],
+    ["machine state parameter", /\bstate,\s*\n\s*snapshot\b/],
+  ];
+  const violations = forbiddenPatterns
+    .filter(([, pattern]) => pattern.test(source))
+    .map(([name]) => name);
+
+  assert.deepEqual(violations, []);
+});
+
+test("paste adapter reports clipboard facts, not machine-shaped outcomes", {
+  todo: "Return decoded-image or clipboard-failure facts; derive placement and status inside the machine.",
+}, () => {
+  const source = readSource(repoPath("src/content/paste-adapter.js"));
+  const forbiddenPatterns = [
+    ["status notice import", /\bMACHINE_STATUS_NOTICE_KIND\b/],
+    ["placement policy import", /\bcreatePlacementTransform\b/],
+    ["status-shaped outcome", /\bnoticeKind\b|\bnoticePayload\b/],
+    ["placement-shaped outcome", /\bplacement\s*:/],
+    ["page snapshot dependency", /\bpageAdapter\.getSnapshot\s*\(/],
+  ];
+  const violations = forbiddenPatterns
+    .filter(([, pattern]) => pattern.test(source))
+    .map(([name]) => name);
+
+  assert.deepEqual(violations, []);
+});
+
 test("page integration exposes explicit ports instead of a broad adapter object", {
   todo: "Split page adapter into snapshot, projection, map-view, and gesture ports.",
 }, () => {
@@ -185,6 +298,72 @@ test("page integration exposes explicit ports instead of a broad adapter object"
   const violations = broadPortMethods.filter((methodName) => {
     return new RegExp(`\\b${methodName}\\s*\\(`).test(source);
   });
+
+  assert.deepEqual(violations, []);
+});
+
+test("content modules consume narrow page ports, not the monolithic adapter", {
+  todo: "Pass snapshot/projection/gesture ports explicitly to each content module.",
+}, () => {
+  const violations = [];
+  const allowedFiles = new Set([
+    repoPath("src/content/page-adapter.js"),
+    repoPath("src/content/main.js"),
+  ]);
+
+  for (const filePath of listJavaScriptFiles(CONTENT_DIR)) {
+    if (allowedFiles.has(filePath) || filePath.includes(`${path.sep}page-adapter${path.sep}`)) {
+      continue;
+    }
+    const source = readSource(filePath);
+    if (/\bpageAdapter\b/.test(source)) {
+      violations.push(path.relative(repoPath(), filePath));
+    }
+  }
+
+  assert.deepEqual(violations, []);
+});
+
+test("only machine internals import machine event vocabulary", {
+  todo: "Keep public ingress helpers separate from private machine event vocabulary.",
+}, () => {
+  const violations = [];
+  for (const filePath of listJavaScriptFiles(SOURCE_DIR)) {
+    if (filePath.startsWith(MACHINE_DIR)) {
+      continue;
+    }
+    const source = readSource(filePath);
+    if (/\bMACHINE_EVENT_KIND\b/.test(source)) {
+      violations.push(path.relative(repoPath(), filePath));
+    }
+  }
+
+  assert.deepEqual(violations, []);
+});
+
+test("runtime observation facts are ingested once, not mirrored by content callbacks", {
+  todo: "Collapse pointer, gesture, pass-through, blur, and error reset into normalized ingress facts.",
+}, () => {
+  const sources = new Map([
+    ["src/content/interactions/runtime-bridge.js", readSource(repoPath("src/content/interactions/runtime-bridge.js"))],
+    ["src/content/interactions/pointer-interaction.js", readSource(repoPath("src/content/interactions/pointer-interaction.js"))],
+    ["src/content/interactions/keyboard-router.js", readSource(repoPath("src/content/interactions/keyboard-router.js"))],
+  ]);
+  const forbiddenPatterns = [
+    ["runtime update command", /\bupdatePointer\b|\bUPDATE_POINTER_RUNTIME\b/],
+    ["gesture mutation command", /\bbeginGesture\b|\bendGesture\b|\bBEGIN_POINTER_GESTURE\b|\bEND_POINTER_GESTURE\b/],
+    ["pass-through mutation command", /\bsetPassThrough\b|\bSET_INPUT_OVERRIDE\b/],
+    ["reset mutation command", /\bresetInteractionState\b|\bRESET_INPUT_RUNTIME\b/],
+  ];
+  const violations = [];
+
+  for (const [relativePath, source] of sources) {
+    for (const [name, pattern] of forbiddenPatterns) {
+      if (pattern.test(source)) {
+        violations.push(`${relativePath}: ${name}`);
+      }
+    }
+  }
 
   assert.deepEqual(violations, []);
 });
