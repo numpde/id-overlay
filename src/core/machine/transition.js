@@ -77,19 +77,9 @@ function interpretIngressEvent(state, event) {
   return transitionDomain(state, event);
 }
 
-function transitionPrivateDomainEvent(state, event) {
-  const transitionDomain = transitionDomainCommand[event?.type];
-  if (!transitionDomain) {
-    return createTransitionResult({
-      state,
-    });
-  }
-  return transitionDomain(state, event);
-}
-
 const transitionHistoryIngress = Object.freeze({
-  [MACHINE_EVENT_KIND.UNDO]: (state) => transitionUndo(state, { transitionPrivateDomainEvent }),
-  [MACHINE_EVENT_KIND.REDO]: (state) => transitionRedo(state, { transitionPrivateDomainEvent }),
+  [MACHINE_EVENT_KIND.UNDO]: transitionUndo,
+  [MACHINE_EVENT_KIND.REDO]: transitionRedo,
 });
 
 const transitionSession = Object.freeze({

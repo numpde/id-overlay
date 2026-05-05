@@ -325,9 +325,7 @@ test("transition result finalization is explicit and domain-local, not hidden be
   assert.deepEqual(violations, []);
 });
 
-test("history records are semantic facts, not executable events", {
-  todo: "Replace undoEvent/redoEvent replay with typed semantic history records.",
-}, () => {
+test("history records are semantic facts, not executable events", () => {
   const violations = [];
   for (const filePath of listJavaScriptFiles(MACHINE_DIR)) {
     const source = readSource(filePath);
@@ -339,9 +337,7 @@ test("history records are semantic facts, not executable events", {
   assert.deepEqual(violations, []);
 });
 
-test("machine state serialization never depends on executable replay payloads", {
-  todo: "Serialize semantic history records directly; do not hash executable undo/redo command payloads.",
-}, () => {
+test("machine state serialization never depends on executable replay payloads", () => {
   const source = readSource(repoPath("src/core/machine/state.js"));
   const forbiddenPatterns = [
     ["undo event serialization", /\bserializeMachineValue\s*\(\s*record\.undoEvent\b/],
@@ -355,9 +351,7 @@ test("machine state serialization never depends on executable replay payloads", 
   assert.deepEqual(violations, []);
 });
 
-test("history replay never re-enters public ingress", {
-  todo: "Replay history records through private domain operations only.",
-}, () => {
+test("history replay never re-enters public ingress", () => {
   const source = readSource(repoPath("src/core/machine/history-replay-transition.js"));
   const forbiddenPatterns = [
     ["selects replay event", /\bselectEvent\b/],

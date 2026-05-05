@@ -1,7 +1,13 @@
+export const MACHINE_HISTORY_REPLAY_OPERATION = Object.freeze({
+  CLEAR_IMAGE: "clear-image",
+  RESTORE_IMAGE_SESSION: "restore-image-session",
+  RESTORE_REGISTRATION: "restore-registration",
+  RESTORE_PLACEMENT: "restore-placement",
+});
+
 export function commitHistoryRecord(state, historyRecord) {
-  // TODO(smell): History storage is shape-agnostic while replay expects
-  // executable undo/redo events. Once records become semantic domain facts,
-  // normalize/validate them here instead of accepting arbitrary record payloads.
+  // TODO(smell): History storage is still shape-agnostic. The final shape should
+  // normalize semantic replay records here instead of accepting arbitrary payloads.
   if (!historyRecord) {
     return state;
   }

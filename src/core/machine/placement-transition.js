@@ -1,9 +1,11 @@
 import {
-  MACHINE_EVENT_KIND,
   MACHINE_HISTORY_KIND,
   MACHINE_PLACEMENT_EDIT_KIND,
   MACHINE_STATUS_NOTICE_KIND,
 } from "./events.js";
+import {
+  MACHINE_HISTORY_REPLAY_OPERATION,
+} from "./history.js";
 import {
   replacePlacementEdit,
   replaceRegistration,
@@ -180,16 +182,13 @@ function commitPlacementChange(state, event) {
       label: historyMetadata.label,
       undoLabel: historyMetadata.undoLabel,
       redoLabel: historyMetadata.redoLabel,
-      // TODO(smell): Placement history stores executable restore events. The
-      // final replay model should store before/after placement facts and invoke
-      // private placement restore semantics directly.
-      undoEvent: {
-        type: MACHINE_EVENT_KIND.RESTORE_PLACEMENT,
+      undo: {
+        operation: MACHINE_HISTORY_REPLAY_OPERATION.RESTORE_PLACEMENT,
         placement: previousPlacement,
         registration: previousRegistration,
       },
-      redoEvent: {
-        type: MACHINE_EVENT_KIND.RESTORE_PLACEMENT,
+      redo: {
+        operation: MACHINE_HISTORY_REPLAY_OPERATION.RESTORE_PLACEMENT,
         placement: nextPlacement,
         registration: nextRegistration,
       },

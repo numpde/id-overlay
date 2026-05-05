@@ -2,48 +2,52 @@ import {
   MACHINE_STATUS_NOTICE_KIND,
 } from "./events.js";
 import {
+  MACHINE_HISTORY_REPLAY_OPERATION,
   moveRedoRecordToPast,
   moveUndoRecordToFuture,
 } from "./history.js";
+import {
+  restorePlacement,
+} from "./placement-transition.js";
+import {
+  restoreRegistration,
+} from "./registration-transition.js";
+import {
+  clearImage,
+  restoreImageSession,
+} from "./session-transition.js";
 import {
   createStatusNotice,
   createTransitionResult,
   finalizeTransitionResult,
 } from "./transition-result.js";
 
-export function transitionUndo(state, { transitionPrivateDomainEvent }) {
-  // TODO(smell): Undo/redo replay still selects executable events from history
-  // records. The final shape should replay typed semantic records through
-  // machine-private domain operations so history cannot depend on event
-  // payloads.
+export function transitionUndo(state) {
   return replayHistoryTransition(state, {
     moveRecord: moveUndoRecordToFuture,
-    selectEvent: (record) => record.undoEvent,
+    selectReplay: (record) => record.undo,
     selectLabel: (record) => record.undoLabel,
     emptyNoticeKind: MACHINE_STATUS_NOTICE_KIND.UNDO_EMPTY,
     replayNoticeKind: MACHINE_STATUS_NOTICE_KIND.UNDO,
-    transitionPrivateDomainEvent,
   });
 }
 
-export function transitionRedo(state, { transitionPrivateDomainEvent }) {
+export function transitionRedo(state) {
   return replayHistoryTransition(state, {
     moveRecord: moveRedoRecordToPast,
-    selectEvent: (record) => record.redoEvent,
+    selectReplay: (record) => record.redo,
     selectLabel: (record) => record.redoLabel,
     emptyNoticeKind: MACHINE_STATUS_NOTICE_KIND.REDO_EMPTY,
     replayNoticeKind: MACHINE_STATUS_NOTICE_KIND.REDO,
-    transitionPrivateDomainEvent,
   });
 }
 
 function replayHistoryTransition(state, {
   moveRecord,
-  selectEvent,
+  selectReplay,
   selectLabel,
   emptyNoticeKind,
   replayNoticeKind,
-  transitionPrivateDomainEvent,
 }) {
   const moved = moveRecord(state);
   if (!moved.record) {
@@ -56,7 +60,7 @@ function replayHistoryTransition(state, {
     });
   }
   const replay = finalizeTransitionResult(
-    transitionPrivateDomainEvent(moved.state, selectEvent(moved.record)),
+    replayHistoryRecord(moved.state, selectReplay(moved.record)),
     {
       commitHistory: false,
       commitStatus: false,
@@ -73,4 +77,25 @@ function replayHistoryTransition(state, {
     commitHistory: false,
     commitStatus: true,
   });
+}
+
+function replayHistoryRecord(state, replay = {}) {
+  switch (replay.operation) {
+    case MACHINE_HISTORY_REPLAY_OPERATION.CLEAR_IMAGE:
+      return clearImage(state);
+    case MACHINE_HISTORY_REPLAY_OPERATION.RESTORE_IMAGE_SESSION:
+      return restoreImageSession(state, { session: replay.session });
+    case MACHINE_HISTORY_REPLAY_OPERATION.RESTORE_REGISTRATION:
+      return restoreRegistration(state, {
+        registration: replay.registration,
+        mode: replay.mode,
+      });
+    case MACHINE_HISTORY_REPLAY_OPERATION.RESTORE_PLACEMENT:
+      return restorePlacement(state, {
+        placement: replay.placement,
+        registration: replay.registration,
+      });
+    default:
+      return createTransitionResult({ state });
+  }
 }

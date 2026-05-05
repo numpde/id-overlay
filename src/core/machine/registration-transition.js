@@ -5,6 +5,9 @@ import {
   MACHINE_STATUS_NOTICE_KIND,
 } from "./events.js";
 import {
+  MACHINE_HISTORY_REPLAY_OPERATION,
+} from "./history.js";
+import {
   createEmptyRegistration,
   replaceRegistration,
   replaceSession,
@@ -221,15 +224,12 @@ export function fitOverlay(state) {
       label: "Fit overlay from pins",
       undoLabel: "Undo fit overlay",
       redoLabel: "Fit overlay from pins",
-      // TODO(smell): Fit replay is encoded as restore-session events. The final
-      // history record should store semantic before/after fit facts, with replay
-      // routed through private machine operations rather than public commands.
-      undoEvent: {
-        type: MACHINE_EVENT_KIND.RESTORE_IMAGE_SESSION,
+      undo: {
+        operation: MACHINE_HISTORY_REPLAY_OPERATION.RESTORE_IMAGE_SESSION,
         session: previousSession,
       },
-      redoEvent: {
-        type: MACHINE_EVENT_KIND.RESTORE_IMAGE_SESSION,
+      redo: {
+        operation: MACHINE_HISTORY_REPLAY_OPERATION.RESTORE_IMAGE_SESSION,
         session: nextSession,
       },
     },
@@ -261,22 +261,19 @@ function createRegistrationHistoryRecord({
   previousRegistration,
   nextRegistration,
 }) {
-  // TODO(smell): Registration history records are executable restore events.
-  // Replace these with semantic before/after registration records when undo/redo
-  // no longer re-enters the public machine event dispatcher.
   return {
     kind,
     label,
     undoLabel,
     redoLabel,
-    undoEvent: createRestoreRegistrationEvent(previousRegistration),
-    redoEvent: createRestoreRegistrationEvent(nextRegistration),
+    undo: createRestoreRegistrationReplay(previousRegistration),
+    redo: createRestoreRegistrationReplay(nextRegistration),
   };
 }
 
-function createRestoreRegistrationEvent(registration) {
+function createRestoreRegistrationReplay(registration) {
   return {
-    type: MACHINE_EVENT_KIND.RESTORE_REGISTRATION,
+    operation: MACHINE_HISTORY_REPLAY_OPERATION.RESTORE_REGISTRATION,
     registration,
     mode: MACHINE_MODE.ALIGN,
   };

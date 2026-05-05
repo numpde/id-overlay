@@ -1,9 +1,11 @@
 import {
-  MACHINE_EVENT_KIND,
   MACHINE_HISTORY_KIND,
   MACHINE_MODE,
   MACHINE_STATUS_NOTICE_KIND,
 } from "./events.js";
+import {
+  MACHINE_HISTORY_REPLAY_OPERATION,
+} from "./history.js";
 import {
   createEmptyRegistration,
   isKnownMachineMode,
@@ -57,12 +59,9 @@ export function loadImage(state, event) {
       label: "Loaded image",
       undoLabel: "Remove image",
       redoLabel: "Reload image",
-      // TODO(smell): History stores executable mutation events. The final
-      // history model should store semantic records and replay them through
-      // machine-private domain operations, not the public ingress vocabulary.
-      undoEvent: { type: MACHINE_EVENT_KIND.CLEAR_IMAGE },
-      redoEvent: {
-        type: MACHINE_EVENT_KIND.RESTORE_IMAGE_SESSION,
+      undo: { operation: MACHINE_HISTORY_REPLAY_OPERATION.CLEAR_IMAGE },
+      redo: {
+        operation: MACHINE_HISTORY_REPLAY_OPERATION.RESTORE_IMAGE_SESSION,
         session: nextState.session,
       },
     },
@@ -95,14 +94,11 @@ export function clearImage(state) {
       label: "Cleared image",
       undoLabel: "Reload image",
       redoLabel: "Clear image",
-      // TODO(smell): History stores executable mutation events. The final
-      // history model should store semantic before/after session facts and let
-      // the replay transition choose the private restore operation.
-      undoEvent: {
-        type: MACHINE_EVENT_KIND.RESTORE_IMAGE_SESSION,
+      undo: {
+        operation: MACHINE_HISTORY_REPLAY_OPERATION.RESTORE_IMAGE_SESSION,
         session: previousSession,
       },
-      redoEvent: { type: MACHINE_EVENT_KIND.CLEAR_IMAGE },
+      redo: { operation: MACHINE_HISTORY_REPLAY_OPERATION.CLEAR_IMAGE },
     },
   });
 }
