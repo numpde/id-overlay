@@ -28,9 +28,6 @@ import {
   MACHINE_HISTORY_KIND,
   MACHINE_INPUT_OVERRIDE,
 } from "../../src/core/machine/events.js";
-import {
-  MACHINE_COMMAND_KIND,
-} from "../../src/core/machine/private-commands.js";
 import { createMachineHost } from "../../src/core/machine/host.js";
 import {
   createGestureBeganFact,
@@ -88,7 +85,7 @@ test("shift-dragging updates placement through the adapter only", () => {
   }), { x: 560, y: 280 });
 
   assert.equal(
-    consumeHistory(machineHost, MACHINE_COMMAND_KIND.UNDO).kind,
+    undo(machineHost).kind,
     MACHINE_HISTORY_KIND.MOVE_OVERLAY,
   );
   const undoneTransform = createPlacementScreenTransform({
@@ -104,7 +101,7 @@ test("shift-dragging updates placement through the adapter only", () => {
   }), { x: 500, y: 300 });
 
   assert.equal(
-    consumeHistory(machineHost, MACHINE_COMMAND_KIND.REDO).kind,
+    redo(machineHost).kind,
     MACHINE_HISTORY_KIND.MOVE_OVERLAY,
   );
   const redoneTransform = createPlacementScreenTransform({
@@ -396,14 +393,14 @@ test("ctrl-wheel rotates the overlay only and marks a solved transform dirty aga
   assert.ok(getSession(harness).registration.solvedTransform);
 
   assert.equal(
-    consumeHistory(machineHost, MACHINE_COMMAND_KIND.UNDO).kind,
+    undo(machineHost).kind,
     MACHINE_HISTORY_KIND.ROTATE_OVERLAY,
   );
   assert.equal(getSession(harness).placement.rotationRad, 0);
   assert.equal(getSession(harness).registration.dirty, false);
 
   assert.equal(
-    consumeHistory(machineHost, MACHINE_COMMAND_KIND.REDO).kind,
+    redo(machineHost).kind,
     MACHINE_HISTORY_KIND.ROTATE_OVERLAY,
   );
   assert.deepEqual(getSession(harness).placement, rotatedPlacement);
@@ -498,13 +495,13 @@ test("shift-wheel scales around the image point under the mouse", () => {
 
   const scaledPlacement = getSession(harness).placement;
   assert.equal(
-    consumeHistory(machineHost, MACHINE_COMMAND_KIND.UNDO).kind,
+    undo(machineHost).kind,
     MACHINE_HISTORY_KIND.SCALE_OVERLAY,
   );
   assert.deepEqual(getSession(harness).placement, initialPlacement);
 
   assert.equal(
-    consumeHistory(machineHost, MACHINE_COMMAND_KIND.REDO).kind,
+    redo(machineHost).kind,
     MACHINE_HISTORY_KIND.SCALE_OVERLAY,
   );
   assert.deepEqual(getSession(harness).placement, scaledPlacement);
@@ -625,7 +622,7 @@ test("opacity changes do not create undo steps and survive placement undo", () =
 
   assert.ok(adjustedOpacity > initialOpacity);
   assert.equal(
-    consumeHistory(machineHost, MACHINE_COMMAND_KIND.UNDO).kind,
+    undo(machineHost).kind,
     MACHINE_HISTORY_KIND.MOVE_OVERLAY,
   );
   assert.equal(getSession(harness).opacity, adjustedOpacity);
@@ -1342,14 +1339,12 @@ function derivePreservedPlacement({ state, pageAdapter }) {
   });
 }
 
-function consumeHistory(machineHost, eventType) {
-  if (eventType === MACHINE_COMMAND_KIND.UNDO) {
-    return machineHost.activateUndo().consumedHistoryRecord;
-  }
-  if (eventType === MACHINE_COMMAND_KIND.REDO) {
-    return machineHost.activateRedo().consumedHistoryRecord;
-  }
-  return null;
+function undo(machineHost) {
+  return machineHost.activateUndo().consumedHistoryRecord;
+}
+
+function redo(machineHost) {
+  return machineHost.activateRedo().consumedHistoryRecord;
 }
 
 function createPageAdapter({
