@@ -1,11 +1,9 @@
 import { createLogger } from "../core/logger.js";
-import {
-  selectIsRuntimeDragging,
-} from "../core/machine/selectors.js";
 import { createAdapterDragController } from "./interactions/adapter-drag.js";
 import { createModeInteraction } from "./interactions/mode-interaction.js";
 import { createPinToggleInteraction } from "./interactions/pin-toggle-interaction.js";
-import { createWheelCommand } from "./interactions/wheel-command.js";
+import { createPointerInteraction } from "./interactions/pointer-interaction.js";
+import { createWheelInteraction } from "./interactions/wheel-interaction.js";
 import { createKeyboardInputRouter } from "./interactions/keyboard-router.js";
 import { createInteractionRuntimeBridge } from "./interactions/runtime-bridge.js";
 import { createInteractionErrorBoundary } from "./interactions/error-boundary.js";
@@ -16,19 +14,12 @@ export function createInteractionController({
   keyTarget = globalThis.window,
   keyboardGateway = null,
 }) {
-  // TODO(smell): This shell still owns command composition. Collapse it into a
-  // thin interactions composition module once pointer commands are extracted.
   const logger = createLogger("interactions");
   const adapterDrag = createAdapterDragController({
     pageAdapter,
     getMachineState,
     dispatchMachine,
     logger,
-  });
-  const wheelCommand = createWheelCommand({
-    pageAdapter,
-    getMachineState,
-    dispatchMachine,
   });
 
   const runtimeBridge = createInteractionRuntimeBridge({
@@ -53,6 +44,19 @@ export function createInteractionController({
     runtimeBridge,
     errorBoundary,
     logger,
+  });
+  const wheelInteraction = createWheelInteraction({
+    pageAdapter,
+    getMachineState,
+    dispatchMachine,
+    runtimeBridge,
+    errorBoundary,
+    logger,
+  });
+  const pointerInteraction = createPointerInteraction({
+    adapterDrag,
+    runtimeBridge,
+    errorBoundary,
   });
   const keyboardRouter = createKeyboardInputRouter({
     keyTarget,
@@ -85,86 +89,31 @@ export function createInteractionController({
   }
 
   function handlePointerEnter(screenPoint) {
-    runtimeBridge.updatePointer(screenPoint);
+    pointerInteraction.handlePointerEnter(screenPoint);
   }
 
   function handlePointerLeave() {
-    if (selectIsRuntimeDragging(getRuntimeState())) {
-      return;
-    }
-    runtimeBridge.updatePointer(null);
+    pointerInteraction.handlePointerLeave();
   }
 
   function handlePointerMove(screenPoint) {
-    return errorBoundary.run("handle-pointer-move", () => {
-      const runtime = getRuntimeState();
-      const dragMode = adapterDrag.getActiveDragMode();
-      if (selectIsRuntimeDragging(runtime) && dragMode) {
-        adapterDrag.move(screenPoint);
-        runtimeBridge.beginGesture(screenPoint, {
-          gestureKind: dragMode,
-        });
-        return true;
-      }
-      runtimeBridge.updatePointer(screenPoint);
-      return true;
-    }, { fallbackValue: false });
+    return pointerInteraction.handlePointerMove(screenPoint);
   }
 
   function handlePointerDown({ button, screenPoint, dragMode }) {
-    return errorBoundary.run("handle-pointer-down", () => {
-      if (!adapterDrag.begin({ button, screenPoint, dragMode })) {
-        return false;
-      }
-      runtimeBridge.beginGesture(screenPoint, {
-        gestureKind: dragMode,
-      });
-      return true;
-    }, { fallbackValue: false });
+    return pointerInteraction.handlePointerDown({ button, screenPoint, dragMode });
   }
 
   function handlePointerUp(screenPoint) {
-    return errorBoundary.run("handle-pointer-up", () => {
-      if (!adapterDrag.end(screenPoint)) {
-        return false;
-      }
-      runtimeBridge.endGesture(screenPoint);
-      return true;
-    }, { fallbackValue: false });
+    return pointerInteraction.handlePointerUp(screenPoint);
   }
 
   function handlePointerCancel() {
-    return errorBoundary.run("handle-pointer-cancel", () => {
-      runtimeBridge.reset({
-        endPointerScreenPx: getPointerScreenPx(),
-        pointerScreenPx: null,
-      });
-      return true;
-    });
+    return pointerInteraction.handlePointerCancel();
   }
 
   function handleWheel({ deltaY, wheelMode, screenPoint }) {
-    return errorBoundary.run("handle-wheel", () => {
-      const outcome = wheelCommand.handleWheel({ deltaY, wheelMode, screenPoint });
-      logInteractionOutcome(outcome);
-      if (!outcome.handled) {
-        return false;
-      }
-      runtimeBridge.updatePointer(outcome.pointerScreenPx);
-      return true;
-    }, { fallbackValue: false });
-  }
-
-  function logInteractionOutcome(outcome) {
-    if (!outcome.log) {
-      return;
-    }
-    const { level, message, details } = outcome.log;
-    if (details === undefined) {
-      logger[level]?.(message);
-      return;
-    }
-    logger[level]?.(message, details);
+    return wheelInteraction.handleWheel({ deltaY, wheelMode, screenPoint });
   }
 
   function getMachineState() {
