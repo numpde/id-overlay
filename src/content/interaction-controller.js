@@ -37,7 +37,6 @@ export function createInteractionController({
   });
   const modeInteraction = createModeInteraction({
     dispatchMachine,
-    runtimeBridge,
     errorBoundary,
     logger,
   });

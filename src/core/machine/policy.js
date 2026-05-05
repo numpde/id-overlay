@@ -5,43 +5,52 @@ import {
 } from "./events.js";
 
 export function selectPanelPolicy(state) {
-  // TODO(smell): Panel and overlay policy recompute overlapping capability
-  // facts. Keep this harmless for now, but the final policy layer should derive
-  // common facts once and project panel/overlay views from that base.
-  const hasImage = Boolean(state.session.image);
-  const isAlign = state.session.mode === MACHINE_MODE.ALIGN;
-  const pinCount = state.session.registration.pins.length;
+  const base = selectBaseInteractionPolicy(state);
   return {
-    hasImage,
-    isAlign,
-    isTrace: state.session.mode === MACHINE_MODE.TRACE,
-    pinCount,
-    hasPins: pinCount > 0,
-    canEditOverlay: hasImage && isAlign,
-    canPaste: !hasImage,
-    canClearImage: hasImage,
-    canClearPins: hasImage && isAlign && pinCount > 0,
-    canSelectAlign: hasImage,
-    canSetOpacity: hasImage,
+    hasImage: base.hasImage,
+    isAlign: base.isAlign,
+    isTrace: base.isTrace,
+    pinCount: base.pinCount,
+    hasPins: base.hasPins,
+    canEditOverlay: base.canEditOverlay,
+    canPaste: !base.hasImage,
+    canClearImage: base.hasImage,
+    canClearPins: base.canEditOverlay && base.hasPins,
+    canSelectAlign: base.hasImage,
+    canSetOpacity: base.hasImage,
   };
 }
 
 export function selectOverlayPolicy(state, runtime = null) {
-  const session = state.session ?? state;
-  const hasImage = Boolean(session.image);
-  const isAlign = session.mode === MACHINE_MODE.ALIGN;
+  const base = selectBaseInteractionPolicy(state);
   const runtimeState = runtime ?? state.runtime ?? null;
   const hasInputPassThrough = runtimeState?.inputOverride === MACHINE_INPUT_OVERRIDE.PASS_THROUGH;
-  const isNativeMapInput = !hasImage || !isAlign;
-  const canEditOverlay = hasImage && isAlign;
+  const isNativeMapInput = !base.canEditOverlay;
   return {
-    hasImage,
-    mode: session.mode,
+    hasImage: base.hasImage,
+    mode: base.mode,
     isNativeMapInput,
     isPassThrough: isNativeMapInput || hasInputPassThrough,
-    canEditOverlay,
-    arePinsVisible: canEditOverlay,
-    ownsPointerHitTesting: canEditOverlay && !hasInputPassThrough,
+    canEditOverlay: base.canEditOverlay,
+    arePinsVisible: base.canEditOverlay,
+    ownsPointerHitTesting: base.canEditOverlay && !hasInputPassThrough,
+  };
+}
+
+function selectBaseInteractionPolicy(state) {
+  const session = state.session ?? state;
+  const hasImage = Boolean(session.image);
+  const mode = session.mode;
+  const isAlign = mode === MACHINE_MODE.ALIGN;
+  const pinCount = session.registration?.pins?.length ?? 0;
+  return {
+    hasImage,
+    mode,
+    isAlign,
+    isTrace: mode === MACHINE_MODE.TRACE,
+    pinCount,
+    hasPins: pinCount > 0,
+    canEditOverlay: hasImage && isAlign,
   };
 }
 

@@ -4,24 +4,19 @@ export function createOverlayInputHost({
   globalPointerHandlers,
   fallbackWindow = globalThis.window,
 }) {
-  // TODO(smell): Mounted and global listener groups are hand-managed here with
-  // parallel attach/detach loops. A tiny listener-set helper would make
-  // retargeting and cleanup auditable across overlay and panel DOM code.
-  const mountedInputListeners = [
+  const mountedInputListeners = createRetargetableListenerSet([
     ["pointermove", mountedHandlers.handleMountedPointerMove, true],
     ["pointerleave", mountedHandlers.handleMountedPointerLeave, true],
     ["pointerdown", mountedHandlers.handleMountedPointerDown, true],
     ["click", mountedHandlers.handleMountedClick, true],
     ["dblclick", mountedHandlers.handleMountedDoubleClick, true],
     ["wheel", mountedHandlers.handleMountedWheel, { capture: true, passive: false }],
-  ];
-  const globalPointerListeners = [
+  ]);
+  const globalPointerListeners = createRetargetableListenerSet([
     ["pointermove", globalPointerHandlers.handleGlobalPointerMove, true],
     ["pointerup", globalPointerHandlers.handleGlobalPointerUp, true],
     ["pointercancel", globalPointerHandlers.handleGlobalPointerCancel, true],
-  ];
-  let mountedInputTarget = null;
-  let globalPointerTarget = null;
+  ]);
   let isDestroyed = false;
 
   return {
@@ -35,17 +30,7 @@ export function createOverlayInputHost({
       return;
     }
     const nextMountedInputTarget = getMountElement() ?? null;
-    if (mountedInputTarget === nextMountedInputTarget) {
-      return;
-    }
-    detachMountedInputListeners();
-    if (!nextMountedInputTarget) {
-      return;
-    }
-    for (const [type, handler, options] of mountedInputListeners) {
-      nextMountedInputTarget.addEventListener(type, handler, options);
-    }
-    mountedInputTarget = nextMountedInputTarget;
+    mountedInputListeners.retarget(nextMountedInputTarget);
   }
 
   function syncGlobalPointerListeners(shouldListenGlobally) {
@@ -61,14 +46,7 @@ export function createOverlayInputHost({
       detachGlobalPointerListeners();
       return;
     }
-    if (globalPointerTarget === nextGlobalPointerTarget) {
-      return;
-    }
-    detachGlobalPointerListeners();
-    for (const [type, handler, options] of globalPointerListeners) {
-      nextGlobalPointerTarget.addEventListener(type, handler, options);
-    }
-    globalPointerTarget = nextGlobalPointerTarget;
+    globalPointerListeners.retarget(nextGlobalPointerTarget);
   }
 
   function destroy() {
@@ -78,27 +56,43 @@ export function createOverlayInputHost({
   }
 
   function detachMountedInputListeners() {
-    if (!mountedInputTarget) {
-      return;
-    }
-    for (const [type, handler, options] of mountedInputListeners) {
-      mountedInputTarget.removeEventListener(type, handler, options);
-    }
-    mountedInputTarget = null;
+    mountedInputListeners.detach();
   }
 
   function detachGlobalPointerListeners() {
-    if (!globalPointerTarget) {
-      return;
-    }
-    for (const [type, handler, options] of globalPointerListeners) {
-      globalPointerTarget.removeEventListener(type, handler, options);
-    }
-    globalPointerTarget = null;
+    globalPointerListeners.detach();
   }
 
   function resolveGlobalPointerTarget() {
     const mountElement = getMountElement();
     return mountElement?.ownerDocument?.defaultView ?? fallbackWindow ?? null;
   }
+}
+
+function createRetargetableListenerSet(listeners) {
+  let target = null;
+  return {
+    retarget(nextTarget) {
+      if (target === nextTarget) {
+        return;
+      }
+      this.detach();
+      if (!nextTarget) {
+        return;
+      }
+      for (const [type, handler, options] of listeners) {
+        nextTarget.addEventListener(type, handler, options);
+      }
+      target = nextTarget;
+    },
+    detach() {
+      if (!target) {
+        return;
+      }
+      for (const [type, handler, options] of listeners) {
+        target.removeEventListener(type, handler, options);
+      }
+      target = null;
+    },
+  };
 }
