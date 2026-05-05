@@ -200,6 +200,10 @@ export function createRegistrationSnapshotKey(registration) {
 }
 
 export function createSessionSnapshotKey(session) {
+  // TODO(smell): Durable session normalization, snapshot-key equality, and
+  // registration solve predicates all live in this module. Split schema
+  // normalization from equality/registration queries before adding more
+  // persisted session fields.
   const normalized = normalizeSession(session);
   return [
     "session",

@@ -8,6 +8,9 @@ export function createClipboardImageReader({
   pageAdapter,
   logger = null,
 } = {}) {
+  // TODO(smell): Paste reading returns machine-shaped image/status/placement
+  // outcomes. Keep clipboard decoding as a platform adapter and move placement
+  // derivation/status outcome construction behind the machine paste effect.
   const imageNormalizationDeps = createBrowserImageNormalizationDeps(ownerWindow);
 
   async function readClipboardApiImage() {

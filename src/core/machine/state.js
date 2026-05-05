@@ -60,6 +60,10 @@ export function createIdlePanel() {
 }
 
 export function normalizeMachineState(state = {}) {
+  // TODO(smell): Machine state normalization still centralizes session,
+  // runtime, panel, status, and history shape repair. Keep the root state
+  // constructor thin by moving each transient domain's normalization next to
+  // its transition owner.
   const session = state.session ?? {};
   const runtime = state.runtime ?? {};
   const panel = state.panel ?? {};

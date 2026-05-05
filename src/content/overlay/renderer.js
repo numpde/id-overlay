@@ -53,6 +53,9 @@ export function createOverlayRenderer({
   };
 
   function render() {
+    // TODO(smell): Rendering still resolves presentation policy, geometry, DOM
+    // style patches, and pin element construction in one pass. Extract a pure
+    // overlay view model so this module only reconciles DOM nodes.
     const machineState = getMachineState();
     const state = machineState.session;
     const snapshot = getSnapshot();
