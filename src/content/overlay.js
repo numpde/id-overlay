@@ -1,5 +1,6 @@
 import { createOverlayInputRouter } from "./overlay/input-router.js";
 import { createOverlayRenderer } from "./overlay/renderer.js";
+import { buildOverlayViewModel } from "./overlay/view-model.js";
 
 export function createOverlay({
   pageObservation,
@@ -16,10 +17,8 @@ export function createOverlay({
   let inputRouter = null;
 
   const renderer = createOverlayRenderer({
-    pageProjection,
-    getMachineState,
-    getRuntimeState,
-    getSnapshot,
+    getOverlayViewModel,
+    getMountElement: () => getSnapshot().mountElement,
     onMountChange() {
       inputRouter?.syncMountedInputListeners();
       inputRouter?.syncGlobalPointerListeners();
@@ -67,5 +66,14 @@ export function createOverlay({
 
   function getSnapshot() {
     return latestSnapshot;
+  }
+
+  function getOverlayViewModel() {
+    return buildOverlayViewModel({
+      machineState: getMachineState(),
+      runtime: getRuntimeState(),
+      snapshot: getSnapshot(),
+      projectMapPinScreenPoint: pageProjection.mapToOverlayLayerScreen,
+    });
   }
 }
