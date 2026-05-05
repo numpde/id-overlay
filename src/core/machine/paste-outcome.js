@@ -1,31 +1,43 @@
 import {
-  createLoadImageEvent,
-  createReportStatusNoticeEvent,
+  MACHINE_PASTE_SOURCE,
 } from "./events.js";
+import {
+  canCompletePasteReadForRequest,
+  cancelPanelIntent,
+  reportStatusNotice,
+} from "./panel-status-transition.js";
+import { loadImage } from "./session-transition.js";
+import { createTransitionResult } from "./transition-result.js";
 
-export function createPasteReadOutcomeEvent(outcome, { requestId = null } = {}) {
-  // TODO(smell): Paste outcome translation returns only one follow-up event,
-  // which forces the effect runner to know which outcomes also close the panel
-  // request. The final shape should make this mapper produce the complete
-  // ordered response to a paste result.
-  const normalizedOutcome = normalizePasteReadOutcome(outcome);
-  if (!normalizedOutcome) {
-    return null;
+export function completePasteRead(state, event) {
+  if (!canCompletePasteReadForRequest(state, event)) {
+    return createTransitionResult({ state });
   }
-  if (normalizedOutcome.image) {
-    return createLoadImageEvent({
-      image: normalizedOutcome.image,
-      placement: normalizedOutcome.placement,
-      requestId,
+  const outcome = normalizePasteReadOutcome(event.outcome);
+  if (!outcome) {
+    return createTransitionResult({ state });
+  }
+  if (outcome.image) {
+    return loadImage(state, {
+      image: outcome.image,
+      placement: outcome.placement,
+      requestId: event.requestId,
     });
   }
-  if (normalizedOutcome.noticeKind) {
-    return createReportStatusNoticeEvent({
-      noticeKind: normalizedOutcome.noticeKind,
-      noticePayload: normalizedOutcome.noticePayload,
-    });
+  if (!outcome.noticeKind) {
+    return createTransitionResult({ state });
   }
-  return null;
+  const statusEvent = {
+    noticeKind: outcome.noticeKind,
+    noticePayload: outcome.noticePayload,
+  };
+  if (event.source !== MACHINE_PASTE_SOURCE.MANUAL_PASTE) {
+    return reportStatusNotice(state, statusEvent);
+  }
+  return cancelPanelIntent(state, {
+    requestId: event.requestId,
+    ...statusEvent,
+  });
 }
 
 export function normalizePasteReadOutcome(outcome) {

@@ -22,6 +22,14 @@ import {
   createTransitionResult,
 } from "./transition-result.js";
 
+export function canCompletePasteReadForRequest(state, event) {
+  return (
+    state.panel.intent === MACHINE_PANEL_INTENT.PASTE_ARMED &&
+    isValidPanelRequestId(event.requestId) &&
+    state.panel.requestId === event.requestId
+  );
+}
+
 export function requestPanelIntent(state, event) {
   // TODO(smell): Panel request lifecycle still hand-builds request ids,
   // cancellation ordering, and timeout/capture effects in one transition
@@ -82,11 +90,7 @@ export function canLoadImageForRequest(state, event) {
   if (event.requestId == null) {
     return true;
   }
-  return (
-    state.panel.intent === MACHINE_PANEL_INTENT.PASTE_ARMED &&
-    isValidPanelRequestId(event.requestId) &&
-    state.panel.requestId === event.requestId
-  );
+  return canCompletePasteReadForRequest(state, event);
 }
 
 export function clearStatusNotice(state, event) {

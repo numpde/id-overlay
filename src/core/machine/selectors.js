@@ -3,7 +3,6 @@ import {
 } from "./events.js";
 import { peekRedoRecord, peekUndoRecord } from "./history.js";
 import { selectOverlayPolicy } from "./policy.js";
-import { isValidPanelRequestId } from "./state.js";
 
 export function selectCanUndo(state) {
   return Boolean(selectUndoRecord(state));
@@ -11,10 +10,6 @@ export function selectCanUndo(state) {
 
 export function selectCanRedo(state) {
   return Boolean(selectRedoRecord(state));
-}
-
-export function selectIsCurrentPanelRequest(state, requestId) {
-  return isValidPanelRequestId(requestId) && state.panel.requestId === requestId;
 }
 
 export function selectUndoRecord(state) {

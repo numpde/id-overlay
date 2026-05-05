@@ -1,9 +1,7 @@
 import { MACHINE_EFFECT_KIND } from "./effects.js";
-import { createPasteReadOutcomeEvent } from "./paste-outcome.js";
-import { selectIsCurrentPanelRequest } from "./selectors.js";
 import {
-  MACHINE_EVENT_KIND,
-  createCancelPanelIntentEvent,
+  MACHINE_PASTE_SOURCE,
+  createCompletePasteReadEvent,
 } from "./events.js";
 
 export function createMachineEffectRunner({
@@ -15,7 +13,6 @@ export function createMachineEffectRunner({
   startStatusTimeout = null,
   cancelStatusTimeout = null,
   dispatch = null,
-  getState = null,
   onError = null,
 } = {}) {
   return async function runMachineEffect(effect, context = {}) {
@@ -34,7 +31,11 @@ export function createMachineEffectRunner({
         return startManualPasteCapture?.({
           requestId: effect.requestId,
           context,
-          onPasteOutcome: (outcome) => dispatchManualPasteOutcome(outcome, effect.requestId),
+          onPasteOutcome: (outcome) => dispatchPasteReadCompleted({
+            outcome,
+            requestId: effect.requestId,
+            source: MACHINE_PASTE_SOURCE.MANUAL_PASTE,
+          }),
         });
       case MACHINE_EFFECT_KIND.CANCEL_MANUAL_PASTE_CAPTURE:
         return cancelManualPasteCapture?.({
@@ -67,47 +68,27 @@ export function createMachineEffectRunner({
     }
   }
 
-  function dispatchManualPasteOutcome(pasteOutcome, requestId) {
-    // TODO(smell): The runner should execute effects and dispatch declared
-    // follow-ups, not decide paste-result control flow. This branch disappears
-    // once paste-result mapping owns the complete ordered response.
-    if (!isCurrentRequest(requestId)) {
-      return;
-    }
-    const event = createPasteReadOutcomeEvent(pasteOutcome, { requestId });
-    if (!event) {
-      return;
-    }
-    if (event.type === MACHINE_EVENT_KIND.LOAD_IMAGE) {
-      dispatch?.(event);
-      return;
-    }
-    dispatch?.(createCancelPanelIntentEvent({ requestId }));
-    dispatch?.(event);
-  }
-
   async function runReadPasteImage(effect, context) {
     if (!readPasteImage) {
       return;
     }
-    const pasteOutcome = await readPasteImage({
+    const outcome = await readPasteImage({
       requestId: effect.requestId,
       context,
     });
-    if (!isCurrentRequest(effect.requestId)) {
-      return;
-    }
-    const event = createPasteReadOutcomeEvent(pasteOutcome, {
+    dispatchPasteReadCompleted({
+      outcome,
       requestId: effect.requestId,
+      source: MACHINE_PASTE_SOURCE.CLIPBOARD_API,
     });
-    if (event) {
-      dispatch?.(event);
-    }
   }
 
-  function isCurrentRequest(requestId) {
-    const state = getState?.();
-    return state ? selectIsCurrentPanelRequest(state, requestId) : false;
+  function dispatchPasteReadCompleted({ outcome, requestId, source }) {
+    dispatch?.(createCompletePasteReadEvent({
+      requestId,
+      source,
+      outcome,
+    }));
   }
 
   function reportError(error, payload) {

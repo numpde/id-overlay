@@ -6,6 +6,8 @@ import {
   MACHINE_HISTORY_KIND,
   MACHINE_MODE,
   MACHINE_PANEL_INTENT,
+  MACHINE_PASTE_SOURCE,
+  MACHINE_STATUS_NOTICE_KIND,
 } from "../../src/core/machine/events.js";
 import { MACHINE_EFFECT_KIND } from "../../src/core/machine/effects.js";
 import {
@@ -312,6 +314,135 @@ test("stale request-bound image load is a pure no-op", () => {
 
   assert.deepEqual(result.state, state);
   assert.deepEqual(result.effects, []);
+  assert.equal(result.historyRecord, null);
+});
+
+test("stale paste completion is a pure no-op", () => {
+  const state = transitionMachine(createInitialMachineState(), {
+    type: MACHINE_EVENT_KIND.REQUEST_PANEL_INTENT,
+    intent: MACHINE_PANEL_INTENT.PASTE_ARMED,
+  }).state;
+
+  const result = transitionMachine(state, {
+    type: MACHINE_EVENT_KIND.COMPLETE_PASTE_READ,
+    source: MACHINE_PASTE_SOURCE.CLIPBOARD_API,
+    outcome: IMAGE,
+    requestId: state.panel.requestId + 1,
+  });
+
+  assert.deepEqual(result.state, state);
+  assert.deepEqual(result.effects, []);
+  assert.equal(result.historyRecord, null);
+});
+
+test("null paste completion keeps paste armed for manual paste fallback", () => {
+  const state = transitionMachine(createInitialMachineState(), {
+    type: MACHINE_EVENT_KIND.REQUEST_PANEL_INTENT,
+    intent: MACHINE_PANEL_INTENT.PASTE_ARMED,
+  }).state;
+
+  const result = transitionMachine(state, {
+    type: MACHINE_EVENT_KIND.COMPLETE_PASTE_READ,
+    source: MACHINE_PASTE_SOURCE.CLIPBOARD_API,
+    outcome: null,
+    requestId: state.panel.requestId,
+  });
+
+  assert.deepEqual(result.state, state);
+  assert.deepEqual(result.effects, []);
+  assert.equal(result.historyRecord, null);
+});
+
+test("paste completion with image loads image through canonical session transition", () => {
+  const state = transitionMachine(createInitialMachineState(), {
+    type: MACHINE_EVENT_KIND.REQUEST_PANEL_INTENT,
+    intent: MACHINE_PANEL_INTENT.PASTE_ARMED,
+  }).state;
+
+  const result = transitionMachine(state, {
+    type: MACHINE_EVENT_KIND.COMPLETE_PASTE_READ,
+    source: MACHINE_PASTE_SOURCE.CLIPBOARD_API,
+    outcome: {
+      image: IMAGE,
+      placement: PLACEMENT,
+    },
+    requestId: state.panel.requestId,
+  });
+
+  assert.equal(result.state.session.mode, MACHINE_MODE.ALIGN);
+  assert.deepEqual(result.state.panel, createIdlePanel());
+  assert.deepEqual(result.effects, [
+    {
+      kind: MACHINE_EFFECT_KIND.CANCEL_PANEL_TIMEOUT,
+      requestId: 1,
+    },
+    {
+      kind: MACHINE_EFFECT_KIND.CANCEL_MANUAL_PASTE_CAPTURE,
+      requestId: 1,
+    },
+    {
+      kind: MACHINE_EFFECT_KIND.START_STATUS_TIMEOUT,
+      requestId: 1,
+    },
+  ]);
+  assert.equal(result.historyRecord.kind, MACHINE_HISTORY_KIND.LOAD_IMAGE);
+});
+
+test("clipboard-api paste status keeps paste armed", () => {
+  const state = transitionMachine(createInitialMachineState(), {
+    type: MACHINE_EVENT_KIND.REQUEST_PANEL_INTENT,
+    intent: MACHINE_PANEL_INTENT.PASTE_ARMED,
+  }).state;
+
+  const result = transitionMachine(state, {
+    type: MACHINE_EVENT_KIND.COMPLETE_PASTE_READ,
+    source: MACHINE_PASTE_SOURCE.CLIPBOARD_API,
+    outcome: {
+      noticeKind: MACHINE_STATUS_NOTICE_KIND.CLIPBOARD_MISSING_IMAGE,
+    },
+    requestId: state.panel.requestId,
+  });
+
+  assert.equal(result.state.panel.intent, MACHINE_PANEL_INTENT.PASTE_ARMED);
+  assert.equal(result.state.status.notice.kind, MACHINE_STATUS_NOTICE_KIND.CLIPBOARD_MISSING_IMAGE);
+  assert.deepEqual(result.effects, [{
+    kind: MACHINE_EFFECT_KIND.START_STATUS_TIMEOUT,
+    requestId: 1,
+  }]);
+  assert.equal(result.historyRecord, null);
+});
+
+test("manual paste status cancels paste before reporting status", () => {
+  const state = transitionMachine(createInitialMachineState(), {
+    type: MACHINE_EVENT_KIND.REQUEST_PANEL_INTENT,
+    intent: MACHINE_PANEL_INTENT.PASTE_ARMED,
+  }).state;
+
+  const result = transitionMachine(state, {
+    type: MACHINE_EVENT_KIND.COMPLETE_PASTE_READ,
+    source: MACHINE_PASTE_SOURCE.MANUAL_PASTE,
+    outcome: {
+      noticeKind: MACHINE_STATUS_NOTICE_KIND.CLIPBOARD_MISSING_IMAGE,
+    },
+    requestId: state.panel.requestId,
+  });
+
+  assert.deepEqual(result.state.panel, createIdlePanel());
+  assert.equal(result.state.status.notice.kind, MACHINE_STATUS_NOTICE_KIND.CLIPBOARD_MISSING_IMAGE);
+  assert.deepEqual(result.effects, [
+    {
+      kind: MACHINE_EFFECT_KIND.CANCEL_PANEL_TIMEOUT,
+      requestId: 1,
+    },
+    {
+      kind: MACHINE_EFFECT_KIND.CANCEL_MANUAL_PASTE_CAPTURE,
+      requestId: 1,
+    },
+    {
+      kind: MACHINE_EFFECT_KIND.START_STATUS_TIMEOUT,
+      requestId: 1,
+    },
+  ]);
   assert.equal(result.historyRecord, null);
 });
 

@@ -29,6 +29,7 @@ export const MACHINE_EVENT_KIND = Object.freeze({
   CANCEL_PANEL_INTENT: "cancel-panel-intent",
   REPORT_STATUS_NOTICE: "report-status-notice",
   CLEAR_STATUS_NOTICE: "clear-status-notice",
+  COMPLETE_PASTE_READ: "complete-paste-read",
 });
 
 export const MACHINE_MODE = SESSION_MODE;
@@ -87,6 +88,11 @@ export const MACHINE_INPUT_OVERRIDE = Object.freeze({
   PASS_THROUGH: "pass-through",
 });
 
+export const MACHINE_PASTE_SOURCE = Object.freeze({
+  CLIPBOARD_API: "clipboard-api",
+  MANUAL_PASTE: "manual-paste",
+});
+
 // TODO(smell): Event vocabulary and a few ad hoc event constructors live in the
 // same file. The final event boundary should either provide constructors for
 // every externally-authored event or keep this file as vocabulary only.
@@ -124,5 +130,18 @@ export function createReportStatusNoticeEvent({
     type: MACHINE_EVENT_KIND.REPORT_STATUS_NOTICE,
     noticeKind,
     noticePayload,
+  };
+}
+
+export function createCompletePasteReadEvent({
+  requestId = null,
+  source,
+  outcome = null,
+} = {}) {
+  return {
+    type: MACHINE_EVENT_KIND.COMPLETE_PASTE_READ,
+    requestId,
+    source,
+    outcome,
   };
 }

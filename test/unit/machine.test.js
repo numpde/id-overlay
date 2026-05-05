@@ -14,7 +14,6 @@ import {
 } from "../../src/core/machine/policy.js";
 import {
   selectOverlayPresentation,
-  selectIsCurrentPanelRequest,
 } from "../../src/core/machine/selectors.js";
 import {
   selectPanelView,
@@ -585,9 +584,6 @@ test("selectors derive panel intent, status, controls, and pass-through", () => 
   }).state;
 
   assert.equal(selectPanelView(state).mainAction.kind, "confirm-clear-image");
-  assert.equal(selectIsCurrentPanelRequest(state, state.panel.requestId), true);
-  assert.equal(selectIsCurrentPanelRequest(state, state.panel.requestId + 1), false);
-  assert.equal(selectIsCurrentPanelRequest(createInitialMachineState(), null), false);
   assert.equal(
     selectStatus(state),
     "Click Clear image? again to remove the current screenshot, placement, and pins.",

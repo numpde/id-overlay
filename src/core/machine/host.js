@@ -47,7 +47,6 @@ export function createMachineHost({
     startStatusTimeout,
     cancelStatusTimeout,
     dispatch: (event) => dispatch(event),
-    getState: () => runtime?.getState(),
     onError: reportError,
   });
 
