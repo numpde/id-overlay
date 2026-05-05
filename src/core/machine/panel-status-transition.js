@@ -23,6 +23,10 @@ import {
 } from "./transition-result.js";
 
 export function requestPanelIntent(state, event) {
+  // TODO(smell): Panel request lifecycle still hand-builds request ids,
+  // cancellation ordering, and timeout/capture effects in one transition
+  // branch. The final shape should isolate request transactions so intent
+  // handlers declare the requested intent and receive state/effect deltas.
   if (!isKnownPanelIntent(event.intent)) {
     return createTransitionResult({
       state,

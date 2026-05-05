@@ -25,6 +25,11 @@ import {
 } from "./transition-result.js";
 
 export function loadImage(state, event) {
+  // TODO(smell): Image/session transitions repeat the same transaction
+  // choreography: replace durable session, clear edit/runtime state, clear the
+  // panel request, then author status/history. The final shape should expose a
+  // tiny session-change transaction helper so branches state only semantic
+  // before/after sessions and labels.
   if (!event.image || !canLoadImageForRequest(state, event)) {
     return createTransitionResult({
       state,

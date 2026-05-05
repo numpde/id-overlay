@@ -6,6 +6,10 @@ import {
 } from "./effects.js";
 
 export function finalizeTransitionResult(result, { commitHistory, commitStatus }) {
+  // TODO(smell): Result finalization currently interprets history commits and
+  // status timeout lifecycle behind boolean options. If another concern lands
+  // here, split this into explicit small interpreters so transition branches do
+  // not rely on hidden finalizer policy.
   let state = result.state;
   let effects = result.effects;
   let historyRecord = result.historyRecord;

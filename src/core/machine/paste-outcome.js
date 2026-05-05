@@ -4,6 +4,10 @@ import {
 } from "./events.js";
 
 export function createPasteReadOutcomeEvent(outcome, { requestId = null } = {}) {
+  // TODO(smell): Paste outcome translation returns only one follow-up event,
+  // which forces the effect runner to know which outcomes also close the panel
+  // request. The final shape should make this mapper produce the complete
+  // ordered response to a paste result.
   const normalizedOutcome = normalizePasteReadOutcome(outcome);
   if (!normalizedOutcome) {
     return null;

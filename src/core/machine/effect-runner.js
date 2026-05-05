@@ -68,6 +68,9 @@ export function createMachineEffectRunner({
   }
 
   function dispatchManualPasteOutcome(pasteOutcome, requestId) {
+    // TODO(smell): The runner should execute effects and dispatch declared
+    // follow-ups, not decide paste-result control flow. This branch disappears
+    // once paste-result mapping owns the complete ordered response.
     if (!isCurrentRequest(requestId)) {
       return;
     }
