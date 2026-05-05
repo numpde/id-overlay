@@ -25,7 +25,7 @@ export function createPinToggleInteraction({
 
   function toggleAtScreenPoint(screenPoint) {
     return errorBoundary.run("handle-toggle-pin", () => {
-      runtimeBridge.updatePointer(screenPoint);
+      runtimeBridge.observePointer(screenPoint);
       return executeToggleAtScreenPoint(screenPoint);
     }, { fallbackValue: false });
   }
@@ -41,7 +41,7 @@ export function createPinToggleInteraction({
     logger.info("Toggled registration pin", {
       pinId: outcome.existingPinId,
     });
-    runtimeBridge.updatePointer(outcome.pointerScreenPx);
+    runtimeBridge.observePointer(outcome.pointerScreenPx);
     return true;
   }
 }

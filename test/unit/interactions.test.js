@@ -33,6 +33,12 @@ import {
 } from "../../src/core/machine/private-commands.js";
 import { createMachineHost } from "../../src/core/machine/host.js";
 import {
+  createGestureBeganFact,
+  createInputInterruptedFact,
+  createInputPassThroughPressedFact,
+  createPointerObservedFact,
+} from "../../src/core/machine/runtime-facts.js";
+import {
   selectPanelStatusText,
 } from "../../src/core/machine/selectors.js";
 import { createInitialMachineState } from "../../src/core/machine/state.js";
@@ -268,20 +274,23 @@ test("machine fit event solves from interaction-created pins and clears the dirt
   assert.ok(getSession(harness).registration.solvedTransform);
 });
 
-test("input runtime transitions are canonical machine transitions", () => {
+test("input runtime lifecycle facts are canonical machine ingress", () => {
   const machineHost = createMachineHost();
 
-  machineHost.updatePointer({ x: 500, y: 300 });
+  machineHost.observeRuntimeFact(createPointerObservedFact({ x: 500, y: 300 }));
   assert.deepEqual(machineHost.getState().runtime.pointer.screenPx, { x: 500, y: 300 });
 
-  machineHost.beginPointerGesture({ x: 510, y: 305 }, { gestureKind: DRAG_MODE.MAP_PAN });
+  machineHost.observeRuntimeFact(createGestureBeganFact({
+    screenPx: { x: 510, y: 305 },
+    gestureKind: DRAG_MODE.MAP_PAN,
+  }));
   assert.deepEqual(machineHost.getState().runtime.pointer.screenPx, { x: 510, y: 305 });
   assert.deepEqual(machineHost.getState().runtime.activeGesture, { kind: DRAG_MODE.MAP_PAN });
 
-  machineHost.setInputPassThrough(true);
+  machineHost.observeRuntimeFact(createInputPassThroughPressedFact());
   assert.equal(machineHost.getState().runtime.inputOverride, MACHINE_INPUT_OVERRIDE.PASS_THROUGH);
 
-  machineHost.resetInputRuntime({ screenPx: null });
+  machineHost.observeRuntimeFact(createInputInterruptedFact({ pointerScreenPx: null }));
   assert.deepEqual(machineHost.getState().runtime, createInitialMachineState().runtime);
 });
 

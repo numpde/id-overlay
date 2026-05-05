@@ -4,6 +4,16 @@ import {
   selectRuntimeGestureKind,
   selectRuntimePointerScreenPx,
 } from "../../core/machine/selectors.js";
+import {
+  createGestureBeganFact,
+  createGestureEndedFact,
+  createGestureMovedFact,
+  createInputInterruptedFact,
+  createInputPassThroughPressedFact,
+  createInputPassThroughReleasedFact,
+  createPointerClearedFact,
+  createPointerObservedFact,
+} from "../../core/machine/runtime-facts.js";
 
 export function createInteractionRuntimeBridge({
   machineHost,
@@ -13,9 +23,6 @@ export function createInteractionRuntimeBridge({
   // TODO(smell): Runtime observation and adapter drag cleanup are still coupled
   // here. The ideal boundary would expose a single gesture-lifecycle port so
   // runtime reset effects and adapter cancellation cannot drift apart.
-  // TODO(smell): Runtime pointer/gesture/override updates are still authored as
-  // external machine commands from content. In the final ingress model, content
-  // reports observed input lifecycle facts and the machine owns runtime deltas.
   let destroyed = false;
   let observedRuntime = machineHost.getState().runtime;
   const runtimeUnsubscribes = new Set();
@@ -31,10 +38,13 @@ export function createInteractionRuntimeBridge({
     getRuntimeState,
     getPointerScreenPx,
     subscribe,
-    updatePointer,
-    beginGesture,
-    endGesture,
-    setPassThrough,
+    observePointer,
+    clearPointer,
+    observeGestureStart,
+    observeGestureMove,
+    observeGestureFinish,
+    observePassThroughPress,
+    observePassThroughRelease,
     reset,
   };
 
@@ -75,20 +85,32 @@ export function createInteractionRuntimeBridge({
     }, { emitCurrent: false }));
   }
 
-  function updatePointer(screenPx) {
-    machineActions.updatePointer(screenPx);
+  function observePointer(screenPx) {
+    machineActions.observeRuntimeFact(createPointerObservedFact(screenPx));
   }
 
-  function beginGesture(screenPx, { gestureKind }) {
-    machineActions.beginPointerGesture(screenPx, { gestureKind });
+  function clearPointer() {
+    machineActions.observeRuntimeFact(createPointerClearedFact());
   }
 
-  function endGesture(screenPx) {
-    machineActions.endPointerGesture(screenPx);
+  function observeGestureStart(screenPx, { gestureKind }) {
+    machineActions.observeRuntimeFact(createGestureBeganFact({ screenPx, gestureKind }));
   }
 
-  function setPassThrough(isActive) {
-    machineActions.setInputPassThrough(isActive);
+  function observeGestureMove(screenPx, { gestureKind }) {
+    machineActions.observeRuntimeFact(createGestureMovedFact({ screenPx, gestureKind }));
+  }
+
+  function observeGestureFinish(screenPx) {
+    machineActions.observeRuntimeFact(createGestureEndedFact({ screenPx }));
+  }
+
+  function observePassThroughPress() {
+    machineActions.observeRuntimeFact(createInputPassThroughPressedFact());
+  }
+
+  function observePassThroughRelease() {
+    machineActions.observeRuntimeFact(createInputPassThroughReleasedFact());
   }
 
   function reset({
@@ -97,7 +119,7 @@ export function createInteractionRuntimeBridge({
     commitPlacement = true,
   } = {}) {
     adapterDrag.cancel(endPointerScreenPx, { commitPlacement });
-    machineActions.resetInputRuntime({ screenPx: pointerScreenPx });
+    machineActions.observeRuntimeFact(createInputInterruptedFact({ pointerScreenPx }));
   }
 
   function syncAdapterDragFromRuntimeChange(previousRuntime, nextRuntime) {

@@ -6,10 +6,6 @@ import { createInitialMachineState } from "../../src/core/machine/state.js";
 import { SESSION_MODE, createEmptySession } from "../../src/core/session.js";
 import { createKeyboardInputRouter } from "../../src/content/interactions/keyboard-router.js";
 
-// TODO(smell): Keyboard-router tests encode the current callback surface for
-// mode, pass-through, pin toggle, and runtime reset. Rewrite around normalized
-// keyboard user/fact ingress once these callbacks no longer author low-level
-// machine/runtime commands.
 const TEST_IMAGE = Object.freeze({
   src: "data:image/png;base64,abc",
   width: 800,
@@ -54,7 +50,7 @@ test("keyboard router activates and releases pass-through", () => {
   };
   harness.keyTarget.dispatch("keyup", keyup);
 
-  assert.deepEqual(harness.calls.passThrough, [true, false]);
+  assert.deepEqual(harness.calls.passThrough, ["press", "release"]);
   assert.equal(keydown.prevented, true);
   assert.equal(keyup.prevented, true);
 
@@ -125,10 +121,13 @@ function createKeyboardRouterHarness({
       calls.modes.push(mode);
       return true;
     },
-    setPassThrough(isActive) {
-      calls.passThrough.push(isActive);
+    observePassThroughPress() {
+      calls.passThrough.push("press");
     },
-    resetInteractionState(payload) {
+    observePassThroughRelease() {
+      calls.passThrough.push("release");
+    },
+    resetRuntimeObservation(payload) {
       calls.resets.push(payload);
     },
     logger: createLoggerDouble(),

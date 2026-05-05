@@ -76,8 +76,9 @@ export function createInteractionController({
     getPointerScreenPx,
     executePinToggleAtScreenPoint: pinToggleInteraction.toggleAtScreenPoint,
     applyMode: modeInteraction.select,
-    setPassThrough: runtimeBridge.setPassThrough,
-    resetInteractionState: runtimeBridge.reset,
+    observePassThroughPress: runtimeBridge.observePassThroughPress,
+    observePassThroughRelease: runtimeBridge.observePassThroughRelease,
+    resetRuntimeObservation: runtimeBridge.reset,
     logger,
   });
 
@@ -179,11 +180,7 @@ export function createInteractionController({
 function createMachineActionPort(machineHost) {
   return {
     selectMode: machineHost.selectMode,
-    updatePointer: machineHost.updatePointer,
-    beginPointerGesture: machineHost.beginPointerGesture,
-    endPointerGesture: machineHost.endPointerGesture,
-    setInputPassThrough: machineHost.setInputPassThrough,
-    resetInputRuntime: machineHost.resetInputRuntime,
+    observeRuntimeFact: machineHost.observeRuntimeFact,
     reportRuntimeError: machineHost.reportRuntimeError,
     togglePin: machineHost.togglePin,
     applyPlacementEditPlan: machineHost.applyPlacementEditPlan,

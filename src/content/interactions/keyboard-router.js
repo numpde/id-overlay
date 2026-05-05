@@ -12,14 +12,11 @@ export function createKeyboardInputRouter({
   getPointerScreenPx,
   executePinToggleAtScreenPoint,
   applyMode,
-  setPassThrough,
-  resetInteractionState,
+  observePassThroughPress,
+  observePassThroughRelease,
+  resetRuntimeObservation,
   logger,
 }) {
-  // TODO(smell): Keyboard routing still receives low-level runtime callbacks
-  // beside semantic commands. Replace setPassThrough/resetInteractionState with
-  // keyboard interaction commands so shortcut handling never knows runtime
-  // mutation vocabulary.
   const keyboardListeners = createKeyboardListeners({
     keyTarget,
     keyboardGateway,
@@ -86,7 +83,7 @@ export function createKeyboardInputRouter({
 
     if (shortcutAction === KEYBOARD_SHORTCUT_ACTION.ENABLE_PASS_THROUGH) {
       logger.info("Keyboard pass-through activated");
-      setPassThrough(true);
+      observePassThroughPress();
     }
   }
 
@@ -105,11 +102,11 @@ export function createKeyboardInputRouter({
     }
     consumeEvent(event);
     logger.info("Keyboard pass-through released");
-    setPassThrough(false);
+    observePassThroughRelease();
   }
 
   function handleWindowBlur() {
-    resetInteractionState({
+    resetRuntimeObservation({
       endPointerScreenPx: getPointerScreenPx(),
       pointerScreenPx: null,
     });

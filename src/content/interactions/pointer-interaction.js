@@ -21,14 +21,14 @@ export function createPointerInteraction({
   };
 
   function handlePointerEnter(screenPoint) {
-    runtimeBridge.updatePointer(screenPoint);
+    runtimeBridge.observePointer(screenPoint);
   }
 
   function handlePointerLeave() {
     if (selectIsRuntimeDragging(runtimeBridge.getRuntimeState())) {
       return;
     }
-    runtimeBridge.updatePointer(null);
+    runtimeBridge.clearPointer();
   }
 
   function handlePointerMove(screenPoint) {
@@ -36,12 +36,12 @@ export function createPointerInteraction({
       const dragMode = adapterDrag.getActiveDragMode();
       if (selectIsRuntimeDragging(runtimeBridge.getRuntimeState()) && dragMode) {
         adapterDrag.move(screenPoint);
-        runtimeBridge.beginGesture(screenPoint, {
+        runtimeBridge.observeGestureMove(screenPoint, {
           gestureKind: dragMode,
         });
         return true;
       }
-      runtimeBridge.updatePointer(screenPoint);
+      runtimeBridge.observePointer(screenPoint);
       return true;
     }, { fallbackValue: false });
   }
@@ -51,7 +51,7 @@ export function createPointerInteraction({
       if (!adapterDrag.begin({ button, screenPoint, dragMode })) {
         return false;
       }
-      runtimeBridge.beginGesture(screenPoint, {
+      runtimeBridge.observeGestureStart(screenPoint, {
         gestureKind: dragMode,
       });
       return true;
@@ -63,7 +63,7 @@ export function createPointerInteraction({
       if (!adapterDrag.end(screenPoint)) {
         return false;
       }
-      runtimeBridge.endGesture(screenPoint);
+      runtimeBridge.observeGestureFinish(screenPoint);
       return true;
     }, { fallbackValue: false });
   }

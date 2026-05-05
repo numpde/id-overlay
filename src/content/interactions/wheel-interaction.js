@@ -30,7 +30,7 @@ export function createWheelInteraction({
       if (!outcome.handled) {
         return false;
       }
-      runtimeBridge.updatePointer(outcome.pointerScreenPx);
+      runtimeBridge.observePointer(outcome.pointerScreenPx);
       return true;
     }, { fallbackValue: false });
   }

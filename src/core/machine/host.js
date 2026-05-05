@@ -6,6 +6,9 @@ import {
 import {
   MACHINE_COMMAND_KIND,
 } from "./private-commands.js";
+import {
+  MACHINE_RUNTIME_FACT_KIND,
+} from "./runtime-facts.js";
 import { MACHINE_STATUS_NOTICE_KIND } from "./status-notices.js";
 import { createMachineEffectRunner } from "./effect-runner.js";
 import {
@@ -213,6 +216,27 @@ export function createMachineHost({
       type: MACHINE_COMMAND_KIND.SET_OPACITY,
       opacity,
     });
+  }
+
+  function observeRuntimeFact(fact) {
+    switch (fact?.kind) {
+      case MACHINE_RUNTIME_FACT_KIND.POINTER_OBSERVED:
+      case MACHINE_RUNTIME_FACT_KIND.POINTER_CLEARED:
+        return updatePointer(fact.screenPx);
+      case MACHINE_RUNTIME_FACT_KIND.GESTURE_BEGAN:
+      case MACHINE_RUNTIME_FACT_KIND.GESTURE_MOVED:
+        return beginPointerGesture(fact.screenPx, { gestureKind: fact.gestureKind });
+      case MACHINE_RUNTIME_FACT_KIND.GESTURE_ENDED:
+        return endPointerGesture(fact.screenPx);
+      case MACHINE_RUNTIME_FACT_KIND.PASS_THROUGH_PRESSED:
+        return setInputPassThrough(true);
+      case MACHINE_RUNTIME_FACT_KIND.PASS_THROUGH_RELEASED:
+        return setInputPassThrough(false);
+      case MACHINE_RUNTIME_FACT_KIND.INPUT_INTERRUPTED:
+        return resetInputRuntime({ screenPx: fact.screenPx });
+      default:
+        return createNoopDispatchResult(runtime.getState());
+    }
   }
 
   function updatePointer(screenPx) {
@@ -492,11 +516,7 @@ export function createMachineHost({
     requestPanelIntent,
     cancelPanelIntent,
     reportStatusNotice,
-    updatePointer,
-    beginPointerGesture,
-    endPointerGesture,
-    setInputPassThrough,
-    resetInputRuntime,
+    observeRuntimeFact,
     reportRuntimeError,
     togglePin,
     applyPlacementEditPlan,
