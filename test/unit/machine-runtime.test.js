@@ -2,9 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  MACHINE_EVENT_KIND,
   MACHINE_MODE,
-  MACHINE_STATUS_NOTICE_KIND,
 } from "../../src/core/machine/events.js";
 import {
   createInitialMachineState,
@@ -12,27 +10,6 @@ import {
 import {
   createMachineRuntime,
 } from "../../src/core/machine/runtime.js";
-import { normalizeSessionImage } from "../../src/core/session.js";
-
-// TODO(smell): Runtime tests assert arbitrary event dispatch as the core public
-// API. After the ingress split, keep generic transition tests private and test
-// runtime through public user/fact events only.
-const IMAGE = Object.freeze({
-  src: "data:image/png;base64,abc",
-  width: 800,
-  height: 400,
-});
-const NORMALIZED_IMAGE = normalizeSessionImage(IMAGE);
-
-const PLACEMENT = Object.freeze({
-  type: "similarity",
-  a: 1,
-  b: 0,
-  tx: 10,
-  ty: 20,
-  scale: 1,
-  rotationRad: 0,
-});
 
 test("machine runtime defaults to the initial machine state", () => {
   const runtime = createMachineRuntime();
@@ -55,14 +32,20 @@ test("machine runtime normalizes custom initial state", () => {
   assert.equal(runtime.getState().session.image, null);
 });
 
-test("dispatch commits transition state and returns the full transition result", () => {
+test("commitMachineResult commits transition state and returns the full result", () => {
   const runtime = createMachineRuntime();
-  const result = runtime.dispatch(loadImageEvent());
+  const result = runtime.commitMachineResult(createTransitionResult({
+    state: createInitialMachineState({
+      session: {
+        mode: MACHINE_MODE.ALIGN,
+      },
+    }),
+    historyRecord: { kind: "test-visible-edit" },
+  }));
 
   assert.equal(runtime.getState(), result.state);
   assert.equal(result.state.session.mode, MACHINE_MODE.ALIGN);
-  assert.deepEqual(result.state.session.image, NORMALIZED_IMAGE);
-  assert.equal(result.historyRecord.kind, "load-image");
+  assert.deepEqual(result.historyRecord, { kind: "test-visible-edit" });
 });
 
 test("subscribers receive the current state by default and then committed updates", () => {
@@ -71,7 +54,13 @@ test("subscribers receive the current state by default and then committed update
   const initialState = runtime.getState();
 
   runtime.subscribe((state) => states.push(state));
-  const result = runtime.dispatch(loadImageEvent());
+  const result = runtime.commitMachineResult(createTransitionResult({
+    state: createInitialMachineState({
+      session: {
+        mode: MACHINE_MODE.ALIGN,
+      },
+    }),
+  }));
 
   assert.equal(states.length, 2);
   assert.equal(states[0], initialState);
@@ -85,107 +74,95 @@ test("subscribers can skip initial emission and unsubscribe from future updates"
     emitCurrent: false,
   });
 
-  const first = runtime.dispatch(loadImageEvent());
+  const first = runtime.commitMachineResult(createTransitionResult({
+    state: createInitialMachineState({
+      session: {
+        mode: MACHINE_MODE.ALIGN,
+      },
+    }),
+  }));
   unsubscribe();
-  runtime.dispatch({ type: MACHINE_EVENT_KIND.CLEAR_IMAGE });
+  runtime.commitMachineResult(createTransitionResult({
+    state: createInitialMachineState({
+      session: {
+        mode: MACHINE_MODE.TRACE,
+      },
+    }),
+  }));
 
   assert.deepEqual(states, [first.state]);
 });
 
-test("no-op transitions do not notify subscribers", () => {
+test("no-op results do not notify subscribers", () => {
   const runtime = createMachineRuntime();
   const states = [];
   runtime.subscribe((state) => states.push(state), { emitCurrent: false });
 
-  const result = runtime.dispatch({
-    type: MACHINE_EVENT_KIND.SELECT_MODE,
-    mode: MACHINE_MODE.TRACE,
-  });
+  const result = runtime.commitMachineResult(createTransitionResult({
+    state: runtime.getState(),
+  }));
 
   assert.equal(result.state, runtime.getState());
   assert.equal(states.length, 0);
 });
 
-test("equal transitions keep the previous state identity", () => {
+test("equal result states keep the previous state identity", () => {
   const runtime = createMachineRuntime();
   const initialState = runtime.getState();
   const states = [];
   runtime.subscribe((state) => states.push(state), { emitCurrent: false });
 
-  const result = runtime.dispatch({ type: "equal-clone" }, {
-    transition: (state) => ({
-      state: {
-        session: {
-          ...state.session,
-          registration: {
-            ...state.session.registration,
-            pins: [...state.session.registration.pins],
-          },
-        },
-        runtime: {
-          ...state.runtime,
-          pointer: {
-            ...state.runtime.pointer,
-          },
-        },
-        panel: {
-          ...state.panel,
-        },
-        status: {
-          ...state.status,
-        },
-        history: {
-          past: [...state.history.past],
-          future: [...state.history.future],
+  const result = runtime.commitMachineResult(createTransitionResult({
+    state: {
+      session: {
+        ...initialState.session,
+        registration: {
+          ...initialState.session.registration,
+          pins: [...initialState.session.registration.pins],
         },
       },
-      effects: [],
-      historyRecord: null,
-      consumedHistoryRecord: null,
-    }),
-  });
+      runtime: {
+        ...initialState.runtime,
+        pointer: {
+          ...initialState.runtime.pointer,
+        },
+      },
+      panel: {
+        ...initialState.panel,
+      },
+      status: {
+        ...initialState.status,
+      },
+      history: {
+        past: [...initialState.history.past],
+        future: [...initialState.history.future],
+      },
+    },
+  }));
 
   assert.equal(result.state, initialState);
   assert.equal(runtime.getState(), initialState);
   assert.equal(states.length, 0);
 });
 
-test("undo and redo flow through the same dispatch path", () => {
-  const runtime = createMachineRuntime();
-  runtime.dispatch(loadImageEvent());
-
-  const undo = runtime.dispatch({ type: MACHINE_EVENT_KIND.UNDO });
-  assert.equal(undo.state.session.image, null);
-  assert.equal(undo.state.history.future.length, 1);
-
-  const redo = runtime.dispatch({ type: MACHINE_EVENT_KIND.REDO });
-  assert.deepEqual(redo.state.session.image, NORMALIZED_IMAGE);
-  assert.equal(redo.state.history.future.length, 0);
-});
-
-test("effects execute after state commit with event, state, and result context", () => {
+test("effects execute after state commit with caller context, state, and result", () => {
   const calls = [];
   const runtime = createMachineRuntime({
     executeEffect(effect, context) {
       calls.push({ effect, context, committedState: runtime.getState() });
     },
   });
-  const event = { type: "test-effect" };
-  const result = runtime.dispatch(event, {
-    transition: (state) => ({
-      state: {
-        ...state,
-        status: committedStatus(),
-      },
-      effects: [{ type: "external-work" }],
-      historyRecord: null,
-      consumedHistoryRecord: null,
-    }),
+  const sourceFact = { kind: "test-fact" };
+  const result = runtime.commitMachineResult(createTransitionResult({
+    state: effectfulState(),
+    effects: [{ type: "external-work" }],
+  }), {
+    sourceFact,
   });
 
   assert.equal(calls.length, 1);
   assert.deepEqual(calls[0].effect, { type: "external-work" });
-  assert.equal(calls[0].context.event, event);
+  assert.equal(calls[0].context.sourceFact, sourceFact);
   assert.equal(calls[0].context.state, result.state);
   assert.equal(calls[0].context.result, result);
   assert.equal(calls[0].committedState, result.state);
@@ -202,10 +179,10 @@ test("sync effect failures are reported without rolling back committed state", (
     },
   });
 
-  const result = dispatchEffectfulTransition(runtime);
+  const result = commitEffectfulResult(runtime);
 
   assert.equal(runtime.getState(), result.state);
-  assert.equal(runtime.getState().status.notice.kind, MACHINE_STATUS_NOTICE_KIND.PASTE_CANCELLED);
+  assert.equal(runtime.getState().session.mode, MACHINE_MODE.ALIGN);
   assert.equal(errors.length, 1);
   assert.equal(errors[0].error.message, "boom");
   assert.equal(errors[0].context.result, result);
@@ -222,45 +199,41 @@ test("async effect rejections are reported without rolling back committed state"
     },
   });
 
-  const result = dispatchEffectfulTransition(runtime);
+  const result = commitEffectfulResult(runtime);
   await Promise.resolve();
 
   assert.equal(runtime.getState(), result.state);
-  assert.equal(runtime.getState().status.notice.kind, MACHINE_STATUS_NOTICE_KIND.PASTE_CANCELLED);
+  assert.equal(runtime.getState().session.mode, MACHINE_MODE.ALIGN);
   assert.equal(errors.length, 1);
   assert.equal(errors[0].error.message, "async boom");
   assert.equal(errors[0].context.result, result);
 });
 
-function loadImageEvent() {
-  return {
-    type: MACHINE_EVENT_KIND.LOAD_IMAGE,
-    image: IMAGE,
-    placement: PLACEMENT,
-  };
+function commitEffectfulResult(runtime) {
+  return runtime.commitMachineResult(createTransitionResult({
+    state: effectfulState(),
+    effects: [{ type: "external-work" }],
+  }));
 }
 
-function dispatchEffectfulTransition(runtime) {
-  return runtime.dispatch({ type: "test-effect" }, {
-    transition: (state) => ({
-      state: {
-        ...state,
-        status: committedStatus(),
-      },
-      effects: [{ type: "external-work" }],
-      historyRecord: null,
-      consumedHistoryRecord: null,
-    }),
+function effectfulState() {
+  return createInitialMachineState({
+    session: {
+      mode: MACHINE_MODE.ALIGN,
+    },
   });
 }
 
-function committedStatus() {
+function createTransitionResult({
+  state,
+  effects = [],
+  historyRecord = null,
+  consumedHistoryRecord = null,
+}) {
   return {
-    notice: {
-      requestId: 1,
-      kind: MACHINE_STATUS_NOTICE_KIND.PASTE_CANCELLED,
-      payload: null,
-    },
-    lastRequestId: 1,
+    state,
+    effects,
+    historyRecord,
+    consumedHistoryRecord,
   };
 }

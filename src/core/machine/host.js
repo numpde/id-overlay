@@ -20,6 +20,7 @@ import {
   fromPersistedMachineSession,
 } from "./persistence.js";
 import { createMachineRuntime } from "./runtime.js";
+import { transitionMachine } from "./transition.js";
 import { PLACEMENT_EDIT_PLAN_PHASE } from "../placement-edit-planning.js";
 import { clampOpacity, opacityFromWheelDelta } from "../transform.js";
 
@@ -98,16 +99,17 @@ export function createMachineHost({
     if (destroyed) {
       return createDestroyedDispatchResult(runtime.getState());
     }
-    const result = runtime.applyMachineEvent(event);
-    return result;
+    return runtime.commitMachineResult(transitionMachine(runtime.getState(), event), {
+      event,
+    });
   }
 
   function ingestEffectResult(result) {
     if (destroyed) {
       return createDestroyedDispatchResult(runtime.getState());
     }
-    return runtime.applyMachineEvent(result, {
-      transition: transitionMachineEffectResult,
+    return runtime.commitMachineResult(transitionMachineEffectResult(runtime.getState(), result), {
+      effectResult: result,
     });
   }
 

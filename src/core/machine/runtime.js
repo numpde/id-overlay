@@ -1,5 +1,4 @@
 import { machineStatesEqual, normalizeMachineState } from "./state.js";
-import { transitionMachine } from "./transition.js";
 
 export function createMachineRuntime({
   initialState = undefined,
@@ -21,12 +20,7 @@ export function createMachineRuntime({
     return () => listeners.delete(listener);
   }
 
-  function dispatch(event, { transition = transitionMachine } = {}) {
-    // TODO(smell): Runtime accepts arbitrary machine events and executes effects
-    // from the same path. After the ingress split, this should accept public
-    // user/fact events only; private replay/mutation operations should stay
-    // inside transition orchestration.
-    const result = transition(state, event);
+  function commitMachineResult(result, context = {}) {
     const previousState = state;
     state = machineStatesEqual(previousState, result.state) ? previousState : result.state;
     const committedResult = state === result.state
@@ -41,7 +35,7 @@ export function createMachineRuntime({
     }
 
     runEffects(committedResult.effects, {
-      event,
+      ...context,
       state,
       result: committedResult,
     });
@@ -86,8 +80,7 @@ export function createMachineRuntime({
   return {
     getState,
     subscribe,
-    applyMachineEvent: dispatch,
-    dispatch,
+    commitMachineResult,
   };
 }
 
