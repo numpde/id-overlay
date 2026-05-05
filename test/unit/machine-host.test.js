@@ -14,6 +14,9 @@ import {
 } from "../../src/core/machine/state.js";
 import { normalizeSessionImage } from "../../src/core/session.js";
 
+// TODO(smell): Host tests use the flat dispatch API as the public surface,
+// including private mutation/status/timer commands. Rewrite around the final
+// host ingress API and typed timer/effect-result facts.
 const IMAGE = Object.freeze({
   src: "data:image/png;base64,abc",
   width: 800,

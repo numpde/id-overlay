@@ -24,6 +24,9 @@ import { transitionMachine } from "../../src/core/machine/transition.js";
 import { normalizeSessionImage } from "../../src/core/session.js";
 import { createPlacementTransform } from "../../src/core/transform.js";
 
+// TODO(smell): Persistence tests still seed history/runtime through raw machine
+// events and validate event-shaped history snapshots. Update them when history
+// records become semantic facts and map-aware migration leaves persistence.
 const IMAGE = Object.freeze({
   src: "data:image/png;base64,abc",
   width: 800,

@@ -13,6 +13,9 @@ import {
 import { createInitialMachineState } from "../../src/core/machine/state.js";
 import { transitionMachine } from "../../src/core/machine/transition.js";
 
+// TODO(smell): Status tests dispatch report/clear status mutation events
+// directly. Reframe them around typed machine facts that derive status notices
+// once status mutation commands are private.
 test("status notice is canonical machine state with timeout effects", () => {
   const result = transitionMachine(createInitialMachineState(), {
     type: MACHINE_EVENT_KIND.REPORT_STATUS_NOTICE,

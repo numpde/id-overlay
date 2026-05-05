@@ -39,6 +39,10 @@ import {
   screenPointToImagePoint,
 } from "../../src/core/transform.js";
 
+// TODO(smell): These tests exercise interaction behavior through the current
+// low-level dispatch/event vocabulary and monolithic page adapter. Replace the
+// harness with public user/fact ingress once content no longer authors mutation
+// commands directly.
 const TEST_IMAGE = Object.freeze({
   src: "data:image/png;base64,abc",
   width: 800,

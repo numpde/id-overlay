@@ -18,6 +18,9 @@ import {
   resolveOverlayScreenTransform,
 } from "../../src/core/transform.js";
 
+// TODO(smell): Placement-planning tests expect planners to return executable
+// machine events. Rewrite them to assert pure geometry facts after placement
+// edit interpretation and history/status authoring move into machine ingress.
 const IMAGE = Object.freeze({
   src: "data:image/png;base64,abc",
   width: 100,

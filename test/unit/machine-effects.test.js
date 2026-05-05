@@ -19,6 +19,9 @@ import {
 } from "../../src/core/machine/state.js";
 import { transitionMachine } from "../../src/core/machine/transition.js";
 
+// TODO(smell): These tests couple panel/paste/status effects to raw request,
+// cancel, load, clear, and completion events. Reframe them around public
+// user/fact ingress plus private effect-result semantics after the cut-over.
 const IMAGE = Object.freeze({
   src: "data:image/png;base64,abc",
   width: 800,

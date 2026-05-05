@@ -5,6 +5,10 @@ import path from "node:path";
 
 import { repoPath } from "../helpers/paths.js";
 
+// TODO(smell): These boundary contracts still guard the previous cleanup stage,
+// not the final public user/fact ingress split. Rewrite them to forbid content
+// imports of low-level mutation events and to require private replay/event
+// surfaces once the machine API is cut over.
 const MACHINE_DIR = repoPath("src/core/machine");
 
 const FORBIDDEN_IMPORTS = Object.freeze([

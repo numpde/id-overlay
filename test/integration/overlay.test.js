@@ -10,6 +10,9 @@ import { createMachineHost } from "../../src/core/machine/host.js";
 import { SESSION_MODE } from "../../src/core/session.js";
 import { createPlacementTransform } from "../../src/core/transform.js";
 
+// TODO(smell): These integration tests seed and mutate overlay state through
+// raw machine events plus a broad page-adapter fake. Rewrite around public
+// user/fact ingress helpers and explicit render/projection/gesture ports.
 const DEFAULT_OVERLAY_IMAGE = Object.freeze({
   src: "data:image/png;base64,abc",
   width: 800,

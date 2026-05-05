@@ -9,6 +9,9 @@ import {
 } from "../../src/content/page-adapter.js";
 import { unprojectWorldToLatLon } from "../../src/core/transform.js";
 
+// TODO(smell): Page-adapter tests exercise one broad adapter object for
+// snapshot, projection, and gesture forwarding. Split these expectations by
+// explicit page fact/projection/gesture ports in the final adapter shape.
 test("page adapter uses the viewport element and keeps map/screen projection consistent", () => {
   const env = createDomEnvironment({
     url: "https://www.openstreetmap.org/edit?editor=id#map=16/-1.22645/36.82597",

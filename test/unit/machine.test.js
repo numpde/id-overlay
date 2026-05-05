@@ -23,6 +23,9 @@ import { createInitialMachineState } from "../../src/core/machine/state.js";
 import { transitionMachine } from "../../src/core/machine/transition.js";
 import { normalizeSessionImage } from "../../src/core/session.js";
 
+// TODO(smell): This suite tests machine behavior mostly by dispatching raw
+// mutation/replay events. Split it into public user/fact ingress tests and
+// private domain-transition tests when the flat event vocabulary is replaced.
 const IMAGE = Object.freeze({
   src: "data:image/png;base64,abc",
   width: 800,

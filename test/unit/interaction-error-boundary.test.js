@@ -8,6 +8,9 @@ import {
 } from "../../src/core/machine/events.js";
 import { createInteractionErrorBoundary } from "../../src/content/interactions/error-boundary.js";
 
+// TODO(smell): This test expects content to report errors by constructing a
+// status-notice machine command. After ingress is split, assert typed runtime
+// failure facts and machine-owned status derivation instead.
 test("interaction error boundary reports runtime status and returns fallback", () => {
   const harness = createErrorBoundaryHarness();
   const error = new Error("adapter exploded");

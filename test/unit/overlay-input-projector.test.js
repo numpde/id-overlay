@@ -13,6 +13,9 @@ import {
 } from "../../src/core/session.js";
 import { createPlacementTransform } from "../../src/core/transform.js";
 
+// TODO(smell): These tests assert an input projector that reads machine/runtime
+// state and page snapshots at once. Replace with normalized input-fact and
+// shared render-model tests when rendering and hit testing share one view model.
 const TEST_IMAGE = Object.freeze({
   src: "data:image/png;base64,abc",
   width: 800,

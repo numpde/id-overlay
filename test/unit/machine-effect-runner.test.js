@@ -17,6 +17,9 @@ import {
   createInitialMachineState,
 } from "../../src/core/machine/state.js";
 
+// TODO(smell): Effect-runner tests assert completion by public machine event
+// constructors. Replace those expectations with typed effect-result delivery
+// once effect completions are no longer part of the public event vocabulary.
 const IMAGE = Object.freeze({
   src: "data:image/png;base64,abc",
   width: 800,

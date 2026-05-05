@@ -16,6 +16,9 @@ import {
 import { transitionMachine } from "../../src/core/machine/transition.js";
 import { normalizeSessionImage } from "../../src/core/session.js";
 
+// TODO(smell): Undo/redo posture tests depend on executable history events and
+// panel view-model labels. Rewrite around semantic history records plus the
+// canonical core action/view selectors after replay is no longer event-based.
 const IMAGE = Object.freeze({
   src: "data:image/png;base64,abc",
   width: 800,

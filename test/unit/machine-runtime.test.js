@@ -14,6 +14,9 @@ import {
 } from "../../src/core/machine/runtime.js";
 import { normalizeSessionImage } from "../../src/core/session.js";
 
+// TODO(smell): Runtime tests assert arbitrary event dispatch as the core public
+// API. After the ingress split, keep generic transition tests private and test
+// runtime through public user/fact events only.
 const IMAGE = Object.freeze({
   src: "data:image/png;base64,abc",
   width: 800,

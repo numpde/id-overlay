@@ -10,6 +10,9 @@ import {
 import { createMachineHost } from "../../src/core/machine/host.js";
 import { createInteractionRuntimeBridge } from "../../src/content/interactions/runtime-bridge.js";
 
+// TODO(smell): This suite codifies runtimeBridge as a low-level mutation-event
+// author. Rewrite it around observed pointer/gesture/pass-through facts once
+// runtime mutation commands become machine-private.
 test("interaction runtime bridge dispatches canonical runtime events", () => {
   const { bridge, machineHost } = createRuntimeBridgeHarness();
 
