@@ -31,7 +31,7 @@ const TEST_SNAPSHOT = Object.freeze({
 
 test("overlay input projector converts DOM client points through the page adapter", () => {
   const projector = createOverlayInputProjector({
-    pageAdapter: {
+    pageProjection: {
       clientPointToScreen(point) {
         return {
           x: point.x + 1000,
@@ -56,7 +56,7 @@ test("overlay input projector converts DOM client points through the page adapte
 test("overlay input projector owns overlay image hit-testing for input projection", () => {
   const state = createOverlayMachineState();
   const projector = createOverlayInputProjector({
-    pageAdapter: {
+    pageProjection: {
       clientPointToScreen(point) {
         return point;
       },
@@ -94,7 +94,7 @@ test("overlay input projector preserves core input policy decisions", () => {
     },
   });
   const projector = createOverlayInputProjector({
-    pageAdapter: {
+    pageProjection: {
       clientPointToScreen(point) {
         return point;
       },

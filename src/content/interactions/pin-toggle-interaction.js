@@ -1,7 +1,8 @@
 import { createPinToggleCommand } from "./pin-toggle-command.js";
 
 export function createPinToggleInteraction({
-  pageAdapter,
+  pageObservation,
+  pageProjection,
   getMachineState,
   machineActions,
   runtimeBridge,
@@ -12,7 +13,8 @@ export function createPinToggleInteraction({
   // runtime pointer and logging. After user-intent ingress, this wrapper should
   // only report the attempted activation fact and observe machine results.
   const pinToggleCommand = createPinToggleCommand({
-    pageAdapter,
+    pageObservation,
+    pageProjection,
     getMachineState,
     machineActions,
   });

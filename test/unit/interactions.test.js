@@ -1200,19 +1200,20 @@ function createHarness({
     },
     mapZoomCalls: [],
   };
-  const pageAdapter = createPageAdapter({
+  const pagePorts = createPageAdapter({
     adapterCalls,
     beginMapPanReturns,
     forwardMapZoomReturns,
     screenToMapThrows,
     snapshot,
   });
+  const pageAdapter = flattenPagePorts(pagePorts);
   const machineHost = createMachineHost();
   const interactions = createInteractionController({
     machineHost,
     keyTarget,
     keyboardGateway,
-    pageAdapter,
+    ...pagePorts,
   });
   return {
     controller: interactions,
@@ -1314,38 +1315,52 @@ function createPageAdapter({
     mapView: { center: { lat: -1.23, lon: 36.84 }, zoom: 16 },
   };
   return {
-    getSnapshot() {
-      return resolvedSnapshot;
+    pageObservation: {
+      getSnapshot() {
+        return resolvedSnapshot;
+      },
     },
-    mapToScreen(point) {
-      return {
-        x: 500 + (point.lon - 36.84) * 100,
-        y: 300 + (point.lat + 1.23) * 100,
-      };
+    pageProjection: {
+      mapToScreen(point) {
+        return {
+          x: 500 + (point.lon - 36.84) * 100,
+          y: 300 + (point.lat + 1.23) * 100,
+        };
+      },
+      screenToMap(point) {
+        if (screenToMapThrows) {
+          throw screenToMapThrows;
+        }
+        return {
+          lat: -1.23 + (point.y - 300) / 100,
+          lon: 36.84 + (point.x - 500) / 100,
+        };
+      },
     },
-    screenToMap(point) {
-      if (screenToMapThrows) {
-        throw screenToMapThrows;
-      }
-      return {
-        lat: -1.23 + (point.y - 300) / 100,
-        lon: 36.84 + (point.x - 500) / 100,
-      };
+    mapGesture: {
+      beginMapPan(screenPoint) {
+        adapterCalls.mapPan.starts.push(screenPoint);
+        return beginMapPanReturns;
+      },
+      updateMapPan(screenPoint) {
+        adapterCalls.mapPan.moves.push({ screenPoint });
+      },
+      endMapPan(screenPoint) {
+        adapterCalls.mapPan.ends.push(screenPoint);
+      },
+      forwardMapZoom(payload) {
+        adapterCalls.mapZoomCalls.push(payload);
+        return forwardMapZoomReturns;
+      },
     },
-    beginMapPan(screenPoint) {
-      adapterCalls.mapPan.starts.push(screenPoint);
-      return beginMapPanReturns;
-    },
-    updateMapPan(screenPoint) {
-      adapterCalls.mapPan.moves.push({ screenPoint });
-    },
-    endMapPan(screenPoint) {
-      adapterCalls.mapPan.ends.push(screenPoint);
-    },
-    forwardMapZoom(payload) {
-      adapterCalls.mapZoomCalls.push(payload);
-      return forwardMapZoomReturns;
-    },
+  };
+}
+
+function flattenPagePorts({ pageObservation, pageProjection, mapGesture }) {
+  return {
+    ...pageObservation,
+    ...pageProjection,
+    ...mapGesture,
   };
 }
 

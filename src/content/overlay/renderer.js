@@ -9,7 +9,7 @@ import { selectOverlayPresentation } from "../../core/machine/selectors.js";
 import { createOverlayHost } from "./host.js";
 
 export function createOverlayRenderer({
-  pageAdapter,
+  pageProjection,
   getMachineState,
   getRuntimeState,
   getSnapshot,
@@ -166,13 +166,13 @@ export function createOverlayRenderer({
   }
 
   function projectMapPinScreenPoint(mapLatLon) {
-    // TODO(smell): Renderer reaches into the page adapter for per-pin map
+    // TODO(smell): Renderer reaches into page projection for per-pin map
     // projection during DOM reconciliation. The final overlay view model should
-    // receive already-projected render facts so rendering has no page-adapter
+    // receive already-projected render facts so rendering has no page-projection
     // dependency.
-    if (typeof pageAdapter.mapToOverlayLayerScreen !== "function") {
+    if (typeof pageProjection.mapToOverlayLayerScreen !== "function") {
       return null;
     }
-    return pageAdapter.mapToOverlayLayerScreen(mapLatLon);
+    return pageProjection.mapToOverlayLayerScreen(mapLatLon);
   }
 }

@@ -9,9 +9,47 @@ import {
 } from "../../src/content/page-adapter.js";
 import { unprojectWorldToLatLon } from "../../src/core/transform.js";
 
-// TODO(smell): Page-adapter tests exercise one broad adapter object for
-// snapshot, projection, and gesture forwarding. Split these expectations by
-// explicit page fact/projection/gesture ports in the final adapter shape.
+test("page adapter exposes explicit page capability ports", () => {
+  const env = createDomEnvironment();
+
+  try {
+    const adapter = createPageAdapter({
+      hashTarget: env.window,
+      viewportDocument: env.document,
+    });
+
+    assert.deepEqual(Object.keys(adapter).sort(), [
+      "mapGesture",
+      "pageObservation",
+      "pageProjection",
+      "pageSession",
+    ]);
+    assert.equal(typeof adapter.pageObservation.getSnapshot, "function");
+    assert.equal(typeof adapter.pageProjection.screenToMap, "function");
+    assert.equal(typeof adapter.mapGesture.forwardMapZoom, "function");
+    assert.equal(typeof adapter.pageSession.destroy, "function");
+    assert.equal(Object.hasOwn(adapter, "getSnapshot"), false);
+    assert.equal(Object.hasOwn(adapter, "screenToMap"), false);
+    assert.equal(Object.hasOwn(adapter, "forwardMapZoom"), false);
+  } finally {
+    env.cleanup();
+  }
+});
+
+function flattenPagePorts({
+  pageSession,
+  pageObservation,
+  pageProjection,
+  mapGesture,
+}) {
+  return {
+    ...pageSession,
+    ...pageObservation,
+    ...pageProjection,
+    ...mapGesture,
+  };
+}
+
 test("page adapter uses the viewport element and keeps map/screen projection consistent", () => {
   const env = createDomEnvironment({
     url: "https://www.openstreetmap.org/edit?editor=id#map=16/-1.22645/36.82597",
@@ -29,10 +67,10 @@ test("page adapter uses the viewport element and keeps map/screen projection con
       bottom: 680,
     });
 
-    const adapter = createPageAdapter({
+    const adapter = flattenPagePorts(createPageAdapter({
       hashTarget: env.window,
       viewportDocument: env.document,
-    });
+    }));
     const snapshot = adapter.getSnapshot();
 
     assert.equal(adapter.isSupported(), true);
@@ -96,10 +134,10 @@ test("page adapter falls back to the window viewport when no map element is pres
       value: 900,
     });
 
-    const adapter = createPageAdapter({
+    const adapter = flattenPagePorts(createPageAdapter({
       hashTarget: env.window,
       viewportDocument: env.document,
-    });
+    }));
 
     assert.deepEqual(adapter.getSnapshot().viewportRect, {
       left: 0,
@@ -168,10 +206,10 @@ test("page adapter prefers the embedded iD iframe for viewport, map view, and su
     surface.style.transform = "matrix(1, 0, 0, 1, 18, -12)";
     surface.style.transformOrigin = "0px 0px";
 
-    const adapter = createPageAdapter({
+    const adapter = flattenPagePorts(createPageAdapter({
       hashTarget: env.window,
       viewportDocument: env.document,
-    });
+    }));
     const snapshot = adapter.getSnapshot();
 
     assert.deepEqual(snapshot.mapView.center, {
@@ -240,10 +278,10 @@ test("page adapter derives a more precise map view from rendered tiles when avai
     const tile = env.document.querySelector(".tile-center");
     tile.style.transform = "matrix(2, 0, 0, 2, 120, 140)";
 
-    const adapter = createPageAdapter({
+    const adapter = flattenPagePorts(createPageAdapter({
       hashTarget: env.window,
       viewportDocument: env.document,
-    });
+    }));
 
     const preciseCenterWorld = {
       x: 128 - (120 - 400) / 16,
@@ -286,10 +324,10 @@ test("page adapter retains the last coherent map view while live surface motion 
     const tile = env.document.querySelector(".tile-center");
     tile.style.transform = "matrix(2, 0, 0, 2, 120, 140)";
 
-    const adapter = createPageAdapter({
+    const adapter = flattenPagePorts(createPageAdapter({
       hashTarget: env.window,
       viewportDocument: env.document,
-    });
+    }));
 
     const coherentMapView = adapter.getSnapshot().mapView;
     assert.equal(coherentMapView.zoom, 4);
@@ -333,10 +371,10 @@ test("page adapter keeps the same viewport mount through style churn while it re
       bottom: 760,
     });
 
-    const adapter = createPageAdapter({
+    const adapter = flattenPagePorts(createPageAdapter({
       hashTarget: env.window,
       viewportDocument: env.document,
-    });
+    }));
 
     const initialMount = adapter.getSnapshot().mountElement;
     assert.equal(initialMount.classList.contains("main-map"), true);
@@ -382,10 +420,10 @@ test("page adapter replaces a cached viewport mount after it becomes hidden", as
       bottom: 680,
     });
 
-    const adapter = createPageAdapter({
+    const adapter = flattenPagePorts(createPageAdapter({
       hashTarget: env.window,
       viewportDocument: env.document,
-    });
+    }));
 
     const unsubscribe = adapter.subscribe(() => {});
     assert.equal(adapter.getSnapshot().mountElement, initialViewport);
@@ -430,10 +468,10 @@ test("page adapter snapshot changes when the semantic viewport host changes", as
       bottom: 680,
     });
 
-    const adapter = createPageAdapter({
+    const adapter = flattenPagePorts(createPageAdapter({
       hashTarget: env.window,
       viewportDocument: env.document,
-    });
+    }));
 
     const snapshots = [];
     const unsubscribe = adapter.subscribe((snapshot) => {
@@ -475,10 +513,10 @@ test("page adapter emits subscriber updates immediately when history.replaceStat
       bottom: 680,
     });
 
-    const adapter = createPageAdapter({
+    const adapter = flattenPagePorts(createPageAdapter({
       hashTarget: env.window,
       viewportDocument: env.document,
-    });
+    }));
     const centers = [];
     const unsubscribe = adapter.subscribe((snapshot) => {
       centers.push(snapshot.mapView.center);
@@ -521,10 +559,10 @@ test("page adapter can begin/update/end a map pan in the active map document", (
     });
     viewport.ownerDocument.elementFromPoint = () => viewport;
 
-    const adapter = createPageAdapter({
+    const adapter = flattenPagePorts(createPageAdapter({
       hashTarget: env.window,
       viewportDocument: env.document,
-    });
+    }));
 
     const received = [];
     viewport.addEventListener("mousedown", (event) => {
@@ -600,10 +638,10 @@ test("page adapter keeps one iframe-local pan context through begin, move, and e
       bottom: 530,
     });
 
-    const adapter = createPageAdapter({
+    const adapter = flattenPagePorts(createPageAdapter({
       hashTarget: env.window,
       viewportDocument: env.document,
-    });
+    }));
 
     const received = [];
     viewport.addEventListener("mousedown", (event) => {
@@ -658,10 +696,10 @@ test("page adapter map pan skips overlay hit-testing and always targets the map 
     env.document.elementsFromPoint = () => [overlayImage, feature, viewport];
     env.document.elementFromPoint = () => feature;
 
-    const adapter = createPageAdapter({
+    const adapter = flattenPagePorts(createPageAdapter({
       hashTarget: env.window,
       viewportDocument: env.document,
-    });
+    }));
 
     const received = [];
     viewport.addEventListener("mousedown", (event) => {
@@ -709,10 +747,10 @@ test("page adapter can forward a map zoom gesture into the active map document",
     });
     viewport.ownerDocument.elementFromPoint = () => viewport;
 
-    const adapter = createPageAdapter({
+    const adapter = flattenPagePorts(createPageAdapter({
       hashTarget: env.window,
       viewportDocument: env.document,
-    });
+    }));
 
     const received = [];
     viewport.addEventListener("wheel", (event) => {
@@ -761,10 +799,10 @@ test("page adapter map zoom skips extension-owned overlay elements and targets t
     env.document.elementsFromPoint = () => [overlayImage, viewport];
     env.document.elementFromPoint = () => overlayImage;
 
-    const adapter = createPageAdapter({
+    const adapter = flattenPagePorts(createPageAdapter({
       hashTarget: env.window,
       viewportDocument: env.document,
-    });
+    }));
 
     const received = [];
     viewport.addEventListener("wheel", (event) => {

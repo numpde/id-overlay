@@ -19,8 +19,8 @@ export async function bootstrapIdOverlay({ keyboardGateway = null } = {}) {
   // stylesheet injection, paste capture, and lifecycle teardown. Extract host,
   // style, and session-lifecycle helpers before adding more branches here.
   const logger = createLogger("main");
-  const pageAdapter = createPageAdapter();
-  if (!pageAdapter.isSupported()) {
+  const pagePorts = createPageAdapter();
+  if (!pagePorts.pageSession.isSupported()) {
     logger.debug("Skipping unsupported page", {
       href: globalThis.location?.href ?? null,
       build: BUILD_INFO,
@@ -45,12 +45,12 @@ export async function bootstrapIdOverlay({ keyboardGateway = null } = {}) {
     savePersistedSession: (session) => storage.save(session),
     readPasteImage: () => readClipboardApiPasteOutcome({
       clipboardReader,
-      pageAdapter,
+      pageObservation: pagePorts.pageObservation,
     }),
     ...createManualPasteCapture({
       ownerWindow: window,
       clipboardReader,
-      pageAdapter,
+      pageObservation: pagePorts.pageObservation,
       logger,
     }),
     setPanelTimeout: (callback, { delayMs }) => globalThis.setTimeout(callback, delayMs),
@@ -58,10 +58,12 @@ export async function bootstrapIdOverlay({ keyboardGateway = null } = {}) {
     setStatusTimeout: (callback, { delayMs }) => globalThis.setTimeout(callback, delayMs),
     clearStatusTimeout: (handle) => globalThis.clearTimeout(handle),
   });
-  machineHost.ingestPageContext(pageAdapter.getSnapshot());
+  machineHost.ingestPageContext(pagePorts.pageObservation.getSnapshot());
   const interactions = createInteractionController({
     machineHost,
-    pageAdapter,
+    pageObservation: pagePorts.pageObservation,
+    pageProjection: pagePorts.pageProjection,
+    mapGesture: pagePorts.mapGesture,
     keyboardGateway,
   });
   const shadow = host.shadowRoot ?? host.attachShadow({ mode: "open" });
@@ -69,7 +71,8 @@ export async function bootstrapIdOverlay({ keyboardGateway = null } = {}) {
   clearOwnedShadowNodes(shadow);
 
   const overlay = createOverlay({
-    pageAdapter,
+    pageObservation: pagePorts.pageObservation,
+    pageProjection: pagePorts.pageProjection,
     machineHost,
     interactions,
   });
@@ -85,7 +88,7 @@ export async function bootstrapIdOverlay({ keyboardGateway = null } = {}) {
     panel,
     overlay,
     interactions,
-    pageAdapter,
+    pageSession: pagePorts.pageSession,
   });
   host[SESSION_KEY] = session;
   window.addEventListener("beforeunload", session.handleBeforeUnload);
@@ -93,7 +96,7 @@ export async function bootstrapIdOverlay({ keyboardGateway = null } = {}) {
   logger.info("Bootstrap complete");
 }
 
-function createManualPasteCapture({ ownerWindow, clipboardReader, pageAdapter, logger }) {
+function createManualPasteCapture({ ownerWindow, clipboardReader, pageObservation, logger }) {
   // TODO(smell): Manual paste capture still completes by calling the effect
   // runner's callback with a transition-shaped paste outcome. Keep clipboard
   // decoding fact-shaped; the next cut should deliver typed effect results
@@ -138,22 +141,22 @@ function createManualPasteCapture({ ownerWindow, clipboardReader, pageAdapter, l
     }
     outcomeHandler(createPasteReadOutcome({
       fact,
-      pageAdapter,
+      pageObservation,
     }));
   }
 }
 
-async function readClipboardApiPasteOutcome({ clipboardReader, pageAdapter }) {
+async function readClipboardApiPasteOutcome({ clipboardReader, pageObservation }) {
   return createPasteReadOutcome({
     fact: await clipboardReader.readClipboardApiImage(),
-    pageAdapter,
+    pageObservation,
   });
 }
 
-function createPasteReadOutcome({ fact, pageAdapter }) {
+function createPasteReadOutcome({ fact, pageObservation }) {
   return createPasteReadOutcomeFromClipboardFact({
     fact,
-    snapshot: pageAdapter.getSnapshot(),
+    snapshot: pageObservation.getSnapshot(),
   });
 }
 
@@ -211,7 +214,7 @@ function createSession({
   panel,
   overlay,
   interactions,
-  pageAdapter,
+  pageSession,
 }) {
   let destroyed = false;
 
@@ -225,7 +228,7 @@ function createSession({
     panel.destroy();
     overlay.destroy();
     interactions.destroy();
-    pageAdapter.destroy();
+    pageSession.destroy();
     if (host[SESSION_KEY] === session) {
       delete host[SESSION_KEY];
     }

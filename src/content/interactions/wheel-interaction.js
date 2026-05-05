@@ -1,7 +1,8 @@
 import { createWheelCommand } from "./wheel-command.js";
 
 export function createWheelInteraction({
-  pageAdapter,
+  pageObservation,
+  mapGesture,
   getMachineState,
   machineActions,
   runtimeBridge,
@@ -12,7 +13,8 @@ export function createWheelInteraction({
   // pointer separately from the wheel transition. The final ingress should make
   // pointer observation and wheel user intent one coherent machine fact.
   const wheelCommand = createWheelCommand({
-    pageAdapter,
+    pageObservation,
+    mapGesture,
     getMachineState,
     machineActions,
   });

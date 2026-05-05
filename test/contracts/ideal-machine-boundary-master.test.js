@@ -485,21 +485,22 @@ test("page integration exposes explicit ports instead of a broad adapter object"
   todo: "Split page adapter into snapshot, projection, map-view, and gesture ports.",
 }, () => {
   const source = readSource(repoPath("src/content/page-adapter.js"));
-  const broadPortMethods = [
-    "getSnapshot",
-    "clientPointToScreen",
-    "screenPointToClient",
-    "mapToScreen",
-    "mapToOverlayLayerScreen",
-    "screenToMap",
-    "beginMapPan",
-    "updateMapPan",
-    "endMapPan",
-    "forwardMapZoom",
+  const requiredPorts = [
+    "pageSession",
+    "pageObservation",
+    "pageProjection",
+    "mapGesture",
   ];
-  const violations = broadPortMethods.filter((methodName) => {
-    return new RegExp(`\\b${methodName}\\s*\\(`).test(source);
-  });
+  const violations = [];
+
+  for (const portName of requiredPorts) {
+    if (!new RegExp(`\\b${portName}\\b`).test(source)) {
+      violations.push(`missing: ${portName}`);
+    }
+  }
+  if (!/\breturn\s*\{\s*pageSession,\s*pageObservation,\s*pageProjection,\s*mapGesture,\s*\}/s.test(source)) {
+    violations.push("missing: explicit port return");
+  }
 
   assert.deepEqual(violations, []);
 });

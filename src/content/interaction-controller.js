@@ -10,7 +10,9 @@ import { createInteractionErrorBoundary } from "./interactions/error-boundary.js
 
 export function createInteractionController({
   machineHost,
-  pageAdapter,
+  pageObservation,
+  pageProjection,
+  mapGesture,
   keyTarget = globalThis.window,
   keyboardGateway = null,
 }) {
@@ -21,7 +23,8 @@ export function createInteractionController({
   const logger = createLogger("interactions");
   const machineActions = createMachineActionPort(machineHost);
   const adapterDrag = createAdapterDragController({
-    pageAdapter,
+    pageObservation,
+    mapGesture,
     getMachineState,
     machineActions,
     logger,
@@ -43,7 +46,8 @@ export function createInteractionController({
     logger,
   });
   const pinToggleInteraction = createPinToggleInteraction({
-    pageAdapter,
+    pageObservation,
+    pageProjection,
     getMachineState,
     machineActions,
     runtimeBridge,
@@ -51,7 +55,8 @@ export function createInteractionController({
     logger,
   });
   const wheelInteraction = createWheelInteraction({
-    pageAdapter,
+    pageObservation,
+    mapGesture,
     getMachineState,
     machineActions,
     runtimeBridge,

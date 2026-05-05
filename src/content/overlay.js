@@ -1,17 +1,22 @@
 import { createOverlayInputRouter } from "./overlay/input-router.js";
 import { createOverlayRenderer } from "./overlay/renderer.js";
 
-export function createOverlay({ pageAdapter, machineHost, interactions }) {
+export function createOverlay({
+  pageObservation,
+  pageProjection,
+  machineHost,
+  interactions,
+}) {
   // TODO(smell): Overlay composition still wires machine state, runtime state,
   // page snapshots, renderer scheduling, and input listener retargeting by hand.
   // The final overlay boundary should consume one typed render/input port so
   // snapshot/runtime subscriptions cannot drift across renderer and router.
-  let latestSnapshot = pageAdapter.getSnapshot();
+  let latestSnapshot = pageObservation.getSnapshot();
   let latestRuntime = interactions.getRuntimeState();
   let inputRouter = null;
 
   const renderer = createOverlayRenderer({
-    pageAdapter,
+    pageProjection,
     getMachineState,
     getRuntimeState,
     getSnapshot,
@@ -22,7 +27,7 @@ export function createOverlay({ pageAdapter, machineHost, interactions }) {
   });
 
   inputRouter = createOverlayInputRouter({
-    pageAdapter,
+    pageProjection,
     interactions,
     getMachineState,
     getRuntimeState,
@@ -31,7 +36,7 @@ export function createOverlay({ pageAdapter, machineHost, interactions }) {
   });
 
   const unsubscribeMachine = machineHost.subscribe(renderer.scheduleRender);
-  const unsubscribeViewport = pageAdapter.subscribe((nextSnapshot) => {
+  const unsubscribeViewport = pageObservation.subscribe((nextSnapshot) => {
     latestSnapshot = nextSnapshot;
     renderer.scheduleRender();
   });

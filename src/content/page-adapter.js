@@ -15,10 +15,6 @@ export function createPageAdapter({
   hashTarget = globalThis.window,
   viewportDocument = globalThis.document,
 } = {}) {
-  // TODO(smell): Page adapter still exposes snapshot, projection, and gesture
-  // forwarding methods through one broad object. The final boundary should make
-  // those ports explicit so render, input, paste placement, and map forwarding
-  // each depend only on the page facts they actually need.
   const logger = createLogger("page-adapter");
   const viewportGeometry = createViewportGeometryResolver({ hashTarget });
   const mapViewResolver = createMapViewResolver();
@@ -65,9 +61,15 @@ export function createPageAdapter({
     getActiveMapContext: pageContext.getActiveMapContext,
   });
 
-  return {
+  const pageSession = {
     isSupported: pageContext.isSupported,
+    destroy: snapshotSource.destroy,
+  };
+  const pageObservation = {
     getSnapshot: snapshotSource.getSnapshot,
+    subscribe: snapshotSource.subscribe,
+  };
+  const pageProjection = {
     clientPointToScreen(clientPoint) {
       return runAdapterBoundary("client-point-to-screen", () => {
         return projection.clientPointToScreen(clientPoint);
@@ -99,6 +101,8 @@ export function createPageAdapter({
         return projection.screenToMap(screenPoint);
       }, mapViewResolver.getFallbackMapView().center);
     },
+  };
+  const mapGesture = {
     beginMapPan(screenPoint) {
       return runAdapterBoundary("begin-map-pan", () => {
         return gestureForwarder.beginMapPan(screenPoint);
@@ -124,7 +128,12 @@ export function createPageAdapter({
         });
       }, false);
     },
-    subscribe: snapshotSource.subscribe,
-    destroy: snapshotSource.destroy,
+  };
+
+  return {
+    pageSession,
+    pageObservation,
+    pageProjection,
+    mapGesture,
   };
 }

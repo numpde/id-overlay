@@ -7,7 +7,7 @@ import { getOverlayImage, hasOverlayImageSession } from "../../core/session.js";
 import { resolveInputProjection } from "../../core/input-projection.js";
 
 export function createOverlayInputProjector({
-  pageAdapter,
+  pageProjection,
   getMachineState,
   getRuntimeState,
   getSnapshot,
@@ -22,7 +22,7 @@ export function createOverlayInputProjector({
   };
 
   function screenPointFromEvent(event) {
-    return pageAdapter.clientPointToScreen({
+    return pageProjection.clientPointToScreen({
       x: event.clientX,
       y: event.clientY,
     });

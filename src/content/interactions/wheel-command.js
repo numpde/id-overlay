@@ -11,7 +11,8 @@ import {
 } from "../../core/transform.js";
 
 export function createWheelCommand({
-  pageAdapter,
+  pageObservation,
+  mapGesture,
   getMachineState,
   machineActions,
 }) {
@@ -36,7 +37,7 @@ export function createWheelCommand({
   }
 
   function handleMapZoomWheel({ deltaY, screenPoint }) {
-    const forwarded = pageAdapter.forwardMapZoom({
+    const forwarded = mapGesture.forwardMapZoom({
       screenPoint,
       deltaY,
     });
@@ -44,7 +45,7 @@ export function createWheelCommand({
       return createUnhandledOutcome("map-zoom-not-forwarded", {
         log: {
           level: "warn",
-          message: "Map zoom requested, but the page adapter could not forward it",
+          message: "Map zoom requested, but the map gesture port could not forward it",
         },
       });
     }
@@ -79,7 +80,7 @@ export function createWheelCommand({
   }
 
   function handlePlacementWheel({ deltaY, wheelMode, screenPoint }) {
-    const snapshot = pageAdapter.getSnapshot();
+    const snapshot = pageObservation.getSnapshot();
     if (wheelMode === WHEEL_MODE.ROTATE_OVERLAY) {
       return handleRotateWheel({ deltaY, screenPoint, snapshot });
     }

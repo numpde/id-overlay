@@ -10,7 +10,8 @@ import {
 } from "../../core/transform.js";
 
 export function createPinToggleCommand({
-  pageAdapter,
+  pageObservation,
+  pageProjection,
   getMachineState,
   machineActions,
 }) {
@@ -23,12 +24,12 @@ export function createPinToggleCommand({
 
   function toggleAtScreenPoint(screenPoint) {
     const machineState = getMachineState();
-    const snapshot = pageAdapter.getSnapshot();
+    const snapshot = pageObservation.getSnapshot();
     const pinContext = resolvePinContext({
       state: machineState.session,
       snapshot,
       screenPoint,
-      pageAdapter,
+      pageProjection,
     });
     if (!pinContext.ok) {
       return {
@@ -61,7 +62,7 @@ export function createPinToggleCommand({
   }
 }
 
-function resolvePinContext({ state, snapshot, screenPoint, pageAdapter }) {
+function resolvePinContext({ state, snapshot, screenPoint, pageProjection }) {
   if (!hasOverlayImageSession(state)) {
     return createPinContextFailure("no-image");
   }
@@ -102,7 +103,7 @@ function resolvePinContext({ state, snapshot, screenPoint, pageAdapter }) {
     ok: true,
     pointerScreenPx,
     imagePx,
-    mapLatLon: pageAdapter.screenToMap(pointerScreenPx),
+    mapLatLon: pageProjection.screenToMap(pointerScreenPx),
     existingPin,
   };
 }

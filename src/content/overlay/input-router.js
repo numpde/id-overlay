@@ -12,7 +12,7 @@ import {
 } from "./pending-pointer-sequence.js";
 
 export function createOverlayInputRouter({
-  pageAdapter,
+  pageProjection,
   interactions,
   getMachineState,
   getRuntimeState,
@@ -27,7 +27,7 @@ export function createOverlayInputRouter({
     onChange: syncGlobalPointerListeners,
   });
   const inputProjector = createOverlayInputProjector({
-    pageAdapter,
+    pageProjection,
     getMachineState,
     getRuntimeState,
     getSnapshot,

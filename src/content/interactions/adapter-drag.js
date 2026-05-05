@@ -9,7 +9,8 @@ import {
 } from "../../core/placement-edit-planning.js";
 
 export function createAdapterDragController({
-  pageAdapter,
+  pageObservation,
+  mapGesture,
   getMachineState,
   machineActions,
   logger,
@@ -26,9 +27,9 @@ export function createAdapterDragController({
     }
 
     if (isMapPanDragMode(dragMode)) {
-      const beganMapPan = pageAdapter.beginMapPan?.(screenPoint) === true;
+      const beganMapPan = mapGesture.beginMapPan?.(screenPoint) === true;
       if (!beganMapPan) {
-        logger.warn("Map pan requested, but the page adapter could not start it");
+        logger.warn("Map pan requested, but the map gesture port could not start it");
         return false;
       }
       isMapPanActive = true;
@@ -40,7 +41,7 @@ export function createAdapterDragController({
       return false;
     }
 
-    const snapshot = pageAdapter.getSnapshot();
+    const snapshot = pageObservation.getSnapshot();
     const movePlan = planMovePlacementEditStart({
       machineState: getMachineState(),
       snapshot,
@@ -68,11 +69,11 @@ export function createAdapterDragController({
     }
 
     if (isMapPanActive) {
-      pageAdapter.updateMapPan(screenPoint);
+      mapGesture.updateMapPan(screenPoint);
       return;
     }
 
-    const snapshot = pageAdapter.getSnapshot();
+    const snapshot = pageObservation.getSnapshot();
     const previewPlan = planMovePlacementEditPreview({
       machineState: getMachineState(),
       snapshot,
@@ -106,7 +107,7 @@ export function createAdapterDragController({
 
   function finish(endPointerScreenPx, { commitPlacement }) {
     if (isMapPanActive) {
-      pageAdapter.endMapPan?.(endPointerScreenPx);
+      mapGesture.endMapPan?.(endPointerScreenPx);
       return;
     }
     if (commitPlacement && overlayMove) {
