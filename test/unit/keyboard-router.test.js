@@ -6,6 +6,10 @@ import { createInitialMachineState } from "../../src/core/machine/state.js";
 import { SESSION_MODE, createEmptySession } from "../../src/core/session.js";
 import { createKeyboardInputRouter } from "../../src/content/interactions/keyboard-router.js";
 
+// TODO(smell): Keyboard-router tests encode the current callback surface for
+// mode, pass-through, pin toggle, and runtime reset. Rewrite around normalized
+// keyboard user/fact ingress once these callbacks no longer author low-level
+// machine/runtime commands.
 const TEST_IMAGE = Object.freeze({
   src: "data:image/png;base64,abc",
   width: 800,
