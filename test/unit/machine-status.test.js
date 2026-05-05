@@ -4,27 +4,27 @@ import assert from "node:assert/strict";
 import {
   MACHINE_PANEL_INTENT,
 } from "../../src/core/machine/events.js";
-import {
-  MACHINE_COMMAND_KIND,
-} from "../../src/core/machine/private-commands.js";
 import { MACHINE_EFFECT_KIND } from "../../src/core/machine/effects.js";
+import {
+  clearStatusNotice,
+  reportStatusNotice,
+  requestPanelIntent,
+} from "../../src/core/machine/panel-status-transition.js";
 import {
   selectPanelStatusText,
 } from "../../src/core/machine/selectors.js";
 import { createInitialMachineState } from "../../src/core/machine/state.js";
-import { transitionMachine } from "../../src/core/machine/transition.js";
+import {
+  withStatusNotice,
+} from "../../src/core/machine/transition-result.js";
 
 const CLIPBOARD_MISSING_IMAGE_NOTICE = "clipboard-missing-image";
 const PASTE_CANCELLED_NOTICE = "paste-cancelled";
 
-// TODO(smell): Status tests dispatch report/clear status mutation events
-// directly. Reframe them around typed machine facts that derive status notices
-// once status mutation commands are private.
 test("status notice is canonical machine state with timeout effects", () => {
-  const result = transitionMachine(createInitialMachineState(), {
-    type: MACHINE_COMMAND_KIND.REPORT_STATUS_NOTICE,
+  const result = applyStatus(reportStatusNotice(createInitialMachineState(), {
     noticeKind: CLIPBOARD_MISSING_IMAGE_NOTICE,
-  });
+  }));
 
   assert.deepEqual(result.state.status, {
     notice: {
@@ -42,13 +42,11 @@ test("status notice is canonical machine state with timeout effects", () => {
 });
 
 test("clearing a current status notice falls back to derived baseline status", () => {
-  const noticed = transitionMachine(createInitialMachineState(), {
-    type: MACHINE_COMMAND_KIND.REPORT_STATUS_NOTICE,
+  const noticed = applyStatus(reportStatusNotice(createInitialMachineState(), {
     noticeKind: PASTE_CANCELLED_NOTICE,
-  }).state;
+  })).state;
 
-  const cleared = transitionMachine(noticed, {
-    type: MACHINE_COMMAND_KIND.CLEAR_STATUS_NOTICE,
+  const cleared = clearStatusNotice(noticed, {
     requestId: noticed.status.notice.requestId,
   });
 
@@ -62,13 +60,11 @@ test("clearing a current status notice falls back to derived baseline status", (
 });
 
 test("stale status notice clear is ignored", () => {
-  const noticed = transitionMachine(createInitialMachineState(), {
-    type: MACHINE_COMMAND_KIND.REPORT_STATUS_NOTICE,
+  const noticed = applyStatus(reportStatusNotice(createInitialMachineState(), {
     noticeKind: PASTE_CANCELLED_NOTICE,
-  }).state;
+  })).state;
 
-  const staleClear = transitionMachine(noticed, {
-    type: MACHINE_COMMAND_KIND.CLEAR_STATUS_NOTICE,
+  const staleClear = clearStatusNotice(noticed, {
     requestId: noticed.status.notice.requestId + 1,
   });
 
@@ -77,14 +73,12 @@ test("stale status notice clear is ignored", () => {
 });
 
 test("clipboard-missing notice composes with active paste instructions", () => {
-  let state = transitionMachine(createInitialMachineState(), {
-    type: MACHINE_COMMAND_KIND.REQUEST_PANEL_INTENT,
+  let state = requestPanelIntent(createInitialMachineState(), {
     intent: MACHINE_PANEL_INTENT.PASTE_ARMED,
   }).state;
-  state = transitionMachine(state, {
-    type: MACHINE_COMMAND_KIND.REPORT_STATUS_NOTICE,
+  state = applyStatus(reportStatusNotice(state, {
     noticeKind: CLIPBOARD_MISSING_IMAGE_NOTICE,
-  }).state;
+  })).state;
 
   assert.equal(
     selectPanelStatusText(state),
@@ -93,13 +87,11 @@ test("clipboard-missing notice composes with active paste instructions", () => {
 });
 
 test("new panel intent clears stale status notice and its timeout", () => {
-  let state = transitionMachine(createInitialMachineState(), {
-    type: MACHINE_COMMAND_KIND.REPORT_STATUS_NOTICE,
+  let state = applyStatus(reportStatusNotice(createInitialMachineState(), {
     noticeKind: PASTE_CANCELLED_NOTICE,
-  }).state;
+  })).state;
 
-  const result = transitionMachine(state, {
-    type: MACHINE_COMMAND_KIND.REQUEST_PANEL_INTENT,
+  const result = requestPanelIntent(state, {
     intent: MACHINE_PANEL_INTENT.PASTE_ARMED,
   });
 
@@ -126,3 +118,7 @@ test("new panel intent clears stale status notice and its timeout", () => {
     },
   ]);
 });
+
+function applyStatus(result) {
+  return withStatusNotice(result);
+}
