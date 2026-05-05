@@ -10,12 +10,13 @@ function isKnownInputKey(key) {
   return INPUT_KEYS.has(key);
 }
 
-export function createInputModifiers({
-  shift = false,
-  alt = false,
-  ctrl = false,
-  meta = false,
-} = {}) {
+export function createInputModifiers(modifiers = {}) {
+  const {
+    shift = false,
+    alt = false,
+    ctrl = false,
+    meta = false,
+  } = modifiers ?? {};
   return {
     shift: Boolean(shift),
     alt: Boolean(alt),

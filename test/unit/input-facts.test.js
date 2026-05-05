@@ -26,6 +26,12 @@ test("input fact builders normalize primitive input facts", () => {
     ctrl: false,
     meta: true,
   });
+  assert.deepEqual(createInputModifiers(null), {
+    shift: false,
+    alt: false,
+    ctrl: false,
+    meta: false,
+  });
   assert.deepEqual(createPointerInputFact({
     button: 2,
     buttons: 5,
