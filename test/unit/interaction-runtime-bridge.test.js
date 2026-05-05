@@ -3,7 +3,6 @@ import assert from "node:assert/strict";
 
 import { DRAG_MODE } from "../../src/core/interaction-policy.js";
 import {
-  MACHINE_EVENT_KIND,
   MACHINE_INPUT_OVERRIDE,
   MACHINE_STATUS_NOTICE_KIND,
 } from "../../src/core/machine/events.js";
@@ -64,8 +63,7 @@ test("interaction runtime bridge subscriber emits only meaningful runtime change
     observedRuntime.push(runtime);
   });
 
-  machineHost.dispatch({
-    type: MACHINE_EVENT_KIND.REPORT_STATUS_NOTICE,
+  machineHost.reportStatusNotice({
     noticeKind: MACHINE_STATUS_NOTICE_KIND.RUNTIME_ERROR,
     noticePayload: { error: { message: "ignored for runtime projection" } },
   });
@@ -88,10 +86,7 @@ test("interaction runtime bridge cancels active adapter drag when machine runtim
   });
 
   bridge.beginGesture({ x: 50, y: 60 }, { gestureKind: DRAG_MODE.MAP_PAN });
-  machineHost.dispatch({
-    type: MACHINE_EVENT_KIND.RESET_INPUT_RUNTIME,
-    screenPx: { x: 70, y: 80 },
-  });
+  machineHost.resetInputRuntime({ screenPx: { x: 70, y: 80 } });
 
   assert.deepEqual(adapterDrag.cancelCalls, [{
     screenPoint: { x: 50, y: 60 },
@@ -108,10 +103,7 @@ test("interaction runtime bridge destroy removes machine runtime observer", () =
 
   bridge.beginGesture({ x: 50, y: 60 }, { gestureKind: DRAG_MODE.MAP_PAN });
   bridge.destroy();
-  machineHost.dispatch({
-    type: MACHINE_EVENT_KIND.RESET_INPUT_RUNTIME,
-    screenPx: null,
-  });
+  machineHost.resetInputRuntime({ screenPx: null });
 
   assert.deepEqual(adapterDrag.cancelCalls, []);
 });

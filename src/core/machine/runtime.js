@@ -86,6 +86,7 @@ export function createMachineRuntime({
   return {
     getState,
     subscribe,
+    applyMachineEvent: dispatch,
     dispatch,
   };
 }

@@ -266,30 +266,17 @@ test("machine fit event solves from interaction-created pins and clears the dirt
 test("input runtime transitions are canonical machine transitions", () => {
   const machineHost = createMachineHost();
 
-  machineHost.dispatch({
-    type: MACHINE_EVENT_KIND.UPDATE_POINTER_RUNTIME,
-    screenPx: { x: 500, y: 300 },
-  });
+  machineHost.updatePointer({ x: 500, y: 300 });
   assert.deepEqual(machineHost.getState().runtime.pointer.screenPx, { x: 500, y: 300 });
 
-  machineHost.dispatch({
-    type: MACHINE_EVENT_KIND.BEGIN_POINTER_GESTURE,
-    screenPx: { x: 510, y: 305 },
-    gestureKind: DRAG_MODE.MAP_PAN,
-  });
+  machineHost.beginPointerGesture({ x: 510, y: 305 }, { gestureKind: DRAG_MODE.MAP_PAN });
   assert.deepEqual(machineHost.getState().runtime.pointer.screenPx, { x: 510, y: 305 });
   assert.deepEqual(machineHost.getState().runtime.activeGesture, { kind: DRAG_MODE.MAP_PAN });
 
-  machineHost.dispatch({
-    type: MACHINE_EVENT_KIND.SET_INPUT_OVERRIDE,
-    inputOverride: MACHINE_INPUT_OVERRIDE.PASS_THROUGH,
-  });
+  machineHost.setInputPassThrough(true);
   assert.equal(machineHost.getState().runtime.inputOverride, MACHINE_INPUT_OVERRIDE.PASS_THROUGH);
 
-  machineHost.dispatch({
-    type: MACHINE_EVENT_KIND.RESET_INPUT_RUNTIME,
-    screenPx: null,
-  });
+  machineHost.resetInputRuntime({ screenPx: null });
   assert.deepEqual(machineHost.getState().runtime, createInitialMachineState().runtime);
 });
 
@@ -585,10 +572,7 @@ test("alt-wheel adjusts the overlay opacity in trace mode", () => {
   const harness = createHarness();
   const { controller, adapterCalls, machineHost } = harness;
   seedMachineImageSession(harness);
-  machineHost.dispatch({
-    type: MACHINE_EVENT_KIND.SELECT_MODE,
-    mode: SESSION_MODE.TRACE,
-  });
+  machineHost.selectMode(SESSION_MODE.TRACE);
 
   const initialOpacity = getSession(harness).opacity;
   const handled = controller.handleWheel({
@@ -642,10 +626,7 @@ test("toggling to trace auto-computes a dirty transform when enough pins exist",
   controller.handleTogglePin({ screenPoint: { x: 700, y: 300 } });
   assert.equal(getSession(harness).registration.dirty, true);
 
-  machineHost.dispatch({
-    type: MACHINE_EVENT_KIND.SELECT_MODE,
-    mode: SESSION_MODE.TRACE,
-  });
+  machineHost.selectMode(SESSION_MODE.TRACE);
 
   assert.equal(getSession(harness).mode, SESSION_MODE.TRACE);
   assert.equal(getSession(harness).registration.dirty, false);
@@ -657,7 +638,7 @@ test("clearing pins with no image is a machine no-op", () => {
   const { machineHost } = harness;
   const beforeState = machineHost.getState();
 
-  const result = machineHost.dispatch({ type: MACHINE_EVENT_KIND.CLEAR_PINS });
+  const result = machineHost.clearPins();
 
   assert.equal(result.state, beforeState);
   assert.equal(result.historyRecord, null);
@@ -678,10 +659,7 @@ test("switching mode clears pass-through and ends any active map pan through one
   controller.handlePointerEnter({ x: 520, y: 310 });
   keyTarget.dispatch("keydown", createKeyEvent({ code: "Space" }));
 
-  machineHost.dispatch({
-    type: MACHINE_EVENT_KIND.SELECT_MODE,
-    mode: SESSION_MODE.TRACE,
-  });
+  machineHost.selectMode(SESSION_MODE.TRACE);
 
   assert.equal(controller.getRuntimeState().activeGesture, null);
   assert.equal(controller.getRuntimeState().inputOverride, null);
@@ -701,7 +679,7 @@ test("clearing the image resets runtime and ends any active map pan through one 
     dragMode: DRAG_MODE.MAP_PAN,
   });
   controller.handlePointerMove({ x: 520, y: 310 });
-  machineHost.dispatch({ type: MACHINE_EVENT_KIND.CLEAR_IMAGE });
+  machineHost.clearImage();
 
   assert.equal(getSession(harness).image, null);
   assert.equal(controller.getRuntimeState().activeGesture, null);
@@ -1271,8 +1249,7 @@ function createProjectionSession({
 
 function seedMachineImageSession({ machineHost, pageAdapter }, image = TEST_IMAGE) {
   const snapshot = pageAdapter.getSnapshot();
-  machineHost.dispatch({
-    type: MACHINE_EVENT_KIND.LOAD_IMAGE,
+  machineHost.loadImage({
     image,
     placement: createPlacementTransform({
       image,
@@ -1285,23 +1262,19 @@ function seedMachineImageSession({ machineHost, pageAdapter }, image = TEST_IMAG
 }
 
 function dispatchMachineFitOverlayForSetup({ machineHost }) {
-  return machineHost.dispatch({ type: MACHINE_EVENT_KIND.FIT_OVERLAY });
+  return machineHost.fitOverlay();
 }
 
 function seedMachineSolvedRegistrationForAlignSetup(harness) {
   const result = dispatchMachineFitOverlayForSetup(harness);
   if (result.state.session.registration.solvedTransform) {
-    harness.machineHost.dispatch({
-      type: MACHINE_EVENT_KIND.SELECT_MODE,
-      mode: SESSION_MODE.ALIGN,
-    });
+    harness.machineHost.selectMode(SESSION_MODE.ALIGN);
   }
   return result;
 }
 
 function dispatchMachineClearPinsPreservingRenderedPlacement({ machineHost, pageAdapter }) {
-  return machineHost.dispatch({
-    type: MACHINE_EVENT_KIND.CLEAR_PINS,
+  return machineHost.clearPins({
     preservedPlacement: derivePreservedPlacement({
       state: machineHost.getState().session,
       pageAdapter,
@@ -1321,7 +1294,13 @@ function derivePreservedPlacement({ state, pageAdapter }) {
 }
 
 function consumeHistory(machineHost, eventType) {
-  return machineHost.dispatch({ type: eventType }).consumedHistoryRecord;
+  if (eventType === MACHINE_EVENT_KIND.UNDO) {
+    return machineHost.activateUndo().consumedHistoryRecord;
+  }
+  if (eventType === MACHINE_EVENT_KIND.REDO) {
+    return machineHost.activateRedo().consumedHistoryRecord;
+  }
+  return null;
 }
 
 function createPageAdapter({

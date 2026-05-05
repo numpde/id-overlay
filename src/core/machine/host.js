@@ -91,14 +91,14 @@ export function createMachineHost({
     return unsubscribe;
   }
 
-  function dispatch(event) {
-    // TODO(smell): Host exposes the flat machine dispatch surface directly to
-    // content. The final host should expose public user/fact ingress while
-    // private mutation/replay commands remain unreachable outside the machine.
+  function ingestMachineEvent(event) {
+    // TODO(smell): Host still ingests event-shaped private commands behind
+    // explicit verbs. The final host should interpret public user/fact ingress
+    // without routing through the flat machine event vocabulary.
     if (destroyed) {
       return createDestroyedDispatchResult(runtime.getState());
     }
-    const result = runtime.dispatch(event);
+    const result = runtime.applyMachineEvent(event);
     return result;
   }
 
@@ -106,7 +106,7 @@ export function createMachineHost({
     if (destroyed) {
       return createDestroyedDispatchResult(runtime.getState());
     }
-    return runtime.dispatch(result, {
+    return runtime.applyMachineEvent(result, {
       transition: transitionMachineEffectResult,
     });
   }
@@ -119,30 +119,30 @@ export function createMachineHost({
     }
     switch (action.kind) {
       case MACHINE_PANEL_PRIMARY_ACTION_KIND.PASTE:
-        return dispatch({
+        return ingestMachineEvent({
           type: MACHINE_EVENT_KIND.REQUEST_PANEL_INTENT,
           intent: MACHINE_PANEL_INTENT.PASTE_ARMED,
         });
       case MACHINE_PANEL_PRIMARY_ACTION_KIND.PASTE_ARMED:
-        return dispatch({
+        return ingestMachineEvent({
           type: MACHINE_EVENT_KIND.CANCEL_PANEL_INTENT,
           requestId: state.panel.requestId,
           noticeKind: MACHINE_STATUS_NOTICE_KIND.PASTE_CANCELLED,
         });
       case MACHINE_PANEL_PRIMARY_ACTION_KIND.CLEAR_PINS:
-        return dispatch({
+        return ingestMachineEvent({
           type: MACHINE_EVENT_KIND.REQUEST_PANEL_INTENT,
           intent: MACHINE_PANEL_INTENT.CLEAR_PINS_CONFIRM,
         });
       case MACHINE_PANEL_PRIMARY_ACTION_KIND.CONFIRM_CLEAR_PINS:
-        return dispatch({ type: MACHINE_EVENT_KIND.CLEAR_PINS });
+        return clearPins();
       case MACHINE_PANEL_PRIMARY_ACTION_KIND.CLEAR_IMAGE:
-        return dispatch({
+        return ingestMachineEvent({
           type: MACHINE_EVENT_KIND.REQUEST_PANEL_INTENT,
           intent: MACHINE_PANEL_INTENT.CLEAR_IMAGE_CONFIRM,
         });
       case MACHINE_PANEL_PRIMARY_ACTION_KIND.CONFIRM_CLEAR_IMAGE:
-        return dispatch({ type: MACHINE_EVENT_KIND.CLEAR_IMAGE });
+        return clearImage();
       default:
         return createNoopDispatchResult(state);
     }
@@ -165,36 +165,36 @@ export function createMachineHost({
   }
 
   function activateUndo() {
-    return dispatch({ type: MACHINE_EVENT_KIND.UNDO });
+    return ingestMachineEvent({ type: MACHINE_EVENT_KIND.UNDO });
   }
 
   function activateRedo() {
-    return dispatch({ type: MACHINE_EVENT_KIND.REDO });
+    return ingestMachineEvent({ type: MACHINE_EVENT_KIND.REDO });
   }
 
   function selectMode(mode) {
-    return dispatch({
+    return ingestMachineEvent({
       type: MACHINE_EVENT_KIND.SELECT_MODE,
       mode,
     });
   }
 
   function setOpacity(opacity) {
-    return dispatch({
+    return ingestMachineEvent({
       type: MACHINE_EVENT_KIND.SET_OPACITY,
       opacity,
     });
   }
 
   function updatePointer(screenPx) {
-    return dispatch({
+    return ingestMachineEvent({
       type: MACHINE_EVENT_KIND.UPDATE_POINTER_RUNTIME,
       screenPx,
     });
   }
 
   function beginPointerGesture(screenPx, { gestureKind }) {
-    return dispatch({
+    return ingestMachineEvent({
       type: MACHINE_EVENT_KIND.BEGIN_POINTER_GESTURE,
       screenPx,
       gestureKind,
@@ -202,33 +202,84 @@ export function createMachineHost({
   }
 
   function endPointerGesture(screenPx) {
-    return dispatch({
+    return ingestMachineEvent({
       type: MACHINE_EVENT_KIND.END_POINTER_GESTURE,
       screenPx,
     });
   }
 
   function setInputPassThrough(isActive) {
-    return dispatch({
+    return ingestMachineEvent({
       type: MACHINE_EVENT_KIND.SET_INPUT_OVERRIDE,
       inputOverride: isActive ? MACHINE_INPUT_OVERRIDE.PASS_THROUGH : null,
     });
   }
 
   function resetInputRuntime({ screenPx }) {
-    return dispatch({
+    return ingestMachineEvent({
       type: MACHINE_EVENT_KIND.RESET_INPUT_RUNTIME,
       screenPx,
     });
   }
 
   function reportRuntimeError(runtimeError) {
-    return dispatch({
-      type: MACHINE_EVENT_KIND.REPORT_STATUS_NOTICE,
+    return reportStatusNotice({
       noticeKind: MACHINE_STATUS_NOTICE_KIND.RUNTIME_ERROR,
       noticePayload: {
         error: runtimeError,
       },
+    });
+  }
+
+  function loadImage({ image, placement = null, requestId = null } = {}) {
+    return ingestMachineEvent({
+      type: MACHINE_EVENT_KIND.LOAD_IMAGE,
+      image,
+      placement,
+      requestId,
+    });
+  }
+
+  function clearImage() {
+    return ingestMachineEvent({
+      type: MACHINE_EVENT_KIND.CLEAR_IMAGE,
+    });
+  }
+
+  function clearPins({ preservedPlacement = null } = {}) {
+    return ingestMachineEvent({
+      type: MACHINE_EVENT_KIND.CLEAR_PINS,
+      ...(preservedPlacement ? { preservedPlacement } : {}),
+    });
+  }
+
+  function fitOverlay() {
+    return ingestMachineEvent({
+      type: MACHINE_EVENT_KIND.FIT_OVERLAY,
+    });
+  }
+
+  function requestPanelIntent(intent) {
+    return ingestMachineEvent({
+      type: MACHINE_EVENT_KIND.REQUEST_PANEL_INTENT,
+      intent,
+    });
+  }
+
+  function cancelPanelIntent({ requestId = null, noticeKind = null, noticePayload = null } = {}) {
+    return ingestMachineEvent({
+      type: MACHINE_EVENT_KIND.CANCEL_PANEL_INTENT,
+      requestId,
+      noticeKind,
+      noticePayload,
+    });
+  }
+
+  function reportStatusNotice({ noticeKind, noticePayload = null } = {}) {
+    return ingestMachineEvent({
+      type: MACHINE_EVENT_KIND.REPORT_STATUS_NOTICE,
+      noticeKind,
+      noticePayload,
     });
   }
 
@@ -238,7 +289,7 @@ export function createMachineHost({
     existingPinId = null,
     preservedPlacement = null,
   }) {
-    return dispatch({
+    return ingestMachineEvent({
       type: MACHINE_EVENT_KIND.TOGGLE_PIN,
       imagePx,
       mapLatLon,
@@ -252,20 +303,20 @@ export function createMachineHost({
       return createNoopDispatchResult(runtime.getState());
     }
     if (plan.phase === PLACEMENT_EDIT_PLAN_PHASE.BEGIN) {
-      return dispatch({
+      return ingestMachineEvent({
         type: MACHINE_EVENT_KIND.BEGIN_PLACEMENT_EDIT,
         editKind: plan.kind,
         renderedPlacement: plan.renderedPlacement,
       });
     }
     if (plan.phase === PLACEMENT_EDIT_PLAN_PHASE.PREVIEW) {
-      return dispatch({
+      return ingestMachineEvent({
         type: MACHINE_EVENT_KIND.PREVIEW_PLACEMENT_EDIT,
         placement: plan.placement,
       });
     }
     if (plan.phase === PLACEMENT_EDIT_PLAN_PHASE.APPLY) {
-      return dispatch({
+      return ingestMachineEvent({
         type: MACHINE_EVENT_KIND.APPLY_PLACEMENT_EDIT,
         editKind: plan.kind,
         renderedPlacement: plan.renderedPlacement,
@@ -276,7 +327,7 @@ export function createMachineHost({
   }
 
   function finishPlacementEditPlan() {
-    return dispatch({
+    return ingestMachineEvent({
       type: MACHINE_EVENT_KIND.COMMIT_PLACEMENT_EDIT,
     });
   }
@@ -396,7 +447,6 @@ export function createMachineHost({
   return {
     getState,
     subscribe,
-    dispatch,
     activatePanelPrimary,
     activatePanelMode,
     activatePanelModeStep,
@@ -405,6 +455,13 @@ export function createMachineHost({
     activateUndo,
     activateRedo,
     selectMode,
+    loadImage,
+    clearImage,
+    clearPins,
+    fitOverlay,
+    requestPanelIntent,
+    cancelPanelIntent,
+    reportStatusNotice,
     updatePointer,
     beginPointerGesture,
     endPointerGesture,

@@ -2,7 +2,6 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  MACHINE_EVENT_KIND,
   MACHINE_MODE,
   MACHINE_PANEL_INTENT,
   MACHINE_STATUS_NOTICE_KIND,
@@ -14,9 +13,9 @@ import {
 } from "../../src/core/machine/state.js";
 import { normalizeSessionImage } from "../../src/core/session.js";
 
-// TODO(smell): Host tests use the flat dispatch API as the public surface,
-// including private mutation/status/timer commands. Rewrite around the final
-// host ingress API and typed timer/effect-result facts.
+// TODO(smell): Host tests still use explicit event-shaped host verbs for setup.
+// Collapse those into product-level user/fact ingress once the public
+// interpreter replaces raw machine events.
 const IMAGE = Object.freeze({
   src: "data:image/png;base64,abc",
   width: 800,
@@ -66,19 +65,12 @@ test("machine host persists durable session after state changes only", () => {
 
   assert.deepEqual(saves, []);
 
-  host.dispatch({
-    type: MACHINE_EVENT_KIND.SELECT_MODE,
-    mode: MACHINE_MODE.TRACE,
-  });
+  host.selectMode(MACHINE_MODE.TRACE);
   assert.deepEqual(saves, []);
-  host.dispatch({
-    type: MACHINE_EVENT_KIND.REQUEST_PANEL_INTENT,
-    intent: MACHINE_PANEL_INTENT.CLEAR_IMAGE_CONFIRM,
-  });
+  host.requestPanelIntent(MACHINE_PANEL_INTENT.CLEAR_IMAGE_CONFIRM);
   assert.deepEqual(saves, []);
 
-  host.dispatch({
-    type: MACHINE_EVENT_KIND.LOAD_IMAGE,
+  host.loadImage({
     image: IMAGE,
     placement: PLACEMENT,
   });
@@ -102,10 +94,7 @@ test("machine host routes paste effects back through typed effect results", asyn
     readPasteImage: () => IMAGE,
   });
 
-  host.dispatch({
-    type: MACHINE_EVENT_KIND.REQUEST_PANEL_INTENT,
-    intent: MACHINE_PANEL_INTENT.PASTE_ARMED,
-  });
+  host.requestPanelIntent(MACHINE_PANEL_INTENT.PASTE_ARMED);
   await Promise.resolve();
 
   assert.deepEqual(host.getState().session.image, NORMALIZED_IMAGE);
@@ -118,17 +107,10 @@ test("machine host ignores stale missing-paste results", async () => {
     readPasteImage: ({ requestId }) => requestId === 1 ? null : unresolvedSecondPaste,
   });
 
-  host.dispatch({
-    type: MACHINE_EVENT_KIND.REQUEST_PANEL_INTENT,
-    intent: MACHINE_PANEL_INTENT.PASTE_ARMED,
-  });
+  host.requestPanelIntent(MACHINE_PANEL_INTENT.PASTE_ARMED);
   const requestId = host.getState().panel.requestId;
-  host.dispatch({
-    type: MACHINE_EVENT_KIND.REQUEST_PANEL_INTENT,
-    intent: MACHINE_PANEL_INTENT.PASTE_ARMED,
-  });
-  host.dispatch({
-    type: MACHINE_EVENT_KIND.CANCEL_PANEL_INTENT,
+  host.requestPanelIntent(MACHINE_PANEL_INTENT.PASTE_ARMED);
+  host.cancelPanelIntent({
     requestId,
   });
   await Promise.resolve();
@@ -147,13 +129,11 @@ test("machine host interprets primary panel activation from canonical state", ()
   assert.deepEqual(host.getState().panel, createIdlePanel());
   assert.equal(host.getState().status.notice.kind, MACHINE_STATUS_NOTICE_KIND.PASTE_CANCELLED);
 
-  host.dispatch({
-    type: MACHINE_EVENT_KIND.LOAD_IMAGE,
+  host.loadImage({
     image: IMAGE,
     placement: PLACEMENT,
   });
-  host.dispatch({
-    type: MACHINE_EVENT_KIND.ADD_PIN,
+  host.togglePin({
     imagePx: { x: 10, y: 20 },
     mapLatLon: { lat: 1, lon: 2 },
   });
@@ -175,8 +155,7 @@ test("machine host interprets primary panel activation from canonical state", ()
 
 test("machine host exposes semantic panel mode opacity and history activations", () => {
   const host = createMachineHost();
-  host.dispatch({
-    type: MACHINE_EVENT_KIND.LOAD_IMAGE,
+  host.loadImage({
     image: IMAGE,
     placement: PLACEMENT,
   });
@@ -207,26 +186,18 @@ test("machine host starts, replaces, expires, and cancels request-bound panel ti
     clearPanelTimeout: timers.clear,
   });
 
-  host.dispatch({
-    type: MACHINE_EVENT_KIND.LOAD_IMAGE,
+  host.loadImage({
     image: IMAGE,
     placement: PLACEMENT,
   });
-  host.dispatch({
-    type: MACHINE_EVENT_KIND.ADD_PIN,
+  host.togglePin({
     imagePx: { x: 10, y: 20 },
     mapLatLon: { lat: 1, lon: 2 },
   });
-  host.dispatch({
-    type: MACHINE_EVENT_KIND.REQUEST_PANEL_INTENT,
-    intent: MACHINE_PANEL_INTENT.CLEAR_IMAGE_CONFIRM,
-  });
+  host.requestPanelIntent(MACHINE_PANEL_INTENT.CLEAR_IMAGE_CONFIRM);
   assert.equal(timers.pendingCount(), 1);
 
-  host.dispatch({
-    type: MACHINE_EVENT_KIND.REQUEST_PANEL_INTENT,
-    intent: MACHINE_PANEL_INTENT.CLEAR_PINS_CONFIRM,
-  });
+  host.requestPanelIntent(MACHINE_PANEL_INTENT.CLEAR_PINS_CONFIRM);
   assert.equal(timers.pendingCount(), 1);
   assert.equal(timers.cleared.length, 1);
 
@@ -234,12 +205,8 @@ test("machine host starts, replaces, expires, and cancels request-bound panel ti
   assert.deepEqual(host.getState().panel, createIdlePanel());
   assert.equal(timers.pendingCount(), 0);
 
-  host.dispatch({
-    type: MACHINE_EVENT_KIND.REQUEST_PANEL_INTENT,
-    intent: MACHINE_PANEL_INTENT.CLEAR_IMAGE_CONFIRM,
-  });
-  host.dispatch({
-    type: MACHINE_EVENT_KIND.CANCEL_PANEL_INTENT,
+  host.requestPanelIntent(MACHINE_PANEL_INTENT.CLEAR_IMAGE_CONFIRM);
+  host.cancelPanelIntent({
     requestId: host.getState().panel.requestId,
   });
 
@@ -253,15 +220,13 @@ test("machine host starts, replaces, expires, and cancels request-bound status t
     clearStatusTimeout: timers.clear,
   });
 
-  host.dispatch({
-    type: MACHINE_EVENT_KIND.REPORT_STATUS_NOTICE,
+  host.reportStatusNotice({
     noticeKind: MACHINE_STATUS_NOTICE_KIND.CLIPBOARD_MISSING_IMAGE,
   });
   assert.equal(timers.pendingCount(), 1);
   assert.equal(host.getState().status.notice.requestId, 1);
 
-  host.dispatch({
-    type: MACHINE_EVENT_KIND.REPORT_STATUS_NOTICE,
+  host.reportStatusNotice({
     noticeKind: MACHINE_STATUS_NOTICE_KIND.PASTE_CANCELLED,
   });
   assert.equal(timers.pendingCount(), 1);
@@ -272,14 +237,10 @@ test("machine host starts, replaces, expires, and cancels request-bound status t
   assert.equal(host.getState().status.notice, null);
   assert.equal(timers.pendingCount(), 0);
 
-  host.dispatch({
-    type: MACHINE_EVENT_KIND.REPORT_STATUS_NOTICE,
+  host.reportStatusNotice({
     noticeKind: MACHINE_STATUS_NOTICE_KIND.PASTE_CANCELLED,
   });
-  host.dispatch({
-    type: MACHINE_EVENT_KIND.CLEAR_STATUS_NOTICE,
-    requestId: host.getState().status.notice.requestId,
-  });
+  timers.fireLatest();
 
   assert.equal(host.getState().status.notice, null);
   assert.equal(timers.pendingCount(), 0);
@@ -297,8 +258,7 @@ test("machine host destroy unsubscribes persistence and cancels outstanding time
     setStatusTimeout: statusTimers.set,
     clearStatusTimeout: statusTimers.clear,
   });
-  host.dispatch({
-    type: MACHINE_EVENT_KIND.LOAD_IMAGE,
+  host.loadImage({
     image: IMAGE,
     placement: PLACEMENT,
   });
@@ -308,12 +268,8 @@ test("machine host destroy unsubscribes persistence and cancels outstanding time
     emitCurrent: false,
   });
 
-  host.dispatch({
-    type: MACHINE_EVENT_KIND.REQUEST_PANEL_INTENT,
-    intent: MACHINE_PANEL_INTENT.CLEAR_IMAGE_CONFIRM,
-  });
-  host.dispatch({
-    type: MACHINE_EVENT_KIND.REPORT_STATUS_NOTICE,
+  host.requestPanelIntent(MACHINE_PANEL_INTENT.CLEAR_IMAGE_CONFIRM);
+  host.reportStatusNotice({
     noticeKind: MACHINE_STATUS_NOTICE_KIND.PASTE_CANCELLED,
   });
   assert.equal(timers.pendingCount(), 1);
@@ -324,8 +280,7 @@ test("machine host destroy unsubscribes persistence and cancels outstanding time
   assert.equal(statusTimers.pendingCount(), 0);
 
   const before = host.getState();
-  const result = host.dispatch({
-    type: MACHINE_EVENT_KIND.LOAD_IMAGE,
+  const result = host.loadImage({
     image: IMAGE,
     placement: PLACEMENT,
   });
