@@ -10,12 +10,15 @@ export function createInteractionRuntimeBridge({
   machineHost,
   adapterDrag,
 }) {
+  let destroyed = false;
   let observedRuntime = machineHost.getState().runtime;
-  const unsubscribeMachine = machineHost.subscribe((state) => {
+  const runtimeUnsubscribes = new Set();
+
+  trackRuntimeSubscription(machineHost.subscribe((state) => {
     const previousRuntime = observedRuntime;
     observedRuntime = state.runtime;
     syncAdapterDragFromRuntimeChange(previousRuntime, state.runtime);
-  }, { emitCurrent: false });
+  }, { emitCurrent: false }));
 
   return {
     destroy,
@@ -30,7 +33,14 @@ export function createInteractionRuntimeBridge({
   };
 
   function destroy() {
-    unsubscribeMachine();
+    if (destroyed) {
+      return;
+    }
+    destroyed = true;
+    for (const unsubscribe of Array.from(runtimeUnsubscribes)) {
+      unsubscribe();
+    }
+    runtimeUnsubscribes.clear();
   }
 
   function getRuntimeState() {
@@ -42,18 +52,21 @@ export function createInteractionRuntimeBridge({
   }
 
   function subscribe(listener, options) {
+    if (destroyed) {
+      return () => {};
+    }
     const { emitCurrent = true } = options ?? {};
     let previousRuntime = getRuntimeState();
     if (emitCurrent) {
       listener(previousRuntime);
     }
-    return machineHost.subscribe((state) => {
+    return trackRuntimeSubscription(machineHost.subscribe((state) => {
       const nextRuntime = state.runtime;
       if (!areInputRuntimesEqual(previousRuntime, nextRuntime)) {
         previousRuntime = nextRuntime;
         listener(nextRuntime);
       }
-    }, { emitCurrent: false });
+    }, { emitCurrent: false }));
   }
 
   function updatePointer(screenPx) {
@@ -113,13 +126,42 @@ export function createInteractionRuntimeBridge({
   function dispatchMachine(event) {
     return machineHost.dispatch(event);
   }
+
+  function trackRuntimeSubscription(unsubscribeRuntime) {
+    if (destroyed) {
+      unsubscribeRuntime();
+      return () => {};
+    }
+
+    let active = true;
+    function unsubscribe() {
+      if (!active) {
+        return;
+      }
+      active = false;
+      runtimeUnsubscribes.delete(unsubscribe);
+      unsubscribeRuntime();
+    }
+    runtimeUnsubscribes.add(unsubscribe);
+    return unsubscribe;
+  }
 }
 
 function areInputRuntimesEqual(left, right) {
+  const leftProjection = selectInputRuntimeProjection(left);
+  const rightProjection = selectInputRuntimeProjection(right);
   return (
-    selectRuntimePointerScreenPx(left)?.x === selectRuntimePointerScreenPx(right)?.x &&
-    selectRuntimePointerScreenPx(left)?.y === selectRuntimePointerScreenPx(right)?.y &&
-    selectRuntimeGestureKind(left) === selectRuntimeGestureKind(right) &&
-    selectIsInputPassThroughActive(left) === selectIsInputPassThroughActive(right)
+    leftProjection.pointerScreenPx?.x === rightProjection.pointerScreenPx?.x &&
+    leftProjection.pointerScreenPx?.y === rightProjection.pointerScreenPx?.y &&
+    leftProjection.gestureKind === rightProjection.gestureKind &&
+    leftProjection.passThroughOverride === rightProjection.passThroughOverride
   );
+}
+
+function selectInputRuntimeProjection(runtime) {
+  return {
+    pointerScreenPx: selectRuntimePointerScreenPx(runtime),
+    gestureKind: selectRuntimeGestureKind(runtime),
+    passThroughOverride: selectIsInputPassThroughActive(runtime),
+  };
 }

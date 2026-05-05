@@ -113,15 +113,44 @@ test("interaction runtime bridge destroy removes machine runtime observer", () =
   assert.deepEqual(adapterDrag.cancelCalls, []);
 });
 
+test("interaction runtime bridge destroy removes caller runtime subscriptions", () => {
+  const { bridge } = createRuntimeBridgeHarness();
+  const observedRuntime = [];
+
+  bridge.subscribe((runtime) => {
+    observedRuntime.push(runtime);
+  }, { emitCurrent: false });
+  bridge.destroy();
+  bridge.updatePointer({ x: 10, y: 20 });
+
+  assert.deepEqual(observedRuntime, []);
+});
+
+test("interaction runtime bridge subscribe after destroy is inert", () => {
+  const { bridge } = createRuntimeBridgeHarness();
+  const observedRuntime = [];
+
+  bridge.destroy();
+  const unsubscribe = bridge.subscribe((runtime) => {
+    observedRuntime.push(runtime);
+  });
+  bridge.updatePointer({ x: 10, y: 20 });
+  unsubscribe();
+
+  assert.deepEqual(observedRuntime, []);
+});
+
 function createRuntimeBridgeHarness({ hasActiveAdapterDrag = false } = {}) {
   const machineHost = createMachineHost();
+  let adapterDragActive = hasActiveAdapterDrag;
   const adapterDrag = {
     cancelCalls: [],
     hasActive() {
-      return hasActiveAdapterDrag;
+      return adapterDragActive;
     },
     cancel(screenPoint, options) {
       this.cancelCalls.push({ screenPoint, options });
+      adapterDragActive = false;
     },
   };
   const bridge = createInteractionRuntimeBridge({
