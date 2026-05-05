@@ -1,8 +1,3 @@
-import { clampOpacity, opacityFromWheelDelta } from "../core/transform.js";
-import {
-  MACHINE_EVENT_KIND,
-  MACHINE_MODE,
-} from "../core/machine/events.js";
 import {
   selectPanelView,
 } from "./panel-view-model.js";
@@ -124,18 +119,11 @@ export function createPanel({
     ownerWindow: window,
   });
 
-  // TODO(smell): These control listeners still construct machine events in the
-  // DOM shell while main-action events come from the view model. The final
-  // shape should dispatch product-level user intents only; the machine should
-  // interpret mode, opacity, history, and primary activation against state.
   modeInput.addEventListener("change", () => {
     if (modeInput.disabled) {
       return;
     }
-    dispatchMachineEvent({
-      type: MACHINE_EVENT_KIND.SELECT_MODE,
-      mode: modeInput.checked ? MACHINE_MODE.TRACE : MACHINE_MODE.ALIGN,
-    });
+    machineHost.activatePanelMode({ checked: modeInput.checked });
   });
   modeSwitch.addEventListener("wheel", (event) => {
     if (modeInput.disabled) {
@@ -143,17 +131,11 @@ export function createPanel({
     }
     event.preventDefault();
     event.stopPropagation();
-    dispatchMachineEvent({
-      type: MACHINE_EVENT_KIND.SELECT_MODE,
-      mode: event.deltaY < 0 ? MACHINE_MODE.ALIGN : MACHINE_MODE.TRACE,
-    });
+    machineHost.activatePanelModeStep({ deltaY: event.deltaY });
   }, { passive: false });
 
   opacityInput.addEventListener("input", () => {
-    dispatchMachineEvent({
-      type: MACHINE_EVENT_KIND.SET_OPACITY,
-      opacity: clampOpacity(Number(opacityInput.value)),
-    });
+    machineHost.changePanelOpacity(opacityInput.value);
   });
   opacityInput.addEventListener("wheel", (event) => {
     if (opacityInput.disabled) {
@@ -161,33 +143,31 @@ export function createPanel({
     }
     event.preventDefault();
     event.stopPropagation();
-    dispatchMachineEvent({
-      type: MACHINE_EVENT_KIND.SET_OPACITY,
-      opacity: opacityFromWheelDelta(Number(opacityInput.value), event.deltaY),
+    machineHost.changePanelOpacityByWheel({
+      value: opacityInput.value,
+      deltaY: event.deltaY,
     });
   }, { passive: false });
 
   mainActionButton.addEventListener("click", () => {
-    void handleMainActionClick();
+    machineHost.activatePanelPrimary();
   });
   undoButton.addEventListener("click", () => {
     if (undoButton.disabled) {
       return;
     }
-    dispatchMachineEvent({ type: MACHINE_EVENT_KIND.UNDO });
+    machineHost.activateUndo();
   });
   redoButton.addEventListener("click", () => {
     if (redoButton.disabled) {
       return;
     }
-    dispatchMachineEvent({ type: MACHINE_EVENT_KIND.REDO });
+    machineHost.activateRedo();
   });
 
   const unsubscribeMachine = machineHost.subscribe((state) => {
     applyPanelView(selectPanelView(state));
-  }, { emitCurrent: false });
-
-  applyPanelView(selectPanelView(machineHost.getState()));
+  });
 
   return {
     destroy() {
@@ -196,21 +176,6 @@ export function createPanel({
       root.remove();
     },
   };
-
-  function handleMainActionClick() {
-    // TODO(smell): This reaches back into machine state to fetch an executable
-    // event from the view model. The DOM shell should only report that the
-    // primary panel control was activated.
-    const action = selectPanelView(machineHost.getState()).mainAction;
-    if (action.disabled || !action.event) {
-      return;
-    }
-    dispatchMachineEvent(action.event);
-  }
-
-  function dispatchMachineEvent(event) {
-    return machineHost.dispatch(event);
-  }
 
   function applyPanelView(panelView) {
     opacityInput.value = panelView.opacityControl.value;

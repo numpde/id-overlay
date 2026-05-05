@@ -26,8 +26,8 @@ import {
 } from "../../src/core/machine/events.js";
 import { createMachineHost } from "../../src/core/machine/host.js";
 import {
-  selectStatus,
-} from "../../src/content/panel-view-model.js";
+  selectPanelStatusText,
+} from "../../src/core/machine/selectors.js";
 import { createInitialMachineState } from "../../src/core/machine/state.js";
 import {
   createPlacementScreenTransform,
@@ -213,7 +213,7 @@ test("interaction boundaries report machine status instead of throwing raw adapt
   assert.equal(machineHost.getState().status.notice.kind, MACHINE_STATUS_NOTICE_KIND.RUNTIME_ERROR);
   assert.equal(machineHost.getState().status.notice.payload.error.source, RUNTIME_ERROR_SOURCE.INTERACTIONS);
   assert.equal(machineHost.getState().status.notice.payload.error.operation, "handle-toggle-pin");
-  assert.equal(selectStatus(machineHost.getState()), "The overlay interaction failed. Try the action again.");
+  assert.equal(selectPanelStatusText(machineHost.getState()), "The overlay interaction failed. Try the action again.");
 });
 
 test("keyboard pin toggle uses the same interaction error boundary", () => {
@@ -233,7 +233,7 @@ test("keyboard pin toggle uses the same interaction error boundary", () => {
   assert.equal(machineHost.getState().status.notice.kind, MACHINE_STATUS_NOTICE_KIND.RUNTIME_ERROR);
   assert.equal(machineHost.getState().status.notice.payload.error.source, RUNTIME_ERROR_SOURCE.INTERACTIONS);
   assert.equal(machineHost.getState().status.notice.payload.error.operation, "handle-toggle-pin");
-  assert.equal(selectStatus(machineHost.getState()), "The overlay interaction failed. Try the action again.");
+  assert.equal(selectPanelStatusText(machineHost.getState()), "The overlay interaction failed. Try the action again.");
 });
 
 test("pin-toggle command on an existing pin removes it", () => {

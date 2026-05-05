@@ -1,13 +1,21 @@
 import {
   MACHINE_EVENT_KIND,
+  MACHINE_MODE,
+  MACHINE_PANEL_INTENT,
+  MACHINE_STATUS_NOTICE_KIND,
   createCancelPanelIntentEvent,
 } from "./events.js";
 import { createMachineEffectRunner } from "./effect-runner.js";
+import {
+  MACHINE_PANEL_PRIMARY_ACTION_KIND,
+  selectPanelPrimaryAction,
+} from "./policy.js";
 import {
   toPersistedMachineSessionSnapshot,
   fromPersistedMachineSession,
 } from "./persistence.js";
 import { createMachineRuntime } from "./runtime.js";
+import { clampOpacity, opacityFromWheelDelta } from "../transform.js";
 
 const DEFAULT_PANEL_TIMEOUT_MS = 1800;
 const DEFAULT_STATUS_TIMEOUT_MS = 1800;
@@ -86,6 +94,78 @@ export function createMachineHost({
     }
     const result = runtime.dispatch(event);
     return result;
+  }
+
+  function activatePanelPrimary() {
+    const state = runtime.getState();
+    const action = selectPanelPrimaryAction(state);
+    if (action.disabled) {
+      return createNoopDispatchResult(state);
+    }
+    switch (action.kind) {
+      case MACHINE_PANEL_PRIMARY_ACTION_KIND.PASTE:
+        return dispatch({
+          type: MACHINE_EVENT_KIND.REQUEST_PANEL_INTENT,
+          intent: MACHINE_PANEL_INTENT.PASTE_ARMED,
+        });
+      case MACHINE_PANEL_PRIMARY_ACTION_KIND.PASTE_ARMED:
+        return dispatch(createCancelPanelIntentEvent({
+          requestId: state.panel.requestId,
+          noticeKind: MACHINE_STATUS_NOTICE_KIND.PASTE_CANCELLED,
+        }));
+      case MACHINE_PANEL_PRIMARY_ACTION_KIND.CLEAR_PINS:
+        return dispatch({
+          type: MACHINE_EVENT_KIND.REQUEST_PANEL_INTENT,
+          intent: MACHINE_PANEL_INTENT.CLEAR_PINS_CONFIRM,
+        });
+      case MACHINE_PANEL_PRIMARY_ACTION_KIND.CONFIRM_CLEAR_PINS:
+        return dispatch({ type: MACHINE_EVENT_KIND.CLEAR_PINS });
+      case MACHINE_PANEL_PRIMARY_ACTION_KIND.CLEAR_IMAGE:
+        return dispatch({
+          type: MACHINE_EVENT_KIND.REQUEST_PANEL_INTENT,
+          intent: MACHINE_PANEL_INTENT.CLEAR_IMAGE_CONFIRM,
+        });
+      case MACHINE_PANEL_PRIMARY_ACTION_KIND.CONFIRM_CLEAR_IMAGE:
+        return dispatch({ type: MACHINE_EVENT_KIND.CLEAR_IMAGE });
+      default:
+        return createNoopDispatchResult(state);
+    }
+  }
+
+  function activatePanelMode({ checked }) {
+    return dispatch({
+      type: MACHINE_EVENT_KIND.SELECT_MODE,
+      mode: checked ? MACHINE_MODE.TRACE : MACHINE_MODE.ALIGN,
+    });
+  }
+
+  function activatePanelModeStep({ deltaY }) {
+    return dispatch({
+      type: MACHINE_EVENT_KIND.SELECT_MODE,
+      mode: deltaY < 0 ? MACHINE_MODE.ALIGN : MACHINE_MODE.TRACE,
+    });
+  }
+
+  function changePanelOpacity(value) {
+    return dispatch({
+      type: MACHINE_EVENT_KIND.SET_OPACITY,
+      opacity: clampOpacity(Number(value)),
+    });
+  }
+
+  function changePanelOpacityByWheel({ value, deltaY }) {
+    return dispatch({
+      type: MACHINE_EVENT_KIND.SET_OPACITY,
+      opacity: opacityFromWheelDelta(Number(value), deltaY),
+    });
+  }
+
+  function activateUndo() {
+    return dispatch({ type: MACHINE_EVENT_KIND.UNDO });
+  }
+
+  function activateRedo() {
+    return dispatch({ type: MACHINE_EVENT_KIND.REDO });
   }
 
   function destroy() {
@@ -209,11 +289,22 @@ export function createMachineHost({
     getState,
     subscribe,
     dispatch,
+    activatePanelPrimary,
+    activatePanelMode,
+    activatePanelModeStep,
+    changePanelOpacity,
+    changePanelOpacityByWheel,
+    activateUndo,
+    activateRedo,
     destroy,
   };
 }
 
 function createDestroyedDispatchResult(state) {
+  return createNoopDispatchResult(state);
+}
+
+function createNoopDispatchResult(state) {
   return {
     state,
     effects: [],

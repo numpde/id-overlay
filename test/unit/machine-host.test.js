@@ -137,6 +137,69 @@ test("machine host ignores stale missing-paste results", async () => {
   assert.equal(host.getState().panel.requestId, 2);
 });
 
+test("machine host interprets primary panel activation from canonical state", () => {
+  const host = createMachineHost();
+
+  host.activatePanelPrimary();
+  assert.equal(host.getState().panel.intent, MACHINE_PANEL_INTENT.PASTE_ARMED);
+
+  host.activatePanelPrimary();
+  assert.deepEqual(host.getState().panel, createIdlePanel());
+  assert.equal(host.getState().status.notice.kind, MACHINE_STATUS_NOTICE_KIND.PASTE_CANCELLED);
+
+  host.dispatch({
+    type: MACHINE_EVENT_KIND.LOAD_IMAGE,
+    image: IMAGE,
+    placement: PLACEMENT,
+  });
+  host.dispatch({
+    type: MACHINE_EVENT_KIND.ADD_PIN,
+    imagePx: { x: 10, y: 20 },
+    mapLatLon: { lat: 1, lon: 2 },
+  });
+
+  host.activatePanelPrimary();
+  assert.equal(host.getState().panel.intent, MACHINE_PANEL_INTENT.CLEAR_PINS_CONFIRM);
+
+  host.activatePanelPrimary();
+  assert.equal(host.getState().session.registration.pins.length, 0);
+  assert.deepEqual(host.getState().panel, createIdlePanel());
+
+  host.activatePanelPrimary();
+  assert.equal(host.getState().panel.intent, MACHINE_PANEL_INTENT.CLEAR_IMAGE_CONFIRM);
+
+  host.activatePanelPrimary();
+  assert.equal(host.getState().session.image, null);
+  assert.deepEqual(host.getState().panel, createIdlePanel());
+});
+
+test("machine host exposes semantic panel mode opacity and history activations", () => {
+  const host = createMachineHost();
+  host.dispatch({
+    type: MACHINE_EVENT_KIND.LOAD_IMAGE,
+    image: IMAGE,
+    placement: PLACEMENT,
+  });
+
+  host.activatePanelMode({ checked: true });
+  assert.equal(host.getState().session.mode, MACHINE_MODE.TRACE);
+
+  host.activatePanelModeStep({ deltaY: -100 });
+  assert.equal(host.getState().session.mode, MACHINE_MODE.ALIGN);
+
+  host.changePanelOpacity("0.45");
+  assert.equal(host.getState().session.opacity, 0.45);
+
+  host.changePanelOpacityByWheel({ value: "0.45", deltaY: -100 });
+  assert.equal(host.getState().session.opacity, 0.55);
+
+  host.activateUndo();
+  assert.equal(host.getState().session.image, null);
+
+  host.activateRedo();
+  assert.deepEqual(host.getState().session.image, NORMALIZED_IMAGE);
+});
+
 test("machine host starts, replaces, expires, and cancels request-bound panel timers", () => {
   const timers = createTimerHarness();
   const host = createMachineHost({

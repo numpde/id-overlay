@@ -14,10 +14,10 @@ import {
 } from "../../src/core/machine/policy.js";
 import {
   selectOverlayPresentation,
+  selectPanelStatusText,
 } from "../../src/core/machine/selectors.js";
 import {
   selectPanelView,
-  selectStatus,
 } from "../../src/content/panel-view-model.js";
 import { createInitialMachineState } from "../../src/core/machine/state.js";
 import { transitionMachine } from "../../src/core/machine/transition.js";
@@ -54,7 +54,7 @@ test("initial no-image state is native Trace with paste as the primary action", 
 
   assert.equal(state.session.mode, MACHINE_MODE.TRACE);
   assert.equal(state.session.image, null);
-  assert.equal(selectStatus(state), "Paste a screenshot to begin.");
+  assert.equal(selectPanelStatusText(state), "Paste a screenshot to begin.");
   assert.deepEqual(selectOverlayPolicy(state), {
     hasImage: false,
     mode: MACHINE_MODE.TRACE,
@@ -86,7 +86,7 @@ test("loading an image enters Align and records a user-facing reloadable edit", 
   assert.deepEqual(result.state.session.placement, PLACEMENT);
   assert.equal(result.historyRecord.kind, MACHINE_HISTORY_KIND.LOAD_IMAGE);
   assert.equal(result.state.status.notice.kind, MACHINE_STATUS_NOTICE_KIND.IMAGE_LOADED);
-  assert.equal(selectStatus(result.state), "Loaded screenshot 800×400.");
+  assert.equal(selectPanelStatusText(result.state), "Loaded screenshot 800×400.");
   assert.equal(selectPanelView(result.state).historyControls.undo.title, "Remove image");
   assert.equal(result.state.history.future.length, 0);
   assert.equal(result.state.history.past.length, 1);
@@ -292,24 +292,24 @@ test("semantic status notices describe the concrete visible edit", () => {
   let state = loadImage();
 
   const add = addPin(state);
-  assert.equal(selectStatus(add.state), "Added pin 1.");
+  assert.equal(selectPanelStatusText(add.state), "Added pin 1.");
 
   const remove = transitionMachine(add.state, {
     type: MACHINE_EVENT_KIND.REMOVE_PIN,
     id: 1,
   });
-  assert.equal(selectStatus(remove.state), "Removed pin 1.");
+  assert.equal(selectPanelStatusText(remove.state), "Removed pin 1.");
 
   state = addTwoPins(loadImage());
   const clear = transitionMachine(state, { type: MACHINE_EVENT_KIND.CLEAR_PINS });
-  assert.equal(selectStatus(clear.state), "Cleared 2 pins.");
+  assert.equal(selectPanelStatusText(clear.state), "Cleared 2 pins.");
 
   state = addTwoPins(loadImage());
   const fit = transitionMachine(state, {
     type: MACHINE_EVENT_KIND.SELECT_MODE,
     mode: MACHINE_MODE.TRACE,
   });
-  assert.equal(selectStatus(fit.state), "Fit overlay from 2 pins.");
+  assert.equal(selectPanelStatusText(fit.state), "Fit overlay from 2 pins.");
 });
 
 test("placement undo and redo preserve the user's current mode", () => {
@@ -588,7 +588,7 @@ test("selectors derive panel intent, status, controls, and pass-through", () => 
 
   assert.equal(selectPanelView(state).mainAction.kind, "confirm-clear-image");
   assert.equal(
-    selectStatus(state),
+    selectPanelStatusText(state),
     "Click Clear image? again to remove the current screenshot, placement, and pins.",
   );
   assert.deepEqual(selectOverlayPolicy(state), {
