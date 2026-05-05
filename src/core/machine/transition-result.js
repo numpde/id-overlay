@@ -5,29 +5,32 @@ import {
   createStartStatusTimeoutEffect,
 } from "./effects.js";
 
-export function finalizeTransitionResult(result, { commitHistory, commitStatus }) {
-  // TODO(smell): Result finalization currently interprets history commits and
-  // status timeout lifecycle behind boolean options. If another concern lands
-  // here, split this into explicit small interpreters so transition branches do
-  // not rely on hidden finalizer policy.
-  let state = result.state;
-  let effects = result.effects;
-  let historyRecord = result.historyRecord;
-  if (commitHistory && historyRecord) {
-    state = commitHistoryRecord(state, historyRecord);
-  } else {
-    historyRecord = null;
-  }
-  if (commitStatus && result.statusNotice) {
-    const statusTransition = applyStatusNotice(state, result.statusNotice);
-    state = statusTransition.state;
-    effects = [...effects, ...statusTransition.effects];
+export function withHistoryRecord(result) {
+  if (!result.historyRecord) {
+    return {
+      ...result,
+      historyRecord: null,
+    };
   }
   return {
-    state,
-    effects,
-    historyRecord,
-    consumedHistoryRecord: result.consumedHistoryRecord,
+    ...result,
+    state: commitHistoryRecord(result.state, result.historyRecord),
+  };
+}
+
+export function withStatusNotice(result) {
+  if (!result.statusNotice) {
+    return {
+      ...result,
+      statusNotice: null,
+    };
+  }
+  const statusTransition = applyStatusNotice(result.state, result.statusNotice);
+  return {
+    ...result,
+    state: statusTransition.state,
+    effects: [...result.effects, ...statusTransition.effects],
+    statusNotice: null,
   };
 }
 

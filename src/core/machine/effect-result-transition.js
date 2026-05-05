@@ -11,17 +11,15 @@ import {
 } from "./state.js";
 import {
   createTransitionResult,
-  finalizeTransitionResult,
+  withHistoryRecord,
+  withStatusNotice,
 } from "./transition-result.js";
 
 export function transitionMachineEffectResult(state = createInitialMachineState(), result = {}) {
-  return finalizeTransitionResult(transitionEffectResult(
+  return withStatusNotice(withHistoryRecord(transitionEffectResult(
     normalizeMachineState(state),
     result,
-  ), {
-    commitHistory: true,
-    commitStatus: true,
-  });
+  )));
 }
 
 function transitionEffectResult(state, result) {

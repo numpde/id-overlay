@@ -48,15 +48,13 @@ import {
 } from "./panel-status-transition.js";
 import {
   createTransitionResult,
-  finalizeTransitionResult,
+  withHistoryRecord,
+  withStatusNotice,
 } from "./transition-result.js";
 
 export function transitionMachine(state = createInitialMachineState(), event = {}) {
   const currentState = normalizeMachineState(state);
-  return finalizeTransitionResult(interpretIngressEvent(currentState, event), {
-    commitHistory: true,
-    commitStatus: true,
-  });
+  return withStatusNotice(withHistoryRecord(interpretIngressEvent(currentState, event)));
 }
 
 function interpretIngressEvent(state, event) {

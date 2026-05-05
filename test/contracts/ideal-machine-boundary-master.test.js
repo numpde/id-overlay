@@ -289,9 +289,7 @@ test("transition entrypoint separates public interpretation from private domain 
   assert.deepEqual(violations, []);
 });
 
-test("transition result finalization is explicit and domain-local, not hidden behind commit booleans", {
-  todo: "Replace commitHistory/commitStatus switches with explicit domain result combinators.",
-}, () => {
+test("transition result finalization is explicit and domain-local, not hidden behind commit booleans", () => {
   const sources = new Map([
     ["src/core/machine/transition.js", readSource(repoPath("src/core/machine/transition.js"))],
     ["src/core/machine/transition-result.js", readSource(repoPath("src/core/machine/transition-result.js"))],

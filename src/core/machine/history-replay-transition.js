@@ -19,7 +19,7 @@ import {
 import {
   createStatusNotice,
   createTransitionResult,
-  finalizeTransitionResult,
+  withStatusNotice,
 } from "./transition-result.js";
 
 export function transitionUndo(state) {
@@ -51,32 +51,22 @@ function replayHistoryTransition(state, {
 }) {
   const moved = moveRecord(state);
   if (!moved.record) {
-    return finalizeTransitionResult(createTransitionResult({
+    return withStatusNotice(createTransitionResult({
       state,
       statusNotice: createStatusNotice(emptyNoticeKind),
-    }), {
-      commitHistory: false,
-      commitStatus: true,
-    });
+    }));
   }
-  const replay = finalizeTransitionResult(
+  const replay = withoutReplaySideEffects(
     replayHistoryRecord(moved.state, selectReplay(moved.record)),
-    {
-      commitHistory: false,
-      commitStatus: false,
-    },
   );
-  return finalizeTransitionResult(createTransitionResult({
+  return withStatusNotice(createTransitionResult({
     state: replay.state,
     effects: replay.effects,
     statusNotice: createStatusNotice(replayNoticeKind, {
       label: selectLabel(moved.record),
     }),
     consumedHistoryRecord: moved.record,
-  }), {
-    commitHistory: false,
-    commitStatus: true,
-  });
+  }));
 }
 
 function replayHistoryRecord(state, replay = {}) {
@@ -98,4 +88,11 @@ function replayHistoryRecord(state, replay = {}) {
     default:
       return createTransitionResult({ state });
   }
+}
+
+function withoutReplaySideEffects(result) {
+  return createTransitionResult({
+    state: result.state,
+    effects: result.effects,
+  });
 }
