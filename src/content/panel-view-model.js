@@ -35,6 +35,9 @@ export const PANEL_STATUS_MESSAGE = Object.freeze({
 });
 
 export function selectPanelView(state) {
+  // TODO(smell): The panel view model still returns executable machine events
+  // for controls. Prefer stable UI action descriptors and keep event creation
+  // in a panel interaction adapter, matching the content interaction boundary.
   const policy = selectPanelPolicy(state);
   return {
     mode: state.session.mode,

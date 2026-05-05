@@ -124,6 +124,9 @@ export function createPanel({
     ownerWindow: window,
   });
 
+  // TODO(smell): These control listeners still construct machine events in the
+  // DOM shell while main-action events come from the view model. Route all panel
+  // intents through one panel interaction layer before adding more controls.
   modeInput.addEventListener("change", () => {
     if (modeInput.disabled) {
       return;

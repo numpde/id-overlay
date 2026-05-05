@@ -17,6 +17,9 @@ export function createWheelCommand({
   getMachineState,
   dispatchMachine,
 }) {
+  // TODO(smell): Wheel handling mixes map forwarding, opacity updates, and
+  // placement edits under one command. Split by wheel mode after panel opacity
+  // and overlay wheel edits share one command vocabulary.
   return {
     handleWheel,
   };

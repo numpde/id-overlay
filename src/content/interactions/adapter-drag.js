@@ -15,6 +15,9 @@ export function createAdapterDragController({
   dispatchMachine,
   logger,
 }) {
+  // TODO(smell): Adapter drag owns both page gesture forwarding and overlay
+  // placement edit dispatch. Split map-pan and overlay-move commands once a
+  // shared gesture lifecycle port replaces direct adapterDrag/runtime coupling.
   let isMapPanActive = false;
   let overlayMove = null;
 

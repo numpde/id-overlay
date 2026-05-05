@@ -10,6 +10,9 @@ export function createInteractionRuntimeBridge({
   machineHost,
   adapterDrag,
 }) {
+  // TODO(smell): Runtime observation and adapter drag cleanup are still coupled
+  // here. The ideal boundary would expose a single gesture-lifecycle port so
+  // runtime reset effects and adapter cancellation cannot drift apart.
   let destroyed = false;
   let observedRuntime = machineHost.getState().runtime;
   const runtimeUnsubscribes = new Set();

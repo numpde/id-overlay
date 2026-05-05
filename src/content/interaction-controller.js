@@ -14,6 +14,10 @@ export function createInteractionController({
   keyTarget = globalThis.window,
   keyboardGateway = null,
 }) {
+  // TODO(smell): This module is now mostly object graph wiring, but the graph is
+  // still hand-assembled here. Extract an interaction composition factory once
+  // keyboard/runtime command ports are narrower, so bootstrap owns construction
+  // and this compatibility facade can disappear.
   const logger = createLogger("interactions");
   const adapterDrag = createAdapterDragController({
     pageAdapter,

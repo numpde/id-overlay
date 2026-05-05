@@ -15,6 +15,10 @@ export function createKeyboardInputRouter({
   resetInteractionState,
   logger,
 }) {
+  // TODO(smell): Keyboard routing still receives low-level runtime callbacks
+  // beside semantic commands. Replace setPassThrough/resetInteractionState with
+  // keyboard interaction commands so shortcut handling never knows runtime
+  // mutation vocabulary.
   const keyboardListeners = createKeyboardListeners({
     keyTarget,
     keyboardGateway,
