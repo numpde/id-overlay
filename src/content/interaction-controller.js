@@ -1,8 +1,6 @@
 import { createLogger } from "../core/logger.js";
-import { createRuntimeError, RUNTIME_ERROR_SOURCE } from "../core/runtime-error.js";
 import {
   MACHINE_EVENT_KIND,
-  MACHINE_STATUS_NOTICE_KIND,
 } from "../core/machine/events.js";
 import {
   selectIsRuntimeDragging,
@@ -12,6 +10,7 @@ import { createPinToggleCommand } from "./interactions/pin-toggle-command.js";
 import { createWheelCommand } from "./interactions/wheel-command.js";
 import { createKeyboardInputRouter } from "./interactions/keyboard-router.js";
 import { createInteractionRuntimeBridge } from "./interactions/runtime-bridge.js";
+import { createInteractionErrorBoundary } from "./interactions/error-boundary.js";
 
 export function createInteractionController({
   machineHost,
@@ -19,9 +18,8 @@ export function createInteractionController({
   keyTarget = globalThis.window,
   keyboardGateway = null,
 }) {
-  // TODO(smell): This shell still owns error reporting and command composition.
-  // Extract the runtime error boundary next, then collapse this into a thin
-  // interactions composition module.
+  // TODO(smell): This shell still owns command composition. Collapse it into a
+  // thin interactions composition module once pointer commands are extracted.
   const logger = createLogger("interactions");
   const adapterDrag = createAdapterDragController({
     pageAdapter,
@@ -43,6 +41,11 @@ export function createInteractionController({
   const runtimeBridge = createInteractionRuntimeBridge({
     machineHost,
     adapterDrag,
+  });
+  const errorBoundary = createInteractionErrorBoundary({
+    dispatchMachine,
+    resetInteraction: resetRuntimeAfterError,
+    logger,
   });
   const keyboardRouter = createKeyboardInputRouter({
     keyTarget,
@@ -71,7 +74,7 @@ export function createInteractionController({
   }
 
   function applyMode(mode) {
-    return runInteractionBoundary("apply-mode", () => {
+    return errorBoundary.run("apply-mode", () => {
       runtimeBridge.reset({
         pointerScreenPx: getPointerScreenPx(),
       });
@@ -85,7 +88,7 @@ export function createInteractionController({
   }
 
   function handleTogglePin({ screenPoint }) {
-    return runInteractionBoundary("handle-toggle-pin", () => {
+    return errorBoundary.run("handle-toggle-pin", () => {
       runtimeBridge.updatePointer(screenPoint);
       return executePinToggleAtScreenPoint(screenPoint);
     }, { fallbackValue: false });
@@ -118,7 +121,7 @@ export function createInteractionController({
   }
 
   function handlePointerMove(screenPoint) {
-    return runInteractionBoundary("handle-pointer-move", () => {
+    return errorBoundary.run("handle-pointer-move", () => {
       const runtime = getRuntimeState();
       const dragMode = adapterDrag.getActiveDragMode();
       if (selectIsRuntimeDragging(runtime) && dragMode) {
@@ -134,7 +137,7 @@ export function createInteractionController({
   }
 
   function handlePointerDown({ button, screenPoint, dragMode }) {
-    return runInteractionBoundary("handle-pointer-down", () => {
+    return errorBoundary.run("handle-pointer-down", () => {
       if (!adapterDrag.begin({ button, screenPoint, dragMode })) {
         return false;
       }
@@ -146,7 +149,7 @@ export function createInteractionController({
   }
 
   function handlePointerUp(screenPoint) {
-    return runInteractionBoundary("handle-pointer-up", () => {
+    return errorBoundary.run("handle-pointer-up", () => {
       if (!adapterDrag.end(screenPoint)) {
         return false;
       }
@@ -156,7 +159,7 @@ export function createInteractionController({
   }
 
   function handlePointerCancel() {
-    return runInteractionBoundary("handle-pointer-cancel", () => {
+    return errorBoundary.run("handle-pointer-cancel", () => {
       runtimeBridge.reset({
         endPointerScreenPx: getPointerScreenPx(),
         pointerScreenPx: null,
@@ -166,7 +169,7 @@ export function createInteractionController({
   }
 
   function handleWheel({ deltaY, wheelMode, screenPoint }) {
-    return runInteractionBoundary("handle-wheel", () => {
+    return errorBoundary.run("handle-wheel", () => {
       const outcome = wheelCommand.handleWheel({ deltaY, wheelMode, screenPoint });
       logInteractionOutcome(outcome);
       if (!outcome.handled) {
@@ -201,8 +204,14 @@ export function createInteractionController({
     return runtimeBridge.getPointerScreenPx();
   }
 
+  function resetRuntimeAfterError() {
+    runtimeBridge.reset({
+      pointerScreenPx: getPointerScreenPx(),
+    });
+  }
+
   function reportRuntimeError({
-    source = RUNTIME_ERROR_SOURCE.INTERACTIONS,
+    source,
     operation,
     error,
     message = null,
@@ -210,51 +219,15 @@ export function createInteractionController({
     details = null,
     resetInteraction = true,
   } = {}) {
-    if (resetInteraction) {
-      runtimeBridge.reset({
-        pointerScreenPx: getPointerScreenPx(),
-      });
-    }
-    const runtimeError = createRuntimeError({
+    return errorBoundary.report({
       source,
       operation,
       error,
       message,
       recoverable,
       details,
+      resetInteraction,
     });
-    dispatchMachine({
-      type: MACHINE_EVENT_KIND.REPORT_STATUS_NOTICE,
-      noticeKind: MACHINE_STATUS_NOTICE_KIND.RUNTIME_ERROR,
-      noticePayload: {
-        error: runtimeError,
-      },
-    });
-    logger.error("Runtime boundary failed", runtimeError, error);
-    return runtimeError;
-  }
-
-  function runInteractionBoundary(operation, fn, {
-    fallbackValue = null,
-    message = null,
-    recoverable = true,
-    details = null,
-    resetInteraction = true,
-  } = {}) {
-    try {
-      return fn();
-    } catch (error) {
-      reportRuntimeError({
-        source: RUNTIME_ERROR_SOURCE.INTERACTIONS,
-        operation,
-        error,
-        message,
-        recoverable,
-        details,
-        resetInteraction,
-      });
-      return fallbackValue;
-    }
   }
 
   return {
