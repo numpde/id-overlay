@@ -32,6 +32,9 @@ const MASTER_SEAMS = Object.freeze([
   "semantic history records",
   "typed effect results",
   "explicit page ports",
+  "canonical action selectors",
+  "storage-shaped persistence",
+  "normalized input facts",
 ]);
 
 test("master checklist names the target seams", () => {
@@ -42,6 +45,9 @@ test("master checklist names the target seams", () => {
     "semantic history records",
     "typed effect results",
     "explicit page ports",
+    "canonical action selectors",
+    "storage-shaped persistence",
+    "normalized input facts",
   ]);
 });
 
@@ -79,6 +85,56 @@ test("panel view model exposes render data only", {
   const violations = forbiddenPatterns
     .filter(([, pattern]) => pattern.test(source))
     .map(([name]) => name);
+
+  assert.deepEqual(violations, []);
+});
+
+test("panel DOM reports product activations instead of resolving command meaning", {
+  todo: "Panel controls should report primary/mode/opacity/history activations; the machine should interpret them.",
+}, () => {
+  const source = readSource(repoPath("src/content/panel.js"));
+  const forbiddenPatterns = [
+    ["machine event vocabulary", /\bMACHINE_EVENT_KIND\b/],
+    ["mode enum import", /\bMACHINE_MODE\b/],
+    ["live state action lookup", /\bselectPanelView\s*\(\s*machineHost\.getState\s*\(\s*\)\s*\)/],
+    ["view-model executable event dispatch", /\bdispatchMachineEvent\s*\(\s*action\.event\s*\)/],
+    ["generic machine dispatch wrapper", /\bfunction\s+dispatchMachineEvent\s*\(/],
+  ];
+  const requiredPatterns = [
+    ["primary activation ingress", /\b(?:activatePanelPrimary|ingestPanelPrimary|reportPanelPrimaryActivated)\b/],
+    ["history activation ingress", /\b(?:activateUndo|activateRedo|ingestHistoryActivation|reportHistoryActivated)\b/],
+  ];
+  const violations = [
+    ...forbiddenPatterns
+      .filter(([, pattern]) => pattern.test(source))
+      .map(([name]) => `forbidden: ${name}`),
+    ...requiredPatterns
+      .filter(([, pattern]) => !pattern.test(source))
+      .map(([name]) => `missing: ${name}`),
+  ];
+
+  assert.deepEqual(violations, []);
+});
+
+test("primary panel action has one canonical machine-owned selector", {
+  todo: "Derive primary action semantics once in core and use the same selector for render and activation.",
+}, () => {
+  const policySource = readSource(repoPath("src/core/machine/policy.js"));
+  const panelViewSource = readSource(repoPath("src/content/panel-view-model.js"));
+  const violations = [];
+
+  if (!/\bselectPanelPrimaryAction\b/.test(policySource)) {
+    violations.push("missing: selectPanelPrimaryAction");
+  }
+  if (/\bfunction\s+resolveMainAction\s*\(/.test(panelViewSource)) {
+    violations.push("forbidden: content-local primary action resolver");
+  }
+  if (/\bPANEL_MAIN_ACTION\b/.test(panelViewSource)) {
+    violations.push("forbidden: content-local primary action vocabulary");
+  }
+  if (/\bMACHINE_PANEL_INTENT\b/.test(panelViewSource)) {
+    violations.push("forbidden: panel intent interpretation in view model");
+  }
 
   assert.deepEqual(violations, []);
 });
@@ -193,6 +249,22 @@ test("history records are semantic facts, not executable events", {
   assert.deepEqual(violations, []);
 });
 
+test("machine state serialization never depends on executable replay payloads", {
+  todo: "Serialize semantic history records directly; do not hash executable undo/redo command payloads.",
+}, () => {
+  const source = readSource(repoPath("src/core/machine/state.js"));
+  const forbiddenPatterns = [
+    ["undo event serialization", /\bserializeMachineValue\s*\(\s*record\.undoEvent\b/],
+    ["redo event serialization", /\bserializeMachineValue\s*\(\s*record\.redoEvent\b/],
+    ["event-shaped history normalization", /\b(?:undoEvent|redoEvent)\s*:/],
+  ];
+  const violations = forbiddenPatterns
+    .filter(([, pattern]) => pattern.test(source))
+    .map(([name]) => name);
+
+  assert.deepEqual(violations, []);
+});
+
 test("history replay never re-enters public ingress", {
   todo: "Replay history records through private domain operations only.",
 }, () => {
@@ -243,6 +315,26 @@ test("effect and timer completion returns typed facts instead of dispatching com
   assert.deepEqual(violations, []);
 });
 
+test("effect requests declare their result fact vocabulary beside the request", {
+  todo: "Effect contracts should define typed result facts, not complete through public machine events.",
+}, () => {
+  const effectsSource = readSource(repoPath("src/core/machine/effects.js"));
+  const eventsSource = readSource(repoPath("src/core/machine/events.js"));
+  const violations = [];
+
+  if (!/\bMACHINE_EFFECT_RESULT_KIND\b/.test(effectsSource)) {
+    violations.push("missing: MACHINE_EFFECT_RESULT_KIND");
+  }
+  if (!/\bcreateReadPasteImageResult\b/.test(effectsSource)) {
+    violations.push("missing: paste read result constructor");
+  }
+  if (/\bCOMPLETE_PASTE_READ\b/.test(eventsSource)) {
+    violations.push("forbidden: paste completion in public machine event vocabulary");
+  }
+
+  assert.deepEqual(violations, []);
+});
+
 test("placement planning is pure geometry and never constructs machine events", {
   todo: "Make placement planners return geometry facts only.",
 }, () => {
@@ -271,6 +363,23 @@ test("paste adapter reports clipboard facts, not machine-shaped outcomes", {
     ["status-shaped outcome", /\bnoticeKind\b|\bnoticePayload\b/],
     ["placement-shaped outcome", /\bplacement\s*:/],
     ["page snapshot dependency", /\bpageAdapter\.getSnapshot\s*\(/],
+  ];
+  const violations = forbiddenPatterns
+    .filter(([, pattern]) => pattern.test(source))
+    .map(([name]) => name);
+
+  assert.deepEqual(violations, []);
+});
+
+test("persistence is storage-shaped and independent of live page projection", {
+  todo: "Keep durable schema migration separate from map snapshot projection and placement solving.",
+}, () => {
+  const source = readSource(repoPath("src/core/machine/persistence.js"));
+  const forbiddenPatterns = [
+    ["transform dependency", /\bcreatePlacementTransform\b/],
+    ["page snapshot parameter", /\bsnapshot\b/],
+    ["map view dependency", /\bmapView\b/],
+    ["projection migration export", /\bmigratePersistedMachineSessionForMap\b/],
   ];
   const violations = forbiddenPatterns
     .filter(([, pattern]) => pattern.test(source))
@@ -354,6 +463,33 @@ test("runtime observation facts are ingested once, not mirrored by content callb
     ["gesture mutation command", /\bbeginGesture\b|\bendGesture\b|\bBEGIN_POINTER_GESTURE\b|\bEND_POINTER_GESTURE\b/],
     ["pass-through mutation command", /\bsetPassThrough\b|\bSET_INPUT_OVERRIDE\b/],
     ["reset mutation command", /\bresetInteractionState\b|\bRESET_INPUT_RUNTIME\b/],
+  ];
+  const violations = [];
+
+  for (const [relativePath, source] of sources) {
+    for (const [name, pattern] of forbiddenPatterns) {
+      if (pattern.test(source)) {
+        violations.push(`${relativePath}: ${name}`);
+      }
+    }
+  }
+
+  assert.deepEqual(violations, []);
+});
+
+test("core input policy consumes normalized facts, never DOM event shape", {
+  todo: "Normalize keyboard and pointer input at content ingress before policy or transition code sees it.",
+}, () => {
+  const sources = new Map([
+    ["src/core/machine/policy.js", readSource(repoPath("src/core/machine/policy.js"))],
+    ["src/core/interaction-policy.js", readSource(repoPath("src/core/interaction-policy.js"))],
+    ["src/core/input-projection.js", readSource(repoPath("src/core/input-projection.js"))],
+  ]);
+  const forbiddenPatterns = [
+    ["event code access", /\bevent\?*\.code\b|\bevent\.code\b/],
+    ["DOM keyboard code literal", /["']Space["']/],
+    ["modifier-key DOM shape", /\b(?:ctrlKey|metaKey|shiftKey|altKey)\b/],
+    ["DOM target shape", /\b(?:target|activeElement)\b/],
   ];
   const violations = [];
 
