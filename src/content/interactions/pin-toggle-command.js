@@ -15,6 +15,9 @@ export function createPinToggleCommand({
   getMachineState,
   dispatchMachine,
 }) {
+  // TODO(smell): Pin toggling still assembles render projection, hit testing,
+  // map coordinate lookup, and the machine event in one content command. The
+  // final seam should pass already-projected intent facts into the machine.
   return {
     toggleAtScreenPoint,
   };

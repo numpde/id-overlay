@@ -87,6 +87,9 @@ export const MACHINE_INPUT_OVERRIDE = Object.freeze({
   PASS_THROUGH: "pass-through",
 });
 
+// TODO(smell): Event vocabulary and a few ad hoc event constructors live in the
+// same file. The final event boundary should either provide constructors for
+// every externally-authored event or keep this file as vocabulary only.
 export function createLoadImageEvent({
   image,
   placement = null,

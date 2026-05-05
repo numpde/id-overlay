@@ -1,6 +1,9 @@
 import { MAX_WORKING_IMAGE_DIMENSION } from "../core/image-policy.js";
 
 export function createBrowserImageNormalizationDeps(ownerWindow = globalThis.window) {
+  // TODO(smell): The browser adapter imports app image policy to fill a default
+  // dependency. Composition should pass policy values in, leaving this module
+  // as pure FileReader/Image/canvas mechanics.
   return {
     maxWorkingDimension: MAX_WORKING_IMAGE_DIMENSION,
     readBlobAsDataUrl(blob) {

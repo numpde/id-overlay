@@ -37,6 +37,9 @@ export function fromPersistedMachineSession(persisted) {
 }
 
 export function migratePersistedMachineSessionForMap(persisted, snapshot) {
+  // TODO(smell): Persistence still performs a map-aware migration using the
+  // current snapshot. Versioned durable-schema migration should be separated
+  // from page-context projection so persistence stays storage-shaped.
   if (!persisted?.image) {
     return persisted ?? {};
   }

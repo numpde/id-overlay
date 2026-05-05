@@ -4,6 +4,9 @@ export function createOverlayInputHost({
   globalPointerHandlers,
   fallbackWindow = globalThis.window,
 }) {
+  // TODO(smell): Mounted and global listener groups are hand-managed here with
+  // parallel attach/detach loops. A tiny listener-set helper would make
+  // retargeting and cleanup auditable across overlay and panel DOM code.
   const mountedInputListeners = [
     ["pointermove", mountedHandlers.handleMountedPointerMove, true],
     ["pointerleave", mountedHandlers.handleMountedPointerLeave, true],
