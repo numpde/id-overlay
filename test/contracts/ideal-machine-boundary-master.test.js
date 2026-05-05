@@ -35,6 +35,9 @@ const MASTER_SEAMS = Object.freeze([
   "canonical action selectors",
   "storage-shaped persistence",
   "normalized input facts",
+  "machine-owned status copy",
+  "explicit transition finalization",
+  "render-only overlay renderer",
 ]);
 
 test("master checklist names the target seams", () => {
@@ -48,6 +51,9 @@ test("master checklist names the target seams", () => {
     "canonical action selectors",
     "storage-shaped persistence",
     "normalized input facts",
+    "machine-owned status copy",
+    "explicit transition finalization",
+    "render-only overlay renderer",
   ]);
 });
 
@@ -139,6 +145,29 @@ test("primary panel action has one canonical machine-owned selector", {
   assert.deepEqual(violations, []);
 });
 
+test("status text is machine-owned and content view models do not format notices", {
+  todo: "Move baseline/status-notice copy to core selectors so content receives final render text only.",
+}, () => {
+  const panelViewSource = readSource(repoPath("src/content/panel-view-model.js"));
+  const selectorsSource = readSource(repoPath("src/core/machine/selectors.js"));
+  const violations = [];
+
+  if (/\bMACHINE_STATUS_NOTICE_KIND\b/.test(panelViewSource)) {
+    violations.push("forbidden: status notice vocabulary in content view model");
+  }
+  if (/\bfunction\s+(?:selectStatus|formatStatusNotice|selectBaselineStatus)\s*\(/.test(panelViewSource)) {
+    violations.push("forbidden: content-local status formatter");
+  }
+  if (/\bPANEL_STATUS_MESSAGE\b/.test(panelViewSource)) {
+    violations.push("forbidden: content-local status copy vocabulary");
+  }
+  if (!/\bselectPanelStatusText\b/.test(selectorsSource)) {
+    violations.push("missing: core panel status text selector");
+  }
+
+  assert.deepEqual(violations, []);
+});
+
 test("public machine event vocabulary contains only user intents and external facts", {
   todo: "Split public ingress from private mutation, runtime, status, replay, and completion commands.",
 }, () => {
@@ -208,6 +237,31 @@ test("machine host exposes explicit ingress, not generic dispatch", {
   assert.deepEqual(violations, []);
 });
 
+test("machine runtime is private state/effect plumbing, not a public event dispatcher", {
+  todo: "Move public interpretation to host ingress and keep runtime from accepting arbitrary event dispatch.",
+}, () => {
+  const source = readSource(repoPath("src/core/machine/runtime.js"));
+  const forbiddenPatterns = [
+    ["transition import", /\bimport\s+\{\s*transitionMachine\s*\}/],
+    ["generic dispatch method", /\bfunction\s+dispatch\s*\(\s*event\b/],
+    ["injected transition override", /\{\s*transition\s*=\s*transitionMachine\s*\}/],
+    ["event argument in runtime dispatch", /\bruntime\.dispatch\s*\(\s*event\b/],
+  ];
+  const requiredPatterns = [
+    ["private apply result API", /\b(?:applyTransitionResult|commitMachineResult|runMachineResult)\b/],
+  ];
+  const violations = [
+    ...forbiddenPatterns
+      .filter(([, pattern]) => pattern.test(source))
+      .map(([name]) => `forbidden: ${name}`),
+    ...requiredPatterns
+      .filter(([, pattern]) => !pattern.test(source))
+      .map(([name]) => `missing: ${name}`),
+  ];
+
+  assert.deepEqual(violations, []);
+});
+
 test("transition entrypoint separates public interpretation from private domain operations", {
   todo: "Replace the flat MACHINE_EVENT_KIND switch with public interpreters and private domain transitions.",
 }, () => {
@@ -231,6 +285,42 @@ test("transition entrypoint separates public interpretation from private domain 
       .filter(([, pattern]) => !pattern.test(source))
       .map(([name]) => `missing: ${name}`),
   ];
+
+  assert.deepEqual(violations, []);
+});
+
+test("transition result finalization is explicit and domain-local, not hidden behind commit booleans", {
+  todo: "Replace commitHistory/commitStatus switches with explicit domain result combinators.",
+}, () => {
+  const sources = new Map([
+    ["src/core/machine/transition.js", readSource(repoPath("src/core/machine/transition.js"))],
+    ["src/core/machine/transition-result.js", readSource(repoPath("src/core/machine/transition-result.js"))],
+    ["src/core/machine/history-replay-transition.js", readSource(repoPath("src/core/machine/history-replay-transition.js"))],
+  ]);
+  const forbiddenPatterns = [
+    ["commit history boolean", /\bcommitHistory\b/],
+    ["commit status boolean", /\bcommitStatus\b/],
+    ["generic finalizer", /\bfinalizeTransitionResult\b/],
+  ];
+  const requiredPatterns = [
+    ["history result combinator", /\b(?:withHistoryRecord|commitSemanticHistoryRecord)\b/],
+    ["status result combinator", /\b(?:withStatusNotice|applyMachineStatusNotice)\b/],
+  ];
+  const violations = [];
+  const combinedSource = [...sources.values()].join("\n");
+
+  for (const [relativePath, source] of sources) {
+    for (const [name, pattern] of forbiddenPatterns) {
+      if (pattern.test(source)) {
+        violations.push(`${relativePath}: forbidden: ${name}`);
+      }
+    }
+  }
+  for (const [name, pattern] of requiredPatterns) {
+    if (!pattern.test(combinedSource)) {
+      violations.push(`missing: ${name}`);
+    }
+  }
 
   assert.deepEqual(violations, []);
 });
@@ -335,6 +425,30 @@ test("effect requests declare their result fact vocabulary beside the request", 
   assert.deepEqual(violations, []);
 });
 
+test("machine status notice vocabulary does not leak to content or tests", {
+  todo: "Expose status through typed facts and render selectors, not raw notice-kind constants outside machine internals.",
+}, () => {
+  const violations = [];
+  const allowedFiles = new Set([
+    import.meta.filename,
+  ]);
+
+  for (const filePath of [
+    ...listJavaScriptFiles(SOURCE_DIR),
+    ...listJavaScriptFiles(TEST_DIR),
+  ]) {
+    if (allowedFiles.has(filePath) || filePath.startsWith(MACHINE_DIR)) {
+      continue;
+    }
+    const source = readSource(filePath);
+    if (/\bMACHINE_STATUS_NOTICE_KIND\b/.test(source)) {
+      violations.push(path.relative(repoPath(), filePath));
+    }
+  }
+
+  assert.deepEqual(violations, []);
+});
+
 test("placement planning is pure geometry and never constructs machine events", {
   todo: "Make placement planners return geometry facts only.",
 }, () => {
@@ -388,6 +502,21 @@ test("persistence is storage-shaped and independent of live page projection", {
   assert.deepEqual(violations, []);
 });
 
+test("content bootstrap does not mix persistence migration with live page snapshots", {
+  todo: "Load persisted durable state first; page-context reconciliation should be a machine-ingested fact.",
+}, () => {
+  const source = readSource(repoPath("src/content/main.js"));
+  const forbiddenPatterns = [
+    ["map-aware persistence migration import", /\bmigratePersistedMachineSessionForMap\b/],
+    ["snapshot passed while constructing persisted session", /\bpersistedSession:\s*[^,\n]*pageAdapter\.getSnapshot\s*\(/s],
+  ];
+  const violations = forbiddenPatterns
+    .filter(([, pattern]) => pattern.test(source))
+    .map(([name]) => name);
+
+  assert.deepEqual(violations, []);
+});
+
 test("page integration exposes explicit ports instead of a broad adapter object", {
   todo: "Split page adapter into snapshot, projection, map-view, and gesture ports.",
 }, () => {
@@ -429,6 +558,33 @@ test("content modules consume narrow page ports, not the monolithic adapter", {
       violations.push(path.relative(repoPath(), filePath));
     }
   }
+
+  assert.deepEqual(violations, []);
+});
+
+test("overlay renderer is a pure render reconciler over an overlay view model", {
+  todo: "Move overlay presentation and pin projection into a machine/content view model before DOM reconciliation.",
+}, () => {
+  const source = readSource(repoPath("src/content/overlay/renderer.js"));
+  const forbiddenPatterns = [
+    ["machine selector import", /\bselectOverlayPresentation\b/],
+    ["page adapter dependency", /\bpageAdapter\b/],
+    ["machine state accessor", /\bgetMachineState\b/],
+    ["runtime state accessor", /\bgetRuntimeState\b/],
+    ["session state local", /\bconst\s+state\s*=\s*machineState\.session\b/],
+    ["map projection call", /\bmapToOverlayLayerScreen\s*\(/],
+  ];
+  const requiredPatterns = [
+    ["overlay view model input", /\boverlayView\b|\bviewModel\b/],
+  ];
+  const violations = [
+    ...forbiddenPatterns
+      .filter(([, pattern]) => pattern.test(source))
+      .map(([name]) => `forbidden: ${name}`),
+    ...requiredPatterns
+      .filter(([, pattern]) => !pattern.test(source))
+      .map(([name]) => `missing: ${name}`),
+  ];
 
   assert.deepEqual(violations, []);
 });
