@@ -78,6 +78,9 @@ export function createMachineHost({
   }
 
   function dispatch(event) {
+    // TODO(smell): Host exposes the flat machine dispatch surface directly to
+    // content. The final host should expose public user/fact ingress while
+    // private mutation/replay commands remain unreachable outside the machine.
     if (destroyed) {
       return createDestroyedDispatchResult(runtime.getState());
     }
@@ -120,6 +123,9 @@ export function createMachineHost({
     }
     const handle = setPanelTimeout(() => {
       panelTimers.delete(requestId);
+      // TODO(smell): Timer expiry is expressed as a public cancel-panel event.
+      // Treat timeout expiry as an effect-result fact at the host boundary and
+      // let the machine own panel request cancellation semantics.
       dispatch(createCancelPanelIntentEvent({ requestId }));
     }, {
       intent,
@@ -146,6 +152,9 @@ export function createMachineHost({
     }
     const handle = setStatusTimeout(() => {
       statusTimers.delete(requestId);
+      // TODO(smell): Status timeout expiry constructs a low-level clear-status
+      // command in the host. The final effect boundary should report timeout
+      // completion facts and keep status mutation commands private.
       dispatch({
         type: MACHINE_EVENT_KIND.CLEAR_STATUS_NOTICE,
         requestId,

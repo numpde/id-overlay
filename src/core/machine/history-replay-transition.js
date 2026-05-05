@@ -12,6 +12,10 @@ import {
 } from "./transition-result.js";
 
 export function transitionUndo(state, { transitionSemantic }) {
+  // TODO(smell): Undo/redo replay selects executable events from history
+  // records and feeds them back into the flat semantic dispatcher. The final
+  // shape should replay typed semantic records through machine-private domain
+  // operations so public user intents and internal restores cannot drift.
   return replayHistoryTransition(state, {
     moveRecord: moveUndoRecordToFuture,
     selectEvent: (record) => record.undoEvent,

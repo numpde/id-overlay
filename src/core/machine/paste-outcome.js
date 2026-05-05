@@ -10,6 +10,9 @@ import { loadImage } from "./session-transition.js";
 import { createTransitionResult } from "./transition-result.js";
 
 export function completePasteRead(state, event) {
+  // TODO(smell): Paste completion is modeled as an external machine event whose
+  // outcome is still status/load-image-shaped. The final effect result should be
+  // a typed paste fact interpreted here into private image/status transitions.
   if (!isCurrentPasteRequest(state, event) || !isKnownPasteSource(event.source)) {
     return createTransitionResult({ state });
   }
@@ -18,6 +21,9 @@ export function completePasteRead(state, event) {
     return createTransitionResult({ state });
   }
   if (outcome.image) {
+    // TODO(smell): Paste completion re-enters loadImage via an event-shaped
+    // object. Once image load is a private domain operation, pass typed image
+    // facts directly instead of constructing transition-event payloads.
     return loadImage(state, {
       image: outcome.image,
       placement: outcome.placement,
@@ -41,6 +47,10 @@ export function completePasteRead(state, event) {
 }
 
 export function normalizePasteReadOutcome(outcome) {
+  // TODO(smell): Normalization preserves the legacy paste outcome union: image,
+  // placement, or notice fields. Replace this with one explicit decoded-image /
+  // clipboard-failure result shape before the paste adapter stops authoring
+  // status-shaped outcomes.
   if (!outcome) {
     return null;
   }

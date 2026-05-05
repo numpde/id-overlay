@@ -7,6 +7,10 @@ export function createPointerInteraction({
   runtimeBridge,
   errorBoundary,
 }) {
+  // TODO(smell): Pointer interaction still coordinates adapter drag side effects
+  // with runtime mutation commands. The final boundary should report pointer
+  // lifecycle facts once, letting the machine derive runtime state and overlay
+  // edit semantics from the same ingress event.
   return {
     handlePointerEnter,
     handlePointerLeave,

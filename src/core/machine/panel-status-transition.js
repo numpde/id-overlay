@@ -64,6 +64,9 @@ export function requestPanelIntent(state, event) {
 }
 
 export function cancelPanelIntent(state, event = {}) {
+  // TODO(smell): Cancellation accepts optional status notice fields, coupling
+  // panel request lifecycle with status presentation. The final user/fact
+  // ingress should keep request cancellation and status derivation explicit.
   const panelTransition = clearPanelIntent(state);
   return createTransitionResult({
     state: panelTransition.state,
@@ -73,6 +76,9 @@ export function cancelPanelIntent(state, event = {}) {
 }
 
 export function reportStatusNotice(state, event) {
+  // TODO(smell): Status reporting is a public transition command today. Runtime,
+  // paste, and interaction failures should report typed facts; this module
+  // should derive notices from those facts inside the machine.
   return createTransitionResult({
     state,
     statusNotice: createStatusNotice(event.noticeKind, event.noticePayload),

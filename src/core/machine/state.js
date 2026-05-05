@@ -343,6 +343,10 @@ function serializeHistory(history) {
 }
 
 function serializeHistoryRecord(record) {
+  // TODO(smell): State keys serialize executable undo/redo event payloads,
+  // cementing the current history-as-events shape. Once history records become
+  // semantic before/after facts, this serializer should stop depending on
+  // transition event object structure.
   if (!record) {
     return "record:null";
   }

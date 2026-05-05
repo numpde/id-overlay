@@ -22,6 +22,10 @@ export function createMachineRuntime({
   }
 
   function dispatch(event, { transition = transitionMachine } = {}) {
+    // TODO(smell): Runtime accepts arbitrary machine events and executes effects
+    // from the same path. After the ingress split, this should accept public
+    // user/fact events only; private replay/mutation operations should stay
+    // inside transition orchestration.
     const result = transition(state, event);
     const previousState = state;
     state = machineStatesEqual(previousState, result.state) ? previousState : result.state;

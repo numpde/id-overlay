@@ -84,6 +84,9 @@ export function createMachineEffectRunner({
   }
 
   function dispatchPasteReadCompleted({ outcome, requestId, source }) {
+    // TODO(smell): The effect runner dispatches a machine event constructor
+    // directly. The final host/effect boundary should return effect result facts
+    // to machine ingress without exposing internal completion commands broadly.
     dispatch?.(createCompletePasteReadEvent({
       requestId,
       source,

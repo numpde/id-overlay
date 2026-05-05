@@ -180,6 +180,9 @@ function commitPlacementChange(state, event) {
       label: historyMetadata.label,
       undoLabel: historyMetadata.undoLabel,
       redoLabel: historyMetadata.redoLabel,
+      // TODO(smell): Placement history stores executable restore events. The
+      // final replay model should store before/after placement facts and invoke
+      // private placement restore semantics directly.
       undoEvent: {
         type: MACHINE_EVENT_KIND.RESTORE_PLACEMENT,
         placement: previousPlacement,

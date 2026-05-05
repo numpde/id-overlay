@@ -90,6 +90,10 @@ export async function bootstrapIdOverlay({ keyboardGateway = null } = {}) {
 }
 
 function createManualPasteCapture({ ownerWindow, clipboardReader, logger }) {
+  // TODO(smell): Manual paste capture passes adapter-shaped outcomes directly
+  // back to the machine effect runner. The final effect port should return a
+  // typed paste fact so clipboard decoding, placement policy, and status
+  // derivation remain separated.
   let activeRequestId = null;
   let activeOutcomeHandler = null;
 

@@ -30,6 +30,9 @@ export function togglePin(state, event) {
   // preservation, panel cleanup, status notice, and history event construction.
   // Extract registration edit outcomes so add/remove/clear/fit share one replay
   // contract instead of hand-building restore events in each branch.
+  // TODO(smell): Toggle-pin is a user-intent interpreter embedded beside
+  // low-level add/remove mutations. Keep external toggle intent public, but make
+  // add/remove/restore private machine operations in the final event split.
   if (!canEditPins(state)) {
     return createTransitionResult({
       state,
@@ -218,6 +221,9 @@ export function fitOverlay(state) {
       label: "Fit overlay from pins",
       undoLabel: "Undo fit overlay",
       redoLabel: "Fit overlay from pins",
+      // TODO(smell): Fit replay is encoded as restore-session events. The final
+      // history record should store semantic before/after fit facts, with replay
+      // routed through private machine operations rather than public commands.
       undoEvent: {
         type: MACHINE_EVENT_KIND.RESTORE_IMAGE_SESSION,
         session: previousSession,
@@ -255,6 +261,9 @@ function createRegistrationHistoryRecord({
   previousRegistration,
   nextRegistration,
 }) {
+  // TODO(smell): Registration history records are executable restore events.
+  // Replace these with semantic before/after registration records when undo/redo
+  // no longer re-enters the public machine event dispatcher.
   return {
     kind,
     label,
