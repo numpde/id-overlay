@@ -10,10 +10,10 @@ import {
 import { createMachineHost } from "../../src/core/machine/host.js";
 import { createInteractionRuntimeBridge } from "../../src/content/interactions/runtime-bridge.js";
 
-// TODO(smell): This suite codifies runtimeBridge as a low-level mutation-event
-// author. Rewrite it around observed pointer/gesture/pass-through facts once
-// runtime mutation commands become machine-private.
-test("interaction runtime bridge dispatches canonical runtime events", () => {
+// TODO(smell): This suite still exercises runtime mutation through host-backed
+// action methods. Rewrite it around observed pointer/gesture/pass-through facts
+// once runtime mutation commands become machine-private.
+test("interaction runtime bridge reports runtime changes through the action port", () => {
   const { bridge, machineHost } = createRuntimeBridgeHarness();
 
   bridge.updatePointer({ x: 10, y: 20 });
@@ -158,11 +158,22 @@ function createRuntimeBridgeHarness({ hasActiveAdapterDrag = false } = {}) {
   };
   const bridge = createInteractionRuntimeBridge({
     machineHost,
+    machineActions: createRuntimeMachineActions(machineHost),
     adapterDrag,
   });
   return {
     adapterDrag,
     bridge,
     machineHost,
+  };
+}
+
+function createRuntimeMachineActions(machineHost) {
+  return {
+    updatePointer: machineHost.updatePointer,
+    beginPointerGesture: machineHost.beginPointerGesture,
+    endPointerGesture: machineHost.endPointerGesture,
+    setInputPassThrough: machineHost.setInputPassThrough,
+    resetInputRuntime: machineHost.resetInputRuntime,
   };
 }

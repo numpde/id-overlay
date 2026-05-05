@@ -7,12 +7,11 @@ import {
   planMovePlacementEditPreview,
   planMovePlacementEditStart,
 } from "../../core/placement-edit-planning.js";
-import { MACHINE_EVENT_KIND } from "../../core/machine/events.js";
 
 export function createAdapterDragController({
   pageAdapter,
   getMachineState,
-  dispatchMachine,
+  machineActions,
   logger,
 }) {
   // TODO(smell): Adapter drag owns both page gesture forwarding and overlay
@@ -59,7 +58,7 @@ export function createAdapterDragController({
     // TODO(smell): The drag command dispatches a planned machine event instead
     // of reporting a user overlay-move start. The machine should own edit
     // lifecycle state once content has supplied the projected gesture facts.
-    dispatchMachine(movePlan.event);
+    machineActions.applyPlacementEditPlan(movePlan);
     return true;
   }
 
@@ -87,7 +86,7 @@ export function createAdapterDragController({
     // TODO(smell): Preview updates are executable events produced outside the
     // machine. Keep projection math outside, but move edit interpretation and
     // event construction behind machine user-intent handling.
-    dispatchMachine(previewPlan.event);
+    machineActions.applyPlacementEditPlan(previewPlan);
   }
 
   function end(screenPoint) {
@@ -114,9 +113,7 @@ export function createAdapterDragController({
       // TODO(smell): Content decides to commit a placement edit by low-level
       // command. The final gesture lifecycle should let the machine decide
       // whether an ended overlay-move intent commits, cancels, or no-ops.
-      dispatchMachine({
-        type: MACHINE_EVENT_KIND.COMMIT_PLACEMENT_EDIT,
-      });
+      machineActions.finishPlacementEditPlan();
     }
   }
 

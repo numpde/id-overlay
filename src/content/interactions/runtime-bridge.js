@@ -1,4 +1,3 @@
-import { MACHINE_EVENT_KIND, MACHINE_INPUT_OVERRIDE } from "../../core/machine/events.js";
 import {
   selectIsInputPassThroughActive,
   selectIsRuntimeDragging,
@@ -8,6 +7,7 @@ import {
 
 export function createInteractionRuntimeBridge({
   machineHost,
+  machineActions,
   adapterDrag,
 }) {
   // TODO(smell): Runtime observation and adapter drag cleanup are still coupled
@@ -76,32 +76,19 @@ export function createInteractionRuntimeBridge({
   }
 
   function updatePointer(screenPx) {
-    dispatchMachine({
-      type: MACHINE_EVENT_KIND.UPDATE_POINTER_RUNTIME,
-      screenPx,
-    });
+    machineActions.updatePointer(screenPx);
   }
 
   function beginGesture(screenPx, { gestureKind }) {
-    dispatchMachine({
-      type: MACHINE_EVENT_KIND.BEGIN_POINTER_GESTURE,
-      screenPx,
-      gestureKind,
-    });
+    machineActions.beginPointerGesture(screenPx, { gestureKind });
   }
 
   function endGesture(screenPx) {
-    dispatchMachine({
-      type: MACHINE_EVENT_KIND.END_POINTER_GESTURE,
-      screenPx,
-    });
+    machineActions.endPointerGesture(screenPx);
   }
 
   function setPassThrough(isActive) {
-    dispatchMachine({
-      type: MACHINE_EVENT_KIND.SET_INPUT_OVERRIDE,
-      inputOverride: isActive ? MACHINE_INPUT_OVERRIDE.PASS_THROUGH : null,
-    });
+    machineActions.setInputPassThrough(isActive);
   }
 
   function reset({
@@ -110,10 +97,7 @@ export function createInteractionRuntimeBridge({
     commitPlacement = true,
   } = {}) {
     adapterDrag.cancel(endPointerScreenPx, { commitPlacement });
-    dispatchMachine({
-      type: MACHINE_EVENT_KIND.RESET_INPUT_RUNTIME,
-      screenPx: pointerScreenPx,
-    });
+    machineActions.resetInputRuntime({ screenPx: pointerScreenPx });
   }
 
   function syncAdapterDragFromRuntimeChange(previousRuntime, nextRuntime) {
@@ -127,10 +111,6 @@ export function createInteractionRuntimeBridge({
     adapterDrag.cancel(selectRuntimePointerScreenPx(previousRuntime), {
       commitPlacement: false,
     });
-  }
-
-  function dispatchMachine(event) {
-    return machineHost.dispatch(event);
   }
 
   function trackRuntimeSubscription(unsubscribeRuntime) {

@@ -1,5 +1,6 @@
 import {
   MACHINE_EVENT_KIND,
+  MACHINE_INPUT_OVERRIDE,
   MACHINE_MODE,
   MACHINE_PANEL_INTENT,
   MACHINE_STATUS_NOTICE_KIND,
@@ -133,31 +134,19 @@ export function createMachineHost({
   }
 
   function activatePanelMode({ checked }) {
-    return dispatch({
-      type: MACHINE_EVENT_KIND.SELECT_MODE,
-      mode: checked ? MACHINE_MODE.TRACE : MACHINE_MODE.ALIGN,
-    });
+    return selectMode(checked ? MACHINE_MODE.TRACE : MACHINE_MODE.ALIGN);
   }
 
   function activatePanelModeStep({ deltaY }) {
-    return dispatch({
-      type: MACHINE_EVENT_KIND.SELECT_MODE,
-      mode: deltaY < 0 ? MACHINE_MODE.ALIGN : MACHINE_MODE.TRACE,
-    });
+    return selectMode(deltaY < 0 ? MACHINE_MODE.ALIGN : MACHINE_MODE.TRACE);
   }
 
   function changePanelOpacity(value) {
-    return dispatch({
-      type: MACHINE_EVENT_KIND.SET_OPACITY,
-      opacity: clampOpacity(Number(value)),
-    });
+    return setOpacity(clampOpacity(Number(value)));
   }
 
   function changePanelOpacityByWheel({ value, deltaY }) {
-    return dispatch({
-      type: MACHINE_EVENT_KIND.SET_OPACITY,
-      opacity: opacityFromWheelDelta(Number(value), deltaY),
-    });
+    return setOpacity(opacityFromWheelDelta(Number(value), deltaY));
   }
 
   function activateUndo() {
@@ -166,6 +155,98 @@ export function createMachineHost({
 
   function activateRedo() {
     return dispatch({ type: MACHINE_EVENT_KIND.REDO });
+  }
+
+  function selectMode(mode) {
+    return dispatch({
+      type: MACHINE_EVENT_KIND.SELECT_MODE,
+      mode,
+    });
+  }
+
+  function setOpacity(opacity) {
+    return dispatch({
+      type: MACHINE_EVENT_KIND.SET_OPACITY,
+      opacity,
+    });
+  }
+
+  function updatePointer(screenPx) {
+    return dispatch({
+      type: MACHINE_EVENT_KIND.UPDATE_POINTER_RUNTIME,
+      screenPx,
+    });
+  }
+
+  function beginPointerGesture(screenPx, { gestureKind }) {
+    return dispatch({
+      type: MACHINE_EVENT_KIND.BEGIN_POINTER_GESTURE,
+      screenPx,
+      gestureKind,
+    });
+  }
+
+  function endPointerGesture(screenPx) {
+    return dispatch({
+      type: MACHINE_EVENT_KIND.END_POINTER_GESTURE,
+      screenPx,
+    });
+  }
+
+  function setInputPassThrough(isActive) {
+    return dispatch({
+      type: MACHINE_EVENT_KIND.SET_INPUT_OVERRIDE,
+      inputOverride: isActive ? MACHINE_INPUT_OVERRIDE.PASS_THROUGH : null,
+    });
+  }
+
+  function resetInputRuntime({ screenPx }) {
+    return dispatch({
+      type: MACHINE_EVENT_KIND.RESET_INPUT_RUNTIME,
+      screenPx,
+    });
+  }
+
+  function reportRuntimeError(runtimeError) {
+    return dispatch({
+      type: MACHINE_EVENT_KIND.REPORT_STATUS_NOTICE,
+      noticeKind: MACHINE_STATUS_NOTICE_KIND.RUNTIME_ERROR,
+      noticePayload: {
+        error: runtimeError,
+      },
+    });
+  }
+
+  function togglePin({
+    imagePx,
+    mapLatLon,
+    existingPinId = null,
+    preservedPlacement = null,
+  }) {
+    return dispatch({
+      type: MACHINE_EVENT_KIND.TOGGLE_PIN,
+      imagePx,
+      mapLatLon,
+      existingPinId,
+      ...(preservedPlacement ? { preservedPlacement } : {}),
+    });
+  }
+
+  function applyPlacementEditPlan(plan) {
+    if (!plan?.event) {
+      return createNoopDispatchResult(runtime.getState());
+    }
+    return dispatch(plan.event);
+  }
+
+  function finishPlacementEditPlan() {
+    return dispatch({
+      type: MACHINE_EVENT_KIND.COMMIT_PLACEMENT_EDIT,
+    });
+  }
+
+  function changeOpacityByWheel({ deltaY }) {
+    return setOpacity(opacityFromWheelDelta(runtime.getState().session.opacity, deltaY));
   }
 
   function destroy() {
@@ -296,6 +377,17 @@ export function createMachineHost({
     changePanelOpacityByWheel,
     activateUndo,
     activateRedo,
+    selectMode,
+    updatePointer,
+    beginPointerGesture,
+    endPointerGesture,
+    setInputPassThrough,
+    resetInputRuntime,
+    reportRuntimeError,
+    togglePin,
+    applyPlacementEditPlan,
+    finishPlacementEditPlan,
+    changeOpacityByWheel,
     destroy,
   };
 }

@@ -1,11 +1,7 @@
 import { createRuntimeError, RUNTIME_ERROR_SOURCE } from "../../core/runtime-error.js";
-import {
-  MACHINE_EVENT_KIND,
-  MACHINE_STATUS_NOTICE_KIND,
-} from "../../core/machine/events.js";
 
 export function createInteractionErrorBoundary({
-  dispatchMachine,
+  reportRuntimeError,
   resetInteraction: resetInteractionRuntime,
   logger,
 }) {
@@ -37,13 +33,7 @@ export function createInteractionErrorBoundary({
       recoverable,
       details,
     });
-    dispatchMachine({
-      type: MACHINE_EVENT_KIND.REPORT_STATUS_NOTICE,
-      noticeKind: MACHINE_STATUS_NOTICE_KIND.RUNTIME_ERROR,
-      noticePayload: {
-        error: runtimeError,
-      },
-    });
+    reportRuntimeError(runtimeError);
     logger.error("Runtime boundary failed", runtimeError, error);
     return runtimeError;
   }

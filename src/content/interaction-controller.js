@@ -19,31 +19,33 @@ export function createInteractionController({
   // keyboard/runtime command ports are narrower, so bootstrap owns construction
   // and this compatibility facade can disappear.
   const logger = createLogger("interactions");
+  const machineActions = createMachineActionPort(machineHost);
   const adapterDrag = createAdapterDragController({
     pageAdapter,
     getMachineState,
-    dispatchMachine,
+    machineActions,
     logger,
   });
 
   const runtimeBridge = createInteractionRuntimeBridge({
     machineHost,
+    machineActions,
     adapterDrag,
   });
   const errorBoundary = createInteractionErrorBoundary({
-    dispatchMachine,
+    reportRuntimeError: machineActions.reportRuntimeError,
     resetInteraction: resetRuntimeAfterError,
     logger,
   });
   const modeInteraction = createModeInteraction({
-    dispatchMachine,
+    selectMode: machineActions.selectMode,
     errorBoundary,
     logger,
   });
   const pinToggleInteraction = createPinToggleInteraction({
     pageAdapter,
     getMachineState,
-    dispatchMachine,
+    machineActions,
     runtimeBridge,
     errorBoundary,
     logger,
@@ -51,7 +53,7 @@ export function createInteractionController({
   const wheelInteraction = createWheelInteraction({
     pageAdapter,
     getMachineState,
-    dispatchMachine,
+    machineActions,
     runtimeBridge,
     errorBoundary,
     logger,
@@ -123,13 +125,6 @@ export function createInteractionController({
     return machineHost.getState();
   }
 
-  function dispatchMachine(event) {
-    // TODO(smell): This generic dispatch port lets interaction modules author
-    // low-level machine commands. Replace it with a user-intent ingress port so
-    // content cannot bypass machine-owned semantic interpretation.
-    return machineHost.dispatch(event);
-  }
-
   function getPointerScreenPx() {
     return runtimeBridge.getPointerScreenPx();
   }
@@ -173,5 +168,21 @@ export function createInteractionController({
     handleWheel,
     handleTogglePin,
     reportRuntimeError,
+  };
+}
+
+function createMachineActionPort(machineHost) {
+  return {
+    selectMode: machineHost.selectMode,
+    updatePointer: machineHost.updatePointer,
+    beginPointerGesture: machineHost.beginPointerGesture,
+    endPointerGesture: machineHost.endPointerGesture,
+    setInputPassThrough: machineHost.setInputPassThrough,
+    resetInputRuntime: machineHost.resetInputRuntime,
+    reportRuntimeError: machineHost.reportRuntimeError,
+    togglePin: machineHost.togglePin,
+    applyPlacementEditPlan: machineHost.applyPlacementEditPlan,
+    finishPlacementEditPlan: machineHost.finishPlacementEditPlan,
+    changeOpacityByWheel: machineHost.changeOpacityByWheel,
   };
 }

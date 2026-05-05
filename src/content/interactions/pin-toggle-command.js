@@ -1,4 +1,3 @@
-import { MACHINE_EVENT_KIND } from "../../core/machine/events.js";
 import { getOverlayImage, hasOverlayImageSession } from "../../core/session.js";
 import {
   buildPinRenderModels,
@@ -13,7 +12,7 @@ import {
 export function createPinToggleCommand({
   pageAdapter,
   getMachineState,
-  dispatchMachine,
+  machineActions,
 }) {
   // TODO(smell): Pin toggling still assembles render projection, hit testing,
   // map coordinate lookup, and the machine event in one content command. The
@@ -46,8 +45,7 @@ export function createPinToggleCommand({
     // sends a low-level TOGGLE_PIN command. The final boundary should pass the
     // projected click facts to the machine, which should own hit interpretation,
     // preserved placement, and add/remove semantics.
-    const result = dispatchMachine({
-      type: MACHINE_EVENT_KIND.TOGGLE_PIN,
+    const result = machineActions.togglePin({
       imagePx: pinContext.imagePx,
       mapLatLon: pinContext.mapLatLon,
       existingPinId: pinContext.existingPin?.id ?? null,

@@ -1,7 +1,5 @@
-import { MACHINE_EVENT_KIND } from "../../core/machine/events.js";
-
 export function createModeInteraction({
-  dispatchMachine,
+  selectMode,
   errorBoundary,
   logger,
 }) {
@@ -14,10 +12,7 @@ export function createModeInteraction({
 
   function select(mode) {
     return errorBoundary.run("apply-mode", () => {
-      dispatchMachine({
-        type: MACHINE_EVENT_KIND.SELECT_MODE,
-        mode,
-      });
+      selectMode(mode);
       logger.info("Requested mode switch", { mode });
       return true;
     });

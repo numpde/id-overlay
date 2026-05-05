@@ -7,15 +7,13 @@ import {
   planScalePlacementEdit,
 } from "../../core/placement-edit-planning.js";
 import {
-  opacityFromWheelDelta,
   resolveOverlayRenderSource,
 } from "../../core/transform.js";
-import { MACHINE_EVENT_KIND } from "../../core/machine/events.js";
 
 export function createWheelCommand({
   pageAdapter,
   getMachineState,
-  dispatchMachine,
+  machineActions,
 }) {
   // TODO(smell): Wheel handling mixes map forwarding, opacity updates, and
   // placement edits under one command. Split by wheel mode after panel opacity
@@ -68,11 +66,8 @@ export function createWheelCommand({
     // TODO(smell): Content computes the next durable opacity and dispatches the
     // state command. The final boundary should report an opacity adjustment
     // intent/fact; clamping and state mutation should remain machine-owned.
-    const nextOpacity = opacityFromWheelDelta(getMachineState().session.opacity, deltaY);
-    dispatchMachine({
-      type: MACHINE_EVENT_KIND.SET_OPACITY,
-      opacity: nextOpacity,
-    });
+    const result = machineActions.changeOpacityByWheel({ deltaY });
+    const nextOpacity = result.state.session.opacity;
     return createHandledOutcome({
       pointerScreenPx: screenPoint,
       log: {
@@ -107,7 +102,7 @@ export function createWheelCommand({
     // TODO(smell): Placement planners return executable machine events. They
     // should return geometry facts; the machine should decide how a user
     // rotation request becomes preview/history/status state.
-    dispatchMachine(rotatePlan.event);
+    machineActions.applyPlacementEditPlan(rotatePlan);
     return createHandledOutcome({
       pointerScreenPx: screenPoint,
       log: {
@@ -131,7 +126,7 @@ export function createWheelCommand({
     // TODO(smell): Placement planners return executable machine events. They
     // should return geometry facts; the machine should decide how a user scale
     // request becomes preview/history/status state.
-    dispatchMachine(scalePlan.event);
+    machineActions.applyPlacementEditPlan(scalePlan);
     return createHandledOutcome({
       pointerScreenPx: screenPoint,
       log: {

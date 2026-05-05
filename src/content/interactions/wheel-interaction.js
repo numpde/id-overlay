@@ -3,7 +3,7 @@ import { createWheelCommand } from "./wheel-command.js";
 export function createWheelInteraction({
   pageAdapter,
   getMachineState,
-  dispatchMachine,
+  machineActions,
   runtimeBridge,
   errorBoundary,
   logger,
@@ -14,7 +14,7 @@ export function createWheelInteraction({
   const wheelCommand = createWheelCommand({
     pageAdapter,
     getMachineState,
-    dispatchMachine,
+    machineActions,
   });
 
   return {

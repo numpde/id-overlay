@@ -3,7 +3,7 @@ import { createPinToggleCommand } from "./pin-toggle-command.js";
 export function createPinToggleInteraction({
   pageAdapter,
   getMachineState,
-  dispatchMachine,
+  machineActions,
   runtimeBridge,
   errorBoundary,
   logger,
@@ -14,7 +14,7 @@ export function createPinToggleInteraction({
   const pinToggleCommand = createPinToggleCommand({
     pageAdapter,
     getMachineState,
-    dispatchMachine,
+    machineActions,
   });
 
   return {
