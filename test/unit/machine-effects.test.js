@@ -11,7 +11,9 @@ import {
 } from "../../src/core/machine/events.js";
 import {
   MACHINE_EFFECT_KIND,
+  createPanelTimeoutElapsedResult,
   createReadPasteImageResult,
+  createStatusTimeoutElapsedResult,
 } from "../../src/core/machine/effects.js";
 import {
   createIdlePanel,
@@ -25,7 +27,7 @@ import { transitionMachine } from "../../src/core/machine/transition.js";
 
 // TODO(smell): These tests still couple panel/status effects to raw request,
 // cancel, load, and clear events. Reframe them around public user/fact ingress
-// plus private effect-result semantics after the remaining timer cut-over.
+// after the host dispatch surface is split.
 const IMAGE = Object.freeze({
   src: "data:image/png;base64,abc",
   width: 800,
@@ -208,6 +210,28 @@ test("request-bound panel cancellation clears only the matching request id", () 
       requestId: 1,
     },
   ]);
+});
+
+test("panel timeout effect result clears only the matching request id", () => {
+  const state = transitionMachine(loadImageState(), {
+    type: MACHINE_EVENT_KIND.REQUEST_PANEL_INTENT,
+    intent: MACHINE_PANEL_INTENT.CLEAR_IMAGE_CONFIRM,
+  }).state;
+
+  const staleResult = transitionMachineEffectResult(state, createPanelTimeoutElapsedResult({
+    requestId: state.panel.requestId + 1,
+  }));
+  assert.deepEqual(staleResult.state, state);
+  assert.deepEqual(staleResult.effects, []);
+
+  const currentResult = transitionMachineEffectResult(state, createPanelTimeoutElapsedResult({
+    requestId: state.panel.requestId,
+  }));
+  assert.deepEqual(currentResult.state.panel, createIdlePanel());
+  assert.deepEqual(currentResult.effects, [{
+    kind: MACHINE_EFFECT_KIND.CANCEL_PANEL_TIMEOUT,
+    requestId: state.panel.requestId,
+  }]);
 });
 
 test("requesting clear-image confirmation clears stale status and emits a timeout effect", () => {
@@ -463,6 +487,28 @@ test("manual paste status cancels paste before reporting status", () => {
     },
   ]);
   assert.equal(result.historyRecord, null);
+});
+
+test("status timeout effect result clears only the matching request id", () => {
+  const state = transitionMachine(createInitialMachineState(), {
+    type: MACHINE_EVENT_KIND.REPORT_STATUS_NOTICE,
+    noticeKind: MACHINE_STATUS_NOTICE_KIND.CLIPBOARD_MISSING_IMAGE,
+  }).state;
+
+  const staleResult = transitionMachineEffectResult(state, createStatusTimeoutElapsedResult({
+    requestId: state.status.notice.requestId + 1,
+  }));
+  assert.deepEqual(staleResult.state, state);
+  assert.deepEqual(staleResult.effects, []);
+
+  const currentResult = transitionMachineEffectResult(state, createStatusTimeoutElapsedResult({
+    requestId: state.status.notice.requestId,
+  }));
+  assert.equal(currentResult.state.status.notice, null);
+  assert.deepEqual(currentResult.effects, [{
+    kind: MACHINE_EFFECT_KIND.CANCEL_STATUS_TIMEOUT,
+    requestId: state.status.notice.requestId,
+  }]);
 });
 
 test("restoring image session cancels active panel timeout", () => {

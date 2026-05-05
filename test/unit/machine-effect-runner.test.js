@@ -13,7 +13,9 @@ import {
 import {
   MACHINE_EFFECT_KIND,
   MACHINE_EFFECT_RESULT_KIND,
+  createPanelTimeoutElapsedResult,
   createReadPasteImageResult,
+  createStatusTimeoutElapsedResult,
 } from "../../src/core/machine/effects.js";
 import { createMachineEffectRunner } from "../../src/core/machine/effect-runner.js";
 import {
@@ -58,6 +60,18 @@ test("constructors centralize effect-runner request and result shapes", () => {
     requestId: 7,
     source: MACHINE_PASTE_SOURCE.CLIPBOARD_API,
     outcome: IMAGE,
+  });
+  assert.deepEqual(createPanelTimeoutElapsedResult({
+    requestId: 7,
+  }), {
+    kind: MACHINE_EFFECT_RESULT_KIND.PANEL_TIMEOUT_ELAPSED,
+    requestId: 7,
+  });
+  assert.deepEqual(createStatusTimeoutElapsedResult({
+    requestId: 7,
+  }), {
+    kind: MACHINE_EFFECT_RESULT_KIND.STATUS_TIMEOUT_ELAPSED,
+    requestId: 7,
   });
 });
 

@@ -1,6 +1,4 @@
 export const MACHINE_EFFECT_KIND = Object.freeze({
-  // TODO(smell): Timer completions still return through host-authored machine
-  // commands. Give timer effects typed result facts beside paste results.
   READ_PASTE_IMAGE: "read-paste-image",
   START_MANUAL_PASTE_CAPTURE: "start-manual-paste-capture",
   CANCEL_MANUAL_PASTE_CAPTURE: "cancel-manual-paste-capture",
@@ -12,6 +10,8 @@ export const MACHINE_EFFECT_KIND = Object.freeze({
 
 export const MACHINE_EFFECT_RESULT_KIND = Object.freeze({
   READ_PASTE_IMAGE: "read-paste-image-result",
+  PANEL_TIMEOUT_ELAPSED: "panel-timeout-elapsed-result",
+  STATUS_TIMEOUT_ELAPSED: "status-timeout-elapsed-result",
 });
 
 export function createReadPasteImageEffect({ requestId }) {
@@ -31,6 +31,20 @@ export function createReadPasteImageResult({
     requestId,
     source,
     outcome,
+  };
+}
+
+export function createPanelTimeoutElapsedResult({ requestId } = {}) {
+  return {
+    kind: MACHINE_EFFECT_RESULT_KIND.PANEL_TIMEOUT_ELAPSED,
+    requestId,
+  };
+}
+
+export function createStatusTimeoutElapsedResult({ requestId } = {}) {
+  return {
+    kind: MACHINE_EFFECT_RESULT_KIND.STATUS_TIMEOUT_ELAPSED,
+    requestId,
   };
 }
 

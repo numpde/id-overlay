@@ -4,9 +4,12 @@ import {
   MACHINE_MODE,
   MACHINE_PANEL_INTENT,
   MACHINE_STATUS_NOTICE_KIND,
-  createCancelPanelIntentEvent,
 } from "./events.js";
 import { createMachineEffectRunner } from "./effect-runner.js";
+import {
+  createPanelTimeoutElapsedResult,
+  createStatusTimeoutElapsedResult,
+} from "./effects.js";
 import { transitionMachineEffectResult } from "./effect-result-transition.js";
 import {
   MACHINE_PANEL_PRIMARY_ACTION_KIND,
@@ -121,10 +124,11 @@ export function createMachineHost({
           intent: MACHINE_PANEL_INTENT.PASTE_ARMED,
         });
       case MACHINE_PANEL_PRIMARY_ACTION_KIND.PASTE_ARMED:
-        return dispatch(createCancelPanelIntentEvent({
+        return dispatch({
+          type: MACHINE_EVENT_KIND.CANCEL_PANEL_INTENT,
           requestId: state.panel.requestId,
           noticeKind: MACHINE_STATUS_NOTICE_KIND.PASTE_CANCELLED,
-        }));
+        });
       case MACHINE_PANEL_PRIMARY_ACTION_KIND.CLEAR_PINS:
         return dispatch({
           type: MACHINE_EVENT_KIND.REQUEST_PANEL_INTENT,
@@ -316,10 +320,7 @@ export function createMachineHost({
     }
     const handle = setPanelTimeout(() => {
       panelTimers.delete(requestId);
-      // TODO(smell): Timer expiry is expressed as a public cancel-panel event.
-      // Treat timeout expiry as an effect-result fact at the host boundary and
-      // let the machine own panel request cancellation semantics.
-      dispatch(createCancelPanelIntentEvent({ requestId }));
+      ingestEffectResult(createPanelTimeoutElapsedResult({ requestId }));
     }, {
       intent,
       requestId,
@@ -345,13 +346,7 @@ export function createMachineHost({
     }
     const handle = setStatusTimeout(() => {
       statusTimers.delete(requestId);
-      // TODO(smell): Status timeout expiry constructs a low-level clear-status
-      // command in the host. The final effect boundary should report timeout
-      // completion facts and keep status mutation commands private.
-      dispatch({
-        type: MACHINE_EVENT_KIND.CLEAR_STATUS_NOTICE,
-        requestId,
-      });
+      ingestEffectResult(createStatusTimeoutElapsedResult({ requestId }));
     }, {
       requestId,
       delayMs: statusTimeoutMs,
