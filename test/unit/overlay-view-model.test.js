@@ -1,7 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { buildOverlayViewModel } from "../../src/content/overlay/view-model.js";
+import {
+  buildOverlayViewModel,
+  isScreenPointOverOverlayViewModel,
+} from "../../src/content/overlay/view-model.js";
 import { MACHINE_INPUT_OVERRIDE } from "../../src/core/machine/events.js";
 import { createInitialMachineState } from "../../src/core/machine/state.js";
 import {
@@ -72,6 +75,14 @@ test("overlay view model exposes render-ready image and frame geometry", () => {
     rotationDeg: 0,
     ownsPointerHitTesting: true,
   });
+  assert.equal(isScreenPointOverOverlayViewModel({
+    viewModel,
+    screenPoint: { x: 512, y: 288 },
+  }), true);
+  assert.equal(isScreenPointOverOverlayViewModel({
+    viewModel,
+    screenPoint: { x: 50, y: 50 },
+  }), false);
 });
 
 test("overlay view model keeps Trace/native-map presentation out of the renderer", () => {
@@ -155,6 +166,29 @@ test("overlay view model projects map pins through a narrow callback", () => {
   assert.deepEqual(viewModel.pins.map, [
     { id: 1, left: 400, top: 200 },
   ]);
+});
+
+test("overlay view model hit-testing uses the same live surface motion as rendering", () => {
+  const viewModel = buildOverlayViewModel({
+    machineState: createOverlayMachineState({ mode: SESSION_MODE.ALIGN }),
+    runtime: createInitialMachineState().runtime,
+    snapshot: {
+      ...TEST_SNAPSHOT,
+      surfaceMotion: {
+        transformCss: "matrix(1, 0, 0, 1, 50, 25)",
+        transformOriginCss: "0px 0px",
+      },
+    },
+  });
+
+  assert.equal(isScreenPointOverOverlayViewModel({
+    viewModel,
+    screenPoint: { x: 925, y: 600 },
+  }), true);
+  assert.equal(isScreenPointOverOverlayViewModel({
+    viewModel,
+    screenPoint: { x: 125, y: 210 },
+  }), false);
 });
 
 function createOverlayMachineState({

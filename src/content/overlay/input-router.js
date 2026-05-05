@@ -14,9 +14,8 @@ import {
 export function createOverlayInputRouter({
   pageProjection,
   interactions,
-  getMachineState,
   getRuntimeState,
-  getSnapshot,
+  getOverlayInputContext,
   getMountElement,
 }) {
   // TODO(smell): This router still couples DOM gesture routing, event
@@ -28,9 +27,7 @@ export function createOverlayInputRouter({
   });
   const inputProjector = createOverlayInputProjector({
     pageProjection,
-    getMachineState,
-    getRuntimeState,
-    getSnapshot,
+    getOverlayInputContext,
   });
   const inputHost = createOverlayInputHost({
     getMountElement,

@@ -3,8 +3,8 @@ import assert from "node:assert/strict";
 
 import {
   createOverlayInputProjector,
-  isScreenPointOverOverlay,
 } from "../../src/content/overlay/input-projector.js";
+import { buildOverlayViewModel } from "../../src/content/overlay/view-model.js";
 import { createInitialMachineState } from "../../src/core/machine/state.js";
 import { MACHINE_INPUT_OVERRIDE } from "../../src/core/machine/events.js";
 import {
@@ -13,9 +13,6 @@ import {
 } from "../../src/core/session.js";
 import { createPlacementTransform } from "../../src/core/transform.js";
 
-// TODO(smell): These tests assert an input projector that reads machine/runtime
-// state and page snapshots at once. Replace with normalized input-fact and
-// shared render-model tests when rendering and hit testing share one view model.
 const TEST_IMAGE = Object.freeze({
   src: "data:image/png;base64,abc",
   width: 800,
@@ -39,9 +36,7 @@ test("overlay input projector converts DOM client points through the page adapte
         };
       },
     },
-    getMachineState: createOverlayMachineState,
-    getRuntimeState: () => createInitialMachineState().runtime,
-    getSnapshot: () => TEST_SNAPSHOT,
+    getOverlayInputContext: () => createOverlayInputContext(),
   });
 
   assert.deepEqual(projector.screenPointFromEvent({
@@ -61,21 +56,9 @@ test("overlay input projector owns overlay image hit-testing for input projectio
         return point;
       },
     },
-    getMachineState: () => state,
-    getRuntimeState: () => state.runtime,
-    getSnapshot: () => TEST_SNAPSHOT,
+    getOverlayInputContext: () => createOverlayInputContext(state),
   });
 
-  assert.equal(isScreenPointOverOverlay({
-    machineState: state,
-    snapshot: TEST_SNAPSHOT,
-    screenPoint: { x: 512, y: 288 },
-  }), true);
-  assert.equal(isScreenPointOverOverlay({
-    machineState: state,
-    snapshot: TEST_SNAPSHOT,
-    screenPoint: { x: 50, y: 50 },
-  }), false);
   assert.equal(
     projector.resolveMountedInputProjection({ x: 512, y: 288 }).activation.shouldTogglePin,
     true,
@@ -99,9 +82,7 @@ test("overlay input projector preserves core input policy decisions", () => {
         return point;
       },
     },
-    getMachineState: () => state,
-    getRuntimeState: () => state.runtime,
-    getSnapshot: () => TEST_SNAPSHOT,
+    getOverlayInputContext: () => createOverlayInputContext(state),
   });
 
   const projection = projector.resolveMountedInputProjection({ x: 512, y: 288 });
@@ -132,5 +113,17 @@ function createOverlayMachineState({
         zoom: TEST_SNAPSHOT.mapView.zoom,
       }) : null,
     },
+  };
+}
+
+function createOverlayInputContext(state = createOverlayMachineState()) {
+  return {
+    machineState: state,
+    runtime: state.runtime,
+    viewModel: buildOverlayViewModel({
+      machineState: state,
+      runtime: state.runtime,
+      snapshot: TEST_SNAPSHOT,
+    }),
   };
 }

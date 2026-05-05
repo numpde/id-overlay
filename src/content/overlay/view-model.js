@@ -2,7 +2,9 @@ import {
   buildOverlayRenderModel,
   buildPinRenderModels,
   imagePointToScreenPoint,
+  isImagePointWithinBounds,
   resolveOverlayScreenTransform,
+  screenPointToRenderedImagePoint,
 } from "../../core/transform.js";
 import { getOverlayImage, hasOverlayImageSession } from "../../core/session.js";
 import { selectOverlayPresentation } from "../../core/machine/selectors.js";
@@ -29,6 +31,7 @@ export function buildOverlayViewModel({
     },
     image: null,
     frame: null,
+    hitTarget: null,
     pins: {
       overlay: [],
       map: [],
@@ -69,6 +72,15 @@ export function buildOverlayViewModel({
       ...imageBox,
       ownsPointerHitTesting: presentation.ownsPointerHitTesting,
     },
+    hitTarget: {
+      image: {
+        width: image.width,
+        height: image.height,
+      },
+      transform,
+      viewportRect,
+      surfaceMotion: snapshot.surfaceMotion,
+    },
     pins: presentation.arePinsVisible
       ? buildPinsViewModel({
         pins: session.registration.pins,
@@ -78,6 +90,23 @@ export function buildOverlayViewModel({
       })
       : base.pins,
   };
+}
+
+export function isScreenPointOverOverlayViewModel({ viewModel, screenPoint }) {
+  const target = viewModel?.hitTarget;
+  if (!target) {
+    return false;
+  }
+
+  const imagePoint = screenPointToRenderedImagePoint({
+    screenPoint,
+    transform: target.transform,
+    snapshot: {
+      viewportRect: target.viewportRect,
+      surfaceMotion: target.surfaceMotion,
+    },
+  });
+  return isImagePointWithinBounds(imagePoint, target.image);
 }
 
 function toViewportRelativeRenderBox({ model, viewportRect }) {

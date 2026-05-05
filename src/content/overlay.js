@@ -28,9 +28,8 @@ export function createOverlay({
   inputRouter = createOverlayInputRouter({
     pageProjection,
     interactions,
-    getMachineState,
     getRuntimeState,
-    getSnapshot,
+    getOverlayInputContext,
     getMountElement: renderer.getMountElement,
   });
 
@@ -69,9 +68,26 @@ export function createOverlay({
   }
 
   function getOverlayViewModel() {
-    return buildOverlayViewModel({
+    return buildCurrentOverlayViewModel({
       machineState: getMachineState(),
       runtime: getRuntimeState(),
+    });
+  }
+
+  function getOverlayInputContext() {
+    const machineState = getMachineState();
+    const runtime = getRuntimeState();
+    return {
+      machineState,
+      runtime,
+      viewModel: buildCurrentOverlayViewModel({ machineState, runtime }),
+    };
+  }
+
+  function buildCurrentOverlayViewModel({ machineState, runtime }) {
+    return buildOverlayViewModel({
+      machineState,
+      runtime,
       snapshot: getSnapshot(),
       projectMapPinScreenPoint: pageProjection.mapToOverlayLayerScreen,
     });
