@@ -21,6 +21,10 @@ export function selectRedoRecord(state) {
 }
 
 export function selectOverlayPresentation(state, runtime = null) {
+  // TODO(smell): This selector returns presentation flags directly from machine
+  // policy. The final render boundary should expose an overlay view model that
+  // includes geometry/pin visibility/input ownership facts, leaving DOM code to
+  // reconcile nodes only.
   const policy = selectOverlayPolicy(state, runtime);
   return {
     mode: policy.mode,

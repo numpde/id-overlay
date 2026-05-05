@@ -166,6 +166,10 @@ export function createOverlayRenderer({
   }
 
   function projectMapPinScreenPoint(mapLatLon) {
+    // TODO(smell): Renderer reaches into the page adapter for per-pin map
+    // projection during DOM reconciliation. The final overlay view model should
+    // receive already-projected render facts so rendering has no page-adapter
+    // dependency.
     if (typeof pageAdapter.mapToOverlayLayerScreen !== "function") {
       return null;
     }

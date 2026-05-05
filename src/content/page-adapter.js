@@ -15,6 +15,10 @@ export function createPageAdapter({
   hashTarget = globalThis.window,
   viewportDocument = globalThis.document,
 } = {}) {
+  // TODO(smell): Page adapter still exposes snapshot, projection, and gesture
+  // forwarding methods through one broad object. The final boundary should make
+  // those ports explicit so render, input, paste placement, and map forwarding
+  // each depend only on the page facts they actually need.
   const logger = createLogger("page-adapter");
   const viewportGeometry = createViewportGeometryResolver({ hashTarget });
   const mapViewResolver = createMapViewResolver();

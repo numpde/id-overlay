@@ -1,4 +1,7 @@
 export function commitHistoryRecord(state, historyRecord) {
+  // TODO(smell): History storage is shape-agnostic while replay expects
+  // executable undo/redo events. Once records become semantic domain facts,
+  // normalize/validate them here instead of accepting arbitrary record payloads.
   if (!historyRecord) {
     return state;
   }

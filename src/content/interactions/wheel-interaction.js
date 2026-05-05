@@ -8,6 +8,9 @@ export function createWheelInteraction({
   errorBoundary,
   logger,
 }) {
+  // TODO(smell): Wheel interaction consumes command outcomes and mutates runtime
+  // pointer separately from the wheel transition. The final ingress should make
+  // pointer observation and wheel user intent one coherent machine fact.
   const wheelCommand = createWheelCommand({
     pageAdapter,
     getMachineState,

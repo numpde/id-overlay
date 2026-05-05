@@ -12,6 +12,10 @@ export function createOverlayInputProjector({
   getRuntimeState,
   getSnapshot,
 }) {
+  // TODO(smell): Input projection still pulls machine state, runtime state,
+  // page snapshots, and DOM event coordinates at once. The final input boundary
+  // should produce normalized input facts first, then let machine ingress derive
+  // allowed user intent from state.
   return {
     screenPointFromEvent,
     resolveMountedInputProjection,
@@ -43,6 +47,9 @@ export function isScreenPointOverOverlay({
   snapshot,
   screenPoint,
 }) {
+  // TODO(smell): Hit testing is computed in the content input projector using
+  // render geometry. The final shape should share a pure overlay render model
+  // between rendering and input hit testing so those facts cannot diverge.
   const state = machineState.session ?? machineState;
   if (!hasOverlayImageSession(state)) {
     return false;

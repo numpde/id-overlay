@@ -5,6 +5,10 @@ import {
 } from "./events.js";
 
 export function selectPanelPolicy(state) {
+  // TODO(smell): Panel policy exposes booleans, but not the canonical semantic
+  // primary action. The final shape should derive the active panel action once
+  // here/core-side so rendering and PANEL_PRIMARY_ACTIVATED interpretation share
+  // the same source of truth.
   const base = selectBaseInteractionPolicy(state);
   return {
     hasImage: base.hasImage,
@@ -22,6 +26,10 @@ export function selectPanelPolicy(state) {
 }
 
 export function selectOverlayPolicy(state, runtime = null) {
+  // TODO(smell): Overlay policy currently mixes durable mode, native-map input,
+  // and transient pass-through in one selector. Once user/fact ingress is split,
+  // keep durable editability and transient input ownership as distinct derived
+  // facts so content cannot infer transition semantics from presentation flags.
   const base = selectBaseInteractionPolicy(state);
   const runtimeState = runtime ?? state.runtime ?? null;
   const hasInputPassThrough = runtimeState?.inputOverride === MACHINE_INPUT_OVERRIDE.PASS_THROUGH;
@@ -80,6 +88,9 @@ export function shouldFitOnTrace(state) {
 }
 
 export function shouldReleasePassThroughOverride(state, runtime, event) {
+  // TODO(smell): Keyboard release policy accepts a DOM-ish event object in core.
+  // The final input boundary should pass normalized keyboard facts, not browser
+  // event shape, into machine policy.
   const session = state?.session ?? state ?? {};
   return (
     event?.code === "Space" &&

@@ -28,6 +28,10 @@ export function isKnownWheelMode(wheelMode) {
 }
 
 export function resolveDragMode({ shiftKey }) {
+  // TODO(smell): Modifier-key policy is encoded as content-facing interaction
+  // modes before machine ingress. The final boundary should report normalized
+  // user gesture facts, with the machine owning which gestures are valid in the
+  // current state.
   if (shiftKey) {
     return DRAG_MODE.MOVE_OVERLAY;
   }
@@ -48,6 +52,9 @@ export function resolveWheelMode({ shiftKey, altKey, ctrlKey }) {
 }
 
 export function shouldIgnoreKeyboardShortcut(event) {
+  // TODO(smell): Keyboard policy accepts browser event/target shape in core.
+  // Move DOM target filtering to the content keyboard adapter and pass only
+  // normalized shortcut facts into core policy.
   if (event.defaultPrevented) {
     return true;
   }

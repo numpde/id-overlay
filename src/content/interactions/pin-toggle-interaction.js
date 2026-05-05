@@ -8,6 +8,9 @@ export function createPinToggleInteraction({
   errorBoundary,
   logger,
 }) {
+  // TODO(smell): Pin-toggle interaction interprets command outcomes to update
+  // runtime pointer and logging. After user-intent ingress, this wrapper should
+  // only report the attempted activation fact and observe machine results.
   const pinToggleCommand = createPinToggleCommand({
     pageAdapter,
     getMachineState,

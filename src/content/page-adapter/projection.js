@@ -9,6 +9,9 @@ import {
 } from "../../core/geometry.js";
 
 export function createPageProjection({ getActiveMapContext, getSnapshot }) {
+  // TODO(smell): Projection reads the full page snapshot and active DOM context
+  // internally. The final port should accept explicit projection facts so core
+  // user-intent payloads can be tested without hidden page-adapter state.
   function clientPointToScreen(clientPoint) {
     return contextClientPointToScreenPoint(clientPoint, getActiveMapContext());
   }
@@ -96,6 +99,9 @@ function projectMapPointToBaseScreenPoint({ snapshot, point }) {
 }
 
 function createProjectionContext(snapshot) {
+  // TODO(smell): Projection context is reconstructed from full snapshots at
+  // every call site. Split this into a stable map-projection fact so render,
+  // pin intent, and paste placement share one inspectable projection source.
   return {
     viewportRect: snapshot.viewportRect,
     mapView: snapshot.mapView,

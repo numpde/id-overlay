@@ -94,6 +94,9 @@ function derivePreciseMapViewFromTiles({ context, viewportRect }) {
 }
 
 function parseMapViewFromHash(hash) {
+  // TODO(smell): Hash parsing is used as a map-view fallback, which can turn
+  // URL state into placement/projection policy. The final page adapter should
+  // expose whether map-view facts are precise, stale, or fallback-derived.
   const match = /map=([0-9]+(?:\.[0-9]+)?)\/(-?[0-9]+(?:\.[0-9]+)?)\/(-?[0-9]+(?:\.[0-9]+)?)/.exec(hash);
   if (!match) {
     return DEFAULT_MAP_VIEW;
