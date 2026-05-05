@@ -2,15 +2,15 @@ import {
   MACHINE_PASTE_SOURCE,
 } from "./events.js";
 import {
-  canCompletePasteReadForRequest,
   cancelPanelIntent,
+  isCurrentPasteRequest,
   reportStatusNotice,
 } from "./panel-status-transition.js";
 import { loadImage } from "./session-transition.js";
 import { createTransitionResult } from "./transition-result.js";
 
 export function completePasteRead(state, event) {
-  if (!canCompletePasteReadForRequest(state, event)) {
+  if (!isCurrentPasteRequest(state, event) || !isKnownPasteSource(event.source)) {
     return createTransitionResult({ state });
   }
   const outcome = normalizePasteReadOutcome(event.outcome);
@@ -58,4 +58,8 @@ export function normalizePasteReadOutcome(outcome) {
     noticeKind: undefined,
     noticePayload: null,
   };
+}
+
+function isKnownPasteSource(source) {
+  return Object.values(MACHINE_PASTE_SOURCE).includes(source);
 }

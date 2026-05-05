@@ -335,6 +335,24 @@ test("stale paste completion is a pure no-op", () => {
   assert.equal(result.historyRecord, null);
 });
 
+test("paste completion with unknown source is a pure no-op", () => {
+  const state = transitionMachine(createInitialMachineState(), {
+    type: MACHINE_EVENT_KIND.REQUEST_PANEL_INTENT,
+    intent: MACHINE_PANEL_INTENT.PASTE_ARMED,
+  }).state;
+
+  const result = transitionMachine(state, {
+    type: MACHINE_EVENT_KIND.COMPLETE_PASTE_READ,
+    source: "unknown",
+    outcome: IMAGE,
+    requestId: state.panel.requestId,
+  });
+
+  assert.deepEqual(result.state, state);
+  assert.deepEqual(result.effects, []);
+  assert.equal(result.historyRecord, null);
+});
+
 test("null paste completion keeps paste armed for manual paste fallback", () => {
   const state = transitionMachine(createInitialMachineState(), {
     type: MACHINE_EVENT_KIND.REQUEST_PANEL_INTENT,

@@ -22,7 +22,7 @@ import {
   createTransitionResult,
 } from "./transition-result.js";
 
-export function canCompletePasteReadForRequest(state, event) {
+export function isCurrentPasteRequest(state, event) {
   return (
     state.panel.intent === MACHINE_PANEL_INTENT.PASTE_ARMED &&
     isValidPanelRequestId(event.requestId) &&
@@ -90,7 +90,7 @@ export function canLoadImageForRequest(state, event) {
   if (event.requestId == null) {
     return true;
   }
-  return canCompletePasteReadForRequest(state, event);
+  return isCurrentPasteRequest(state, event);
 }
 
 export function clearStatusNotice(state, event) {
