@@ -12,6 +12,9 @@ import {
 } from "./transition-result.js";
 
 export function transitionUndo(state, { transitionSemantic }) {
+  // TODO(smell): Undo and redo are mirror-image replay transactions with
+  // duplicated empty-case/status wrapping. A small replay helper would make the
+  // history semantics easier to audit before adding more replay kinds.
   const moved = moveUndoRecordToFuture(state);
   if (!moved.record) {
     return finalizeTransitionResult(createTransitionResult({

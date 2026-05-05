@@ -7,6 +7,9 @@ export function createNormalizedOverlayImage({
   originalWidth,
   originalHeight,
 }) {
+  // TODO(smell): Canonical image construction and metadata normalization repeat
+  // the same dimension/source validation. Extract a single internal validator
+  // before adding any more accepted image shapes.
   if (
     typeof workingSrc !== "string" ||
     !workingSrc ||

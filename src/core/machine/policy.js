@@ -5,6 +5,9 @@ import {
 } from "./events.js";
 
 export function selectPanelPolicy(state) {
+  // TODO(smell): Panel and overlay policy recompute overlapping capability
+  // facts. Keep this harmless for now, but the final policy layer should derive
+  // common facts once and project panel/overlay views from that base.
   const hasImage = Boolean(state.session.image);
   const isAlign = state.session.mode === MACHINE_MODE.ALIGN;
   const pinCount = state.session.registration.pins.length;

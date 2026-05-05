@@ -1,6 +1,9 @@
 const STORAGE_KEY = "id-overlay/state";
 
 export function createExtensionStorage() {
+  // TODO(smell): The browser storage adapter still owns the app-specific
+  // storage namespace. The final boundary should inject the key from
+  // composition so platform storage is only browser/chrome mechanics.
   const storageLocal = resolveStorageLocal();
   if (!storageLocal) {
     return {
