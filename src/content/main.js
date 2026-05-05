@@ -6,6 +6,7 @@ import { createPageAdapter } from "./page-adapter.js";
 import { createPanel } from "./panel.js";
 import { createOverlay } from "./overlay.js";
 import { createClipboardImageReader } from "./paste-adapter.js";
+import { createPasteReadOutcomeFromClipboardFact } from "../core/machine/paste-outcome.js";
 import { BUILD_INFO } from "../core/build-info.js";
 import { createLogger } from "../core/logger.js";
 
@@ -38,16 +39,19 @@ export async function bootstrapIdOverlay({ keyboardGateway = null } = {}) {
   const persistedState = await storage.load();
   const clipboardReader = createClipboardImageReader({
     ownerWindow: window,
-    pageAdapter,
     logger,
   });
   const machineHost = createMachineHost({
     persistedSession: migratePersistedMachineSessionForMap(persistedState, pageAdapter.getSnapshot()),
     savePersistedSession: (session) => storage.save(session),
-    readPasteImage: () => clipboardReader.readClipboardApiImage(),
+    readPasteImage: () => readClipboardApiPasteOutcome({
+      clipboardReader,
+      pageAdapter,
+    }),
     ...createManualPasteCapture({
       ownerWindow: window,
       clipboardReader,
+      pageAdapter,
       logger,
     }),
     setPanelTimeout: (callback, { delayMs }) => globalThis.setTimeout(callback, delayMs),
@@ -89,11 +93,11 @@ export async function bootstrapIdOverlay({ keyboardGateway = null } = {}) {
   logger.info("Bootstrap complete");
 }
 
-function createManualPasteCapture({ ownerWindow, clipboardReader, logger }) {
-  // TODO(smell): Manual paste capture passes adapter-shaped outcomes directly
-  // back to the machine effect runner. The final effect port should return a
-  // typed paste fact so clipboard decoding, placement policy, and status
-  // derivation remain separated.
+function createManualPasteCapture({ ownerWindow, clipboardReader, pageAdapter, logger }) {
+  // TODO(smell): Manual paste capture still completes by calling the effect
+  // runner's callback with a transition-shaped paste outcome. Keep clipboard
+  // decoding fact-shaped; the next cut should deliver typed effect results
+  // through host ingress instead of this callback bridge.
   let activeRequestId = null;
   let activeOutcomeHandler = null;
 
@@ -127,13 +131,30 @@ function createManualPasteCapture({ ownerWindow, clipboardReader, logger }) {
     }
 
     event.preventDefault();
-    const outcome = await clipboardReader.readClipboardDataImage(event.clipboardData);
+    const fact = await clipboardReader.readClipboardDataImage(event.clipboardData);
     if (activeRequestId !== requestId) {
       logger.info("Ignoring window paste result because paste capture was cancelled");
       return;
     }
-    outcomeHandler(outcome);
+    outcomeHandler(createPasteReadOutcome({
+      fact,
+      pageAdapter,
+    }));
   }
+}
+
+async function readClipboardApiPasteOutcome({ clipboardReader, pageAdapter }) {
+  return createPasteReadOutcome({
+    fact: await clipboardReader.readClipboardApiImage(),
+    pageAdapter,
+  });
+}
+
+function createPasteReadOutcome({ fact, pageAdapter }) {
+  return createPasteReadOutcomeFromClipboardFact({
+    fact,
+    snapshot: pageAdapter.getSnapshot(),
+  });
 }
 
 export function queueBootstrapIdOverlay({ keyboardGateway = null } = {}) {

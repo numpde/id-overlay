@@ -11,7 +11,11 @@ import {
   createLoadImageEvent,
   createReportStatusNoticeEvent,
 } from "../../src/core/machine/events.js";
-import { MACHINE_EFFECT_KIND } from "../../src/core/machine/effects.js";
+import {
+  MACHINE_EFFECT_KIND,
+  MACHINE_EFFECT_RESULT_KIND,
+  createReadPasteImageResult,
+} from "../../src/core/machine/effects.js";
 import { createMachineEffectRunner } from "../../src/core/machine/effect-runner.js";
 import {
   createInitialMachineState,
@@ -55,6 +59,16 @@ test("event constructors centralize effect-runner outcome event shapes", () => {
     outcome: IMAGE,
   }), {
     type: MACHINE_EVENT_KIND.COMPLETE_PASTE_READ,
+    requestId: 7,
+    source: MACHINE_PASTE_SOURCE.CLIPBOARD_API,
+    outcome: IMAGE,
+  });
+  assert.deepEqual(createReadPasteImageResult({
+    requestId: 7,
+    source: MACHINE_PASTE_SOURCE.CLIPBOARD_API,
+    outcome: IMAGE,
+  }), {
+    kind: MACHINE_EFFECT_RESULT_KIND.READ_PASTE_IMAGE,
     requestId: 7,
     source: MACHINE_PASTE_SOURCE.CLIPBOARD_API,
     outcome: IMAGE,

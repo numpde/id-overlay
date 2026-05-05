@@ -1,5 +1,9 @@
 import {
+  CLIPBOARD_IMAGE_READ_KIND,
+} from "../clipboard-facts.js";
+import {
   MACHINE_PASTE_SOURCE,
+  MACHINE_STATUS_NOTICE_KIND,
 } from "./events.js";
 import {
   cancelPanelIntent,
@@ -8,6 +12,7 @@ import {
 } from "./panel-status-transition.js";
 import { loadImage } from "./session-transition.js";
 import { createTransitionResult } from "./transition-result.js";
+import { createPlacementTransform } from "../transform.js";
 
 export function completePasteRead(state, event) {
   // TODO(smell): Paste completion is modeled as an external machine event whose
@@ -67,6 +72,54 @@ export function normalizePasteReadOutcome(outcome) {
     placement: null,
     noticeKind: undefined,
     noticePayload: null,
+  };
+}
+
+export function createPasteReadOutcomeFromClipboardFact({ fact, snapshot }) {
+  if (!fact || fact.kind === CLIPBOARD_IMAGE_READ_KIND.UNAVAILABLE) {
+    return null;
+  }
+  if (fact.kind === CLIPBOARD_IMAGE_READ_KIND.DECODED_IMAGE) {
+    return createDecodedImagePasteOutcome({
+      image: fact.image,
+      snapshot,
+    });
+  }
+  if (fact.kind === CLIPBOARD_IMAGE_READ_KIND.MISSING_IMAGE) {
+    return createClipboardStatusPasteOutcome({
+      noticeKind: MACHINE_STATUS_NOTICE_KIND.CLIPBOARD_MISSING_IMAGE,
+    });
+  }
+  if (fact.kind === CLIPBOARD_IMAGE_READ_KIND.UNREADABLE_IMAGE) {
+    return createClipboardStatusPasteOutcome({
+      noticeKind: MACHINE_STATUS_NOTICE_KIND.CLIPBOARD_IMAGE_UNREADABLE,
+    });
+  }
+  return null;
+}
+
+function createDecodedImagePasteOutcome({ image, snapshot }) {
+  if (!image) {
+    return null;
+  }
+  return {
+    image,
+    placement: snapshot ? createPlacementTransform({
+      image,
+      centerMapLatLon: snapshot.mapView.center,
+      scale: 1,
+      rotationRad: 0,
+      zoom: snapshot.mapView.zoom,
+    }) : null,
+  };
+}
+
+function createClipboardStatusPasteOutcome({ noticeKind, noticePayload = null }) {
+  return {
+    image: null,
+    placement: null,
+    noticeKind,
+    noticePayload,
   };
 }
 

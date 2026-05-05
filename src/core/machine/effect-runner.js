@@ -1,4 +1,7 @@
-import { MACHINE_EFFECT_KIND } from "./effects.js";
+import {
+  MACHINE_EFFECT_KIND,
+  createReadPasteImageResult,
+} from "./effects.js";
 import {
   MACHINE_PASTE_SOURCE,
   createCompletePasteReadEvent,
@@ -87,10 +90,15 @@ export function createMachineEffectRunner({
     // TODO(smell): The effect runner dispatches a machine event constructor
     // directly. The final host/effect boundary should return effect result facts
     // to machine ingress without exposing internal completion commands broadly.
-    dispatch?.(createCompletePasteReadEvent({
+    const result = createReadPasteImageResult({
       requestId,
       source,
       outcome,
+    });
+    dispatch?.(createCompletePasteReadEvent({
+      requestId: result.requestId,
+      source: result.source,
+      outcome: result.outcome,
     }));
   }
 

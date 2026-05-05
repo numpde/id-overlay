@@ -11,10 +11,27 @@ export const MACHINE_EFFECT_KIND = Object.freeze({
   CANCEL_STATUS_TIMEOUT: "cancel-status-timeout",
 });
 
+export const MACHINE_EFFECT_RESULT_KIND = Object.freeze({
+  READ_PASTE_IMAGE: "read-paste-image-result",
+});
+
 export function createReadPasteImageEffect({ requestId }) {
   return {
     kind: MACHINE_EFFECT_KIND.READ_PASTE_IMAGE,
     requestId,
+  };
+}
+
+export function createReadPasteImageResult({
+  requestId,
+  source,
+  outcome = null,
+} = {}) {
+  return {
+    kind: MACHINE_EFFECT_RESULT_KIND.READ_PASTE_IMAGE,
+    requestId,
+    source,
+    outcome,
   };
 }
 
