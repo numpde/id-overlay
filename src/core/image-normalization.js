@@ -7,37 +7,30 @@ export function createNormalizedOverlayImage({
   originalWidth,
   originalHeight,
 }) {
-  // TODO(smell): Canonical image construction and metadata normalization repeat
-  // the same dimension/source validation. Extract a single internal validator
-  // before adding any more accepted image shapes.
-  if (
-    typeof workingSrc !== "string" ||
-    !workingSrc ||
-    !Number.isFinite(workingWidth) ||
-    !Number.isFinite(workingHeight) ||
-    workingWidth <= 0 ||
-    workingHeight <= 0 ||
-    !Number.isFinite(originalWidth) ||
-    !Number.isFinite(originalHeight) ||
-    originalWidth <= 0 ||
-    originalHeight <= 0
-  ) {
+  const normalized = normalizeOverlayImageParts({
+    workingSrc,
+    workingWidth,
+    workingHeight,
+    originalWidth,
+    originalHeight,
+  });
+  if (!normalized) {
     return null;
   }
 
   return {
-    src: workingSrc,
-    width: workingWidth,
-    height: workingHeight,
+    src: normalized.workingSrc,
+    width: normalized.workingWidth,
+    height: normalized.workingHeight,
     original: {
-      width: originalWidth,
-      height: originalHeight,
+      width: normalized.originalWidth,
+      height: normalized.originalHeight,
     },
     working: {
-      src: workingSrc,
-      width: workingWidth,
-      height: workingHeight,
-      scaleFromOriginal: workingWidth / originalWidth,
+      src: normalized.workingSrc,
+      width: normalized.workingWidth,
+      height: normalized.workingHeight,
+      scaleFromOriginal: normalized.workingWidth / normalized.originalWidth,
     },
   };
 }
@@ -94,8 +87,25 @@ export function normalizeOverlayImageMetadata(image) {
   const originalWidth = Number(image.original?.width ?? workingWidth);
   const originalHeight = Number(image.original?.height ?? workingHeight);
 
+  return createNormalizedOverlayImage({
+    workingSrc,
+    workingWidth,
+    workingHeight,
+    originalWidth,
+    originalHeight,
+  });
+}
+
+function normalizeOverlayImageParts({
+  workingSrc,
+  workingWidth,
+  workingHeight,
+  originalWidth,
+  originalHeight,
+}) {
   if (
     !workingSrc ||
+    typeof workingSrc !== "string" ||
     !Number.isFinite(workingWidth) ||
     !Number.isFinite(workingHeight) ||
     workingWidth <= 0 ||
@@ -108,13 +118,13 @@ export function normalizeOverlayImageMetadata(image) {
     return null;
   }
 
-  return createNormalizedOverlayImage({
+  return {
     workingSrc,
     workingWidth,
     workingHeight,
     originalWidth,
     originalHeight,
-  });
+  };
 }
 
 export async function normalizeOverlayImageBlob(

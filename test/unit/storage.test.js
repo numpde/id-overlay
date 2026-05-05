@@ -54,7 +54,7 @@ test("storage wrapper loads and saves with callback-style chrome storage", async
   };
 
   try {
-    const storage = createExtensionStorage();
+    const storage = createExtensionStorage({ storageKey: "id-overlay/state" });
     assert.equal(await storage.load(), null);
     await storage.save(PERSISTED_SESSION);
     assert.deepEqual(await storage.load(), PERSISTED_SESSION);
@@ -84,7 +84,7 @@ test("storage wrapper loads and saves with promise-style browser storage", async
   };
 
   try {
-    const storage = createExtensionStorage();
+    const storage = createExtensionStorage({ storageKey: "id-overlay/state" });
     assert.equal(await storage.load(), null);
     await storage.save(PERSISTED_SESSION);
     assert.deepEqual(await storage.load(), PERSISTED_SESSION);
@@ -95,6 +95,46 @@ test("storage wrapper loads and saves with promise-style browser storage", async
       globalThis.browser = previousBrowser;
     }
   }
+});
+
+test("storage wrapper accepts an injected storage key", async () => {
+  const previousBrowser = globalThis.browser;
+  const records = {};
+  globalThis.browser = {
+    storage: {
+      local: {
+        async get(key) {
+          return { [key]: records[key] ?? null };
+        },
+        async set(record) {
+          Object.assign(records, record);
+        },
+      },
+    },
+  };
+
+  try {
+    const storage = createExtensionStorage({ storageKey: "custom/session" });
+    await storage.save(PERSISTED_SESSION);
+
+    assert.deepEqual(records, {
+      "custom/session": PERSISTED_SESSION,
+    });
+    assert.deepEqual(await storage.load(), PERSISTED_SESSION);
+  } finally {
+    if (previousBrowser === undefined) {
+      delete globalThis.browser;
+    } else {
+      globalThis.browser = previousBrowser;
+    }
+  }
+});
+
+test("storage wrapper requires composition to provide the storage key", () => {
+  assert.throws(
+    () => createExtensionStorage({ storageKey: "" }),
+    /storageKey/,
+  );
 });
 
 test("storage wrapper rejects callback-style chrome errors", async () => {
@@ -115,7 +155,7 @@ test("storage wrapper rejects callback-style chrome errors", async () => {
   };
 
   try {
-    const storage = createExtensionStorage();
+    const storage = createExtensionStorage({ storageKey: "id-overlay/state" });
     await assert.rejects(
       storage.load(),
       /storage failed/,

@@ -12,56 +12,57 @@ import {
 } from "./transition-result.js";
 
 export function transitionUndo(state, { transitionSemantic }) {
-  // TODO(smell): Undo and redo are mirror-image replay transactions with
-  // duplicated empty-case/status wrapping. A small replay helper would make the
-  // history semantics easier to audit before adding more replay kinds.
-  const moved = moveUndoRecordToFuture(state);
-  if (!moved.record) {
-    return finalizeTransitionResult(createTransitionResult({
-      state,
-      statusNotice: createStatusNotice(MACHINE_STATUS_NOTICE_KIND.UNDO_EMPTY),
-    }), {
-      commitHistory: false,
-      commitStatus: true,
-    });
-  }
-  const replay = finalizeTransitionResult(transitionSemantic(moved.state, moved.record.undoEvent), {
-    commitHistory: false,
-    commitStatus: false,
-  });
-  return finalizeTransitionResult(createTransitionResult({
-    state: replay.state,
-    effects: replay.effects,
-    statusNotice: createStatusNotice(MACHINE_STATUS_NOTICE_KIND.UNDO, {
-      label: moved.record.undoLabel,
-    }),
-    consumedHistoryRecord: moved.record,
-  }), {
-    commitHistory: false,
-    commitStatus: true,
+  return replayHistoryTransition(state, {
+    moveRecord: moveUndoRecordToFuture,
+    selectEvent: (record) => record.undoEvent,
+    selectLabel: (record) => record.undoLabel,
+    emptyNoticeKind: MACHINE_STATUS_NOTICE_KIND.UNDO_EMPTY,
+    replayNoticeKind: MACHINE_STATUS_NOTICE_KIND.UNDO,
+    transitionSemantic,
   });
 }
 
 export function transitionRedo(state, { transitionSemantic }) {
-  const moved = moveRedoRecordToPast(state);
+  return replayHistoryTransition(state, {
+    moveRecord: moveRedoRecordToPast,
+    selectEvent: (record) => record.redoEvent,
+    selectLabel: (record) => record.redoLabel,
+    emptyNoticeKind: MACHINE_STATUS_NOTICE_KIND.REDO_EMPTY,
+    replayNoticeKind: MACHINE_STATUS_NOTICE_KIND.REDO,
+    transitionSemantic,
+  });
+}
+
+function replayHistoryTransition(state, {
+  moveRecord,
+  selectEvent,
+  selectLabel,
+  emptyNoticeKind,
+  replayNoticeKind,
+  transitionSemantic,
+}) {
+  const moved = moveRecord(state);
   if (!moved.record) {
     return finalizeTransitionResult(createTransitionResult({
       state,
-      statusNotice: createStatusNotice(MACHINE_STATUS_NOTICE_KIND.REDO_EMPTY),
+      statusNotice: createStatusNotice(emptyNoticeKind),
     }), {
       commitHistory: false,
       commitStatus: true,
     });
   }
-  const replay = finalizeTransitionResult(transitionSemantic(moved.state, moved.record.redoEvent), {
-    commitHistory: false,
-    commitStatus: false,
-  });
+  const replay = finalizeTransitionResult(
+    transitionSemantic(moved.state, selectEvent(moved.record)),
+    {
+      commitHistory: false,
+      commitStatus: false,
+    },
+  );
   return finalizeTransitionResult(createTransitionResult({
     state: replay.state,
     effects: replay.effects,
-    statusNotice: createStatusNotice(MACHINE_STATUS_NOTICE_KIND.REDO, {
-      label: moved.record.redoLabel,
+    statusNotice: createStatusNotice(replayNoticeKind, {
+      label: selectLabel(moved.record),
     }),
     consumedHistoryRecord: moved.record,
   }), {

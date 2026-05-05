@@ -1,4 +1,5 @@
 import { normalizeOverlayImageBlob } from "../core/image-normalization.js";
+import { MAX_WORKING_IMAGE_DIMENSION } from "../core/image-policy.js";
 import { MACHINE_STATUS_NOTICE_KIND } from "../core/machine/events.js";
 import { createPlacementTransform } from "../core/transform.js";
 import { createBrowserImageNormalizationDeps } from "../platform/browser-image-normalization.js";
@@ -11,7 +12,10 @@ export function createClipboardImageReader({
   // TODO(smell): Paste reading returns machine-shaped image/status/placement
   // outcomes. Keep clipboard decoding as a platform adapter and move placement
   // derivation/status outcome construction behind the machine paste effect.
-  const imageNormalizationDeps = createBrowserImageNormalizationDeps(ownerWindow);
+  const imageNormalizationDeps = createBrowserImageNormalizationDeps({
+    ownerWindow,
+    maxWorkingDimension: MAX_WORKING_IMAGE_DIMENSION,
+  });
 
   async function readClipboardApiImage() {
     if (typeof ownerWindow.navigator?.clipboard?.read !== "function") {

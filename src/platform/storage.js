@@ -1,29 +1,29 @@
-const STORAGE_KEY = "id-overlay/state";
-
-export function createExtensionStorage() {
-  // TODO(smell): The browser storage adapter still owns the app-specific
-  // storage namespace. The final boundary should inject the key from
-  // composition so platform storage is only browser/chrome mechanics.
+export function createExtensionStorage({
+  storageKey,
+} = {}) {
+  if (typeof storageKey !== "string" || !storageKey) {
+    throw new TypeError("createExtensionStorage requires a storageKey.");
+  }
   const storageLocal = resolveStorageLocal();
   if (!storageLocal) {
     return {
       async load() {
         return null;
       },
-      async save() {}
+      async save() {},
     };
   }
 
   return {
     async load() {
-      const record = await storageLocal.get(STORAGE_KEY);
-      return record?.[STORAGE_KEY] ?? null;
+      const record = await storageLocal.get(storageKey);
+      return record?.[storageKey] ?? null;
     },
     async save(persistedSession) {
       await storageLocal.set({
-        [STORAGE_KEY]: persistedSession
+        [storageKey]: persistedSession,
       });
-    }
+    },
   };
 }
 
