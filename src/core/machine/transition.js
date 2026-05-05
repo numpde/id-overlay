@@ -50,7 +50,6 @@ import {
   createTransitionResult,
   finalizeTransitionResult,
 } from "./transition-result.js";
-import { completePasteRead } from "./paste-outcome.js";
 
 export function transitionMachine(state = createInitialMachineState(), event = {}) {
   const currentState = normalizeMachineState(state);
@@ -129,8 +128,6 @@ function transitionSemantic(state, event) {
       return reportStatusNotice(state, event);
     case MACHINE_EVENT_KIND.CLEAR_STATUS_NOTICE:
       return clearStatusNotice(state, event);
-    case MACHINE_EVENT_KIND.COMPLETE_PASTE_READ:
-      return completePasteRead(state, event);
     default:
       return createTransitionResult({
         state,

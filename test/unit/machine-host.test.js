@@ -97,7 +97,7 @@ test("machine host persists durable session after state changes only", () => {
   });
 });
 
-test("machine host routes paste effects back through canonical events", async () => {
+test("machine host routes paste effects back through typed effect results", async () => {
   const host = createMachineHost({
     readPasteImage: () => IMAGE,
   });

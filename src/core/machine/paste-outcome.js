@@ -14,14 +14,14 @@ import { loadImage } from "./session-transition.js";
 import { createTransitionResult } from "./transition-result.js";
 import { createPlacementTransform } from "../transform.js";
 
-export function completePasteRead(state, event) {
-  // TODO(smell): Paste completion is modeled as an external machine event whose
-  // outcome is still status/load-image-shaped. The final effect result should be
-  // a typed paste fact interpreted here into private image/status transitions.
-  if (!isCurrentPasteRequest(state, event) || !isKnownPasteSource(event.source)) {
+export function completePasteRead(state, result) {
+  // TODO(smell): Paste completion now enters as a typed effect result, but its
+  // outcome is still the legacy image/status union. Collapse that next so paste
+  // interpretation starts from clipboard facts, page facts, and machine policy.
+  if (!isCurrentPasteRequest(state, result) || !isKnownPasteSource(result.source)) {
     return createTransitionResult({ state });
   }
-  const outcome = normalizePasteReadOutcome(event.outcome);
+  const outcome = normalizePasteReadOutcome(result.outcome);
   if (!outcome) {
     return createTransitionResult({ state });
   }
@@ -32,7 +32,7 @@ export function completePasteRead(state, event) {
     return loadImage(state, {
       image: outcome.image,
       placement: outcome.placement,
-      requestId: event.requestId,
+      requestId: result.requestId,
     });
   }
   if (!outcome.noticeKind) {
@@ -42,11 +42,11 @@ export function completePasteRead(state, event) {
     noticeKind: outcome.noticeKind,
     noticePayload: outcome.noticePayload,
   };
-  if (event.source !== MACHINE_PASTE_SOURCE.MANUAL_PASTE) {
+  if (result.source !== MACHINE_PASTE_SOURCE.MANUAL_PASTE) {
     return reportStatusNotice(state, statusEvent);
   }
   return cancelPanelIntent(state, {
-    requestId: event.requestId,
+    requestId: result.requestId,
     ...statusEvent,
   });
 }

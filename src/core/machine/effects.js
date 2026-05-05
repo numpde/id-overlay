@@ -1,7 +1,6 @@
 export const MACHINE_EFFECT_KIND = Object.freeze({
-  // TODO(smell): Effect vocabulary mixes requested side effects with future
-  // completion channels handled as public machine events. The final host/effect
-  // contract should define typed effect results beside each effect request.
+  // TODO(smell): Timer completions still return through host-authored machine
+  // commands. Give timer effects typed result facts beside paste results.
   READ_PASTE_IMAGE: "read-paste-image",
   START_MANUAL_PASTE_CAPTURE: "start-manual-paste-capture",
   CANCEL_MANUAL_PASTE_CAPTURE: "cancel-manual-paste-capture",

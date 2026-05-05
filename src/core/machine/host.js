@@ -7,6 +7,7 @@ import {
   createCancelPanelIntentEvent,
 } from "./events.js";
 import { createMachineEffectRunner } from "./effect-runner.js";
+import { transitionMachineEffectResult } from "./effect-result-transition.js";
 import {
   MACHINE_PANEL_PRIMARY_ACTION_KIND,
   selectPanelPrimaryAction,
@@ -56,7 +57,7 @@ export function createMachineHost({
     cancelPanelTimeout,
     startStatusTimeout,
     cancelStatusTimeout,
-    dispatch: (event) => dispatch(event),
+    completeEffect: ingestEffectResult,
     onError: reportError,
   });
 
@@ -96,6 +97,15 @@ export function createMachineHost({
     }
     const result = runtime.dispatch(event);
     return result;
+  }
+
+  function ingestEffectResult(result) {
+    if (destroyed) {
+      return createDestroyedDispatchResult(runtime.getState());
+    }
+    return runtime.dispatch(result, {
+      transition: transitionMachineEffectResult,
+    });
   }
 
   function activatePanelPrimary() {

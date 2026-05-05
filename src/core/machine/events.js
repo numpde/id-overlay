@@ -33,7 +33,6 @@ export const MACHINE_EVENT_KIND = Object.freeze({
   CANCEL_PANEL_INTENT: "cancel-panel-intent",
   REPORT_STATUS_NOTICE: "report-status-notice",
   CLEAR_STATUS_NOTICE: "clear-status-notice",
-  COMPLETE_PASTE_READ: "complete-paste-read",
 });
 
 export const MACHINE_MODE = SESSION_MODE;
@@ -135,18 +134,5 @@ export function createReportStatusNoticeEvent({
     type: MACHINE_EVENT_KIND.REPORT_STATUS_NOTICE,
     noticeKind,
     noticePayload,
-  };
-}
-
-export function createCompletePasteReadEvent({
-  requestId = null,
-  source,
-  outcome = null,
-} = {}) {
-  return {
-    type: MACHINE_EVENT_KIND.COMPLETE_PASTE_READ,
-    requestId,
-    source,
-    outcome,
   };
 }

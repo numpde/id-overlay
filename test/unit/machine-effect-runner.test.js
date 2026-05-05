@@ -7,7 +7,6 @@ import {
   MACHINE_PASTE_SOURCE,
   MACHINE_STATUS_NOTICE_KIND,
   createCancelPanelIntentEvent,
-  createCompletePasteReadEvent,
   createLoadImageEvent,
   createReportStatusNoticeEvent,
 } from "../../src/core/machine/events.js";
@@ -21,16 +20,13 @@ import {
   createInitialMachineState,
 } from "../../src/core/machine/state.js";
 
-// TODO(smell): Effect-runner tests assert completion by public machine event
-// constructors. Replace those expectations with typed effect-result delivery
-// once effect completions are no longer part of the public event vocabulary.
 const IMAGE = Object.freeze({
   src: "data:image/png;base64,abc",
   width: 800,
   height: 400,
 });
 
-test("event constructors centralize effect-runner outcome event shapes", () => {
+test("constructors centralize effect-runner request and result shapes", () => {
   assert.deepEqual(createLoadImageEvent({
     image: IMAGE,
     requestId: 7,
@@ -53,16 +49,6 @@ test("event constructors centralize effect-runner outcome event shapes", () => {
     noticeKind: MACHINE_STATUS_NOTICE_KIND.CLIPBOARD_MISSING_IMAGE,
     noticePayload: null,
   });
-  assert.deepEqual(createCompletePasteReadEvent({
-    requestId: 7,
-    source: MACHINE_PASTE_SOURCE.CLIPBOARD_API,
-    outcome: IMAGE,
-  }), {
-    type: MACHINE_EVENT_KIND.COMPLETE_PASTE_READ,
-    requestId: 7,
-    source: MACHINE_PASTE_SOURCE.CLIPBOARD_API,
-    outcome: IMAGE,
-  });
   assert.deepEqual(createReadPasteImageResult({
     requestId: 7,
     source: MACHINE_PASTE_SOURCE.CLIPBOARD_API,
@@ -81,7 +67,7 @@ test("machine effect runner ignores unknown effects", async () => {
     readPasteImage: () => calls.push("paste"),
     startPanelTimeout: () => calls.push("start"),
     cancelPanelTimeout: () => calls.push("cancel"),
-    dispatch: (event) => calls.push(event),
+    completeEffect: (result) => calls.push(result),
     getState: createIdleState,
   });
 
@@ -155,7 +141,7 @@ test("manual-paste capture effects delegate request id through the effect runner
   assert.deepEqual(calls[1], ["cancel", { requestId: 7, context }]);
 });
 
-test("read-paste-image delegates request id and dispatches clipboard-api completion", async () => {
+test("read-paste-image delegates request id and completes with a clipboard-api result", async () => {
   const calls = [];
   const context = createContext();
   const runEffect = createMachineEffectRunner({
@@ -163,7 +149,7 @@ test("read-paste-image delegates request id and dispatches clipboard-api complet
       calls.push(["read", payload]);
       return IMAGE;
     },
-    dispatch: (event) => calls.push(["dispatch", event]),
+    completeEffect: (result) => calls.push(["complete", result]),
     getState: createPasteState(7),
   });
 
@@ -174,8 +160,8 @@ test("read-paste-image delegates request id and dispatches clipboard-api complet
 
   assert.deepEqual(calls, [
     ["read", { requestId: 7, context }],
-    ["dispatch", {
-      type: MACHINE_EVENT_KIND.COMPLETE_PASTE_READ,
+    ["complete", {
+      kind: MACHINE_EFFECT_RESULT_KIND.READ_PASTE_IMAGE,
       requestId: 7,
       source: MACHINE_PASTE_SOURCE.CLIPBOARD_API,
       outcome: IMAGE,
@@ -183,14 +169,14 @@ test("read-paste-image delegates request id and dispatches clipboard-api complet
   ]);
 });
 
-test("manual-paste outcome dispatches manual-paste completion", async () => {
+test("manual-paste outcome completes with a manual-paste result", async () => {
   const calls = [];
   let onPasteOutcome;
   const runEffect = createMachineEffectRunner({
     startManualPasteCapture: ({ onPasteOutcome: handler }) => {
       onPasteOutcome = handler;
     },
-    dispatch: (event) => calls.push(event),
+    completeEffect: (result) => calls.push(result),
     getState: createPasteState(7),
   });
 
@@ -204,7 +190,7 @@ test("manual-paste outcome dispatches manual-paste completion", async () => {
   });
 
   assert.deepEqual(calls, [{
-    type: MACHINE_EVENT_KIND.COMPLETE_PASTE_READ,
+    kind: MACHINE_EFFECT_RESULT_KIND.READ_PASTE_IMAGE,
     requestId: 7,
     source: MACHINE_PASTE_SOURCE.MANUAL_PASTE,
     outcome: {
@@ -214,14 +200,14 @@ test("manual-paste outcome dispatches manual-paste completion", async () => {
   }]);
 });
 
-test("manual-paste feedback dispatches manual-paste completion", async () => {
+test("manual-paste feedback completes with a manual-paste result", async () => {
   const calls = [];
   let onPasteOutcome;
   const runEffect = createMachineEffectRunner({
     startManualPasteCapture: ({ onPasteOutcome: handler }) => {
       onPasteOutcome = handler;
     },
-    dispatch: (event) => calls.push(event),
+    completeEffect: (result) => calls.push(result),
     getState: createPasteState(7),
   });
 
@@ -234,7 +220,7 @@ test("manual-paste feedback dispatches manual-paste completion", async () => {
   });
 
   assert.deepEqual(calls, [{
-    type: MACHINE_EVENT_KIND.COMPLETE_PASTE_READ,
+    kind: MACHINE_EFFECT_RESULT_KIND.READ_PASTE_IMAGE,
     requestId: 7,
     source: MACHINE_PASTE_SOURCE.MANUAL_PASTE,
     outcome: {
@@ -243,14 +229,14 @@ test("manual-paste feedback dispatches manual-paste completion", async () => {
   }]);
 });
 
-test("manual-paste outcome dispatches completion even when request may be stale", async () => {
+test("manual-paste outcome completes even when request may be stale", async () => {
   const calls = [];
   let onPasteOutcome;
   const runEffect = createMachineEffectRunner({
     startManualPasteCapture: ({ onPasteOutcome: handler }) => {
       onPasteOutcome = handler;
     },
-    dispatch: (event) => calls.push(event),
+    completeEffect: (result) => calls.push(result),
     getState: createPasteState(8),
   });
 
@@ -261,7 +247,7 @@ test("manual-paste outcome dispatches completion even when request may be stale"
   onPasteOutcome(IMAGE);
 
   assert.deepEqual(calls, [{
-    type: MACHINE_EVENT_KIND.COMPLETE_PASTE_READ,
+    kind: MACHINE_EFFECT_RESULT_KIND.READ_PASTE_IMAGE,
     requestId: 7,
     source: MACHINE_PASTE_SOURCE.MANUAL_PASTE,
     outcome: IMAGE,
@@ -292,10 +278,10 @@ test("status-timeout effects delegate request id through the effect runner", asy
   ]);
 });
 
-test("read-paste-image dispatches nothing when no paste adapter is installed", async () => {
+test("read-paste-image completes nothing when no paste adapter is installed", async () => {
   const calls = [];
   const runEffect = createMachineEffectRunner({
-    dispatch: (event) => calls.push(event),
+    completeEffect: (result) => calls.push(result),
     getState: createPasteState(7),
   });
 
@@ -307,11 +293,11 @@ test("read-paste-image dispatches nothing when no paste adapter is installed", a
   assert.deepEqual(calls, []);
 });
 
-test("read-paste-image dispatches completion even when request may be stale", async () => {
+test("read-paste-image completes even when request may be stale", async () => {
   const calls = [];
   const runEffect = createMachineEffectRunner({
     readPasteImage: () => IMAGE,
-    dispatch: (event) => calls.push(event),
+    completeEffect: (result) => calls.push(result),
     getState: createPasteState(8),
   });
 
@@ -321,7 +307,7 @@ test("read-paste-image dispatches completion even when request may be stale", as
   }, createContext());
 
   assert.deepEqual(calls, [{
-    type: MACHINE_EVENT_KIND.COMPLETE_PASTE_READ,
+    kind: MACHINE_EFFECT_RESULT_KIND.READ_PASTE_IMAGE,
     requestId: 7,
     source: MACHINE_PASTE_SOURCE.CLIPBOARD_API,
     outcome: IMAGE,
@@ -332,7 +318,7 @@ test("read-paste-image reports null clipboard-api completion for manual paste fa
   const calls = [];
   const runEffect = createMachineEffectRunner({
     readPasteImage: () => null,
-    dispatch: (event) => calls.push(event),
+    completeEffect: (result) => calls.push(result),
     getState: createPasteState(7),
   });
 
@@ -342,7 +328,7 @@ test("read-paste-image reports null clipboard-api completion for manual paste fa
   }, createContext());
 
   assert.deepEqual(calls, [{
-    type: MACHINE_EVENT_KIND.COMPLETE_PASTE_READ,
+    kind: MACHINE_EFFECT_RESULT_KIND.READ_PASTE_IMAGE,
     requestId: 7,
     source: MACHINE_PASTE_SOURCE.CLIPBOARD_API,
     outcome: null,
@@ -353,7 +339,7 @@ test("read-paste-image reports null completion even when request may be stale", 
   const calls = [];
   const runEffect = createMachineEffectRunner({
     readPasteImage: () => null,
-    dispatch: (event) => calls.push(event),
+    completeEffect: (result) => calls.push(result),
     getState: createPasteState(8),
   });
 
@@ -363,20 +349,20 @@ test("read-paste-image reports null completion even when request may be stale", 
   }, createContext());
 
   assert.deepEqual(calls, [{
-    type: MACHINE_EVENT_KIND.COMPLETE_PASTE_READ,
+    kind: MACHINE_EFFECT_RESULT_KIND.READ_PASTE_IMAGE,
     requestId: 7,
     source: MACHINE_PASTE_SOURCE.CLIPBOARD_API,
     outcome: null,
   }]);
 });
 
-test("read-paste-image dispatches explicit status outcomes as clipboard-api completion", async () => {
+test("read-paste-image completes explicit status outcomes as clipboard-api results", async () => {
   const calls = [];
   const runEffect = createMachineEffectRunner({
     readPasteImage: () => ({
       noticeKind: MACHINE_STATUS_NOTICE_KIND.CLIPBOARD_MISSING_IMAGE,
     }),
-    dispatch: (event) => calls.push(event),
+    completeEffect: (result) => calls.push(result),
     getState: createPasteState(7),
   });
 
@@ -386,7 +372,7 @@ test("read-paste-image dispatches explicit status outcomes as clipboard-api comp
   }, createContext());
 
   assert.deepEqual(calls, [{
-    type: MACHINE_EVENT_KIND.COMPLETE_PASTE_READ,
+    kind: MACHINE_EFFECT_RESULT_KIND.READ_PASTE_IMAGE,
     requestId: 7,
     source: MACHINE_PASTE_SOURCE.CLIPBOARD_API,
     outcome: {

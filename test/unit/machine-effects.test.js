@@ -9,7 +9,10 @@ import {
   MACHINE_PASTE_SOURCE,
   MACHINE_STATUS_NOTICE_KIND,
 } from "../../src/core/machine/events.js";
-import { MACHINE_EFFECT_KIND } from "../../src/core/machine/effects.js";
+import {
+  MACHINE_EFFECT_KIND,
+  createReadPasteImageResult,
+} from "../../src/core/machine/effects.js";
 import {
   createIdlePanel,
   createInitialMachineState,
@@ -17,11 +20,12 @@ import {
   normalizePanel,
   replacePanel,
 } from "../../src/core/machine/state.js";
+import { transitionMachineEffectResult } from "../../src/core/machine/effect-result-transition.js";
 import { transitionMachine } from "../../src/core/machine/transition.js";
 
-// TODO(smell): These tests couple panel/paste/status effects to raw request,
-// cancel, load, clear, and completion events. Reframe them around public
-// user/fact ingress plus private effect-result semantics after the cut-over.
+// TODO(smell): These tests still couple panel/status effects to raw request,
+// cancel, load, and clear events. Reframe them around public user/fact ingress
+// plus private effect-result semantics after the remaining timer cut-over.
 const IMAGE = Object.freeze({
   src: "data:image/png;base64,abc",
   width: 800,
@@ -320,75 +324,71 @@ test("stale request-bound image load is a pure no-op", () => {
   assert.equal(result.historyRecord, null);
 });
 
-test("stale paste completion is a pure no-op", () => {
+test("stale paste effect result is a pure no-op", () => {
   const state = transitionMachine(createInitialMachineState(), {
     type: MACHINE_EVENT_KIND.REQUEST_PANEL_INTENT,
     intent: MACHINE_PANEL_INTENT.PASTE_ARMED,
   }).state;
 
-  const result = transitionMachine(state, {
-    type: MACHINE_EVENT_KIND.COMPLETE_PASTE_READ,
+  const result = transitionMachineEffectResult(state, createReadPasteImageResult({
     source: MACHINE_PASTE_SOURCE.CLIPBOARD_API,
     outcome: IMAGE,
     requestId: state.panel.requestId + 1,
-  });
+  }));
 
   assert.deepEqual(result.state, state);
   assert.deepEqual(result.effects, []);
   assert.equal(result.historyRecord, null);
 });
 
-test("paste completion with unknown source is a pure no-op", () => {
+test("paste effect result with unknown source is a pure no-op", () => {
   const state = transitionMachine(createInitialMachineState(), {
     type: MACHINE_EVENT_KIND.REQUEST_PANEL_INTENT,
     intent: MACHINE_PANEL_INTENT.PASTE_ARMED,
   }).state;
 
-  const result = transitionMachine(state, {
-    type: MACHINE_EVENT_KIND.COMPLETE_PASTE_READ,
+  const result = transitionMachineEffectResult(state, createReadPasteImageResult({
     source: "unknown",
     outcome: IMAGE,
     requestId: state.panel.requestId,
-  });
+  }));
 
   assert.deepEqual(result.state, state);
   assert.deepEqual(result.effects, []);
   assert.equal(result.historyRecord, null);
 });
 
-test("null paste completion keeps paste armed for manual paste fallback", () => {
+test("null paste effect result keeps paste armed for manual paste fallback", () => {
   const state = transitionMachine(createInitialMachineState(), {
     type: MACHINE_EVENT_KIND.REQUEST_PANEL_INTENT,
     intent: MACHINE_PANEL_INTENT.PASTE_ARMED,
   }).state;
 
-  const result = transitionMachine(state, {
-    type: MACHINE_EVENT_KIND.COMPLETE_PASTE_READ,
+  const result = transitionMachineEffectResult(state, createReadPasteImageResult({
     source: MACHINE_PASTE_SOURCE.CLIPBOARD_API,
     outcome: null,
     requestId: state.panel.requestId,
-  });
+  }));
 
   assert.deepEqual(result.state, state);
   assert.deepEqual(result.effects, []);
   assert.equal(result.historyRecord, null);
 });
 
-test("paste completion with image loads image through canonical session transition", () => {
+test("paste effect result with image loads image through canonical session transition", () => {
   const state = transitionMachine(createInitialMachineState(), {
     type: MACHINE_EVENT_KIND.REQUEST_PANEL_INTENT,
     intent: MACHINE_PANEL_INTENT.PASTE_ARMED,
   }).state;
 
-  const result = transitionMachine(state, {
-    type: MACHINE_EVENT_KIND.COMPLETE_PASTE_READ,
+  const result = transitionMachineEffectResult(state, createReadPasteImageResult({
     source: MACHINE_PASTE_SOURCE.CLIPBOARD_API,
     outcome: {
       image: IMAGE,
       placement: PLACEMENT,
     },
     requestId: state.panel.requestId,
-  });
+  }));
 
   assert.equal(result.state.session.mode, MACHINE_MODE.ALIGN);
   assert.deepEqual(result.state.panel, createIdlePanel());
@@ -415,14 +415,13 @@ test("clipboard-api paste status keeps paste armed", () => {
     intent: MACHINE_PANEL_INTENT.PASTE_ARMED,
   }).state;
 
-  const result = transitionMachine(state, {
-    type: MACHINE_EVENT_KIND.COMPLETE_PASTE_READ,
+  const result = transitionMachineEffectResult(state, createReadPasteImageResult({
     source: MACHINE_PASTE_SOURCE.CLIPBOARD_API,
     outcome: {
       noticeKind: MACHINE_STATUS_NOTICE_KIND.CLIPBOARD_MISSING_IMAGE,
     },
     requestId: state.panel.requestId,
-  });
+  }));
 
   assert.equal(result.state.panel.intent, MACHINE_PANEL_INTENT.PASTE_ARMED);
   assert.equal(result.state.status.notice.kind, MACHINE_STATUS_NOTICE_KIND.CLIPBOARD_MISSING_IMAGE);
@@ -439,14 +438,13 @@ test("manual paste status cancels paste before reporting status", () => {
     intent: MACHINE_PANEL_INTENT.PASTE_ARMED,
   }).state;
 
-  const result = transitionMachine(state, {
-    type: MACHINE_EVENT_KIND.COMPLETE_PASTE_READ,
+  const result = transitionMachineEffectResult(state, createReadPasteImageResult({
     source: MACHINE_PASTE_SOURCE.MANUAL_PASTE,
     outcome: {
       noticeKind: MACHINE_STATUS_NOTICE_KIND.CLIPBOARD_MISSING_IMAGE,
     },
     requestId: state.panel.requestId,
-  });
+  }));
 
   assert.deepEqual(result.state.panel, createIdlePanel());
   assert.equal(result.state.status.notice.kind, MACHINE_STATUS_NOTICE_KIND.CLIPBOARD_MISSING_IMAGE);
