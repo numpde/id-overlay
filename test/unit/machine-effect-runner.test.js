@@ -6,12 +6,6 @@ import {
   MACHINE_PASTE_SOURCE,
 } from "../../src/core/machine/events.js";
 import {
-  MACHINE_COMMAND_KIND,
-  createCancelPanelIntentCommand,
-  createLoadImageCommand,
-  createReportStatusNoticeCommand,
-} from "../../src/core/machine/private-commands.js";
-import {
   MACHINE_EFFECT_KIND,
   MACHINE_EFFECT_RESULT_KIND,
   createPanelTimeoutElapsedResult,
@@ -31,29 +25,7 @@ const IMAGE = Object.freeze({
 
 const CLIPBOARD_MISSING_IMAGE_NOTICE = "clipboard-missing-image";
 
-test("constructors centralize effect-runner request and result shapes", () => {
-  assert.deepEqual(createLoadImageCommand({
-    image: IMAGE,
-    requestId: 7,
-  }), {
-    type: MACHINE_COMMAND_KIND.LOAD_IMAGE,
-    image: IMAGE,
-    placement: null,
-    requestId: 7,
-  });
-  assert.deepEqual(createCancelPanelIntentCommand({ requestId: 7 }), {
-    type: MACHINE_COMMAND_KIND.CANCEL_PANEL_INTENT,
-    requestId: 7,
-    noticeKind: null,
-    noticePayload: null,
-  });
-  assert.deepEqual(createReportStatusNoticeCommand({
-    noticeKind: CLIPBOARD_MISSING_IMAGE_NOTICE,
-  }), {
-    type: MACHINE_COMMAND_KIND.REPORT_STATUS_NOTICE,
-    noticeKind: CLIPBOARD_MISSING_IMAGE_NOTICE,
-    noticePayload: null,
-  });
+test("constructors centralize effect-runner result shapes", () => {
   assert.deepEqual(createReadPasteImageResult({
     requestId: 7,
     source: MACHINE_PASTE_SOURCE.CLIPBOARD_API,
