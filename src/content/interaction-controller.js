@@ -1,20 +1,17 @@
 import { createLogger } from "../core/logger.js";
 import { createRuntimeError, RUNTIME_ERROR_SOURCE } from "../core/runtime-error.js";
 import {
-  MACHINE_INPUT_OVERRIDE,
   MACHINE_EVENT_KIND,
   MACHINE_STATUS_NOTICE_KIND,
 } from "../core/machine/events.js";
 import {
-  selectIsInputPassThroughActive,
   selectIsRuntimeDragging,
-  selectRuntimeGestureKind,
-  selectRuntimePointerScreenPx,
 } from "../core/machine/selectors.js";
 import { createAdapterDragController } from "./interactions/adapter-drag.js";
 import { createPinToggleCommand } from "./interactions/pin-toggle-command.js";
 import { createWheelCommand } from "./interactions/wheel-command.js";
 import { createKeyboardInputRouter } from "./interactions/keyboard-router.js";
+import { createInteractionRuntimeBridge } from "./interactions/runtime-bridge.js";
 
 export function createInteractionController({
   machineHost,
@@ -22,11 +19,10 @@ export function createInteractionController({
   keyTarget = globalThis.window,
   keyboardGateway = null,
 }) {
-  // TODO(smell): This shell is still the widest live interaction boundary:
-  // runtime sync/reset, error reporting, and command wiring still meet here.
-  // Split those ownership seams before adding another command family.
+  // TODO(smell): This shell still owns error reporting and command composition.
+  // Extract the runtime error boundary next, then collapse this into a thin
+  // interactions composition module.
   const logger = createLogger("interactions");
-  let observedRuntime = machineHost.getState().runtime;
   const adapterDrag = createAdapterDragController({
     pageAdapter,
     getMachineState,
@@ -44,11 +40,10 @@ export function createInteractionController({
     dispatchMachine,
   });
 
-  const unsubscribeMachine = machineHost.subscribe((state) => {
-    const previousRuntime = observedRuntime;
-    observedRuntime = state.runtime;
-    syncAdapterDragFromRuntimeChange(previousRuntime, state.runtime);
-  }, { emitCurrent: false });
+  const runtimeBridge = createInteractionRuntimeBridge({
+    machineHost,
+    adapterDrag,
+  });
   const keyboardRouter = createKeyboardInputRouter({
     keyTarget,
     keyboardGateway,
@@ -57,38 +52,27 @@ export function createInteractionController({
     getPointerScreenPx,
     executePinToggleAtScreenPoint,
     applyMode,
-    setPassThrough,
-    resetInteractionState,
+    setPassThrough: runtimeBridge.setPassThrough,
+    resetInteractionState: runtimeBridge.reset,
     logger,
   });
 
   function destroy() {
-    unsubscribeMachine();
+    runtimeBridge.destroy();
     keyboardRouter.destroy();
   }
 
   function subscribe(listener, options) {
-    const { emitCurrent = true } = options ?? {};
-    let previousRuntime = getRuntimeState();
-    if (emitCurrent) {
-      listener(previousRuntime);
-    }
-    return machineHost.subscribe((state) => {
-      const nextRuntime = state.runtime;
-      if (!areInputRuntimesEqual(previousRuntime, nextRuntime)) {
-        previousRuntime = nextRuntime;
-        listener(nextRuntime);
-      }
-    }, { emitCurrent: false });
+    return runtimeBridge.subscribe(listener, options);
   }
 
   function getRuntimeState() {
-    return getMachineState().runtime;
+    return runtimeBridge.getRuntimeState();
   }
 
   function applyMode(mode) {
     return runInteractionBoundary("apply-mode", () => {
-      resetInteractionState({
+      runtimeBridge.reset({
         pointerScreenPx: getPointerScreenPx(),
       });
       dispatchMachine({
@@ -102,7 +86,7 @@ export function createInteractionController({
 
   function handleTogglePin({ screenPoint }) {
     return runInteractionBoundary("handle-toggle-pin", () => {
-      updatePointer(screenPoint);
+      runtimeBridge.updatePointer(screenPoint);
       return executePinToggleAtScreenPoint(screenPoint);
     }, { fallbackValue: false });
   }
@@ -118,19 +102,19 @@ export function createInteractionController({
     logger.info("Toggled registration pin", {
       pinId: outcome.existingPinId,
     });
-    updatePointer(outcome.pointerScreenPx);
+    runtimeBridge.updatePointer(outcome.pointerScreenPx);
     return true;
   }
 
   function handlePointerEnter(screenPoint) {
-    updatePointer(screenPoint);
+    runtimeBridge.updatePointer(screenPoint);
   }
 
   function handlePointerLeave() {
     if (selectIsRuntimeDragging(getRuntimeState())) {
       return;
     }
-    updatePointer(null);
+    runtimeBridge.updatePointer(null);
   }
 
   function handlePointerMove(screenPoint) {
@@ -139,12 +123,12 @@ export function createInteractionController({
       const dragMode = adapterDrag.getActiveDragMode();
       if (selectIsRuntimeDragging(runtime) && dragMode) {
         adapterDrag.move(screenPoint);
-        startDragRuntime(screenPoint, {
-          dragMode,
+        runtimeBridge.beginGesture(screenPoint, {
+          gestureKind: dragMode,
         });
         return true;
       }
-      updatePointer(screenPoint);
+      runtimeBridge.updatePointer(screenPoint);
       return true;
     }, { fallbackValue: false });
   }
@@ -154,8 +138,8 @@ export function createInteractionController({
       if (!adapterDrag.begin({ button, screenPoint, dragMode })) {
         return false;
       }
-      startDragRuntime(screenPoint, {
-        dragMode,
+      runtimeBridge.beginGesture(screenPoint, {
+        gestureKind: dragMode,
       });
       return true;
     }, { fallbackValue: false });
@@ -166,14 +150,14 @@ export function createInteractionController({
       if (!adapterDrag.end(screenPoint)) {
         return false;
       }
-      endDragRuntime(screenPoint);
+      runtimeBridge.endGesture(screenPoint);
       return true;
     }, { fallbackValue: false });
   }
 
   function handlePointerCancel() {
     return runInteractionBoundary("handle-pointer-cancel", () => {
-      resetInteractionState({
+      runtimeBridge.reset({
         endPointerScreenPx: getPointerScreenPx(),
         pointerScreenPx: null,
       });
@@ -188,7 +172,7 @@ export function createInteractionController({
       if (!outcome.handled) {
         return false;
       }
-      updatePointer(outcome.pointerScreenPx);
+      runtimeBridge.updatePointer(outcome.pointerScreenPx);
       return true;
     }, { fallbackValue: false });
   }
@@ -205,35 +189,6 @@ export function createInteractionController({
     logger[level]?.(message, details);
   }
 
-  function updatePointer(pointerScreenPx) {
-    dispatchMachine({
-      type: MACHINE_EVENT_KIND.UPDATE_POINTER_RUNTIME,
-      screenPx: pointerScreenPx,
-    });
-  }
-
-  function startDragRuntime(pointerScreenPx, { dragMode }) {
-    dispatchMachine({
-      type: MACHINE_EVENT_KIND.BEGIN_POINTER_GESTURE,
-      screenPx: pointerScreenPx,
-      gestureKind: dragMode,
-    });
-  }
-
-  function endDragRuntime(pointerScreenPx) {
-    dispatchMachine({
-      type: MACHINE_EVENT_KIND.END_POINTER_GESTURE,
-      screenPx: pointerScreenPx,
-    });
-  }
-
-  function setPassThrough(isActive) {
-    dispatchMachine({
-      type: MACHINE_EVENT_KIND.SET_INPUT_OVERRIDE,
-      inputOverride: isActive ? MACHINE_INPUT_OVERRIDE.PASS_THROUGH : null,
-    });
-  }
-
   function getMachineState() {
     return machineHost.getState();
   }
@@ -243,31 +198,7 @@ export function createInteractionController({
   }
 
   function getPointerScreenPx() {
-    return selectRuntimePointerScreenPx(getRuntimeState());
-  }
-
-  function resetInteractionState({
-    endPointerScreenPx = getPointerScreenPx(),
-    pointerScreenPx = getPointerScreenPx(),
-  } = {}) {
-    adapterDrag.cancel(endPointerScreenPx, { commitPlacement: true });
-    dispatchMachine({
-      type: MACHINE_EVENT_KIND.RESET_INPUT_RUNTIME,
-      screenPx: pointerScreenPx,
-    });
-  }
-
-  function syncAdapterDragFromRuntimeChange(previousRuntime, nextRuntime) {
-    if (
-      !adapterDrag.hasActive() ||
-      !selectIsRuntimeDragging(previousRuntime) ||
-      selectIsRuntimeDragging(nextRuntime)
-    ) {
-      return;
-    }
-    adapterDrag.cancel(selectRuntimePointerScreenPx(previousRuntime), {
-      commitPlacement: false,
-    });
+    return runtimeBridge.getPointerScreenPx();
   }
 
   function reportRuntimeError({
@@ -280,7 +211,7 @@ export function createInteractionController({
     resetInteraction = true,
   } = {}) {
     if (resetInteraction) {
-      resetInteractionState({
+      runtimeBridge.reset({
         pointerScreenPx: getPointerScreenPx(),
       });
     }
@@ -340,13 +271,4 @@ export function createInteractionController({
     handleTogglePin,
     reportRuntimeError,
   };
-}
-
-function areInputRuntimesEqual(left, right) {
-  return (
-    selectRuntimePointerScreenPx(left)?.x === selectRuntimePointerScreenPx(right)?.x &&
-    selectRuntimePointerScreenPx(left)?.y === selectRuntimePointerScreenPx(right)?.y &&
-    selectRuntimeGestureKind(left) === selectRuntimeGestureKind(right) &&
-    selectIsInputPassThroughActive(left) === selectIsInputPassThroughActive(right)
-  );
 }
