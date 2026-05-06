@@ -496,6 +496,25 @@ test("overlay input router delegates mounted input policy dispatch", () => {
   assert.deepEqual(violations, []);
 });
 
+test("overlay input router delegates global pointer dispatch", () => {
+  const source = fs.readFileSync(repoPath("src/content/overlay/input-router.js"), "utf8");
+  const forbiddenPatterns = [
+    ["runtime drag selector", /\bselectIsRuntimeDragging\b/],
+    ["global pointer sequence advance", /\badvanceGlobalPointerMove\b/],
+    ["pending pointerup consumption", /\bconsumePendingPointerUp\b/],
+    ["direct global pointer move dispatch", /\boverlayInteractions\.handlePointerMove\b/],
+    ["direct global pointer up dispatch", /\boverlayInteractions\.handlePointerUp\b/],
+    ["direct global pointer cancel dispatch", /\boverlayInteractions\.handlePointerCancel\b/],
+    ["direct global listener policy", /\bpointerSequenceRouter\.shouldListenGlobally\b/],
+  ];
+  const violations = forbiddenPatterns
+    .filter(([, pattern]) => pattern.test(source))
+    .map(([name]) => name);
+
+  assert.match(source, /global-pointer-dispatcher\.js/);
+  assert.deepEqual(violations, []);
+});
+
 test("overlay input projector exposes mounted decisions explicitly", () => {
   const source = fs.readFileSync(repoPath("src/content/overlay/input-projector.js"), "utf8");
   const forbiddenPatterns = [

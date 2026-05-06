@@ -1,7 +1,7 @@
-import {
-  selectIsRuntimeDragging,
-} from "../../core/machine/selectors.js";
 import { createOverlayEventBoundary } from "./event-boundary.js";
+import {
+  createOverlayGlobalPointerDispatcher,
+} from "./global-pointer-dispatcher.js";
 import { createOverlayInputHost } from "./input-host.js";
 import { createOverlayInputProjector } from "./input-projector.js";
 import {
@@ -18,9 +18,6 @@ export function createOverlayInputRouter({
   getOverlayInputContext,
   getMountElement,
 }) {
-  // TODO(smell): This router still owns global pointer gesture dispatch beside
-  // listener wiring. Mounted policy dispatch, event recovery, input projection,
-  // and pending sequence state now live behind narrow seams.
   let isDestroyed = false;
   const pointerSequenceRouter = createOverlayPointerSequenceRouter({
     onChange: syncGlobalPointerListeners,
@@ -42,6 +39,14 @@ export function createOverlayInputRouter({
     getRuntimeState,
     pointerSequenceRouter,
     consumeOverlayEvent: (event) => eventBoundary.consumeOverlayEvent(event),
+  });
+  const globalPointerDispatcher = createOverlayGlobalPointerDispatcher({
+    overlayInteractions,
+    inputProjector,
+    getRuntimeState,
+    pointerSequenceRouter,
+    consumeOverlayEvent: (event) => eventBoundary.consumeOverlayEvent(event),
+    syncGlobalPointerListeners,
   });
   const inputHost = createOverlayInputHost({
     getMountElement,
@@ -131,16 +136,7 @@ export function createOverlayInputRouter({
       if (eventBoundary.isForwardedMapGestureEvent(event)) {
         return;
       }
-      const screenPoint = inputProjector.screenPointFromEvent(event);
-      if (!pointerSequenceRouter.advanceGlobalPointerMove({ event, screenPoint })) {
-        return;
-      }
-      if (!selectIsRuntimeDragging(getRuntimeState())) {
-        syncGlobalPointerListeners();
-        return;
-      }
-      overlayInteractions.handlePointerMove(screenPoint);
-      eventBoundary.consumeOverlayEvent(event);
+      globalPointerDispatcher.handlePointerMove(event);
     });
   }
 
@@ -149,15 +145,7 @@ export function createOverlayInputRouter({
       if (eventBoundary.isForwardedMapGestureEvent(event)) {
         return;
       }
-      if (pointerSequenceRouter.consumePendingPointerUp(event)) {
-        return;
-      }
-      if (!selectIsRuntimeDragging(getRuntimeState())) {
-        syncGlobalPointerListeners();
-        return;
-      }
-      overlayInteractions.handlePointerUp(inputProjector.screenPointFromEvent(event));
-      eventBoundary.consumeOverlayEvent(event);
+      globalPointerDispatcher.handlePointerUp(event);
     });
   }
 
@@ -166,9 +154,7 @@ export function createOverlayInputRouter({
       if (eventBoundary.isForwardedMapGestureEvent(event)) {
         return;
       }
-      pointerSequenceRouter.clear();
-      overlayInteractions.handlePointerCancel();
-      eventBoundary.consumeOverlayEvent(event);
+      globalPointerDispatcher.handlePointerCancel(event);
     });
   }
 
@@ -176,8 +162,6 @@ export function createOverlayInputRouter({
     if (isDestroyed) {
       return;
     }
-    inputHost.syncGlobalPointerListeners(pointerSequenceRouter.shouldListenGlobally({
-      hasActiveGesture: selectIsRuntimeDragging(getRuntimeState()),
-    }));
+    inputHost.syncGlobalPointerListeners(globalPointerDispatcher.shouldListenGlobally());
   }
 }
