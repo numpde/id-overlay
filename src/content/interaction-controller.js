@@ -1,6 +1,5 @@
 import { createLogger } from "../core/logger.js";
 import { createAdapterDragController } from "./interactions/adapter-drag.js";
-import { createModeInteraction } from "./interactions/mode-interaction.js";
 import { createPinToggleInteraction } from "./interactions/pin-toggle-interaction.js";
 import { createPointerInteraction } from "./interactions/pointer-interaction.js";
 import { createWheelInteraction } from "./interactions/wheel-interaction.js";
@@ -40,11 +39,6 @@ export function createInteractionController({
     resetInteraction: resetRuntimeAfterError,
     logger,
   });
-  const modeInteraction = createModeInteraction({
-    selectMode: machineActions.selectMode,
-    errorBoundary,
-    logger,
-  });
   const pinToggleInteraction = createPinToggleInteraction({
     pageObservation,
     pageProjection,
@@ -75,7 +69,7 @@ export function createInteractionController({
     getRuntimeState,
     getPointerScreenPx,
     executePinToggleAtScreenPoint: pinToggleInteraction.toggleAtScreenPoint,
-    applyMode: modeInteraction.select,
+    selectMode: machineActions.selectMode,
     observePassThroughPress: runtimeBridge.observePassThroughPress,
     observePassThroughRelease: runtimeBridge.observePassThroughRelease,
     resetRuntimeObservation: runtimeBridge.reset,

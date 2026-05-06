@@ -116,7 +116,7 @@ function createKeyboardRouterHarness({
       calls.pinToggles.push(screenPoint);
       return true;
     },
-    applyMode(mode) {
+    selectMode(mode) {
       calls.modes.push(mode);
       return true;
     },

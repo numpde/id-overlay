@@ -11,7 +11,7 @@ export function createKeyboardInputRouter({
   getRuntimeState,
   getPointerScreenPx,
   executePinToggleAtScreenPoint,
-  applyMode,
+  selectMode,
   observePassThroughPress,
   observePassThroughRelease,
   resetRuntimeObservation,
@@ -77,7 +77,7 @@ export function createKeyboardInputRouter({
 
     if (shortcutAction === KEYBOARD_SHORTCUT_ACTION.SWITCH_TO_TRACE) {
       logger.info("Keyboard trace escape requested");
-      applyMode(SESSION_MODE.TRACE);
+      selectMode(SESSION_MODE.TRACE);
       return;
     }
 
