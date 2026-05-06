@@ -6,9 +6,6 @@ import {
   MACHINE_INPUT_OVERRIDE,
 } from "../../src/core/machine/events.js";
 import { createMachineHost } from "../../src/core/machine/host.js";
-import {
-  createInputInterruptedFact,
-} from "../../src/core/machine/runtime-facts.js";
 import { createInteractionRuntimeBridge } from "../../src/content/interactions/runtime-bridge.js";
 
 test("interaction runtime bridge reports runtime facts through the action port", () => {
@@ -36,19 +33,12 @@ test("interaction runtime bridge reports runtime facts through the action port",
   bridge.destroy();
 });
 
-test("interaction runtime bridge reset cancels adapter drag and resets machine runtime", () => {
-  const { bridge, adapterDrag, machineHost } = createRuntimeBridgeHarness();
+test("interaction runtime bridge reports input interruption facts without adapter ownership", () => {
+  const { bridge, machineHost } = createRuntimeBridgeHarness();
 
   bridge.observeGestureStart({ x: 10, y: 20 }, { gestureKind: DRAG_MODE.MOVE_OVERLAY });
-  bridge.reset({
-    endPointerScreenPx: { x: 30, y: 40 },
-    pointerScreenPx: null,
-  });
+  bridge.observeInputInterrupted({ pointerScreenPx: null });
 
-  assert.deepEqual(adapterDrag.cancelCalls, [{
-    screenPoint: { x: 30, y: 40 },
-    options: { commitPlacement: true },
-  }]);
   assert.equal(machineHost.getState().runtime.activeGesture, null);
   assert.equal(machineHost.getState().runtime.pointer.screenPx, null);
 
@@ -74,36 +64,6 @@ test("interaction runtime bridge subscriber emits only meaningful runtime change
   assert.equal(observedRuntime.length, 2);
 
   bridge.destroy();
-});
-
-test("interaction runtime bridge cancels active adapter drag when machine runtime ends elsewhere", () => {
-  const { bridge, adapterDrag, machineHost } = createRuntimeBridgeHarness({
-    hasActiveAdapterDrag: true,
-  });
-
-  bridge.observeGestureStart({ x: 50, y: 60 }, { gestureKind: DRAG_MODE.MAP_PAN });
-  machineHost.observeRuntimeFact(createInputInterruptedFact({
-    pointerScreenPx: { x: 70, y: 80 },
-  }));
-
-  assert.deepEqual(adapterDrag.cancelCalls, [{
-    screenPoint: { x: 50, y: 60 },
-    options: { commitPlacement: false },
-  }]);
-
-  bridge.destroy();
-});
-
-test("interaction runtime bridge destroy removes machine runtime observer", () => {
-  const { bridge, adapterDrag, machineHost } = createRuntimeBridgeHarness({
-    hasActiveAdapterDrag: true,
-  });
-
-  bridge.observeGestureStart({ x: 50, y: 60 }, { gestureKind: DRAG_MODE.MAP_PAN });
-  bridge.destroy();
-  machineHost.observeRuntimeFact(createInputInterruptedFact({ pointerScreenPx: null }));
-
-  assert.deepEqual(adapterDrag.cancelCalls, []);
 });
 
 test("interaction runtime bridge destroy removes caller runtime subscriptions", () => {
@@ -133,26 +93,13 @@ test("interaction runtime bridge subscribe after destroy is inert", () => {
   assert.deepEqual(observedRuntime, []);
 });
 
-function createRuntimeBridgeHarness({ hasActiveAdapterDrag = false } = {}) {
+function createRuntimeBridgeHarness() {
   const machineHost = createMachineHost();
-  let adapterDragActive = hasActiveAdapterDrag;
-  const adapterDrag = {
-    cancelCalls: [],
-    hasActive() {
-      return adapterDragActive;
-    },
-    cancel(screenPoint, options) {
-      this.cancelCalls.push({ screenPoint, options });
-      adapterDragActive = false;
-    },
-  };
   const bridge = createInteractionRuntimeBridge({
     machineHost,
     machineActions: createRuntimeMachineActions(machineHost),
-    adapterDrag,
   });
   return {
-    adapterDrag,
     bridge,
     machineHost,
   };

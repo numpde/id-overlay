@@ -236,6 +236,27 @@ test("input runtime is machine-owned, not an interaction-side reducer", () => {
   assert.deepEqual(violations, []);
 });
 
+test("gesture lifecycle is the only content-side coordinator of adapter drag and runtime facts", () => {
+  const checkedSources = new Map([
+    ["src/content/interactions/pointer-interaction.js", fs.readFileSync(repoPath("src/content/interactions/pointer-interaction.js"), "utf8")],
+    ["src/content/interactions/runtime-bridge.js", fs.readFileSync(repoPath("src/content/interactions/runtime-bridge.js"), "utf8")],
+  ]);
+  const forbiddenPatterns = [
+    ["adapter drag dependency", /\badapterDrag\b/],
+    ["adapter drag factory dependency", /\bcreateAdapterDragController\b/],
+  ];
+  const violations = [];
+  for (const [relativePath, source] of checkedSources) {
+    for (const [name, pattern] of forbiddenPatterns) {
+      if (pattern.test(source)) {
+        violations.push(`${relativePath}: ${name}`);
+      }
+    }
+  }
+
+  assert.deepEqual(violations, []);
+});
+
 test("interaction tests do not recreate semantic controller facade APIs", () => {
   const source = fs.readFileSync(repoPath("test/unit/interactions.test.js"), "utf8");
   const forbiddenPatterns = [

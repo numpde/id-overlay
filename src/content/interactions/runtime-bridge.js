@@ -1,6 +1,5 @@
 import {
   selectIsInputPassThroughActive,
-  selectIsRuntimeDragging,
   selectRuntimeGestureKind,
   selectRuntimePointerScreenPx,
 } from "../../core/machine/selectors.js";
@@ -18,20 +17,9 @@ import {
 export function createInteractionRuntimeBridge({
   machineHost,
   machineActions,
-  adapterDrag,
 }) {
-  // TODO(smell): Runtime observation and adapter drag cleanup are still coupled
-  // here. The ideal boundary would expose a single gesture-lifecycle port so
-  // runtime reset effects and adapter cancellation cannot drift apart.
   let destroyed = false;
-  let observedRuntime = machineHost.getState().runtime;
   const runtimeUnsubscribes = new Set();
-
-  trackRuntimeSubscription(machineHost.subscribe((state) => {
-    const previousRuntime = observedRuntime;
-    observedRuntime = state.runtime;
-    syncAdapterDragFromRuntimeChange(previousRuntime, state.runtime);
-  }, { emitCurrent: false }));
 
   return {
     destroy,
@@ -43,9 +31,9 @@ export function createInteractionRuntimeBridge({
     observeGestureStart,
     observeGestureMove,
     observeGestureFinish,
+    observeInputInterrupted,
     observePassThroughPress,
     observePassThroughRelease,
-    reset,
   };
 
   function destroy() {
@@ -105,34 +93,16 @@ export function createInteractionRuntimeBridge({
     machineActions.observeRuntimeFact(createGestureEndedFact({ screenPx }));
   }
 
+  function observeInputInterrupted({ pointerScreenPx = getPointerScreenPx() } = {}) {
+    machineActions.observeRuntimeFact(createInputInterruptedFact({ pointerScreenPx }));
+  }
+
   function observePassThroughPress() {
     machineActions.observeRuntimeFact(createInputPassThroughPressedFact());
   }
 
   function observePassThroughRelease() {
     machineActions.observeRuntimeFact(createInputPassThroughReleasedFact());
-  }
-
-  function reset({
-    endPointerScreenPx = getPointerScreenPx(),
-    pointerScreenPx = getPointerScreenPx(),
-    commitPlacement = true,
-  } = {}) {
-    adapterDrag.cancel(endPointerScreenPx, { commitPlacement });
-    machineActions.observeRuntimeFact(createInputInterruptedFact({ pointerScreenPx }));
-  }
-
-  function syncAdapterDragFromRuntimeChange(previousRuntime, nextRuntime) {
-    if (
-      !adapterDrag.hasActive() ||
-      !selectIsRuntimeDragging(previousRuntime) ||
-      selectIsRuntimeDragging(nextRuntime)
-    ) {
-      return;
-    }
-    adapterDrag.cancel(selectRuntimePointerScreenPx(previousRuntime), {
-      commitPlacement: false,
-    });
   }
 
   function trackRuntimeSubscription(unsubscribeRuntime) {

@@ -6,6 +6,7 @@ import { createWheelInteraction } from "./interactions/wheel-interaction.js";
 import { createKeyboardInputRouter } from "./interactions/keyboard-router.js";
 import { createInteractionRuntimeBridge } from "./interactions/runtime-bridge.js";
 import { createInteractionErrorBoundary } from "./interactions/error-boundary.js";
+import { createGestureLifecycle } from "./interactions/gesture-lifecycle.js";
 
 export function createInteractionController({
   machineHost,
@@ -32,7 +33,10 @@ export function createInteractionController({
   const runtimeBridge = createInteractionRuntimeBridge({
     machineHost,
     machineActions,
+  });
+  const gestureLifecycle = createGestureLifecycle({
     adapterDrag,
+    runtimeBridge,
   });
   const errorBoundary = createInteractionErrorBoundary({
     reportRuntimeError: machineActions.reportRuntimeError,
@@ -58,7 +62,7 @@ export function createInteractionController({
     logger,
   });
   const pointerInteraction = createPointerInteraction({
-    adapterDrag,
+    gestureLifecycle,
     runtimeBridge,
     errorBoundary,
   });
@@ -72,11 +76,12 @@ export function createInteractionController({
     selectMode: machineActions.selectMode,
     observePassThroughPress: runtimeBridge.observePassThroughPress,
     observePassThroughRelease: runtimeBridge.observePassThroughRelease,
-    resetRuntimeObservation: runtimeBridge.reset,
+    resetRuntimeObservation: gestureLifecycle.reset,
     logger,
   });
 
   function destroy() {
+    gestureLifecycle.destroy();
     runtimeBridge.destroy();
     keyboardRouter.destroy();
   }
@@ -130,7 +135,7 @@ export function createInteractionController({
   }
 
   function resetRuntimeAfterError() {
-    runtimeBridge.reset({
+    gestureLifecycle.reset({
       pointerScreenPx: getPointerScreenPx(),
     });
   }
