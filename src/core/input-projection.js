@@ -11,68 +11,90 @@ import {
   shouldReleasePassThroughOverride,
 } from "./machine/policy.js";
 
-export function resolveInputProjection({
+export function resolvePointerMoveProjection({
   machineState = null,
   state = null,
   runtime = null,
   isPointerOverOverlay = false,
   pointer = null,
-  wheel = null,
-  keyboard = null,
-  wheelMode = null,
 } = {}) {
-  // TODO(smell): Input projection returns pointer, wheel, keyboard, activation,
-  // and pass-through release policy in one aggregate. Split per-device
-  // projection helpers once overlay input routing no longer asks for the whole
-  // bundle on every DOM event.
-  const canonicalState = machineState ?? state ?? {};
-  const overlayPolicy = selectOverlayPolicy(canonicalState, runtime);
   const resolvedPointer = pointer ?? { button: 0, buttons: 0 };
-  const resolvedWheel = wheel ?? {};
-  const resolvedWheelMode = wheelMode ?? resolveWheelMode(resolvedWheel);
-  const canOwnOverlayPointer = (
-    isPointerOverOverlay &&
-    overlayPolicy.hasImage &&
-    overlayPolicy.ownsPointerHitTesting
-  );
-  const shouldOwnPointerSequence = canOwnOverlayPointer && resolvedPointer.button === 0;
-
   return {
-    overlayPolicy,
-    pointerMove: {
-      shouldTrackPointer: canOwnOverlayPointer && (resolvedPointer.buttons ?? 0) === 0,
-    },
-    pointerSequence: {
-      shouldOwnPointerSequence,
-      dragMode: shouldOwnPointerSequence ? resolveDragMode(resolvedPointer) : null,
-    },
-    activation: {
-      shouldConsumeClick: canOwnOverlayPointer,
-      shouldTogglePin: canOwnOverlayPointer,
-    },
-    wheel: resolveWheelProjection({
-      overlayPolicy,
+    shouldTrackPointer: resolveCanOwnOverlayPointer({
+      machineState,
+      state,
+      runtime,
       isPointerOverOverlay,
-      wheelMode: resolvedWheelMode,
-    }),
-    keyboard: resolveKeyboardProjection({ keyboard, overlayPolicy }),
-    passThroughRelease: {
-      shouldRelease: shouldReleasePassThroughOverride(canonicalState, runtime, keyboard),
-    },
+    }) && (resolvedPointer.buttons ?? 0) === 0,
   };
 }
 
-function resolveWheelProjection({ overlayPolicy, isPointerOverOverlay, wheelMode }) {
-  const shouldHandle = (
-    isPointerOverOverlay &&
-    isWheelGestureAllowed({ overlayPolicy, wheelMode })
+export function resolvePointerSequenceProjection({
+  machineState = null,
+  state = null,
+  runtime = null,
+  isPointerOverOverlay = false,
+  pointer = null,
+} = {}) {
+  const resolvedPointer = pointer ?? { button: 0, buttons: 0 };
+  const shouldOwnPointerSequence = (
+    resolveCanOwnOverlayPointer({
+      machineState,
+      state,
+      runtime,
+      isPointerOverOverlay,
+    }) &&
+    resolvedPointer.button === 0
   );
   return {
-    wheelMode,
+    shouldOwnPointerSequence,
+    dragMode: shouldOwnPointerSequence ? resolveDragMode(resolvedPointer) : null,
+  };
+}
+
+export function resolveActivationProjection({
+  machineState = null,
+  state = null,
+  runtime = null,
+  isPointerOverOverlay = false,
+} = {}) {
+  const canOwnOverlayPointer = resolveCanOwnOverlayPointer({
+    machineState,
+    state,
+    runtime,
+    isPointerOverOverlay,
+  });
+  return {
+    shouldConsumeClick: canOwnOverlayPointer,
+    shouldTogglePin: canOwnOverlayPointer,
+  };
+}
+
+export function resolveWheelProjection({
+  machineState = null,
+  state = null,
+  runtime = null,
+  isPointerOverOverlay = false,
+  wheel = null,
+  wheelMode = null,
+} = {}) {
+  const overlayPolicy = resolveProjectionContext({
+    machineState,
+    state,
+    runtime,
+  }).policy;
+  const resolvedWheel = wheel ?? {};
+  const resolvedWheelMode = wheelMode ?? resolveWheelMode(resolvedWheel);
+  const shouldHandle = (
+    isPointerOverOverlay &&
+    isWheelGestureAllowed({ overlayPolicy, wheelMode: resolvedWheelMode })
+  );
+  return {
+    wheelMode: resolvedWheelMode,
     shouldHandle,
-    shouldIntercept: shouldHandle && wheelMode !== WHEEL_MODE.MAP_ZOOM,
+    shouldIntercept: shouldHandle && resolvedWheelMode !== WHEEL_MODE.MAP_ZOOM,
     shouldConsume: shouldHandle && (
-      wheelMode !== WHEEL_MODE.MAP_ZOOM ||
+      resolvedWheelMode !== WHEEL_MODE.MAP_ZOOM ||
       overlayPolicy.ownsPointerHitTesting
     ),
   };
@@ -94,7 +116,17 @@ function isWheelGestureAllowed({ overlayPolicy, wheelMode }) {
   return overlayPolicy.ownsPointerHitTesting;
 }
 
-function resolveKeyboardProjection({ keyboard, overlayPolicy }) {
+export function resolveKeyboardProjection({
+  machineState = null,
+  state = null,
+  runtime = null,
+  keyboard = null,
+} = {}) {
+  const overlayPolicy = resolveProjectionContext({
+    machineState,
+    state,
+    runtime,
+  }).policy;
   const shouldIgnore = !keyboard || shouldIgnoreKeyboardShortcut(keyboard);
   if (shouldIgnore || !overlayPolicy.canEditOverlay) {
     return {
@@ -123,5 +155,51 @@ function resolveKeyboardProjection({ keyboard, overlayPolicy }) {
   return {
     action: null,
     shouldIgnore: false,
+  };
+}
+
+export function resolvePassThroughReleaseProjection({
+  machineState = null,
+  state = null,
+  runtime = null,
+  keyboard = null,
+} = {}) {
+  const canonicalState = resolveProjectionContext({
+    machineState,
+    state,
+    runtime,
+  }).canonicalState;
+  return {
+    shouldRelease: shouldReleasePassThroughOverride(canonicalState, runtime, keyboard),
+  };
+}
+
+function resolveCanOwnOverlayPointer({
+  machineState = null,
+  state = null,
+  runtime = null,
+  isPointerOverOverlay = false,
+}) {
+  const overlayPolicy = resolveProjectionContext({
+    machineState,
+    state,
+    runtime,
+  }).policy;
+  return (
+    isPointerOverOverlay &&
+    overlayPolicy.hasImage &&
+    overlayPolicy.ownsPointerHitTesting
+  );
+}
+
+function resolveProjectionContext({
+  machineState = null,
+  state = null,
+  runtime = null,
+} = {}) {
+  const canonicalState = machineState ?? state ?? {};
+  return {
+    canonicalState,
+    policy: selectOverlayPolicy(canonicalState, runtime),
   };
 }

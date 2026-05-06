@@ -34,9 +34,7 @@ test("mounted input dispatcher tracks hover when input projection allows it", ()
   const calls = [];
   const dispatcher = createDispatcher({
     calls,
-    projection: {
-      pointerMove: { shouldTrackPointer: true },
-    },
+    pointerMoveProjection: { shouldTrackPointer: true },
   });
 
   dispatcher.handlePointerMove(createPointerEvent({ buttons: 1 }));
@@ -60,9 +58,7 @@ test("mounted input dispatcher clears stale hover when projection stops tracking
   const dispatcher = createDispatcher({
     calls,
     runtime: { pointer: { screenPx: { x: 1, y: 2 } } },
-    projection: {
-      pointerMove: { shouldTrackPointer: false },
-    },
+    pointerMoveProjection: { shouldTrackPointer: false },
   });
 
   dispatcher.handlePointerMove(createPointerEvent());
@@ -98,11 +94,9 @@ test("mounted input dispatcher starts owned pointer sequences and consumes activ
   const event = createPointerEvent({ button: 2, shiftKey: true });
   const dispatcher = createDispatcher({
     calls,
-    projection: {
-      pointerSequence: {
-        shouldOwnPointerSequence: true,
-        dragMode: DRAG_MODE.MOVE_OVERLAY,
-      },
+    pointerSequenceProjection: {
+      shouldOwnPointerSequence: true,
+      dragMode: DRAG_MODE.MOVE_OVERLAY,
     },
   });
 
@@ -135,10 +129,8 @@ test("mounted input dispatcher consumes double-click only when pin toggle is han
   const event = createPointerEvent();
   const dispatcher = createDispatcher({
     calls,
-    projection: {
-      activation: {
-        shouldTogglePin: true,
-      },
+    activationProjection: {
+      shouldTogglePin: true,
     },
   });
 
@@ -157,10 +149,8 @@ test("mounted input dispatcher leaves unhandled double-clicks unconsumed", () =>
   const dispatcher = createDispatcher({
     calls,
     handleTogglePin: () => false,
-    projection: {
-      activation: {
-        shouldTogglePin: true,
-      },
+    activationProjection: {
+      shouldTogglePin: true,
     },
   });
 
@@ -178,10 +168,8 @@ test("mounted input dispatcher consumes clicks only when activation policy says 
   const event = createPointerEvent();
   const dispatcher = createDispatcher({
     calls,
-    projection: {
-      activation: {
-        shouldConsumeClick: true,
-      },
+    activationProjection: {
+      shouldConsumeClick: true,
     },
   });
 
@@ -199,12 +187,10 @@ test("mounted input dispatcher handles and consumes intercepting wheel gestures"
   const event = createWheelEvent({ deltaY: -120, ctrlKey: true });
   const dispatcher = createDispatcher({
     calls,
-    projection: {
-      wheel: {
-        shouldHandle: true,
-        shouldConsume: true,
-        wheelMode: WHEEL_MODE.ROTATE_OVERLAY,
-      },
+    wheelProjection: {
+      shouldHandle: true,
+      shouldConsume: true,
+      wheelMode: WHEEL_MODE.ROTATE_OVERLAY,
     },
   });
 
@@ -235,12 +221,10 @@ test("mounted input dispatcher leaves non-intercepting wheel gestures unconsumed
   const event = createWheelEvent();
   const dispatcher = createDispatcher({
     calls,
-    projection: {
-      wheel: {
-        shouldHandle: true,
-        shouldConsume: false,
-        wheelMode: WHEEL_MODE.MAP_ZOOM,
-      },
+    wheelProjection: {
+      shouldHandle: true,
+      shouldConsume: false,
+      wheelMode: WHEEL_MODE.MAP_ZOOM,
     },
   });
 
@@ -265,7 +249,10 @@ test("mounted input dispatcher leaves non-intercepting wheel gestures unconsumed
 function createDispatcher({
   calls,
   runtime = {},
-  projection = {},
+  pointerMoveProjection = null,
+  pointerSequenceProjection = null,
+  activationProjection = null,
+  wheelProjection = null,
   hasPendingPointerSequence = false,
   handleTogglePin = () => true,
   handleWheel = () => true,
@@ -279,21 +266,27 @@ function createDispatcher({
         calls.push(["screen-point", event]);
         return { x: event.clientX, y: event.clientY };
       },
-      resolveMountedInputProjection(screenPoint, options = {}) {
+      resolveMountedPointerMoveProjection(screenPoint, options = {}) {
         calls.push(["projection", { screenPoint, ...options }]);
-        return {
-          pointerMove: { shouldTrackPointer: false },
-          pointerSequence: { shouldOwnPointerSequence: false },
-          activation: {
-            shouldTogglePin: false,
-            shouldConsumeClick: false,
-          },
-          wheel: {
-            shouldHandle: false,
-            shouldConsume: false,
-            wheelMode: WHEEL_MODE.MAP_ZOOM,
-          },
-          ...projection,
+        return pointerMoveProjection ?? { shouldTrackPointer: false };
+      },
+      resolveMountedPointerSequenceProjection(screenPoint, options = {}) {
+        calls.push(["projection", { screenPoint, ...options }]);
+        return pointerSequenceProjection ?? { shouldOwnPointerSequence: false };
+      },
+      resolveMountedActivationProjection(screenPoint) {
+        calls.push(["projection", { screenPoint }]);
+        return activationProjection ?? {
+          shouldTogglePin: false,
+          shouldConsumeClick: false,
+        };
+      },
+      resolveMountedWheelProjection(screenPoint, options = {}) {
+        calls.push(["projection", { screenPoint, ...options }]);
+        return wheelProjection ?? {
+          shouldHandle: false,
+          shouldConsume: false,
+          wheelMode: WHEEL_MODE.MAP_ZOOM,
         };
       },
     },

@@ -1,16 +1,21 @@
-import { resolveInputProjection } from "../../core/input-projection.js";
+import {
+  resolveActivationProjection,
+  resolvePointerMoveProjection,
+  resolvePointerSequenceProjection,
+  resolveWheelProjection,
+} from "../../core/input-projection.js";
 import { isScreenPointOverOverlayViewModel } from "./view-model.js";
 
 export function createOverlayInputProjector({
   pageProjection,
   getOverlayInputContext,
 }) {
-  // TODO(smell): Input projection still combines DOM coordinate projection with
-  // machine input policy evaluation. The final input boundary should normalize
-  // pointer facts first, then let machine ingress derive allowed user intent.
   return {
     screenPointFromEvent,
-    resolveMountedInputProjection,
+    resolveMountedActivationProjection,
+    resolveMountedPointerMoveProjection,
+    resolveMountedPointerSequenceProjection,
+    resolveMountedWheelProjection,
   };
 
   function screenPointFromEvent(event) {
@@ -20,16 +25,40 @@ export function createOverlayInputProjector({
     });
   }
 
-  function resolveMountedInputProjection(screenPoint, options = {}) {
+  function resolveMountedActivationProjection(screenPoint) {
+    return resolveActivationProjection(resolveMountedProjectionContext(screenPoint));
+  }
+
+  function resolveMountedPointerMoveProjection(screenPoint, { pointer = null } = {}) {
+    return resolvePointerMoveProjection({
+      ...resolveMountedProjectionContext(screenPoint),
+      pointer,
+    });
+  }
+
+  function resolveMountedPointerSequenceProjection(screenPoint, { pointer = null } = {}) {
+    return resolvePointerSequenceProjection({
+      ...resolveMountedProjectionContext(screenPoint),
+      pointer,
+    });
+  }
+
+  function resolveMountedWheelProjection(screenPoint, { wheel = null } = {}) {
+    return resolveWheelProjection({
+      ...resolveMountedProjectionContext(screenPoint),
+      wheel,
+    });
+  }
+
+  function resolveMountedProjectionContext(screenPoint) {
     const context = getOverlayInputContext();
-    return resolveInputProjection({
+    return {
       machineState: context.machineState,
       runtime: context.runtime,
       isPointerOverOverlay: isScreenPointOverOverlayViewModel({
         viewModel: context.viewModel,
         screenPoint,
       }),
-      ...options,
-    });
+    };
   }
 }

@@ -427,6 +427,38 @@ test("input eligibility is centralized in the input projection", () => {
   assert.ok(fs.existsSync(repoPath("src/core/input-projection.js")));
 });
 
+test("input projection exposes narrow decisions, not aggregate bundles", () => {
+  const source = fs.readFileSync(repoPath("src/core/input-projection.js"), "utf8");
+  const forbiddenPatterns = [
+    ["aggregate projection export", /\bexport\s+function\s+resolveInputProjection\b/],
+    ["aggregate overlay policy member", /\boverlayPolicy\s*:/],
+    ["aggregate pointer move member", /\bpointerMove\s*:/],
+    ["aggregate pointer sequence member", /\bpointerSequence\s*:/],
+    ["aggregate activation member", /\bactivation\s*:/],
+    ["aggregate wheel member", /\bwheel\s*:/],
+    ["aggregate keyboard member", /\bkeyboard\s*:/],
+    ["aggregate pass-through release member", /\bpassThroughRelease\s*:/],
+  ];
+  const requiredExports = [
+    "resolvePointerMoveProjection",
+    "resolvePointerSequenceProjection",
+    "resolveActivationProjection",
+    "resolveWheelProjection",
+    "resolveKeyboardProjection",
+    "resolvePassThroughReleaseProjection",
+  ];
+  const violations = [
+    ...forbiddenPatterns
+      .filter(([, pattern]) => pattern.test(source))
+      .map(([name]) => `forbidden: ${name}`),
+    ...requiredExports
+      .filter((exportName) => !new RegExp(`\\bexport\\s+function\\s+${exportName}\\b`).test(source))
+      .map((exportName) => `missing: ${exportName}`),
+  ];
+
+  assert.deepEqual(violations, []);
+});
+
 test("overlay input router delegates event recovery and pointer sequence semantics", () => {
   const source = fs.readFileSync(repoPath("src/content/overlay/input-router.js"), "utf8");
   const forbiddenPatterns = [
@@ -461,6 +493,30 @@ test("overlay input router delegates mounted input policy dispatch", () => {
     .map(([name]) => name);
 
   assert.match(source, /mounted-input-dispatcher\.js/);
+  assert.deepEqual(violations, []);
+});
+
+test("overlay input projector exposes mounted decisions explicitly", () => {
+  const source = fs.readFileSync(repoPath("src/content/overlay/input-projector.js"), "utf8");
+  const forbiddenPatterns = [
+    ["aggregate core projection import", /\bresolveInputProjection\b/],
+    ["aggregate mounted projection method", /\bresolveMountedInputProjection\b/],
+  ];
+  const requiredMethods = [
+    "resolveMountedActivationProjection",
+    "resolveMountedPointerMoveProjection",
+    "resolveMountedPointerSequenceProjection",
+    "resolveMountedWheelProjection",
+  ];
+  const violations = [
+    ...forbiddenPatterns
+      .filter(([, pattern]) => pattern.test(source))
+      .map(([name]) => `forbidden: ${name}`),
+    ...requiredMethods
+      .filter((methodName) => !new RegExp(`\\b${methodName}\\b`).test(source))
+      .map((methodName) => `missing: ${methodName}`),
+  ];
+
   assert.deepEqual(violations, []);
 });
 

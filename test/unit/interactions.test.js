@@ -12,7 +12,14 @@ import {
   resolveWheelMode,
   WHEEL_MODE,
 } from "../../src/core/interaction-policy.js";
-import { resolveInputProjection } from "../../src/core/input-projection.js";
+import {
+  resolveActivationProjection,
+  resolveKeyboardProjection,
+  resolvePassThroughReleaseProjection,
+  resolvePointerMoveProjection,
+  resolvePointerSequenceProjection,
+  resolveWheelProjection,
+} from "../../src/core/input-projection.js";
 import {
   INPUT_KEY,
   createKeyboardInputFact,
@@ -38,6 +45,7 @@ import {
 import {
   selectPanelStatusText,
 } from "../../src/core/machine/selectors.js";
+import { selectOverlayPolicy } from "../../src/core/machine/policy.js";
 import { createInitialMachineState } from "../../src/core/machine/state.js";
 import {
   createPlacementScreenTransform,
@@ -772,31 +780,31 @@ test("keyboard shortcut resolution is single-source and mode-aware", () => {
   });
 
   assert.equal(
-    resolveInputProjection({
+    resolveKeyboardProjection({
       keyboard: createKeyboardFact(INPUT_KEY.P),
       state,
-    }).keyboard.action,
+    }).action,
     KEYBOARD_SHORTCUT_ACTION.TOGGLE_PIN_CURRENT_POINTER,
   );
   assert.equal(
-    resolveInputProjection({
+    resolveKeyboardProjection({
       keyboard: createKeyboardFact(INPUT_KEY.ESCAPE),
       state,
-    }).keyboard.action,
+    }).action,
     KEYBOARD_SHORTCUT_ACTION.SWITCH_TO_TRACE,
   );
   assert.equal(
-    resolveInputProjection({
+    resolveKeyboardProjection({
       keyboard: createKeyboardFact(INPUT_KEY.SPACE),
       state,
-    }).keyboard.action,
+    }).action,
     KEYBOARD_SHORTCUT_ACTION.ENABLE_PASS_THROUGH,
   );
   assert.equal(
-    resolveInputProjection({
+    resolveKeyboardProjection({
       keyboard: createKeyboardFact(INPUT_KEY.P),
       state: { ...state, mode: SESSION_MODE.TRACE },
-    }).keyboard.action,
+    }).action,
     null,
   );
 });
@@ -848,39 +856,30 @@ test("align capability helpers are the single source of truth for editability", 
   });
 
   assert.equal(
-    resolveInputProjection({ state: alignSession })
-      .overlayPolicy.canEditOverlay,
+    selectOverlayPolicy(alignSession).canEditOverlay,
     true,
   );
   assert.equal(
-    resolveInputProjection({ state: traceSession })
-      .overlayPolicy.canEditOverlay,
+    selectOverlayPolicy(traceSession).canEditOverlay,
     false,
   );
   assert.equal(
-    resolveInputProjection({ state: emptyAlignSession })
-      .overlayPolicy.canEditOverlay,
+    selectOverlayPolicy(emptyAlignSession).canEditOverlay,
     false,
   );
   assert.equal(
-    resolveInputProjection({
-      state: alignSession,
-      runtime: createInputRuntime(),
-    }).overlayPolicy.ownsPointerHitTesting,
+    selectOverlayPolicy(alignSession, createInputRuntime()).ownsPointerHitTesting,
     true,
   );
   assert.equal(
-    resolveInputProjection({
-      state: alignSession,
-      runtime: createInputRuntime({ passThrough: true }),
-    }).overlayPolicy.ownsPointerHitTesting,
+    selectOverlayPolicy(
+      alignSession,
+      createInputRuntime({ passThrough: true }),
+    ).ownsPointerHitTesting,
     false,
   );
   assert.equal(
-    resolveInputProjection({
-      state: traceSession,
-      runtime: createInputRuntime(),
-    }).overlayPolicy.ownsPointerHitTesting,
+    selectOverlayPolicy(traceSession, createInputRuntime()).ownsPointerHitTesting,
     false,
   );
 });
@@ -895,30 +894,30 @@ test("wheel capability is single-source across modes and modifiers", () => {
   const traceSession = createProjectionSession({ mode: SESSION_MODE.TRACE });
 
   assert.equal(
-    resolveInputProjection({
+    resolveWheelProjection({
       state: alignSession,
       runtime: createInputRuntime(),
       isPointerOverOverlay: true,
       wheelMode: WHEEL_MODE.MAP_ZOOM,
-    }).wheel.shouldHandle,
+    }).shouldHandle,
     true,
   );
   assert.equal(
-    resolveInputProjection({
+    resolveWheelProjection({
       state: traceSession,
       runtime: createInputRuntime(),
       isPointerOverOverlay: true,
       wheelMode: WHEEL_MODE.MAP_ZOOM,
-    }).wheel.shouldHandle,
+    }).shouldHandle,
     false,
   );
   assert.equal(
-    resolveInputProjection({
+    resolveWheelProjection({
       state: traceSession,
       runtime: createInputRuntime(),
       isPointerOverOverlay: true,
       wheelMode: WHEEL_MODE.ADJUST_OPACITY,
-    }).wheel.shouldHandle,
+    }).shouldHandle,
     true,
   );
 });
@@ -931,12 +930,12 @@ test("overlay wheel policy is single-source", () => {
   const runtime = createInputRuntime();
 
   assert.deepEqual(
-    resolveInputProjection({
+    resolveWheelProjection({
       state,
       runtime,
       isPointerOverOverlay: true,
       wheel: createWheelFact(),
-    }).wheel,
+    }),
     {
       wheelMode: WHEEL_MODE.MAP_ZOOM,
       shouldHandle: true,
@@ -946,12 +945,12 @@ test("overlay wheel policy is single-source", () => {
   );
 
   assert.deepEqual(
-    resolveInputProjection({
+    resolveWheelProjection({
       state,
       runtime,
       isPointerOverOverlay: true,
       wheel: createWheelFact({ alt: true }),
-    }).wheel,
+    }),
     {
       wheelMode: WHEEL_MODE.ADJUST_OPACITY,
       shouldHandle: true,
@@ -966,34 +965,34 @@ test("overlay pointer move policy is single-source", () => {
   const runtime = createInputRuntime();
 
   assert.deepEqual(
-    resolveInputProjection({
+    resolvePointerMoveProjection({
       state,
       runtime,
       isPointerOverOverlay: false,
-    }).pointerMove,
+    }),
     {
       shouldTrackPointer: false,
     },
   );
 
   assert.deepEqual(
-    resolveInputProjection({
+    resolvePointerMoveProjection({
       state,
       runtime,
       isPointerOverOverlay: true,
-    }).pointerMove,
+    }),
     {
       shouldTrackPointer: true,
     },
   );
 
   assert.deepEqual(
-    resolveInputProjection({
+    resolvePointerMoveProjection({
       state,
       runtime,
       isPointerOverOverlay: true,
       pointer: createPointerFact({ buttons: 1 }),
-    }).pointerMove,
+    }),
     {
       shouldTrackPointer: false,
     },
@@ -1005,12 +1004,12 @@ test("overlay pointer sequence policy is single-source", () => {
   const runtime = createInputRuntime();
 
   assert.deepEqual(
-    resolveInputProjection({
+    resolvePointerSequenceProjection({
       state,
       runtime,
       isPointerOverOverlay: false,
       pointer: createPointerFact(),
-    }).pointerSequence,
+    }),
     {
       shouldOwnPointerSequence: false,
       dragMode: null,
@@ -1018,12 +1017,12 @@ test("overlay pointer sequence policy is single-source", () => {
   );
 
   assert.deepEqual(
-    resolveInputProjection({
+    resolvePointerSequenceProjection({
       state,
       runtime,
       isPointerOverOverlay: true,
       pointer: createPointerFact(),
-    }).pointerSequence,
+    }),
     {
       shouldOwnPointerSequence: true,
       dragMode: DRAG_MODE.MAP_PAN,
@@ -1031,12 +1030,12 @@ test("overlay pointer sequence policy is single-source", () => {
   );
 
   assert.deepEqual(
-    resolveInputProjection({
+    resolvePointerSequenceProjection({
       state,
       runtime,
       isPointerOverOverlay: true,
       pointer: createPointerFact({ button: 0, shift: true }),
-    }).pointerSequence,
+    }),
     {
       shouldOwnPointerSequence: true,
       dragMode: DRAG_MODE.MOVE_OVERLAY,
@@ -1044,12 +1043,12 @@ test("overlay pointer sequence policy is single-source", () => {
   );
 
   assert.deepEqual(
-    resolveInputProjection({
+    resolvePointerSequenceProjection({
       state,
       runtime,
       isPointerOverOverlay: true,
       pointer: createPointerFact({ button: 1, shift: true }),
-    }).pointerSequence,
+    }),
     {
       shouldOwnPointerSequence: false,
       dragMode: null,
@@ -1063,11 +1062,11 @@ test("overlay activation policy is single-source", () => {
   const runtime = createInputRuntime();
 
   assert.deepEqual(
-    resolveInputProjection({
+    resolveActivationProjection({
       state,
       runtime,
       isPointerOverOverlay: false,
-    }).activation,
+    }),
     {
       shouldConsumeClick: false,
       shouldTogglePin: false,
@@ -1075,11 +1074,11 @@ test("overlay activation policy is single-source", () => {
   );
 
   assert.deepEqual(
-    resolveInputProjection({
+    resolveActivationProjection({
       state,
       runtime,
       isPointerOverOverlay: true,
-    }).activation,
+    }),
     {
       shouldConsumeClick: true,
       shouldTogglePin: true,
@@ -1087,11 +1086,11 @@ test("overlay activation policy is single-source", () => {
   );
 
   assert.deepEqual(
-    resolveInputProjection({
+    resolveActivationProjection({
       state: traceState,
       runtime,
       isPointerOverOverlay: true,
-    }).activation,
+    }),
     {
       shouldConsumeClick: false,
       shouldTogglePin: false,
@@ -1099,11 +1098,11 @@ test("overlay activation policy is single-source", () => {
   );
 
   assert.equal(
-    resolveInputProjection({
+    resolveActivationProjection({
       state,
       runtime,
       isPointerOverOverlay: true,
-    }).activation.shouldTogglePin,
+    }).shouldTogglePin,
     true,
   );
 });
@@ -1149,36 +1148,36 @@ test("map zoom does nothing when the page adapter cannot forward it", () => {
 
 test("pass-through release stays active until the runtime says it can be released", () => {
   assert.equal(
-    resolveInputProjection({
+    resolvePassThroughReleaseProjection({
       keyboard: createKeyboardFact(INPUT_KEY.SPACE),
       state: createProjectionSession({
         mode: SESSION_MODE.ALIGN,
         image: null,
       }),
       runtime: createInputRuntime(),
-    }).passThroughRelease.shouldRelease,
+    }).shouldRelease,
     true,
   );
   assert.equal(
-    resolveInputProjection({
+    resolvePassThroughReleaseProjection({
       keyboard: createKeyboardFact(INPUT_KEY.SPACE),
       state: createProjectionSession({
         mode: SESSION_MODE.TRACE,
         image: null,
       }),
       runtime: createInputRuntime({ passThrough: true }),
-    }).passThroughRelease.shouldRelease,
+    }).shouldRelease,
     true,
   );
   assert.equal(
-    resolveInputProjection({
+    resolvePassThroughReleaseProjection({
       keyboard: createKeyboardFact(INPUT_KEY.P),
       state: createProjectionSession({
         mode: SESSION_MODE.ALIGN,
         image: null,
       }),
       runtime: createInputRuntime({ passThrough: true }),
-    }).passThroughRelease.shouldRelease,
+    }).shouldRelease,
     false,
   );
 });

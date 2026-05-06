@@ -55,11 +55,11 @@ test("overlay input projector owns overlay image hit-testing for input projectio
   });
 
   assert.equal(
-    projector.resolveMountedInputProjection({ x: 512, y: 288 }).activation.shouldTogglePin,
+    projector.resolveMountedActivationProjection({ x: 512, y: 288 }).shouldTogglePin,
     true,
   );
   assert.equal(
-    projector.resolveMountedInputProjection({ x: 50, y: 50 }).activation.shouldTogglePin,
+    projector.resolveMountedActivationProjection({ x: 50, y: 50 }).shouldTogglePin,
     false,
   );
 });
@@ -80,10 +80,9 @@ test("overlay input projector preserves core input policy decisions", () => {
     getOverlayInputContext: () => createOverlayInputContext(state),
   });
 
-  const projection = projector.resolveMountedInputProjection({ x: 512, y: 288 });
+  const projection = projector.resolveMountedActivationProjection({ x: 512, y: 288 });
 
-  assert.equal(projection.overlayPolicy.isPassThrough, true);
-  assert.equal(projection.activation.shouldTogglePin, false);
+  assert.equal(projection.shouldTogglePin, false);
 });
 
 function createOverlayMachineState({

@@ -1,5 +1,8 @@
 import { KEYBOARD_SHORTCUT_ACTION } from "../../core/interaction-policy.js";
-import { resolveInputProjection } from "../../core/input-projection.js";
+import {
+  resolveKeyboardProjection,
+  resolvePassThroughReleaseProjection,
+} from "../../core/input-projection.js";
 import { hasOverlayImageSession, SESSION_MODE } from "../../core/session.js";
 import { createKeyboardListeners } from "../../platform/keyboard-listeners.js";
 import { createKeyboardInputFactFromEvent } from "../input-event-facts.js";
@@ -38,11 +41,11 @@ export function createKeyboardInputRouter({
     }
 
     const keyboard = createKeyboardInputFactFromEvent(event);
-    const keyboardProjection = resolveInputProjection({
+    const keyboardProjection = resolveKeyboardProjection({
       machineState: getMachineState(),
       runtime: getRuntimeState(),
       keyboard,
-    }).keyboard;
+    });
     const shortcutAction = keyboardProjection.action;
     if (!shortcutAction) {
       logIgnoredKeyDown({ event, state, keyboardProjection });
@@ -89,12 +92,12 @@ export function createKeyboardInputRouter({
 
   function handleKeyUp(event) {
     const keyboard = createKeyboardInputFactFromEvent(event);
-    const inputProjection = resolveInputProjection({
+    const passThroughReleaseProjection = resolvePassThroughReleaseProjection({
       machineState: getMachineState(),
       keyboard,
       runtime: getRuntimeState(),
     });
-    if (!inputProjection.passThroughRelease.shouldRelease) {
+    if (!passThroughReleaseProjection.shouldRelease) {
       logger.debug("Ignoring keyup because pass-through is not active for this event", {
         code: event.code,
       });

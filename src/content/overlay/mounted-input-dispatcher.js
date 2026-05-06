@@ -34,9 +34,9 @@ export function createOverlayMountedInputDispatcher({
       consumeOverlayEvent(event);
       return;
     }
-    const pointerPolicy = inputProjector.resolveMountedInputProjection(screenPoint, {
+    const pointerPolicy = inputProjector.resolveMountedPointerMoveProjection(screenPoint, {
       pointer: createPointerInputFactFromEvent(event),
-    }).pointerMove;
+    });
     if (pointerPolicy.shouldTrackPointer) {
       overlayInteractions.handlePointerMove(screenPoint);
       return;
@@ -55,9 +55,9 @@ export function createOverlayMountedInputDispatcher({
 
   function handlePointerDown(event) {
     const screenPoint = inputProjector.screenPointFromEvent(event);
-    const pointerPolicy = inputProjector.resolveMountedInputProjection(screenPoint, {
+    const pointerPolicy = inputProjector.resolveMountedPointerSequenceProjection(screenPoint, {
       pointer: createPointerInputFactFromEvent(event),
-    }).pointerSequence;
+    });
     if (!pointerPolicy.shouldOwnPointerSequence) {
       return;
     }
@@ -71,7 +71,7 @@ export function createOverlayMountedInputDispatcher({
 
   function handleDoubleClick(event) {
     const screenPoint = inputProjector.screenPointFromEvent(event);
-    const activationPolicy = inputProjector.resolveMountedInputProjection(screenPoint).activation;
+    const activationPolicy = inputProjector.resolveMountedActivationProjection(screenPoint);
     if (!activationPolicy.shouldTogglePin) {
       return;
     }
@@ -83,7 +83,7 @@ export function createOverlayMountedInputDispatcher({
 
   function handleClick(event) {
     const screenPoint = inputProjector.screenPointFromEvent(event);
-    const activationPolicy = inputProjector.resolveMountedInputProjection(screenPoint).activation;
+    const activationPolicy = inputProjector.resolveMountedActivationProjection(screenPoint);
     if (!activationPolicy.shouldConsumeClick) {
       return;
     }
@@ -92,9 +92,9 @@ export function createOverlayMountedInputDispatcher({
 
   function handleWheel(event) {
     const screenPoint = inputProjector.screenPointFromEvent(event);
-    const wheelPolicy = inputProjector.resolveMountedInputProjection(screenPoint, {
+    const wheelPolicy = inputProjector.resolveMountedWheelProjection(screenPoint, {
       wheel: createWheelInputFactFromEvent(event),
-    }).wheel;
+    });
     if (!wheelPolicy.shouldHandle) {
       return;
     }
