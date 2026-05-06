@@ -100,10 +100,7 @@ export function createWheelCommand({
     if (!rotatePlan) {
       return createUnhandledOutcome("no-placement");
     }
-    // TODO(smell): Placement planners return executable machine events. They
-    // should return geometry facts; the machine should decide how a user
-    // rotation request becomes preview/history/status state.
-    machineActions.applyPlacementEditPlan(rotatePlan);
+    machineActions.rotateOverlayPlacement(rotatePlan);
     return createHandledOutcome({
       pointerScreenPx: screenPoint,
       log: {
@@ -124,10 +121,7 @@ export function createWheelCommand({
     if (!scalePlan) {
       return createUnhandledOutcome("no-placement");
     }
-    // TODO(smell): Placement planners return executable machine events. They
-    // should return geometry facts; the machine should decide how a user scale
-    // request becomes preview/history/status state.
-    machineActions.applyPlacementEditPlan(scalePlan);
+    machineActions.scaleOverlayPlacement(scalePlan);
     return createHandledOutcome({
       pointerScreenPx: screenPoint,
       log: {

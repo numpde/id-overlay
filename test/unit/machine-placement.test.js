@@ -70,7 +70,7 @@ test("placement edit commit records one semantic history entry and clears the pr
   beginPlacementEdit(host);
   previewPlacementEdit(host);
 
-  const commit = host.finishPlacementEditPlan();
+  const commit = host.commitOverlayMove();
 
   assert.deepEqual(commit.state.session.placement, MOVED_PLACEMENT);
   assert.equal(commit.state.runtime.placementEdit, null);
@@ -90,7 +90,7 @@ test("unchanged placement edit commit only clears transient runtime", () => {
   const host = createLoadedHost();
   beginPlacementEdit(host);
 
-  const commit = host.finishPlacementEditPlan();
+  const commit = host.commitOverlayMove();
 
   assert.deepEqual(commit.state.session.placement, PLACEMENT);
   assert.equal(commit.state.runtime.placementEdit, null);

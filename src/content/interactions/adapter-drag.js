@@ -56,10 +56,7 @@ export function createAdapterDragController({
       startPointerScreenPx: movePlan.startPointerScreenPx,
       startCenterScreenPx: movePlan.startCenterScreenPx,
     };
-    // TODO(smell): The drag command dispatches a planned machine event instead
-    // of reporting a user overlay-move start. The machine should own edit
-    // lifecycle state once content has supplied the projected gesture facts.
-    machineActions.applyPlacementEditPlan(movePlan);
+    machineActions.beginOverlayMove(movePlan);
     return true;
   }
 
@@ -84,10 +81,7 @@ export function createAdapterDragController({
     if (!previewPlan) {
       return;
     }
-    // TODO(smell): Preview updates are executable events produced outside the
-    // machine. Keep projection math outside, but move edit interpretation and
-    // event construction behind machine user-intent handling.
-    machineActions.applyPlacementEditPlan(previewPlan);
+    machineActions.previewOverlayMove(previewPlan);
   }
 
   function end(screenPoint) {
@@ -111,10 +105,7 @@ export function createAdapterDragController({
       return;
     }
     if (commitPlacement && overlayMove) {
-      // TODO(smell): Content decides to commit a placement edit by low-level
-      // command. The final gesture lifecycle should let the machine decide
-      // whether an ended overlay-move intent commits, cancels, or no-ops.
-      machineActions.finishPlacementEditPlan();
+      machineActions.commitOverlayMove();
     }
   }
 

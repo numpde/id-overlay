@@ -399,13 +399,13 @@ test("machine status notice vocabulary does not leak to content or tests", () =>
   assert.deepEqual(violations, []);
 });
 
-test("placement planning is pure geometry and never constructs machine events", {
-  todo: "Make placement planners return geometry facts only.",
-}, () => {
+test("placement planning is pure geometry and never constructs machine events", () => {
   const source = readSource(repoPath("src/core/placement-edit-planning.js"));
   const forbiddenPatterns = [
     ["machine event import", /\bMACHINE_COMMAND_KIND\b/],
     ["placement edit kind import", /\bMACHINE_PLACEMENT_EDIT_KIND\b/],
+    ["planner lifecycle phase", /\bPLACEMENT_EDIT_PLAN_PHASE\b|\bphase\s*:/],
+    ["planner semantic edit kind", /\bPLACEMENT_EDIT_PLAN_KIND\b|\bkind\s*:/],
     ["event payload property", /\bevent\s*:/],
     ["event type payload", /\btype:\s*MACHINE_COMMAND_KIND\./],
     ["machine state parameter", /\bstate,\s*\n\s*snapshot\b/],

@@ -2,8 +2,6 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  PLACEMENT_EDIT_PLAN_KIND,
-  PLACEMENT_EDIT_PLAN_PHASE,
   planMovePlacementEditPreview,
   planMovePlacementEditStart,
   planRotatePlacementEdit,
@@ -160,8 +158,6 @@ test("placement edit planner creates move begin and preview facts", () => {
 
   assertPointClose(start.startCenterScreenPx, startCenterScreenPx);
   assert.deepEqual(start, {
-    phase: PLACEMENT_EDIT_PLAN_PHASE.BEGIN,
-    kind: PLACEMENT_EDIT_PLAN_KIND.MOVE,
     startPointerScreenPx,
     startCenterScreenPx: start.startCenterScreenPx,
     renderedPlacement: SOLVED_PLACEMENT,
@@ -183,7 +179,7 @@ test("placement edit planner creates move begin and preview facts", () => {
     transform: previewTransform,
   });
 
-  assert.equal(preview.phase, PLACEMENT_EDIT_PLAN_PHASE.PREVIEW);
+  assert.deepEqual(Object.keys(preview).sort(), ["placement"]);
   assertPointClose(movedCenterScreenPx, {
     x: startCenterScreenPx.x + 20,
     y: startCenterScreenPx.y + 20,
@@ -211,8 +207,7 @@ test("placement edit planner creates anchored rotate and scale edit facts", () =
     anchorScreenPx,
     deltaY: -100,
   });
-  assert.equal(rotate.phase, PLACEMENT_EDIT_PLAN_PHASE.APPLY);
-  assert.equal(rotate.kind, PLACEMENT_EDIT_PLAN_KIND.ROTATE);
+  assert.deepEqual(Object.keys(rotate).sort(), ["placement", "renderedPlacement", "rotationRad"]);
   assert.deepEqual(rotate.renderedPlacement, SOLVED_PLACEMENT);
   assert.ok(rotate.rotationRad > 0);
   assertPlacementKeepsAnchor(rotate.placement, anchorImagePx, anchorScreenPx);
@@ -223,8 +218,7 @@ test("placement edit planner creates anchored rotate and scale edit facts", () =
     anchorScreenPx,
     deltaY: -100,
   });
-  assert.equal(scale.phase, PLACEMENT_EDIT_PLAN_PHASE.APPLY);
-  assert.equal(scale.kind, PLACEMENT_EDIT_PLAN_KIND.SCALE);
+  assert.deepEqual(Object.keys(scale).sort(), ["placement", "renderedPlacement", "scale"]);
   assert.deepEqual(scale.renderedPlacement, SOLVED_PLACEMENT);
   assert.ok(scale.scale > Math.hypot(SOLVED_PLACEMENT.a, SOLVED_PLACEMENT.b));
   assertPlacementKeepsAnchor(scale.placement, anchorImagePx, anchorScreenPx);

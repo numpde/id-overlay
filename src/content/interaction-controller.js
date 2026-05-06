@@ -177,8 +177,11 @@ function createMachineActionPort(machineHost) {
     observeRuntimeFact: machineHost.observeRuntimeFact,
     reportRuntimeError: machineHost.reportRuntimeError,
     togglePin: machineHost.togglePin,
-    applyPlacementEditPlan: machineHost.applyPlacementEditPlan,
-    finishPlacementEditPlan: machineHost.finishPlacementEditPlan,
+    beginOverlayMove: machineHost.beginOverlayMove,
+    previewOverlayMove: machineHost.previewOverlayMove,
+    commitOverlayMove: machineHost.commitOverlayMove,
+    rotateOverlayPlacement: machineHost.rotateOverlayPlacement,
+    scaleOverlayPlacement: machineHost.scaleOverlayPlacement,
     changeOpacityByWheel: machineHost.changeOpacityByWheel,
   };
 }

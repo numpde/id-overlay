@@ -15,18 +15,6 @@ import {
   screenPointToRenderedImagePoint,
 } from "./transform.js";
 
-export const PLACEMENT_EDIT_PLAN_PHASE = Object.freeze({
-  BEGIN: "begin",
-  PREVIEW: "preview",
-  APPLY: "apply",
-});
-
-export const PLACEMENT_EDIT_PLAN_KIND = Object.freeze({
-  MOVE: "move",
-  ROTATE: "rotate",
-  SCALE: "scale",
-});
-
 export function resolvePlacementEditRenderState({ machineState, snapshot }) {
   const session = machineState?.session ?? machineState;
   const runtime = machineState?.session ? machineState.runtime ?? null : null;
@@ -60,8 +48,6 @@ export function planMovePlacementEditStart({
     snapshot,
   });
   return {
-    phase: PLACEMENT_EDIT_PLAN_PHASE.BEGIN,
-    kind: PLACEMENT_EDIT_PLAN_KIND.MOVE,
     startPointerScreenPx,
     startCenterScreenPx,
     renderedPlacement: editState.placement,
@@ -89,7 +75,6 @@ export function planMovePlacementEditPreview({
     y: startCenterScreenPx.y + (pointerScreenPx.y - startPointerScreenPx.y),
   };
   return {
-    phase: PLACEMENT_EDIT_PLAN_PHASE.PREVIEW,
     placement: createRetunedPlacementTransform({
       editState,
       snapshot,
@@ -116,8 +101,6 @@ export function planRotatePlacementEdit({
     rotationRad,
   });
   return {
-    phase: PLACEMENT_EDIT_PLAN_PHASE.APPLY,
-    kind: PLACEMENT_EDIT_PLAN_KIND.ROTATE,
     renderedPlacement: editState.placement,
     placement,
     rotationRad,
@@ -146,8 +129,6 @@ export function planScalePlacementEdit({
     screenScale: scale,
   });
   return {
-    phase: PLACEMENT_EDIT_PLAN_PHASE.APPLY,
-    kind: PLACEMENT_EDIT_PLAN_KIND.SCALE,
     renderedPlacement: editState.placement,
     placement,
     scale,

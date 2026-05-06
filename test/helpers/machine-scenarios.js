@@ -2,7 +2,6 @@ import {
   MACHINE_PLACEMENT_EDIT_KIND,
 } from "../../src/core/machine/events.js";
 import { createMachineHost } from "../../src/core/machine/host.js";
-import { PLACEMENT_EDIT_PLAN_PHASE } from "../../src/core/placement-edit-planning.js";
 import {
   IMAGE,
   MOVED_PLACEMENT,
@@ -83,28 +82,23 @@ export function applyPlacement(host, {
   renderedPlacement = PLACEMENT,
   placement = MOVED_PLACEMENT,
 } = {}) {
-  return host.applyPlacementEditPlan({
-    phase: PLACEMENT_EDIT_PLAN_PHASE.APPLY,
-    kind: editKind,
-    renderedPlacement,
-    placement,
-  });
+  if (editKind === MACHINE_PLACEMENT_EDIT_KIND.ROTATE) {
+    return host.rotateOverlayPlacement({ renderedPlacement, placement });
+  }
+  if (editKind === MACHINE_PLACEMENT_EDIT_KIND.SCALE) {
+    return host.scaleOverlayPlacement({ renderedPlacement, placement });
+  }
+  host.beginOverlayMove({ renderedPlacement });
+  host.previewOverlayMove({ placement });
+  return host.commitOverlayMove();
 }
 
 export function beginPlacementEdit(host, {
-  editKind = MACHINE_PLACEMENT_EDIT_KIND.MOVE,
   renderedPlacement = PLACEMENT,
 } = {}) {
-  return host.applyPlacementEditPlan({
-    phase: PLACEMENT_EDIT_PLAN_PHASE.BEGIN,
-    kind: editKind,
-    renderedPlacement,
-  });
+  return host.beginOverlayMove({ renderedPlacement });
 }
 
 export function previewPlacementEdit(host, placement = MOVED_PLACEMENT) {
-  return host.applyPlacementEditPlan({
-    phase: PLACEMENT_EDIT_PLAN_PHASE.PREVIEW,
-    placement,
-  });
+  return host.previewOverlayMove({ placement });
 }
