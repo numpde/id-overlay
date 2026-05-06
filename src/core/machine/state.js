@@ -17,6 +17,9 @@ import {
   MACHINE_PLACEMENT_EDIT_KIND,
   MACHINE_POINTER_GESTURE_KIND,
 } from "./events.js";
+import {
+  normalizeMachineHistory,
+} from "./history.js";
 import { MACHINE_STATUS_NOTICE_KIND } from "./status-notices.js";
 
 export {
@@ -75,10 +78,7 @@ export function normalizeMachineState(state = {}) {
     runtime: normalizeRuntime(runtime),
     panel: normalizePanel(panel),
     status: normalizeStatus(status),
-    history: {
-      past: Array.isArray(history.past) ? history.past : [],
-      future: Array.isArray(history.future) ? history.future : [],
-    },
+    history: normalizeMachineHistory(history),
   };
 }
 

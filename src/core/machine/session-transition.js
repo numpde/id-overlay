@@ -5,6 +5,7 @@ import {
 import { MACHINE_STATUS_NOTICE_KIND } from "./status-notices.js";
 import {
   MACHINE_HISTORY_REPLAY_OPERATION,
+  createSemanticHistoryRecord,
 } from "./history.js";
 import {
   createEmptyRegistration,
@@ -54,7 +55,7 @@ export function loadImage(state, event) {
     statusNotice: createStatusNotice(MACHINE_STATUS_NOTICE_KIND.IMAGE_LOADED, {
       image: nextState.session.image,
     }),
-    historyRecord: {
+    historyRecord: createSemanticHistoryRecord({
       kind: MACHINE_HISTORY_KIND.LOAD_IMAGE,
       label: "Loaded image",
       undoLabel: "Remove image",
@@ -64,7 +65,7 @@ export function loadImage(state, event) {
         operation: MACHINE_HISTORY_REPLAY_OPERATION.RESTORE_IMAGE_SESSION,
         session: nextState.session,
       },
-    },
+    }),
   });
 }
 
@@ -89,7 +90,7 @@ export function clearImage(state) {
     state: panelTransition.state,
     effects: panelTransition.effects,
     statusNotice: createStatusNotice(MACHINE_STATUS_NOTICE_KIND.IMAGE_CLEARED),
-    historyRecord: {
+    historyRecord: createSemanticHistoryRecord({
       kind: MACHINE_HISTORY_KIND.CLEAR_IMAGE,
       label: "Cleared image",
       undoLabel: "Reload image",
@@ -99,7 +100,7 @@ export function clearImage(state) {
         session: previousSession,
       },
       redo: { operation: MACHINE_HISTORY_REPLAY_OPERATION.CLEAR_IMAGE },
-    },
+    }),
   });
 }
 

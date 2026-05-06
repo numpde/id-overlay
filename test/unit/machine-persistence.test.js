@@ -13,6 +13,10 @@ import {
   createInitialMachineState,
 } from "../../src/core/machine/state.js";
 import {
+  MACHINE_HISTORY_REPLAY_OPERATION,
+  createSemanticHistoryRecord,
+} from "../../src/core/machine/history.js";
+import {
   fromPersistedMachineSession,
   toPersistedMachineSession,
   toPersistedMachineSessionSnapshot,
@@ -257,8 +261,14 @@ test("round trip preserves durable session facts only", () => {
 test("round trip does not preserve undo or redo history", () => {
   const state = createNoisyMachineState({
     history: {
-      past: [{ kind: MACHINE_HISTORY_KIND.LOAD_IMAGE }],
-      future: [{ kind: MACHINE_HISTORY_KIND.CLEAR_IMAGE }],
+      past: [createTestHistoryRecord({
+        kind: MACHINE_HISTORY_KIND.LOAD_IMAGE,
+        label: "Loaded image",
+      })],
+      future: [createTestHistoryRecord({
+        kind: MACHINE_HISTORY_KIND.CLEAR_IMAGE,
+        label: "Cleared image",
+      })],
     },
   });
 
@@ -307,9 +317,30 @@ function createNoisyMachineState(overrides = {}) {
       lastRequestId: 9,
     },
     history: {
-      past: [{ kind: "load-image" }],
-      future: [{ kind: "clear-image" }],
+      past: [createTestHistoryRecord({
+        kind: MACHINE_HISTORY_KIND.LOAD_IMAGE,
+        label: "Loaded image",
+      })],
+      future: [createTestHistoryRecord({
+        kind: MACHINE_HISTORY_KIND.CLEAR_IMAGE,
+        label: "Cleared image",
+      })],
     },
     ...overrides,
+  });
+}
+
+function createTestHistoryRecord({ kind, label }) {
+  return createSemanticHistoryRecord({
+    kind,
+    label,
+    undoLabel: `Undo ${label}`,
+    redoLabel: `Redo ${label}`,
+    undo: {
+      operation: MACHINE_HISTORY_REPLAY_OPERATION.CLEAR_IMAGE,
+    },
+    redo: {
+      operation: MACHINE_HISTORY_REPLAY_OPERATION.CLEAR_IMAGE,
+    },
   });
 }

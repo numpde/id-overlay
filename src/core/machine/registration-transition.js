@@ -8,6 +8,7 @@ import {
 } from "./private-commands.js";
 import {
   MACHINE_HISTORY_REPLAY_OPERATION,
+  createSemanticHistoryRecord,
 } from "./history.js";
 import {
   createEmptyRegistration,
@@ -221,7 +222,7 @@ export function fitOverlay(state) {
     statusNotice: createStatusNotice(MACHINE_STATUS_NOTICE_KIND.OVERLAY_FITTED, {
       pinCount: state.session.registration.pins.length,
     }),
-    historyRecord: {
+    historyRecord: createSemanticHistoryRecord({
       kind: MACHINE_HISTORY_KIND.FIT_OVERLAY,
       label: "Fit overlay from pins",
       undoLabel: "Undo fit overlay",
@@ -234,7 +235,7 @@ export function fitOverlay(state) {
         operation: MACHINE_HISTORY_REPLAY_OPERATION.RESTORE_IMAGE_SESSION,
         session: nextSession,
       },
-    },
+    }),
   });
 }
 
@@ -263,14 +264,14 @@ function createRegistrationHistoryRecord({
   previousRegistration,
   nextRegistration,
 }) {
-  return {
+  return createSemanticHistoryRecord({
     kind,
     label,
     undoLabel,
     redoLabel,
     undo: createRestoreRegistrationReplay(previousRegistration),
     redo: createRestoreRegistrationReplay(nextRegistration),
-  };
+  });
 }
 
 function createRestoreRegistrationReplay(registration) {

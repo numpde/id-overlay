@@ -5,6 +5,13 @@ import {
   MACHINE_EFFECT_KIND,
 } from "../../src/core/machine/effects.js";
 import {
+  MACHINE_HISTORY_KIND,
+} from "../../src/core/machine/events.js";
+import {
+  MACHINE_HISTORY_REPLAY_OPERATION,
+  createSemanticHistoryRecord,
+} from "../../src/core/machine/history.js";
+import {
   createInitialMachineState,
 } from "../../src/core/machine/state.js";
 import {
@@ -15,13 +22,24 @@ import {
 } from "../../src/core/machine/transition-result.js";
 
 test("withHistoryRecord commits only explicit history records", () => {
+  const existingRecord = createTestHistoryRecord({
+    kind: MACHINE_HISTORY_KIND.MOVE_OVERLAY,
+    label: "Existing edit",
+  });
+  const redoRecord = createTestHistoryRecord({
+    kind: MACHINE_HISTORY_KIND.ROTATE_OVERLAY,
+    label: "Redo edit",
+  });
   const state = createInitialMachineState({
     history: {
-      past: [{ kind: "existing-edit" }],
-      future: [{ kind: "redo-edit" }],
+      past: [existingRecord],
+      future: [redoRecord],
     },
   });
-  const historyRecord = { kind: "next-edit", label: "Next edit" };
+  const historyRecord = createTestHistoryRecord({
+    kind: MACHINE_HISTORY_KIND.SCALE_OVERLAY,
+    label: "Next edit",
+  });
 
   const result = withHistoryRecord(createTransitionResult({
     state,
@@ -30,12 +48,24 @@ test("withHistoryRecord commits only explicit history records", () => {
 
   assert.deepEqual(result.state.history, {
     past: [
-      { kind: "existing-edit" },
+      existingRecord,
       historyRecord,
     ],
     future: [],
   });
-  assert.equal(result.historyRecord, historyRecord);
+  assert.deepEqual(result.historyRecord, historyRecord);
+});
+
+test("withHistoryRecord drops non-semantic history records", () => {
+  const state = createInitialMachineState();
+
+  const result = withHistoryRecord(createTransitionResult({
+    state,
+    historyRecord: { kind: "visible-edit" },
+  }));
+
+  assert.equal(result.state, state);
+  assert.equal(result.historyRecord, null);
 });
 
 test("withStatusNotice applies status timeout lifecycle explicitly", () => {
@@ -80,7 +110,10 @@ test("withStatusNotice applies status timeout lifecycle explicitly", () => {
 
 test("history and status combinators compose in machine commit order", () => {
   const state = createInitialMachineState();
-  const historyRecord = { kind: "visible-edit" };
+  const historyRecord = createTestHistoryRecord({
+    kind: MACHINE_HISTORY_KIND.CLEAR_IMAGE,
+    label: "Visible edit",
+  });
 
   const result = withStatusNotice(withHistoryRecord(createTransitionResult({
     state,
@@ -90,6 +123,21 @@ test("history and status combinators compose in machine commit order", () => {
 
   assert.deepEqual(result.state.history.past, [historyRecord]);
   assert.equal(result.state.status.notice.requestId, 1);
-  assert.equal(result.historyRecord, historyRecord);
+  assert.deepEqual(result.historyRecord, historyRecord);
   assert.equal(result.statusNotice, null);
 });
+
+function createTestHistoryRecord({ kind, label }) {
+  return createSemanticHistoryRecord({
+    kind,
+    label,
+    undoLabel: `Undo ${label}`,
+    redoLabel: `Redo ${label}`,
+    undo: {
+      operation: MACHINE_HISTORY_REPLAY_OPERATION.CLEAR_IMAGE,
+    },
+    redo: {
+      operation: MACHINE_HISTORY_REPLAY_OPERATION.CLEAR_IMAGE,
+    },
+  });
+}

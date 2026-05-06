@@ -5,6 +5,7 @@ import {
 import { MACHINE_STATUS_NOTICE_KIND } from "./status-notices.js";
 import {
   MACHINE_HISTORY_REPLAY_OPERATION,
+  createSemanticHistoryRecord,
 } from "./history.js";
 import {
   replacePlacementEdit,
@@ -177,7 +178,7 @@ function commitPlacementChange(state, event) {
     statusNotice: createStatusNotice(MACHINE_STATUS_NOTICE_KIND.PLACEMENT_CHANGED, {
       editKind: event.editKind,
     }),
-    historyRecord: {
+    historyRecord: createSemanticHistoryRecord({
       kind: historyMetadata.kind,
       label: historyMetadata.label,
       undoLabel: historyMetadata.undoLabel,
@@ -192,7 +193,7 @@ function commitPlacementChange(state, event) {
         placement: nextPlacement,
         registration: nextRegistration,
       },
-    },
+    }),
   });
 }
 

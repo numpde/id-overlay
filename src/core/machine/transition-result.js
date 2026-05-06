@@ -1,4 +1,7 @@
-import { commitHistoryRecord } from "./history.js";
+import {
+  commitHistoryRecord,
+  normalizeSemanticHistoryRecord,
+} from "./history.js";
 import { replaceStatus } from "./state.js";
 import {
   createCancelStatusTimeoutEffect,
@@ -6,7 +9,8 @@ import {
 } from "./effects.js";
 
 export function withHistoryRecord(result) {
-  if (!result.historyRecord) {
+  const historyRecord = normalizeSemanticHistoryRecord(result.historyRecord);
+  if (!historyRecord) {
     return {
       ...result,
       historyRecord: null,
@@ -14,7 +18,8 @@ export function withHistoryRecord(result) {
   }
   return {
     ...result,
-    state: commitHistoryRecord(result.state, result.historyRecord),
+    state: commitHistoryRecord(result.state, historyRecord),
+    historyRecord,
   };
 }
 

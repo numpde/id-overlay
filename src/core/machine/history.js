@@ -1,3 +1,7 @@
+import {
+  MACHINE_HISTORY_KIND,
+} from "./events.js";
+
 export const MACHINE_HISTORY_REPLAY_OPERATION = Object.freeze({
   CLEAR_IMAGE: "clear-image",
   RESTORE_IMAGE_SESSION: "restore-image-session",
@@ -5,16 +9,56 @@ export const MACHINE_HISTORY_REPLAY_OPERATION = Object.freeze({
   RESTORE_PLACEMENT: "restore-placement",
 });
 
+const KNOWN_HISTORY_KINDS = new Set(Object.values(MACHINE_HISTORY_KIND));
+const KNOWN_REPLAY_OPERATIONS = new Set(Object.values(MACHINE_HISTORY_REPLAY_OPERATION));
+
+export function createSemanticHistoryRecord(record) {
+  const normalized = normalizeSemanticHistoryRecord(record);
+  if (!normalized) {
+    throw new TypeError("Invalid semantic history record");
+  }
+  return normalized;
+}
+
+export function normalizeSemanticHistoryRecord(record) {
+  if (!record || typeof record !== "object" || Array.isArray(record)) {
+    return null;
+  }
+  const kind = normalizeHistoryKind(record.kind);
+  const label = normalizeHistoryLabel(record.label);
+  const undoLabel = normalizeHistoryLabel(record.undoLabel);
+  const redoLabel = normalizeHistoryLabel(record.redoLabel);
+  const undo = normalizeReplay(record.undo);
+  const redo = normalizeReplay(record.redo);
+  if (!kind || !label || !undoLabel || !redoLabel || !undo || !redo) {
+    return null;
+  }
+  return {
+    kind,
+    label,
+    undoLabel,
+    redoLabel,
+    undo,
+    redo,
+  };
+}
+
+export function normalizeMachineHistory(history = {}) {
+  return {
+    past: normalizeHistoryRecordList(history.past),
+    future: normalizeHistoryRecordList(history.future),
+  };
+}
+
 export function commitHistoryRecord(state, historyRecord) {
-  // TODO(smell): History storage is still shape-agnostic. The final shape should
-  // normalize semantic replay records here instead of accepting arbitrary payloads.
-  if (!historyRecord) {
+  const record = normalizeSemanticHistoryRecord(historyRecord);
+  if (!record) {
     return state;
   }
   return {
     ...state,
     history: {
-      past: [...state.history.past, historyRecord],
+      past: [...state.history.past, record],
       future: [],
     },
   };
@@ -60,4 +104,38 @@ export function moveRedoRecordToPast(state) {
       },
     },
   };
+}
+
+function normalizeHistoryKind(kind) {
+  return KNOWN_HISTORY_KINDS.has(kind) ? kind : null;
+}
+
+function normalizeHistoryLabel(label) {
+  if (typeof label !== "string") {
+    return null;
+  }
+  const trimmed = label.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function normalizeReplay(replay) {
+  if (!replay || typeof replay !== "object" || Array.isArray(replay)) {
+    return null;
+  }
+  if (!KNOWN_REPLAY_OPERATIONS.has(replay.operation)) {
+    return null;
+  }
+  return {
+    ...replay,
+    operation: replay.operation,
+  };
+}
+
+function normalizeHistoryRecordList(records) {
+  if (!Array.isArray(records)) {
+    return [];
+  }
+  return records
+    .map(normalizeSemanticHistoryRecord)
+    .filter(Boolean);
 }

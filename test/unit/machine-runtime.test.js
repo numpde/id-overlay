@@ -2,8 +2,13 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  MACHINE_HISTORY_KIND,
   MACHINE_MODE,
 } from "../../src/core/machine/events.js";
+import {
+  MACHINE_HISTORY_REPLAY_OPERATION,
+  createSemanticHistoryRecord,
+} from "../../src/core/machine/history.js";
 import {
   createInitialMachineState,
 } from "../../src/core/machine/state.js";
@@ -34,18 +39,30 @@ test("machine runtime normalizes custom initial state", () => {
 
 test("commitMachineResult commits transition state and returns the full result", () => {
   const runtime = createMachineRuntime();
+  const historyRecord = createSemanticHistoryRecord({
+    kind: MACHINE_HISTORY_KIND.MOVE_OVERLAY,
+    label: "Test visible edit",
+    undoLabel: "Undo test visible edit",
+    redoLabel: "Redo test visible edit",
+    undo: {
+      operation: MACHINE_HISTORY_REPLAY_OPERATION.CLEAR_IMAGE,
+    },
+    redo: {
+      operation: MACHINE_HISTORY_REPLAY_OPERATION.CLEAR_IMAGE,
+    },
+  });
   const result = runtime.commitMachineResult(createTransitionResult({
     state: createInitialMachineState({
       session: {
         mode: MACHINE_MODE.ALIGN,
       },
     }),
-    historyRecord: { kind: "test-visible-edit" },
+    historyRecord,
   }));
 
   assert.equal(runtime.getState(), result.state);
   assert.equal(result.state.session.mode, MACHINE_MODE.ALIGN);
-  assert.deepEqual(result.historyRecord, { kind: "test-visible-edit" });
+  assert.deepEqual(result.historyRecord, historyRecord);
 });
 
 test("subscribers receive the current state by default and then committed updates", () => {
