@@ -7,7 +7,6 @@ import {
   derivePlacementFromScreenTransform,
   createPlacementScreenTransform,
   imagePointToRenderedScreenPoint,
-  createSolvedScreenTransform,
   imagePointToScreenPoint,
   projectLatLonToWorld,
   removeSurfaceMotionFromScreenPoint,
@@ -15,27 +14,6 @@ import {
   screenPointToRenderedImagePoint,
   solveSimilarityTransform,
 } from "../../src/core/transform.js";
-import { clampOpacity } from "../../src/core/opacity.js";
-import {
-  rotationFromWheelDelta,
-  scaleFromWheelDelta,
-} from "../../src/core/wheel-adjustment.js";
-import {
-  buildOverlayRenderModel,
-  resolveOverlayRenderSource,
-  resolveOverlayRenderState,
-  resolveOverlayScreenTransform,
-} from "../../src/core/overlay-render.js";
-import {
-  buildPinRenderModels,
-  hitTestPin,
-} from "../../src/core/pin-render.js";
-
-test("clampOpacity keeps opacity in range", () => {
-  assert.equal(clampOpacity(-1), 0);
-  assert.equal(clampOpacity(0.5), 0.5);
-  assert.equal(clampOpacity(2), 1);
-});
 
 test("createPlacementScreenTransform maps the image center to the placement center", () => {
   const snapshot = {
@@ -86,143 +64,6 @@ test("derivePlacementFromScreenTransform recovers a world-space placement transf
   assert.equal(screenTransform.ty, 10);
 });
 
-test("resolveOverlayScreenTransform uses solved transforms whenever a clean solve is available", () => {
-  const state = {
-    image: { width: 100, height: 50 },
-    opacity: 0.6,
-    placement: createPlacementTransform({
-      image: { width: 100, height: 50 },
-      centerMapLatLon: { lat: 0, lon: 0 },
-      scale: 1,
-      rotationRad: 0,
-      zoom: 0,
-    }),
-    registration: {
-      dirty: false,
-      solvedTransform: {
-        type: "similarity",
-        a: 1,
-        b: 0,
-        tx: 10,
-        ty: 20,
-      },
-    },
-  };
-  const transform = resolveOverlayScreenTransform({
-    state,
-    snapshot: {
-      viewportRect: { left: 0, top: 0, width: 800, height: 400 },
-      mapView: { center: { lat: 0, lon: 0 }, zoom: 0 },
-    },
-  });
-
-  assert.deepEqual(transform, createSolvedScreenTransform({
-    snapshot: {
-      viewportRect: { left: 0, top: 0, width: 800, height: 400 },
-      mapView: { center: { lat: 0, lon: 0 }, zoom: 0 },
-    },
-    solvedTransform: state.registration.solvedTransform,
-  }));
-});
-
-test("resolveOverlayRenderSource exposes whether rendering uses solved or manual placement", () => {
-  assert.equal(resolveOverlayRenderSource({
-    image: null,
-    registration: { solvedTransform: null, dirty: false },
-  }), "none");
-
-  assert.equal(resolveOverlayRenderSource({
-    image: { width: 1, height: 1 },
-    registration: { solvedTransform: null, dirty: false },
-  }), "placement");
-
-  assert.equal(resolveOverlayRenderSource({
-    image: { width: 1, height: 1 },
-    registration: { solvedTransform: { type: "similarity", a: 1, b: 0, tx: 0, ty: 0 }, dirty: false },
-  }), "solved");
-
-  assert.equal(resolveOverlayRenderSource({
-    image: { width: 1, height: 1 },
-    registration: { solvedTransform: { type: "similarity", a: 1, b: 0, tx: 0, ty: 0 }, dirty: false },
-  }), "solved");
-
-  assert.equal(resolveOverlayRenderSource({
-    image: { width: 1, height: 1 },
-    registration: { solvedTransform: { type: "similarity", a: 1, b: 0, tx: 0, ty: 0 }, dirty: true },
-  }), "placement");
-});
-
-test("resolveOverlayRenderState centralizes the active render source and transform", () => {
-  assert.deepEqual(resolveOverlayRenderState({
-    image: null,
-    placement: { type: "similarity", a: 1, b: 0, tx: 0, ty: 0 },
-    registration: { solvedTransform: { type: "similarity", a: 2, b: 0, tx: 3, ty: 4 }, dirty: false },
-  }), {
-    source: "none",
-    similarityTransform: null,
-  });
-
-  const placement = { type: "similarity", a: 1, b: 0, tx: 5, ty: 6 };
-  assert.deepEqual(resolveOverlayRenderState({
-    image: { width: 1, height: 1 },
-    placement,
-    registration: { solvedTransform: { type: "similarity", a: 2, b: 0, tx: 3, ty: 4 }, dirty: true },
-  }), {
-    source: "placement",
-    similarityTransform: placement,
-  });
-
-  const solvedTransform = { type: "similarity", a: 2, b: 0, tx: 3, ty: 4 };
-  assert.deepEqual(resolveOverlayRenderState({
-    image: { width: 1, height: 1 },
-    placement,
-    registration: { solvedTransform, dirty: false },
-  }), {
-    source: "solved",
-    similarityTransform: solvedTransform,
-  });
-});
-
-test("resolveOverlayRenderState prefers machine-owned placement preview when present", () => {
-  const placement = { type: "similarity", a: 1, b: 0, tx: 5, ty: 6 };
-  const solvedTransform = { type: "similarity", a: 2, b: 0, tx: 3, ty: 4 };
-  const previewPlacement = { type: "similarity", a: 1, b: 0, tx: 25, ty: 16 };
-
-  assert.deepEqual(resolveOverlayRenderState({
-    session: {
-      image: { width: 1, height: 1 },
-      placement,
-      registration: { solvedTransform, dirty: false },
-    },
-    runtime: {
-      placementEdit: {
-        kind: "move",
-        beforePlacement: solvedTransform,
-        beforeRegistration: { pins: [], solvedTransform, dirty: false },
-        previewPlacement,
-      },
-    },
-  }), {
-    source: "placement-preview",
-    similarityTransform: previewPlacement,
-  });
-});
-
-test("buildOverlayRenderModel derives CSS-compatible placement from a similarity transform", () => {
-  const model = buildOverlayRenderModel({
-    image: { width: 400, height: 200 },
-    transform: { a: 0, b: 2, tx: 450, ty: 350 },
-    opacity: 0.75,
-  });
-
-  assert.equal(model.left, 450);
-  assert.equal(model.top, 350);
-  assert.equal(model.width, 800);
-  assert.equal(model.height, 400);
-  assert.equal(model.rotationDeg, 90);
-  assert.equal(model.opacity, 0.75);
-});
-
 test("screenPointToImagePoint inverts imagePointToScreenPoint", () => {
   const transform = {
     a: 0.75,
@@ -243,38 +84,6 @@ test("screenPointToImagePoint inverts imagePointToScreenPoint", () => {
 
   assert.ok(Math.abs(resolved.x - imagePoint.x) < 1e-9);
   assert.ok(Math.abs(resolved.y - imagePoint.y) < 1e-9);
-});
-
-test("buildPinRenderModels and hitTestPin share the same screen geometry", () => {
-  const pins = buildPinRenderModels({
-    pins: [
-      {
-        id: 1,
-        imagePx: { x: 20, y: 30 },
-        mapLatLon: { lat: 0, lon: 0 },
-      },
-    ],
-    projectOverlayScreenPoint: () => ({ x: 120, y: 80 }),
-    projectMapScreenPoint: () => ({ x: 140, y: 100 }),
-  });
-
-  assert.deepEqual(pins[0].overlayScreenPx, { x: 120, y: 80 });
-  assert.deepEqual(pins[0].mapScreenPx, { x: 140, y: 100 });
-  assert.equal(
-    hitTestPin({
-      screenPoint: { x: 123, y: 82 },
-      renderedPins: pins,
-    })?.id,
-    1,
-  );
-  assert.equal(
-    hitTestPin({
-      screenPoint: { x: 143, y: 102 },
-      renderedPins: pins,
-      resolveTargetScreenPoint: (pin) => pin.mapScreenPx,
-    })?.id,
-    1,
-  );
 });
 
 test("surface motion helpers are inverse on screen points", () => {
@@ -348,16 +157,6 @@ test("solveSimilarityTransform recovers a clean two-pin similarity fit", () => {
   assert.ok(Math.abs(transform.b - 0) < 1e-9);
   assert.ok(Math.abs(transform.tx - 100) < 1e-9);
   assert.ok(Math.abs(transform.ty - 200) < 1e-9);
-});
-
-test("scaleFromWheelDelta zooms smoothly in and out", () => {
-  assert.ok(scaleFromWheelDelta(1, -100) > 1);
-  assert.ok(scaleFromWheelDelta(1, 100) < 1);
-});
-
-test("rotationFromWheelDelta changes rotation deterministically", () => {
-  assert.ok(rotationFromWheelDelta(0, -100) > 0);
-  assert.ok(rotationFromWheelDelta(0, 100) < 0);
 });
 
 function worldToLatLon(world) {
