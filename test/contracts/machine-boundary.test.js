@@ -291,6 +291,7 @@ test("gesture lifecycle is the only content-side coordinator of adapter drag and
     ["src/content/interactions/pointer-interaction.js", fs.readFileSync(repoPath("src/content/interactions/pointer-interaction.js"), "utf8")],
     ["src/content/interactions/runtime-bridge.js", fs.readFileSync(repoPath("src/content/interactions/runtime-bridge.js"), "utf8")],
   ]);
+  const gestureLifecycleSource = fs.readFileSync(repoPath("src/content/interactions/gesture-lifecycle.js"), "utf8");
   const forbiddenPatterns = [
     ["adapter drag dependency", /\badapterDrag\b/],
     ["adapter drag factory dependency", /\bcreateAdapterDragController\b/],
@@ -305,6 +306,8 @@ test("gesture lifecycle is the only content-side coordinator of adapter drag and
     }
   }
 
+  assert.doesNotMatch(gestureLifecycleSource, /\.subscribe\(/);
+  assert.match(gestureLifecycleSource, /\bhandleRuntimeChange\b/);
   assert.deepEqual(violations, []);
 });
 

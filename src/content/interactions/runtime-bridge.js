@@ -69,8 +69,9 @@ export function createInteractionRuntimeBridge({
         selectInputRuntimeObservationKey(previousRuntime) !==
         selectInputRuntimeObservationKey(nextRuntime)
       ) {
+        const oldRuntime = previousRuntime;
         previousRuntime = nextRuntime;
-        listener(nextRuntime);
+        listener(nextRuntime, oldRuntime);
       }
     }, { emitCurrent: false }));
   }

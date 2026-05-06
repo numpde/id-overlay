@@ -125,7 +125,7 @@ test("gesture lifecycle reset cancels adapter drag and interrupts runtime atomic
   assert.equal(machineHost.getState().runtime.pointer.screenPx, null);
 });
 
-test("gesture lifecycle releases adapter drag when machine runtime ends elsewhere", () => {
+test("gesture lifecycle releases adapter drag from an explicit runtime interruption input", () => {
   const { lifecycle, adapterDrag, machineHost } = createLifecycleHarness();
 
   lifecycle.begin({
@@ -133,9 +133,14 @@ test("gesture lifecycle releases adapter drag when machine runtime ends elsewher
     screenPoint: { x: 50, y: 60 },
     dragMode: DRAG_MODE.MAP_PAN,
   });
+  const previousRuntime = machineHost.getState().runtime;
   machineHost.observeRuntimeFact(createInputInterruptedFact({
     pointerScreenPx: { x: 70, y: 80 },
   }));
+  lifecycle.handleRuntimeChange({
+    previousRuntime,
+    nextRuntime: machineHost.getState().runtime,
+  });
 
   assert.deepEqual(adapterDrag.cancelCalls, [{
     screenPoint: { x: 50, y: 60 },
@@ -143,7 +148,7 @@ test("gesture lifecycle releases adapter drag when machine runtime ends elsewher
   }]);
 });
 
-test("gesture lifecycle destroy stops external runtime cleanup", () => {
+test("gesture lifecycle ignores runtime interruption after adapter drag has already ended", () => {
   const { lifecycle, adapterDrag, machineHost } = createLifecycleHarness();
 
   lifecycle.begin({
@@ -151,8 +156,13 @@ test("gesture lifecycle destroy stops external runtime cleanup", () => {
     screenPoint: { x: 50, y: 60 },
     dragMode: DRAG_MODE.MAP_PAN,
   });
-  lifecycle.destroy();
+  adapterDrag.end({ x: 50, y: 60 });
+  const previousRuntime = machineHost.getState().runtime;
   machineHost.observeRuntimeFact(createInputInterruptedFact({ pointerScreenPx: null }));
+  lifecycle.handleRuntimeChange({
+    previousRuntime,
+    nextRuntime: machineHost.getState().runtime,
+  });
 
   assert.deepEqual(adapterDrag.cancelCalls, []);
 });

@@ -33,6 +33,9 @@ export function createInteractionPorts({
     adapterDrag,
     runtimeBridge,
   });
+  const unsubscribeGestureRuntime = runtimeBridge.subscribe((nextRuntime, previousRuntime) => {
+    gestureLifecycle.handleRuntimeChange({ previousRuntime, nextRuntime });
+  }, { emitCurrent: false });
   const errorBoundary = createInteractionErrorBoundary({
     reportRuntimeError: machineActions.reportRuntimeError,
     resetInteraction: resetRuntimeAfterError,
@@ -97,7 +100,7 @@ export function createInteractionPorts({
   };
 
   function destroy() {
-    gestureLifecycle.destroy();
+    unsubscribeGestureRuntime();
     runtimeBridge.destroy();
     keyboardRouter.destroy();
   }

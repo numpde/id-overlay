@@ -45,23 +45,25 @@ test("interaction runtime bridge reports input interruption facts without adapte
   bridge.destroy();
 });
 
-test("interaction runtime bridge subscriber emits only meaningful runtime changes", () => {
+test("interaction runtime bridge subscriber emits only meaningful runtime changes with previous runtime", () => {
   const { bridge, machineHost } = createRuntimeBridgeHarness();
-  const observedRuntime = [];
-  const unsubscribe = bridge.subscribe((runtime) => {
-    observedRuntime.push(runtime);
+  const observedChanges = [];
+  const unsubscribe = bridge.subscribe((runtime, previousRuntime) => {
+    observedChanges.push({ runtime, previousRuntime });
   });
 
   machineHost.reportRuntimeError({ message: "ignored for runtime projection" });
   bridge.observePointer({ x: 1, y: 2 });
 
-  assert.equal(observedRuntime.length, 2);
-  assert.equal(observedRuntime[0].pointer.screenPx, null);
-  assert.deepEqual(observedRuntime[1].pointer.screenPx, { x: 1, y: 2 });
+  assert.equal(observedChanges.length, 2);
+  assert.equal(observedChanges[0].runtime.pointer.screenPx, null);
+  assert.equal(observedChanges[0].previousRuntime, undefined);
+  assert.deepEqual(observedChanges[1].runtime.pointer.screenPx, { x: 1, y: 2 });
+  assert.equal(observedChanges[1].previousRuntime.pointer.screenPx, null);
 
   unsubscribe();
   bridge.observePointer({ x: 3, y: 4 });
-  assert.equal(observedRuntime.length, 2);
+  assert.equal(observedChanges.length, 2);
 
   bridge.destroy();
 });
