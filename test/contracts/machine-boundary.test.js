@@ -5,10 +5,6 @@ import path from "node:path";
 
 import { repoPath } from "../helpers/paths.js";
 
-// TODO(smell): These boundary contracts still guard the previous cleanup stage,
-// not the final public user/fact ingress split. Rewrite them to forbid content
-// imports of low-level mutation events and to require private replay/event
-// surfaces once the machine API is cut over.
 const MACHINE_DIR = repoPath("src/core/machine");
 
 const FORBIDDEN_IMPORTS = Object.freeze([
@@ -203,7 +199,8 @@ test("live interactions and overlay read canonical machine host, not the legacy 
 test("interaction adapter does not own registration solve or pin mutation semantics", () => {
   const source = fs.readFileSync(repoPath("src/content/interaction-controller.js"), "utf8");
   const forbiddenPatterns = [
-    ["direct add/remove/restore events", /MACHINE_COMMAND_KIND\.(?:ADD_PIN|REMOVE_PIN|RESTORE_REGISTRATION)/],
+    ["private command import", /private-commands\.js/],
+    ["direct add/remove/restore command names", /\b(?:ADD_PIN|REMOVE_PIN|RESTORE_REGISTRATION)\b/],
     ["registration solver import", /\bsolveSimilarityTransform\b/],
     ["public pin/solve result vocabulary", /\b(?:PIN_RESULT_(?:ACTION|REASON)|SOLVE_RESULT_REASON)\b/],
     ["public pin toggle command", /\brequestTogglePinAtCurrentPointer\b/],
@@ -261,7 +258,8 @@ test("interaction tests do not recreate semantic controller facade APIs", () => 
 test("interaction adapter does not own placement edit lifecycle semantics", () => {
   const source = fs.readFileSync(repoPath("src/content/interaction-controller.js"), "utf8");
   const forbiddenPatterns = [
-    ["direct placement restore events", /MACHINE_COMMAND_KIND\.RESTORE_PLACEMENT/],
+    ["private command import", /private-commands\.js/],
+    ["direct placement restore command name", /\bRESTORE_PLACEMENT\b/],
     ["interaction-local placement draft", /\bplacementEditDraft\b/],
     ["interaction-local placement lifecycle", /\b(?:begin|commit)PlacementEdit\b/],
   ];
@@ -275,9 +273,10 @@ test("interaction adapter does not own placement edit lifecycle semantics", () =
 test("interaction controller shell delegates pin and wheel command semantics", () => {
   const source = fs.readFileSync(repoPath("src/content/interaction-controller.js"), "utf8");
   const forbiddenPatterns = [
-    ["direct pin toggle event", /MACHINE_COMMAND_KIND\.TOGGLE_PIN/],
-    ["direct opacity event", /MACHINE_COMMAND_KIND\.SET_OPACITY/],
-    ["direct placement edit event", /MACHINE_COMMAND_KIND\.APPLY_PLACEMENT_EDIT/],
+    ["private command import", /private-commands\.js/],
+    ["direct pin toggle command name", /\bTOGGLE_PIN\b/],
+    ["direct opacity command name", /\bSET_OPACITY\b/],
+    ["direct placement edit command name", /\bAPPLY_PLACEMENT_EDIT\b/],
     ["placement command kind", /\bMACHINE_PLACEMENT_EDIT_KIND\b/],
     [
       "pin command geometry",
