@@ -1,10 +1,5 @@
-import { MACHINE_EFFECT_RESULT_KIND } from "./effect-results.js";
-import { completePasteRead } from "./paste-outcome.js";
-import {
-  canCancelPanelIntent,
-  cancelPanelIntent,
-  clearStatusNotice,
-} from "./panel-status-transition.js";
+import { PASTE_EFFECT_RESULT_TRANSITIONS } from "./paste-outcome.js";
+import { PANEL_STATUS_EFFECT_RESULT_TRANSITIONS } from "./panel-status-transition.js";
 import {
   createInitialMachineState,
   normalizeMachineState,
@@ -15,11 +10,12 @@ import {
   withStatusNotice,
 } from "./transition-result.js";
 
+const EFFECT_RESULT_TRANSITIONS = {
+  ...PASTE_EFFECT_RESULT_TRANSITIONS,
+  ...PANEL_STATUS_EFFECT_RESULT_TRANSITIONS,
+};
+
 export function transitionMachineEffectResult(state = createInitialMachineState(), result = {}) {
-  // TODO(smell): Effect results enter through a separate switch from user
-  // intents, so request/result ownership is split across effect definitions,
-  // runner completion, and this transition. Final shape should colocate each
-  // effect fact with the transition that requested it.
   return withStatusNotice(withHistoryRecord(transitionEffectResult(
     normalizeMachineState(state),
     result,
@@ -27,17 +23,8 @@ export function transitionMachineEffectResult(state = createInitialMachineState(
 }
 
 function transitionEffectResult(state, result) {
-  switch (result?.kind) {
-    case MACHINE_EFFECT_RESULT_KIND.READ_PASTE_IMAGE:
-      return completePasteRead(state, result);
-    case MACHINE_EFFECT_RESULT_KIND.PANEL_TIMEOUT_ELAPSED:
-      if (!canCancelPanelIntent(state, result)) {
-        return createTransitionResult({ state });
-      }
-      return cancelPanelIntent(state, result);
-    case MACHINE_EFFECT_RESULT_KIND.STATUS_TIMEOUT_ELAPSED:
-      return clearStatusNotice(state, result);
-    default:
-      return createTransitionResult({ state });
-  }
+  return (
+    EFFECT_RESULT_TRANSITIONS[result?.kind]?.(state, result) ??
+    createTransitionResult({ state })
+  );
 }

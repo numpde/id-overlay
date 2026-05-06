@@ -6,6 +6,7 @@ import {
   MACHINE_PASTE_SOURCE,
   normalizeMachinePasteSource,
 } from "./paste-read.js";
+import { MACHINE_EFFECT_RESULT_KIND } from "./effect-results.js";
 import { MACHINE_STATUS_NOTICE_KIND } from "./status-notices.js";
 import {
   cancelPanelIntent,
@@ -22,6 +23,10 @@ import { createPlacementTransform } from "../transform.js";
 export const MACHINE_PASTE_READ_INTERPRETATION_KIND = Object.freeze({
   DECODED_IMAGE: "decoded-image",
   CLIPBOARD_FAILURE: "clipboard-failure",
+});
+
+export const PASTE_EFFECT_RESULT_TRANSITIONS = Object.freeze({
+  [MACHINE_EFFECT_RESULT_KIND.READ_PASTE_IMAGE]: completePasteRead,
 });
 
 export function completePasteRead(state, result) {

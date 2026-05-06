@@ -330,6 +330,10 @@ test("history replay never re-enters public ingress", () => {
 test("effect and timer completion returns typed facts instead of dispatching commands", () => {
   const sources = new Map([
     ["src/core/machine/effect-runner.js", readSource(repoPath("src/core/machine/effect-runner.js"))],
+    [
+      "src/core/machine/effect-result-transition.js",
+      readSource(repoPath("src/core/machine/effect-result-transition.js")),
+    ],
     ["src/core/machine/host.js", readSource(repoPath("src/core/machine/host.js"))],
   ]);
   const forbiddenPatterns = [
@@ -337,6 +341,7 @@ test("effect and timer completion returns typed facts instead of dispatching com
     ["panel cancel event", /\bcreateCancelPanelIntentCommand\b/],
     ["status clear command", /\bMACHINE_(?:PRIVATE_)?COMMAND_KIND\.CLEAR_STATUS_NOTICE\b/],
     ["host/effect dispatch callback", /\bdispatch\s*\(/],
+    ["central effect-result transition switch", /\bswitch\s*\(\s*result\?\.kind\s*\)/],
   ];
   const violations = [];
 

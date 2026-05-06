@@ -15,6 +15,7 @@ import {
   createStartManualPasteCaptureEffect,
   createStartPanelTimeoutEffect,
 } from "./effect-requests.js";
+import { MACHINE_EFFECT_RESULT_KIND } from "./effect-results.js";
 import { isPanelIntentValidForState } from "./policy.js";
 import {
   createCancelStatusTimeoutEffects,
@@ -79,6 +80,11 @@ export function createStatusNoticeResult(state, event) {
   });
 }
 
+export const PANEL_STATUS_EFFECT_RESULT_TRANSITIONS = Object.freeze({
+  [MACHINE_EFFECT_RESULT_KIND.PANEL_TIMEOUT_ELAPSED]: completePanelTimeoutElapsed,
+  [MACHINE_EFFECT_RESULT_KIND.STATUS_TIMEOUT_ELAPSED]: clearStatusNotice,
+});
+
 export function canCancelPanelIntent(state, event) {
   if (event.requestId == null) {
     return true;
@@ -121,6 +127,13 @@ export function clearInvalidPanelIntent(state, nextState) {
     };
   }
   return clearPanelIntent(state, nextState);
+}
+
+function completePanelTimeoutElapsed(state, result) {
+  if (!canCancelPanelIntent(state, result)) {
+    return createTransitionResult({ state });
+  }
+  return cancelPanelIntent(state, result);
 }
 
 function nextPanelRequestId(state) {
