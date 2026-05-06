@@ -7,10 +7,11 @@ export function createPinToggleCommand({
   pageProjection,
   getMachineState,
   machineActions,
+  logger,
 }) {
   // TODO(smell): Pin toggle command still bundles page projection, machine
-  // invocation, and user-facing log outcome shaping. Keep planning as facts and
-  // let the machine/result presenter author the semantic outcome description.
+  // invocation, and user-facing logging. Keep planning as facts and let the
+  // machine/result presenter author the semantic outcome description.
   return {
     toggleAtScreenPoint,
   };
@@ -25,7 +26,8 @@ export function createPinToggleCommand({
       screenToMap: (point) => pageProjection.screenToMap(point),
     });
     if (!pinPlan.ok) {
-      return createUnhandledPinToggleOutcome(pinPlan.reason);
+      logUnhandledPinToggle(pinPlan.reason);
+      return false;
     }
 
     const result = machineActions.togglePin({
@@ -35,39 +37,19 @@ export function createPinToggleCommand({
       ...(pinPlan.preservedPlacement ? { preservedPlacement: pinPlan.preservedPlacement } : {}),
     });
     const handled = Boolean(result.historyRecord);
-    return handled
-      ? createHandledPinToggleOutcome({
-          pointerScreenPx: pinPlan.pointerScreenPx,
-          existingPinId: pinPlan.existingPinId,
-        })
-      : createUnhandledPinToggleOutcome("machine-rejected");
+    if (!handled) {
+      logUnhandledPinToggle("machine-rejected");
+      return false;
+    }
+    logger.info("Toggled registration pin", {
+      pinId: pinPlan.existingPinId,
+    });
+    return true;
   }
-}
 
-function createHandledPinToggleOutcome({ pointerScreenPx, existingPinId }) {
-  return {
-    handled: true,
-    pointerScreenPx,
-    log: {
-      level: "info",
-      message: "Toggled registration pin",
-      details: {
-        pinId: existingPinId,
-      },
-    },
-  };
-}
-
-function createUnhandledPinToggleOutcome(reason) {
-  return {
-    handled: false,
-    reason,
-    log: {
-      level: "warn",
-      message: "Pin toggle requested without a valid pin context",
-      details: {
-        reason,
-      },
-    },
-  };
+  function logUnhandledPinToggle(reason) {
+    logger.warn("Pin toggle requested without a valid pin context", {
+      reason,
+    });
+  }
 }

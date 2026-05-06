@@ -11,15 +11,13 @@ import {
 import {
   createPlacementWheelCommand,
 } from "./placement-wheel-command.js";
-import {
-  createUnhandledWheelOutcome,
-} from "./wheel-outcome.js";
 
 export function createWheelCommand({
   pageObservation,
   mapGesture,
   getMachineState,
   machineActions,
+  logger,
 }) {
   // TODO(smell): Wheel command dispatch is mode-keyed orchestration over three
   // command families. Keep wheel mode interpretation here for now, but the
@@ -28,14 +26,17 @@ export function createWheelCommand({
   const mapWheelCommand = createMapWheelCommand({
     mapGesture,
     getMachineState,
+    logger,
   });
   const opacityWheelCommand = createOpacityWheelCommand({
     machineActions,
+    logger,
   });
   const placementWheelCommand = createPlacementWheelCommand({
     pageObservation,
     getMachineState,
     machineActions,
+    logger,
   });
 
   return {
@@ -44,7 +45,7 @@ export function createWheelCommand({
 
   function handleWheel({ deltaY, wheelMode, screenPoint }) {
     if (!isKnownWheelMode(wheelMode)) {
-      return createUnhandledWheelOutcome("unknown-wheel-mode");
+      return false;
     }
     if (wheelMode === WHEEL_MODE.MAP_ZOOM) {
       return mapWheelCommand.handleMapZoomWheel({ deltaY, screenPoint });
@@ -55,6 +56,6 @@ export function createWheelCommand({
     if (wheelMode === WHEEL_MODE.ROTATE_OVERLAY || wheelMode === WHEEL_MODE.ZOOM_OVERLAY) {
       return placementWheelCommand.handlePlacementWheel({ deltaY, wheelMode, screenPoint });
     }
-    return createUnhandledWheelOutcome("unsupported-wheel-mode");
+    return false;
   }
 }

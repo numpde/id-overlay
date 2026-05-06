@@ -1,24 +1,18 @@
-import {
-  createHandledWheelOutcome,
-} from "./wheel-outcome.js";
-
 export function createOpacityWheelCommand({
   machineActions,
+  logger,
 }) {
   return {
     handleOpacityWheel,
   };
 
-  function handleOpacityWheel({ deltaY, screenPoint }) {
+  function handleOpacityWheel({ deltaY }) {
     const result = machineActions.changeOpacityByWheel({ deltaY });
     const nextOpacity = result.state.session.opacity;
-    return createHandledWheelOutcome({
-      pointerScreenPx: screenPoint,
-      log: {
-        level: "info",
-        message: "Adjusted overlay opacity",
-        details: { opacity: nextOpacity, deltaY },
-      },
+    logger.info("Adjusted overlay opacity", {
+      opacity: nextOpacity,
+      deltaY,
     });
+    return true;
   }
 }

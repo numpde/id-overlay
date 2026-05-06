@@ -1,14 +1,11 @@
 import {
   resolveOverlayRenderSource,
 } from "../../core/transform.js";
-import {
-  createHandledWheelOutcome,
-  createUnhandledWheelOutcome,
-} from "./wheel-outcome.js";
 
 export function createMapWheelCommand({
   mapGesture,
   getMachineState,
+  logger,
 }) {
   return {
     handleMapZoomWheel,
@@ -20,24 +17,14 @@ export function createMapWheelCommand({
       deltaY,
     });
     if (!forwarded) {
-      return createUnhandledWheelOutcome("map-zoom-not-forwarded", {
-        log: {
-          level: "warn",
-          message: "Map zoom requested, but the map gesture port could not forward it",
-        },
-      });
+      logger.warn("Map zoom requested, but the map gesture port could not forward it");
+      return false;
     }
-    return createHandledWheelOutcome({
-      pointerScreenPx: screenPoint,
-      log: {
-        level: "info",
-        message: "Forwarded native wheel to map zoom; overlay follows through the current render state",
-        details: {
-          forwarded,
-          deltaY,
-          renderSource: resolveOverlayRenderSource(getMachineState().session),
-        },
-      },
+    logger.info("Forwarded native wheel to map zoom; overlay follows through the current render state", {
+      forwarded,
+      deltaY,
+      renderSource: resolveOverlayRenderSource(getMachineState().session),
     });
+    return true;
   }
 }

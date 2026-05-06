@@ -348,6 +348,16 @@ test("interaction ports delegate pin and wheel command semantics", () => {
   assert.deepEqual(violations, []);
 });
 
+test("interaction outcome plumbing stays deleted", () => {
+  const deletedFiles = [
+    "src/content/interactions/command-outcome.js",
+    "src/content/interactions/wheel-outcome.js",
+    "test/unit/interaction-command-outcome.test.js",
+  ].filter((relativePath) => fs.existsSync(repoPath(relativePath)));
+
+  assert.deepEqual(deletedFiles, []);
+});
+
 test("placement edit planning is centralized outside transform and live interaction routing", () => {
   const sources = new Map([
     ["src/core/transform.js", fs.readFileSync(repoPath("src/core/transform.js"), "utf8")],

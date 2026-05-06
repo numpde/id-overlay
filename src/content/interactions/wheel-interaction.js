@@ -1,6 +1,3 @@
-import {
-  applyInteractionCommandOutcome,
-} from "./command-outcome.js";
 import { createWheelCommand } from "./wheel-command.js";
 
 export function createWheelInteraction({
@@ -17,6 +14,7 @@ export function createWheelInteraction({
     mapGesture,
     getMachineState,
     machineActions,
+    logger,
   });
 
   return {
@@ -25,12 +23,11 @@ export function createWheelInteraction({
 
   function handleWheel({ deltaY, wheelMode, screenPoint }) {
     return errorBoundary.run("handle-wheel", () => {
-      const outcome = wheelCommand.handleWheel({ deltaY, wheelMode, screenPoint });
-      return applyInteractionCommandOutcome({
-        outcome,
-        runtimeBridge,
-        logger,
-      });
+      const handled = wheelCommand.handleWheel({ deltaY, wheelMode, screenPoint });
+      if (handled) {
+        runtimeBridge.observePointer(screenPoint);
+      }
+      return handled;
     }, { fallbackValue: false });
   }
 }

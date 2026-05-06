@@ -1,6 +1,3 @@
-import {
-  applyInteractionCommandOutcome,
-} from "./command-outcome.js";
 import { createPinToggleCommand } from "./pin-toggle-command.js";
 
 export function createPinToggleInteraction({
@@ -17,6 +14,7 @@ export function createPinToggleInteraction({
     pageProjection,
     getMachineState,
     machineActions,
+    logger,
   });
 
   return {
@@ -26,16 +24,7 @@ export function createPinToggleInteraction({
   function toggleAtScreenPoint(screenPoint) {
     return errorBoundary.run("handle-toggle-pin", () => {
       runtimeBridge.observePointer(screenPoint);
-      return executeToggleAtScreenPoint(screenPoint);
+      return pinToggleCommand.toggleAtScreenPoint(screenPoint);
     }, { fallbackValue: false });
-  }
-
-  function executeToggleAtScreenPoint(screenPoint) {
-    const outcome = pinToggleCommand.toggleAtScreenPoint(screenPoint);
-    return applyInteractionCommandOutcome({
-      outcome,
-      runtimeBridge,
-      logger,
-    });
   }
 }

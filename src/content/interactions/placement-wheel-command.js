@@ -5,15 +5,12 @@ import {
 import {
   WHEEL_MODE,
 } from "../../core/interaction-policy.js";
-import {
-  createHandledWheelOutcome,
-  createUnhandledWheelOutcome,
-} from "./wheel-outcome.js";
 
 export function createPlacementWheelCommand({
   pageObservation,
   getMachineState,
   machineActions,
+  logger,
 }) {
   return {
     handlePlacementWheel,
@@ -34,17 +31,14 @@ export function createPlacementWheelCommand({
       deltaY,
     });
     if (!rotatePlan) {
-      return createUnhandledWheelOutcome("no-placement");
+      return false;
     }
     machineActions.rotateOverlayPlacement(rotatePlan);
-    return createHandledWheelOutcome({
-      pointerScreenPx: screenPoint,
-      log: {
-        level: "info",
-        message: "Rotated overlay placement",
-        details: { rotationRad: rotatePlan.rotationRad, deltaY },
-      },
+    logger.info("Rotated overlay placement", {
+      rotationRad: rotatePlan.rotationRad,
+      deltaY,
     });
+    return true;
   }
 
   function handleScaleWheel({ deltaY, screenPoint, snapshot }) {
@@ -55,16 +49,13 @@ export function createPlacementWheelCommand({
       deltaY,
     });
     if (!scalePlan) {
-      return createUnhandledWheelOutcome("no-placement");
+      return false;
     }
     machineActions.scaleOverlayPlacement(scalePlan);
-    return createHandledWheelOutcome({
-      pointerScreenPx: screenPoint,
-      log: {
-        level: "info",
-        message: "Scaled overlay placement",
-        details: { scale: scalePlan.scale, deltaY },
-      },
+    logger.info("Scaled overlay placement", {
+      scale: scalePlan.scale,
+      deltaY,
     });
+    return true;
   }
 }
