@@ -33,8 +33,8 @@ export function createHost({ persistedSession = null } = {}) {
   return createMachineHost({ persistedSession });
 }
 
-export function createLoadedHost(options) {
-  const host = createHost(options);
+export function createLoadedHost() {
+  const host = createHost();
   loadImage(host);
   return host;
 }
@@ -43,15 +43,10 @@ export function state(host) {
   return host.getState();
 }
 
-export function loadImage(host, {
-  image = IMAGE,
-  placement = PLACEMENT,
-  requestId = null,
-} = {}) {
+export function loadImage(host) {
   return host.loadImage({
-    image,
-    placement,
-    requestId,
+    image: IMAGE,
+    placement: PLACEMENT,
   });
 }
 

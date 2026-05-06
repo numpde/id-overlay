@@ -10,7 +10,6 @@ import {
   selectOverlayPolicy,
 } from "../../src/core/machine/policy.js";
 import {
-  selectOverlayPresentation,
   selectPanelStatusText,
 } from "../../src/core/machine/selectors.js";
 import {
@@ -39,12 +38,6 @@ test("initial no-image state is native Trace with paste as the primary action", 
     isNativeMapInput: true,
     isPassThrough: true,
     canEditOverlay: false,
-    arePinsVisible: false,
-    ownsPointerHitTesting: false,
-  });
-  assert.deepEqual(selectOverlayPresentation(currentState), {
-    mode: MACHINE_MODE.TRACE,
-    isPassThrough: true,
     arePinsVisible: false,
     ownsPointerHitTesting: false,
   });
@@ -92,12 +85,6 @@ test("selectors derive panel intent, status, controls, and pass-through", () => 
     isNativeMapInput: false,
     isPassThrough: false,
     canEditOverlay: true,
-    arePinsVisible: true,
-    ownsPointerHitTesting: true,
-  });
-  assert.deepEqual(selectOverlayPresentation(currentState), {
-    mode: MACHINE_MODE.ALIGN,
-    isPassThrough: false,
     arePinsVisible: true,
     ownsPointerHitTesting: true,
   });
