@@ -16,20 +16,25 @@ import { createMachineEffectRunner } from "../../src/core/machine/effect-runner.
 import {
   createInitialMachineState,
 } from "../../src/core/machine/state.js";
+import {
+  createDecodedImagePasteOutcome,
+  createStatusPasteOutcome as createMachineStatusPasteOutcome,
+} from "../../src/core/machine/paste-outcome.js";
 import { IMAGE } from "../helpers/session-fixtures.js";
 
 const CLIPBOARD_MISSING_IMAGE_NOTICE = "clipboard-missing-image";
 
 test("constructors centralize effect-runner result shapes", () => {
+  const outcome = createDecodedPasteOutcome();
   assert.deepEqual(createReadPasteImageResult({
     requestId: 7,
     source: MACHINE_PASTE_SOURCE.CLIPBOARD_API,
-    outcome: IMAGE,
+    outcome,
   }), {
     kind: MACHINE_EFFECT_RESULT_KIND.READ_PASTE_IMAGE,
     requestId: 7,
     source: MACHINE_PASTE_SOURCE.CLIPBOARD_API,
-    outcome: IMAGE,
+    outcome,
   });
   assert.equal(createReadPasteImageResult({
     requestId: 7,
@@ -132,10 +137,11 @@ test("manual-paste capture effects delegate request id through the effect runner
 test("read-paste-image delegates request id and completes with a clipboard-api result", async () => {
   const calls = [];
   const context = createContext();
+  const outcome = createDecodedPasteOutcome();
   const runEffect = createMachineEffectRunner({
     readPasteImage: (payload) => {
       calls.push(["read", payload]);
-      return IMAGE;
+      return outcome;
     },
     completeEffect: (result) => calls.push(["complete", result]),
     getState: createPasteState(7),
@@ -152,7 +158,7 @@ test("read-paste-image delegates request id and completes with a clipboard-api r
       kind: MACHINE_EFFECT_RESULT_KIND.READ_PASTE_IMAGE,
       requestId: 7,
       source: MACHINE_PASTE_SOURCE.CLIPBOARD_API,
-      outcome: IMAGE,
+      outcome,
     }],
   ]);
 });
@@ -172,19 +178,17 @@ test("manual-paste outcome completes with a manual-paste result", async () => {
     kind: MACHINE_EFFECT_KIND.START_MANUAL_PASTE_CAPTURE,
     requestId: 7,
   }, createContext());
-  onPasteOutcome({
+  const outcome = createDecodedImagePasteOutcome({
     image: IMAGE,
     placement: "placement",
   });
+  onPasteOutcome(outcome);
 
   assert.deepEqual(calls, [{
     kind: MACHINE_EFFECT_RESULT_KIND.READ_PASTE_IMAGE,
     requestId: 7,
     source: MACHINE_PASTE_SOURCE.MANUAL_PASTE,
-    outcome: {
-      image: IMAGE,
-      placement: "placement",
-    },
+    outcome,
   }]);
 });
 
@@ -203,17 +207,14 @@ test("manual-paste feedback completes with a manual-paste result", async () => {
     kind: MACHINE_EFFECT_KIND.START_MANUAL_PASTE_CAPTURE,
     requestId: 7,
   }, createContext());
-  onPasteOutcome({
-    noticeKind: CLIPBOARD_MISSING_IMAGE_NOTICE,
-  });
+  const outcome = createStatusPasteOutcome(CLIPBOARD_MISSING_IMAGE_NOTICE);
+  onPasteOutcome(outcome);
 
   assert.deepEqual(calls, [{
     kind: MACHINE_EFFECT_RESULT_KIND.READ_PASTE_IMAGE,
     requestId: 7,
     source: MACHINE_PASTE_SOURCE.MANUAL_PASTE,
-    outcome: {
-      noticeKind: CLIPBOARD_MISSING_IMAGE_NOTICE,
-    },
+    outcome,
   }]);
 });
 
@@ -232,13 +233,14 @@ test("manual-paste outcome completes even when request may be stale", async () =
     kind: MACHINE_EFFECT_KIND.START_MANUAL_PASTE_CAPTURE,
     requestId: 7,
   }, createContext());
-  onPasteOutcome(IMAGE);
+  const outcome = createDecodedPasteOutcome();
+  onPasteOutcome(outcome);
 
   assert.deepEqual(calls, [{
     kind: MACHINE_EFFECT_RESULT_KIND.READ_PASTE_IMAGE,
     requestId: 7,
     source: MACHINE_PASTE_SOURCE.MANUAL_PASTE,
-    outcome: IMAGE,
+    outcome,
   }]);
 });
 
@@ -283,8 +285,9 @@ test("read-paste-image completes nothing when no paste adapter is installed", as
 
 test("read-paste-image completes even when request may be stale", async () => {
   const calls = [];
+  const outcome = createDecodedPasteOutcome();
   const runEffect = createMachineEffectRunner({
-    readPasteImage: () => IMAGE,
+    readPasteImage: () => outcome,
     completeEffect: (result) => calls.push(result),
     getState: createPasteState(8),
   });
@@ -298,7 +301,7 @@ test("read-paste-image completes even when request may be stale", async () => {
     kind: MACHINE_EFFECT_RESULT_KIND.READ_PASTE_IMAGE,
     requestId: 7,
     source: MACHINE_PASTE_SOURCE.CLIPBOARD_API,
-    outcome: IMAGE,
+    outcome,
   }]);
 });
 
@@ -346,10 +349,9 @@ test("read-paste-image reports null completion even when request may be stale", 
 
 test("read-paste-image completes explicit status outcomes as clipboard-api results", async () => {
   const calls = [];
+  const outcome = createStatusPasteOutcome(CLIPBOARD_MISSING_IMAGE_NOTICE);
   const runEffect = createMachineEffectRunner({
-    readPasteImage: () => ({
-      noticeKind: CLIPBOARD_MISSING_IMAGE_NOTICE,
-    }),
+    readPasteImage: () => outcome,
     completeEffect: (result) => calls.push(result),
     getState: createPasteState(7),
   });
@@ -363,9 +365,7 @@ test("read-paste-image completes explicit status outcomes as clipboard-api resul
     kind: MACHINE_EFFECT_RESULT_KIND.READ_PASTE_IMAGE,
     requestId: 7,
     source: MACHINE_PASTE_SOURCE.CLIPBOARD_API,
-    outcome: {
-      noticeKind: CLIPBOARD_MISSING_IMAGE_NOTICE,
-    },
+    outcome,
   }]);
 });
 
@@ -418,6 +418,19 @@ function createContext() {
     state: createInitialMachineState(),
     result: { state: createInitialMachineState() },
   };
+}
+
+function createStatusPasteOutcome(noticeKind) {
+  return createMachineStatusPasteOutcome({
+    noticeKind,
+  });
+}
+
+function createDecodedPasteOutcome() {
+  return createDecodedImagePasteOutcome({
+    image: IMAGE,
+    placement: null,
+  });
 }
 
 function createIdleState() {

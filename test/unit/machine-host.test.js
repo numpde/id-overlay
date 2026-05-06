@@ -13,6 +13,9 @@ import {
   createInitialMachineState,
 } from "../../src/core/machine/state.js";
 import {
+  createDecodedImagePasteOutcome,
+} from "../../src/core/machine/paste-outcome.js";
+import {
   addPin,
   createHost,
   createLoadedHost,
@@ -80,7 +83,7 @@ test("machine host persists durable session after state changes only", () => {
 
 test("machine host routes paste effects back through typed effect results", async () => {
   const host = createHost({
-    readPasteImage: () => IMAGE,
+    readPasteImage: () => createDecodedPasteOutcome(),
   });
 
   host.requestPanelIntent(MACHINE_PANEL_INTENT.PASTE_ARMED);
@@ -292,4 +295,11 @@ function createTimerHarness() {
       return pending.size;
     },
   };
+}
+
+function createDecodedPasteOutcome() {
+  return createDecodedImagePasteOutcome({
+    image: IMAGE,
+    placement: PLACEMENT,
+  });
 }

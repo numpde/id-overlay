@@ -15,10 +15,16 @@ import { loadImage } from "./session-transition.js";
 import { createTransitionResult } from "./transition-result.js";
 import { createPlacementTransform } from "../transform.js";
 
+export const MACHINE_PASTE_READ_OUTCOME_KIND = Object.freeze({
+  DECODED_IMAGE: "decoded-image",
+  STATUS_NOTICE: "status-notice",
+});
+
 export function completePasteRead(state, result) {
   // TODO(smell): Paste completion now enters as a typed effect result, but its
-  // outcome is still the legacy image/status union. Collapse that next so paste
-  // interpretation starts from clipboard facts, page facts, and machine policy.
+  // outcome still carries machine status details. Collapse this further so
+  // paste interpretation starts from clipboard facts, page facts, and machine
+  // policy without status-shaped payloads crossing the effect boundary.
   const source = normalizeMachinePasteSource(result.source);
   if (!isCurrentPasteRequest(state, result) || !source) {
     return createTransitionResult({ state });
@@ -27,7 +33,7 @@ export function completePasteRead(state, result) {
   if (!outcome) {
     return createTransitionResult({ state });
   }
-  if (outcome.image) {
+  if (outcome.kind === MACHINE_PASTE_READ_OUTCOME_KIND.DECODED_IMAGE) {
     // TODO(smell): Paste completion re-enters loadImage via an event-shaped
     // object. Once image load is a private domain operation, pass typed image
     // facts directly instead of constructing transition-event payloads.
@@ -37,12 +43,12 @@ export function completePasteRead(state, result) {
       requestId: result.requestId,
     });
   }
-  if (!outcome.noticeKind) {
+  if (outcome.kind !== MACHINE_PASTE_READ_OUTCOME_KIND.STATUS_NOTICE) {
     return createTransitionResult({ state });
   }
   const statusEvent = {
-    noticeKind: outcome.noticeKind,
-    noticePayload: outcome.noticePayload,
+    noticeKind: outcome.notice.kind,
+    noticePayload: outcome.notice.payload,
   };
   if (source !== MACHINE_PASTE_SOURCE.MANUAL_PASTE) {
     return reportStatusNotice(state, statusEvent);
@@ -54,27 +60,22 @@ export function completePasteRead(state, result) {
 }
 
 export function normalizePasteReadOutcome(outcome) {
-  // TODO(smell): Normalization preserves the legacy paste outcome union: image,
-  // placement, or notice fields. Replace this with one explicit decoded-image /
-  // clipboard-failure result shape before the paste adapter stops authoring
-  // status-shaped outcomes.
-  if (!outcome) {
+  if (!outcome || typeof outcome !== "object") {
     return null;
   }
-  if (outcome.image || outcome.noticeKind) {
-    return {
-      image: outcome.image ?? null,
+  if (outcome.kind === MACHINE_PASTE_READ_OUTCOME_KIND.DECODED_IMAGE) {
+    return createDecodedImagePasteOutcome({
+      image: outcome.image,
       placement: outcome.placement ?? null,
-      noticeKind: outcome.noticeKind,
-      noticePayload: outcome.noticePayload ?? null,
-    };
+    });
   }
-  return {
-    image: outcome,
-    placement: null,
-    noticeKind: undefined,
-    noticePayload: null,
-  };
+  if (outcome.kind === MACHINE_PASTE_READ_OUTCOME_KIND.STATUS_NOTICE) {
+    return createStatusPasteOutcome({
+      noticeKind: outcome.notice?.kind,
+      noticePayload: outcome.notice?.payload ?? null,
+    });
+  }
+  return null;
 }
 
 export function createPasteReadOutcomeFromClipboardFact({ fact, snapshot }) {
@@ -88,39 +89,44 @@ export function createPasteReadOutcomeFromClipboardFact({ fact, snapshot }) {
     });
   }
   if (fact.kind === CLIPBOARD_IMAGE_READ_KIND.MISSING_IMAGE) {
-    return createClipboardStatusPasteOutcome({
+    return createStatusPasteOutcome({
       noticeKind: MACHINE_STATUS_NOTICE_KIND.CLIPBOARD_MISSING_IMAGE,
     });
   }
   if (fact.kind === CLIPBOARD_IMAGE_READ_KIND.UNREADABLE_IMAGE) {
-    return createClipboardStatusPasteOutcome({
+    return createStatusPasteOutcome({
       noticeKind: MACHINE_STATUS_NOTICE_KIND.CLIPBOARD_IMAGE_UNREADABLE,
     });
   }
   return null;
 }
 
-function createDecodedImagePasteOutcome({ image, snapshot }) {
+export function createDecodedImagePasteOutcome({ image, placement = null, snapshot = null }) {
   if (!image) {
     return null;
   }
   return {
+    kind: MACHINE_PASTE_READ_OUTCOME_KIND.DECODED_IMAGE,
     image,
-    placement: snapshot ? createPlacementTransform({
+    placement: placement ?? (snapshot ? createPlacementTransform({
       image,
       centerMapLatLon: snapshot.mapView.center,
       scale: 1,
       rotationRad: 0,
       zoom: snapshot.mapView.zoom,
-    }) : null,
+    }) : null),
   };
 }
 
-function createClipboardStatusPasteOutcome({ noticeKind, noticePayload = null }) {
+export function createStatusPasteOutcome({ noticeKind, noticePayload = null }) {
+  if (!noticeKind) {
+    return null;
+  }
   return {
-    image: null,
-    placement: null,
-    noticeKind,
-    noticePayload,
+    kind: MACHINE_PASTE_READ_OUTCOME_KIND.STATUS_NOTICE,
+    notice: {
+      kind: noticeKind,
+      payload: noticePayload,
+    },
   };
 }

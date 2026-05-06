@@ -7,7 +7,10 @@ import {
   createClipboardUnavailableFact,
   createDecodedClipboardImageFact,
 } from "../../src/core/clipboard-facts.js";
-import { createPasteReadOutcomeFromClipboardFact } from "../../src/core/machine/paste-outcome.js";
+import {
+  MACHINE_PASTE_READ_OUTCOME_KIND,
+  createPasteReadOutcomeFromClipboardFact,
+} from "../../src/core/machine/paste-outcome.js";
 import { createPlacementTransform } from "../../src/core/transform.js";
 import { IMAGE } from "../helpers/session-fixtures.js";
 
@@ -29,6 +32,7 @@ test("decoded clipboard image fact becomes a paste outcome with canonical initia
   });
 
   assert.deepEqual(outcome, {
+    kind: MACHINE_PASTE_READ_OUTCOME_KIND.DECODED_IMAGE,
     image: IMAGE,
     placement: createPlacementTransform({
       image: IMAGE,
@@ -47,10 +51,11 @@ test("clipboard failure facts become machine-owned paste status outcomes", () =>
     }),
     snapshot: SNAPSHOT,
   }), {
-    image: null,
-    placement: null,
-    noticeKind: CLIPBOARD_MISSING_IMAGE_NOTICE,
-    noticePayload: null,
+    kind: MACHINE_PASTE_READ_OUTCOME_KIND.STATUS_NOTICE,
+    notice: {
+      kind: CLIPBOARD_MISSING_IMAGE_NOTICE,
+      payload: null,
+    },
   });
 
   assert.deepEqual(createPasteReadOutcomeFromClipboardFact({
@@ -59,10 +64,11 @@ test("clipboard failure facts become machine-owned paste status outcomes", () =>
     }),
     snapshot: SNAPSHOT,
   }), {
-    image: null,
-    placement: null,
-    noticeKind: CLIPBOARD_IMAGE_UNREADABLE_NOTICE,
-    noticePayload: null,
+    kind: MACHINE_PASTE_READ_OUTCOME_KIND.STATUS_NOTICE,
+    notice: {
+      kind: CLIPBOARD_IMAGE_UNREADABLE_NOTICE,
+      payload: null,
+    },
   });
 });
 

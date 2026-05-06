@@ -15,6 +15,10 @@ import {
 } from "../../src/core/machine/effects.js";
 import { transitionMachineEffectResult } from "../../src/core/machine/effect-result-transition.js";
 import {
+  createDecodedImagePasteOutcome,
+  createStatusPasteOutcome as createMachineStatusPasteOutcome,
+} from "../../src/core/machine/paste-outcome.js";
+import {
   createIdlePanel,
   createInitialMachineState,
   isValidPanelRequestId,
@@ -305,7 +309,7 @@ test("stale paste effect result is a pure no-op", () => {
 
   const result = transitionMachineEffectResult(before, createReadPasteImageResult({
     source: MACHINE_PASTE_SOURCE.CLIPBOARD_API,
-    outcome: IMAGE,
+    outcome: createDecodedPasteOutcome(),
     requestId: before.panel.requestId + 1,
   }));
 
@@ -321,7 +325,7 @@ test("paste effect result with unknown source is a pure no-op", () => {
 
   const result = transitionMachineEffectResult(before, createReadPasteImageResult({
     source: "unknown",
-    outcome: IMAGE,
+    outcome: createDecodedPasteOutcome(),
     requestId: before.panel.requestId,
   }));
 
@@ -353,10 +357,7 @@ test("paste effect result with image loads image through canonical session trans
 
   const result = transitionMachineEffectResult(before, createReadPasteImageResult({
     source: MACHINE_PASTE_SOURCE.CLIPBOARD_API,
-    outcome: {
-      image: IMAGE,
-      placement: PLACEMENT,
-    },
+    outcome: createDecodedPasteOutcome(),
     requestId: before.panel.requestId,
   }));
 
@@ -386,9 +387,7 @@ test("clipboard-api paste status keeps paste armed", () => {
 
   const result = transitionMachineEffectResult(before, createReadPasteImageResult({
     source: MACHINE_PASTE_SOURCE.CLIPBOARD_API,
-    outcome: {
-      noticeKind: CLIPBOARD_MISSING_IMAGE_NOTICE,
-    },
+    outcome: createStatusPasteOutcome(CLIPBOARD_MISSING_IMAGE_NOTICE),
     requestId: before.panel.requestId,
   }));
 
@@ -411,9 +410,7 @@ test("manual paste status cancels paste before reporting status", () => {
 
   const result = transitionMachineEffectResult(before, createReadPasteImageResult({
     source: MACHINE_PASTE_SOURCE.MANUAL_PASTE,
-    outcome: {
-      noticeKind: CLIPBOARD_MISSING_IMAGE_NOTICE,
-    },
+    outcome: createStatusPasteOutcome(CLIPBOARD_MISSING_IMAGE_NOTICE),
     requestId: before.panel.requestId,
   }));
 
@@ -547,5 +544,18 @@ function loadImageForRequest(host, { requestId }) {
     image: IMAGE,
     placement: PLACEMENT,
     requestId,
+  });
+}
+
+function createDecodedPasteOutcome() {
+  return createDecodedImagePasteOutcome({
+    image: IMAGE,
+    placement: PLACEMENT,
+  });
+}
+
+function createStatusPasteOutcome(noticeKind) {
+  return createMachineStatusPasteOutcome({
+    noticeKind,
   });
 }
