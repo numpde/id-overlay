@@ -4,9 +4,11 @@ import {
   isMapPanDragMode,
 } from "../../core/interaction-policy.js";
 import {
-  planMovePlacementEditPreview,
-  planMovePlacementEditStart,
-} from "../../core/placement-edit-planning.js";
+  createMapPanDragController,
+} from "./map-pan-drag.js";
+import {
+  createOverlayMoveDragController,
+} from "./overlay-move-drag.js";
 
 export function createAdapterDragController({
   pageObservation,
@@ -15,11 +17,15 @@ export function createAdapterDragController({
   machineActions,
   logger,
 }) {
-  // TODO(smell): Adapter drag owns both page gesture forwarding and overlay
-  // placement edit dispatch. Split map-pan and overlay-move commands once a
-  // shared gesture lifecycle port replaces direct adapterDrag/runtime coupling.
-  let isMapPanActive = false;
-  let overlayMove = null;
+  const mapPanDrag = createMapPanDragController({
+    mapGesture,
+    logger,
+  });
+  const overlayMoveDrag = createOverlayMoveDragController({
+    pageObservation,
+    getMachineState,
+    machineActions,
+  });
 
   function begin({ button, screenPoint, dragMode }) {
     if (button !== 0 || !isKnownDragMode(dragMode)) {
@@ -27,37 +33,16 @@ export function createAdapterDragController({
     }
 
     if (isMapPanDragMode(dragMode)) {
-      const beganMapPan = mapGesture.beginMapPan?.(screenPoint) === true;
-      if (!beganMapPan) {
-        logger.warn("Map pan requested, but the map gesture port could not start it");
-        return false;
-      }
-      isMapPanActive = true;
-      overlayMove = null;
-      return true;
+      overlayMoveDrag.clear();
+      return mapPanDrag.begin(screenPoint);
     }
 
     if (dragMode !== DRAG_MODE.MOVE_OVERLAY) {
       return false;
     }
 
-    const snapshot = pageObservation.getSnapshot();
-    const movePlan = planMovePlacementEditStart({
-      machineState: getMachineState(),
-      snapshot,
-      startPointerScreenPx: screenPoint,
-    });
-    if (!movePlan) {
-      return false;
-    }
-
-    isMapPanActive = false;
-    overlayMove = {
-      startPointerScreenPx: movePlan.startPointerScreenPx,
-      startCenterScreenPx: movePlan.startCenterScreenPx,
-    };
-    machineActions.beginOverlayMove(movePlan);
-    return true;
+    mapPanDrag.clear();
+    return overlayMoveDrag.begin(screenPoint);
   }
 
   function move(screenPoint) {
@@ -65,23 +50,12 @@ export function createAdapterDragController({
       return;
     }
 
-    if (isMapPanActive) {
-      mapGesture.updateMapPan(screenPoint);
+    if (mapPanDrag.hasActive()) {
+      mapPanDrag.move(screenPoint);
       return;
     }
 
-    const snapshot = pageObservation.getSnapshot();
-    const previewPlan = planMovePlacementEditPreview({
-      machineState: getMachineState(),
-      snapshot,
-      startPointerScreenPx: overlayMove.startPointerScreenPx,
-      startCenterScreenPx: overlayMove.startCenterScreenPx,
-      pointerScreenPx: screenPoint,
-    });
-    if (!previewPlan) {
-      return;
-    }
-    machineActions.previewOverlayMove(previewPlan);
+    overlayMoveDrag.move(screenPoint);
   }
 
   function end(screenPoint) {
@@ -90,42 +64,38 @@ export function createAdapterDragController({
     }
     move(screenPoint);
     finish(screenPoint, { commitPlacement: true });
-    clear();
     return true;
   }
 
   function cancel(endPointerScreenPx, { commitPlacement }) {
     finish(endPointerScreenPx, { commitPlacement });
-    clear();
   }
 
   function finish(endPointerScreenPx, { commitPlacement }) {
-    if (isMapPanActive) {
-      mapGesture.endMapPan?.(endPointerScreenPx);
+    if (mapPanDrag.hasActive()) {
+      mapPanDrag.finish(endPointerScreenPx);
       return;
     }
-    if (commitPlacement && overlayMove) {
-      machineActions.commitOverlayMove();
-    }
+    overlayMoveDrag.finish({ commitPlacement });
   }
 
   function hasActive() {
-    return isMapPanActive || Boolean(overlayMove);
+    return mapPanDrag.hasActive() || overlayMoveDrag.hasActive();
   }
 
   function getActiveDragMode() {
-    if (isMapPanActive) {
+    if (mapPanDrag.hasActive()) {
       return DRAG_MODE.MAP_PAN;
     }
-    if (overlayMove) {
+    if (overlayMoveDrag.hasActive()) {
       return DRAG_MODE.MOVE_OVERLAY;
     }
     return null;
   }
 
   function clear() {
-    isMapPanActive = false;
-    overlayMove = null;
+    mapPanDrag.clear();
+    overlayMoveDrag.clear();
   }
 
   return {
