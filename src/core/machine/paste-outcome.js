@@ -12,7 +12,7 @@ import {
   isCurrentPasteRequest,
   reportStatusNotice,
 } from "./panel-status-transition.js";
-import { loadImage } from "./session-transition.js";
+import { loadImageSession } from "./session-transition.js";
 import {
   createStatusNotice,
   createTransitionResult,
@@ -34,10 +34,7 @@ export function completePasteRead(state, result) {
     return createTransitionResult({ state });
   }
   if (outcome.kind === MACHINE_PASTE_READ_INTERPRETATION_KIND.DECODED_IMAGE) {
-    // TODO(smell): Paste completion re-enters loadImage via an event-shaped
-    // object. Once image load is a private domain operation, pass typed image
-    // facts directly instead of constructing transition-event payloads.
-    return loadImage(state, {
+    return loadImageSession(state, {
       image: outcome.image,
       placement: outcome.placement,
       requestId: result.requestId,

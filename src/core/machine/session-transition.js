@@ -27,21 +27,33 @@ import {
   createTransitionResult,
 } from "./transition-result.js";
 
-export function loadImage(state, event) {
+export function loadImage(state, command = {}) {
+  return loadImageSession(state, {
+    image: command.image,
+    placement: command.placement,
+    requestId: command.requestId,
+  });
+}
+
+export function loadImageSession(state, {
+  image,
+  placement = null,
+  requestId = null,
+} = {}) {
   // TODO(smell): Image/session transitions repeat the same transaction
   // choreography: replace durable session, clear edit/runtime state, clear the
   // panel request, then author status/history. The final shape should expose a
   // tiny session-change transaction helper so branches state only semantic
   // before/after sessions and labels.
-  if (!event.image || !canLoadImageForRequest(state, event)) {
+  if (!image || !canLoadImageForRequest(state, { requestId })) {
     return createTransitionResult({
       state,
     });
   }
   const nextSession = {
     mode: MACHINE_MODE.ALIGN,
-    image: event.image,
-    placement: event.placement ?? null,
+    image,
+    placement,
     registration: createEmptyRegistration(),
   };
   const nextState = resetInputRuntimeState(
