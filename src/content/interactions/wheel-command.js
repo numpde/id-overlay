@@ -1,5 +1,4 @@
 import {
-  isKnownWheelMode,
   WHEEL_MODE,
 } from "../../core/interaction-policy.js";
 import {
@@ -19,10 +18,6 @@ export function createWheelCommand({
   machineActions,
   logger,
 }) {
-  // TODO(smell): Wheel command dispatch is mode-keyed orchestration over three
-  // command families. Keep wheel mode interpretation here for now, but the
-  // final command boundary should make each wheel mode a directly registered
-  // handler so adding a mode cannot require editing this branch chain.
   const mapWheelCommand = createMapWheelCommand({
     mapGesture,
     getMachineState,
@@ -38,24 +33,18 @@ export function createWheelCommand({
     machineActions,
     logger,
   });
+  const wheelHandlers = Object.freeze({
+    [WHEEL_MODE.MAP_ZOOM]: mapWheelCommand.handleMapZoomWheel,
+    [WHEEL_MODE.ADJUST_OPACITY]: opacityWheelCommand.handleOpacityWheel,
+    [WHEEL_MODE.ROTATE_OVERLAY]: placementWheelCommand.handlePlacementWheel,
+    [WHEEL_MODE.ZOOM_OVERLAY]: placementWheelCommand.handlePlacementWheel,
+  });
 
   return {
     handleWheel,
   };
 
   function handleWheel({ deltaY, wheelMode, screenPoint }) {
-    if (!isKnownWheelMode(wheelMode)) {
-      return false;
-    }
-    if (wheelMode === WHEEL_MODE.MAP_ZOOM) {
-      return mapWheelCommand.handleMapZoomWheel({ deltaY, screenPoint });
-    }
-    if (wheelMode === WHEEL_MODE.ADJUST_OPACITY) {
-      return opacityWheelCommand.handleOpacityWheel({ deltaY, screenPoint });
-    }
-    if (wheelMode === WHEEL_MODE.ROTATE_OVERLAY || wheelMode === WHEEL_MODE.ZOOM_OVERLAY) {
-      return placementWheelCommand.handlePlacementWheel({ deltaY, wheelMode, screenPoint });
-    }
-    return false;
+    return wheelHandlers[wheelMode]?.({ deltaY, wheelMode, screenPoint }) ?? false;
   }
 }

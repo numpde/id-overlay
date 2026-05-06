@@ -483,6 +483,20 @@ test("keyboard shortcut routing is table-driven", () => {
   assert.deepEqual(violations, []);
 });
 
+test("wheel command routing is table-driven", () => {
+  const source = fs.readFileSync(repoPath("src/content/interactions/wheel-command.js"), "utf8");
+  const forbiddenPatterns = [
+    ["wheel-mode dispatch if-chain", /\bif\s*\(\s*wheelMode\s*===/],
+    ["wheel-mode dispatch switch", /\bswitch\s*\(\s*wheelMode\s*\)/],
+  ];
+  const violations = forbiddenPatterns
+    .filter(([, pattern]) => pattern.test(source))
+    .map(([name]) => name);
+
+  assert.match(source, /wheelHandlers/);
+  assert.deepEqual(violations, []);
+});
+
 test("overlay input router delegates event recovery and pointer sequence semantics", () => {
   const source = fs.readFileSync(repoPath("src/content/overlay/input-router.js"), "utf8");
   const forbiddenPatterns = [
