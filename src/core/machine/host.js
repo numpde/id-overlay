@@ -15,6 +15,7 @@ import {
 import { createRequestTimerRegistry } from "./request-timers.js";
 import { transitionMachineEffectResult } from "./effect-result-transition.js";
 import {
+  applyMachineStatusNotice,
   cancelPanelIntentWithStatusNotice,
   createStatusNoticeResult,
 } from "./panel-status-transition.js";
@@ -33,9 +34,6 @@ import {
 import { createMachineRuntime } from "./runtime.js";
 import { transitionRuntimeFact } from "./runtime-transition.js";
 import { transitionMachine } from "./transition.js";
-import {
-  withStatusNotice,
-} from "./transition-result.js";
 import { clampOpacity, opacityFromWheelDelta } from "../opacity.js";
 
 const DEFAULT_PANEL_TIMEOUT_MS = 1800;
@@ -303,7 +301,7 @@ export function createMachineHost({
     if (destroyed) {
       return createNoopDispatchResult(state);
     }
-    return runtime.commitMachineResult(withStatusNotice(cancelPanelIntentWithStatusNotice(state, {
+    return runtime.commitMachineResult(applyMachineStatusNotice(cancelPanelIntentWithStatusNotice(state, {
       requestId,
       noticeKind,
       noticePayload,
@@ -316,7 +314,7 @@ export function createMachineHost({
     if (destroyed) {
       return createDestroyedDispatchResult(runtime.getState());
     }
-    return runtime.commitMachineResult(withStatusNotice(createStatusNoticeResult(runtime.getState(), {
+    return runtime.commitMachineResult(applyMachineStatusNotice(createStatusNoticeResult(runtime.getState(), {
       noticeKind,
       noticePayload,
     })), {

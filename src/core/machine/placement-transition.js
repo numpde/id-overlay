@@ -2,7 +2,10 @@ import {
   MACHINE_HISTORY_KIND,
   MACHINE_PLACEMENT_EDIT_KIND,
 } from "./events.js";
-import { MACHINE_STATUS_NOTICE_KIND } from "./status-notices.js";
+import {
+  MACHINE_STATUS_NOTICE_KIND,
+  createStatusNotice,
+} from "./status-notices.js";
 import {
   MACHINE_HISTORY_REPLAY_OPERATION,
   createSemanticHistoryRecord,
@@ -19,7 +22,6 @@ import { createPlacementEditedRegistration } from "../registration.js";
 import { placementsEqual } from "../session-keys.js";
 import { selectPanelPolicy } from "./policy.js";
 import {
-  createStatusNotice,
   createTransitionResult,
 } from "./transition-result.js";
 

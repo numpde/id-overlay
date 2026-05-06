@@ -11,17 +11,16 @@ import {
 import {
   createCancelManualPasteCaptureEffect,
   createCancelPanelTimeoutEffect,
+  createCancelStatusTimeoutEffect,
   createReadPasteImageEffect,
   createStartManualPasteCaptureEffect,
   createStartPanelTimeoutEffect,
+  createStartStatusTimeoutEffect,
 } from "./effect-requests.js";
 import { MACHINE_EFFECT_RESULT_KIND } from "./effect-results.js";
 import { isPanelIntentValidForState } from "./policy.js";
-import {
-  createCancelStatusTimeoutEffects,
-  createStatusNotice,
-  createTransitionResult,
-} from "./transition-result.js";
+import { createStatusNotice } from "./status-notices.js";
+import { createTransitionResult } from "./transition-result.js";
 
 export function isCurrentPasteRequest(state, event) {
   return (
@@ -112,6 +111,33 @@ export function clearStatusNotice(state, event) {
   });
 }
 
+export function applyMachineStatusNotice(result) {
+  if (!result.statusNotice) {
+    return {
+      ...result,
+      statusNotice: null,
+    };
+  }
+  const statusTransition = applyStatusNotice(result.state, result.statusNotice);
+  return {
+    ...result,
+    state: statusTransition.state,
+    effects: [...result.effects, ...statusTransition.effects],
+    statusNotice: null,
+  };
+}
+
+export function createCancelStatusTimeoutEffects(state) {
+  if (!state.status.notice) {
+    return [];
+  }
+  return [
+    createCancelStatusTimeoutEffect({
+      requestId: state.status.notice.requestId,
+    }),
+  ];
+}
+
 export function clearPanelIntent(state, nextState = state) {
   return {
     state: replacePanel(nextState, createIdlePanel()),
@@ -181,4 +207,22 @@ function createBeginPanelRequestEffects({ intent, requestId }) {
     createStartManualPasteCaptureEffect({ requestId }),
     timeoutEffect,
   ];
+}
+
+function applyStatusNotice(state, statusNotice) {
+  const requestId = state.status.lastRequestId + 1;
+  return {
+    state: replaceStatus(state, {
+      notice: {
+        requestId,
+        kind: statusNotice.kind,
+        payload: statusNotice.payload,
+      },
+      lastRequestId: requestId,
+    }),
+    effects: [
+      ...createCancelStatusTimeoutEffects(state),
+      createStartStatusTimeoutEffect({ requestId }),
+    ],
+  };
 }

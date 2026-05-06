@@ -67,6 +67,21 @@ export function commitHistoryRecord(state, historyRecord) {
   };
 }
 
+export function commitSemanticHistoryRecord(result) {
+  const historyRecord = normalizeSemanticHistoryRecord(result.historyRecord);
+  if (!historyRecord) {
+    return {
+      ...result,
+      historyRecord: null,
+    };
+  }
+  return {
+    ...result,
+    state: commitHistoryRecord(result.state, historyRecord),
+    historyRecord,
+  };
+}
+
 export function peekUndoRecord(state) {
   return state.history.past.at(-1) ?? null;
 }

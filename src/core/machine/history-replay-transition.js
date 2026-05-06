@@ -1,4 +1,7 @@
-import { MACHINE_STATUS_NOTICE_KIND } from "./status-notices.js";
+import {
+  MACHINE_STATUS_NOTICE_KIND,
+  createStatusNotice,
+} from "./status-notices.js";
 import {
   MACHINE_HISTORY_REPLAY_OPERATION,
   moveRedoRecordToPast,
@@ -15,10 +18,9 @@ import {
   restoreImageSession,
 } from "./session-transition.js";
 import {
-  createStatusNotice,
   createTransitionResult,
-  withStatusNotice,
 } from "./transition-result.js";
+import { applyMachineStatusNotice } from "./panel-status-transition.js";
 
 export function transitionUndo(state) {
   return replayHistoryTransition(state, {
@@ -49,7 +51,7 @@ function replayHistoryTransition(state, {
 }) {
   const moved = moveRecord(state);
   if (!moved.record) {
-    return withStatusNotice(createTransitionResult({
+    return applyMachineStatusNotice(createTransitionResult({
       state,
       statusNotice: createStatusNotice(emptyNoticeKind),
     }));
@@ -57,7 +59,7 @@ function replayHistoryTransition(state, {
   const replay = withoutReplaySideEffects(
     replayHistoryRecord(moved.state, selectReplay(moved.record)),
   );
-  return withStatusNotice(createTransitionResult({
+  return applyMachineStatusNotice(createTransitionResult({
     state: replay.state,
     effects: replay.effects,
     statusNotice: createStatusNotice(replayNoticeKind, {

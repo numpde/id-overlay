@@ -9,6 +9,7 @@ import {
   transitionRedo,
   transitionUndo,
 } from "./history-replay-transition.js";
+import { commitSemanticHistoryRecord } from "./history.js";
 import {
   addPin,
   clearPins,
@@ -36,17 +37,18 @@ import {
   canCancelPanelIntent,
   cancelPanelIntent,
   clearStatusNotice,
+  applyMachineStatusNotice,
   requestPanelIntent,
 } from "./panel-status-transition.js";
 import {
   createTransitionResult,
-  withHistoryRecord,
-  withStatusNotice,
 } from "./transition-result.js";
 
 export function transitionMachine(state = createInitialMachineState(), event = {}) {
   const currentState = normalizeMachineState(state);
-  return withStatusNotice(withHistoryRecord(interpretIngressEvent(currentState, event)));
+  return applyMachineStatusNotice(
+    commitSemanticHistoryRecord(interpretIngressEvent(currentState, event)),
+  );
 }
 
 function interpretIngressEvent(state, event) {

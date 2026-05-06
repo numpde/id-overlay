@@ -4,10 +4,10 @@ import {
   createInitialMachineState,
   normalizeMachineState,
 } from "./state.js";
+import { commitSemanticHistoryRecord } from "./history.js";
+import { applyMachineStatusNotice } from "./panel-status-transition.js";
 import {
   createTransitionResult,
-  withHistoryRecord,
-  withStatusNotice,
 } from "./transition-result.js";
 
 const EFFECT_RESULT_TRANSITIONS = {
@@ -16,10 +16,12 @@ const EFFECT_RESULT_TRANSITIONS = {
 };
 
 export function transitionMachineEffectResult(state = createInitialMachineState(), result = {}) {
-  return withStatusNotice(withHistoryRecord(transitionEffectResult(
-    normalizeMachineState(state),
-    result,
-  )));
+  return applyMachineStatusNotice(
+    commitSemanticHistoryRecord(transitionEffectResult(
+      normalizeMachineState(state),
+      result,
+    )),
+  );
 }
 
 function transitionEffectResult(state, result) {

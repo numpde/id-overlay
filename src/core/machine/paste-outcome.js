@@ -7,7 +7,10 @@ import {
   normalizeMachinePasteSource,
 } from "./paste-read.js";
 import { MACHINE_EFFECT_RESULT_KIND } from "./effect-results.js";
-import { MACHINE_STATUS_NOTICE_KIND } from "./status-notices.js";
+import {
+  MACHINE_STATUS_NOTICE_KIND,
+  createStatusNotice,
+} from "./status-notices.js";
 import {
   cancelPanelIntent,
   createStatusNoticeResult,
@@ -15,7 +18,6 @@ import {
 } from "./panel-status-transition.js";
 import { loadImageSession } from "./session-transition.js";
 import {
-  createStatusNotice,
   createTransitionResult,
 } from "./transition-result.js";
 import { createPlacementTransform } from "../transform.js";

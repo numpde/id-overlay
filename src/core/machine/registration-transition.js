@@ -2,7 +2,10 @@ import {
   MACHINE_HISTORY_KIND,
   MACHINE_MODE,
 } from "./events.js";
-import { MACHINE_STATUS_NOTICE_KIND } from "./status-notices.js";
+import {
+  MACHINE_STATUS_NOTICE_KIND,
+  createStatusNotice,
+} from "./status-notices.js";
 import {
   MACHINE_PRIVATE_COMMAND_KIND,
 } from "./private-commands.js";
@@ -27,7 +30,6 @@ import {
 import { clearPlacementEditRuntime } from "./placement-transition.js";
 import { resetInputRuntimeState } from "./runtime-transition.js";
 import {
-  createStatusNotice,
   createTransitionResult,
 } from "./transition-result.js";
 

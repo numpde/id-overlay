@@ -17,3 +17,7 @@ export const MACHINE_STATUS_NOTICE_KIND = Object.freeze({
   UNDO_EMPTY: "undo-empty",
   REDO_EMPTY: "redo-empty",
 });
+
+export function createStatusNotice(kind, payload = null) {
+  return kind ? { kind, payload } : null;
+}

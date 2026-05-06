@@ -6,6 +6,7 @@ import {
 } from "../../src/core/machine/events.js";
 import { MACHINE_EFFECT_KIND } from "../../src/core/machine/effect-requests.js";
 import {
+  applyMachineStatusNotice,
   clearStatusNotice,
   createStatusNoticeResult,
   requestPanelIntent,
@@ -14,9 +15,6 @@ import {
   selectPanelStatusText,
 } from "../../src/core/machine/selectors.js";
 import { createInitialMachineState } from "../../src/core/machine/state.js";
-import {
-  withStatusNotice,
-} from "../../src/core/machine/transition-result.js";
 
 const CLIPBOARD_MISSING_IMAGE_NOTICE = "clipboard-missing-image";
 const PASTE_CANCELLED_NOTICE = "paste-cancelled";
@@ -120,5 +118,5 @@ test("new panel intent clears stale status notice and its timeout", () => {
 });
 
 function applyStatus(result) {
-  return withStatusNotice(result);
+  return applyMachineStatusNotice(result);
 }

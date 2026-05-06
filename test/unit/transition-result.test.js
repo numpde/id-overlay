@@ -9,19 +9,23 @@ import {
 } from "../../src/core/machine/events.js";
 import {
   MACHINE_HISTORY_REPLAY_OPERATION,
+  commitSemanticHistoryRecord,
   createSemanticHistoryRecord,
 } from "../../src/core/machine/history.js";
+import {
+  applyMachineStatusNotice,
+} from "../../src/core/machine/panel-status-transition.js";
+import {
+  createStatusNotice,
+} from "../../src/core/machine/status-notices.js";
 import {
   createInitialMachineState,
 } from "../../src/core/machine/state.js";
 import {
-  createStatusNotice,
   createTransitionResult,
-  withHistoryRecord,
-  withStatusNotice,
 } from "../../src/core/machine/transition-result.js";
 
-test("withHistoryRecord commits only explicit history records", () => {
+test("commitSemanticHistoryRecord commits only explicit history records", () => {
   const existingRecord = createTestHistoryRecord({
     kind: MACHINE_HISTORY_KIND.MOVE_OVERLAY,
     label: "Existing edit",
@@ -41,7 +45,7 @@ test("withHistoryRecord commits only explicit history records", () => {
     label: "Next edit",
   });
 
-  const result = withHistoryRecord(createTransitionResult({
+  const result = commitSemanticHistoryRecord(createTransitionResult({
     state,
     historyRecord,
   }));
@@ -56,10 +60,10 @@ test("withHistoryRecord commits only explicit history records", () => {
   assert.deepEqual(result.historyRecord, historyRecord);
 });
 
-test("withHistoryRecord drops non-semantic history records", () => {
+test("commitSemanticHistoryRecord drops non-semantic history records", () => {
   const state = createInitialMachineState();
 
-  const result = withHistoryRecord(createTransitionResult({
+  const result = commitSemanticHistoryRecord(createTransitionResult({
     state,
     historyRecord: { kind: "visible-edit" },
   }));
@@ -68,7 +72,7 @@ test("withHistoryRecord drops non-semantic history records", () => {
   assert.equal(result.historyRecord, null);
 });
 
-test("withStatusNotice applies status timeout lifecycle explicitly", () => {
+test("applyMachineStatusNotice applies status timeout lifecycle explicitly", () => {
   const state = createInitialMachineState({
     status: {
       notice: {
@@ -81,7 +85,7 @@ test("withStatusNotice applies status timeout lifecycle explicitly", () => {
   });
   const existingEffect = { kind: "existing-effect" };
 
-  const result = withStatusNotice(createTransitionResult({
+  const result = applyMachineStatusNotice(createTransitionResult({
     state,
     effects: [existingEffect],
     statusNotice: createStatusNotice("clipboard-missing-image"),
@@ -108,18 +112,20 @@ test("withStatusNotice applies status timeout lifecycle explicitly", () => {
   ]);
 });
 
-test("history and status combinators compose in machine commit order", () => {
+test("history and status finalizers compose in machine commit order", () => {
   const state = createInitialMachineState();
   const historyRecord = createTestHistoryRecord({
     kind: MACHINE_HISTORY_KIND.CLEAR_IMAGE,
     label: "Visible edit",
   });
 
-  const result = withStatusNotice(withHistoryRecord(createTransitionResult({
-    state,
-    historyRecord,
-    statusNotice: createStatusNotice("image-loaded"),
-  })));
+  const result = applyMachineStatusNotice(
+    commitSemanticHistoryRecord(createTransitionResult({
+      state,
+      historyRecord,
+      statusNotice: createStatusNotice("image-loaded"),
+    })),
+  );
 
   assert.deepEqual(result.state.history.past, [historyRecord]);
   assert.equal(result.state.status.notice.requestId, 1);
