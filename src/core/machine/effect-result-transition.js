@@ -16,6 +16,10 @@ import {
 } from "./transition-result.js";
 
 export function transitionMachineEffectResult(state = createInitialMachineState(), result = {}) {
+  // TODO(smell): Effect results enter through a separate switch from user
+  // intents, so request/result ownership is split across effect definitions,
+  // runner completion, and this transition. Final shape should colocate each
+  // effect fact with the transition that requested it.
   return withStatusNotice(withHistoryRecord(transitionEffectResult(
     normalizeMachineState(state),
     result,

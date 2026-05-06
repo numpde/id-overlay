@@ -14,6 +14,10 @@ export function createOverlayMountedInputDispatcher({
   pointerSequenceRouter,
   consumeOverlayEvent,
 }) {
+  // TODO(smell): Mounted input dispatch still reads runtime dragging state and
+  // branches per DOM event. The ideal overlay input host would translate DOM
+  // events into normalized facts, then dispatch a single projected interaction
+  // intent without duplicating runtime predicates here.
   return {
     handlePointerMove,
     handlePointerLeave,

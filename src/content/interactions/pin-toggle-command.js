@@ -8,6 +8,9 @@ export function createPinToggleCommand({
   getMachineState,
   machineActions,
 }) {
+  // TODO(smell): Pin toggle command still bundles page projection, machine
+  // invocation, and user-facing log outcome shaping. Keep planning as facts and
+  // let the machine/result presenter author the semantic outcome description.
   return {
     toggleAtScreenPoint,
   };

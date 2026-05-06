@@ -21,6 +21,9 @@ export function createSemanticHistoryRecord(record) {
 }
 
 export function normalizeSemanticHistoryRecord(record) {
+  // TODO(smell): History records validate replay operation names but leave
+  // replay payload shape to later replay code. Semantic history should carry
+  // typed before/after facts whose normalization is complete at record creation.
   if (!record || typeof record !== "object" || Array.isArray(record)) {
     return null;
   }

@@ -10,6 +10,9 @@ export function createOverlayGlobalPointerDispatcher({
   consumeOverlayEvent,
   syncGlobalPointerListeners,
 }) {
+  // TODO(smell): Global pointer dispatch repeats runtime-drag predicates and
+  // listener synchronization outside the gesture lifecycle. A single gesture
+  // session should own global capture lifetime and expose facts to this boundary.
   return {
     handlePointerMove,
     handlePointerUp,

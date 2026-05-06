@@ -17,6 +17,10 @@ export function createAdapterDragController({
   machineActions,
   logger,
 }) {
+  // TODO(smell): Adapter drag is a content-side multiplexer with its own active
+  // drag state, parallel to machine runtime gesture state. The final shape
+  // should let one machine-authored gesture session select the adapter port and
+  // own cancellation/commit semantics.
   const mapPanDrag = createMapPanDragController({
     mapGesture,
     logger,

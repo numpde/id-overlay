@@ -16,6 +16,10 @@ import {
 } from "./transform.js";
 
 export function resolvePlacementEditRenderState({ machineState, snapshot }) {
+  // TODO(smell): Placement edit planning accepts full machine state plus a full
+  // page snapshot, then rebuilds the editable render context internally. The
+  // principled boundary is a narrow, precomputed render/edit context so this
+  // module stays geometry planning rather than machine/page-state projection.
   const session = machineState?.session ?? machineState;
   const runtime = machineState?.session ? machineState.runtime ?? null : null;
   if (!session) {
