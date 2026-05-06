@@ -425,9 +425,7 @@ test("paste adapter reports clipboard facts, not machine-shaped outcomes", () =>
   assert.deepEqual(violations, []);
 });
 
-test("persistence is storage-shaped and independent of live page projection", {
-  todo: "Keep durable schema migration separate from map snapshot projection and placement solving.",
-}, () => {
+test("persistence is storage-shaped and independent of live page projection", () => {
   const source = readSource(repoPath("src/core/machine/persistence.js"));
   const forbiddenPatterns = [
     ["transform dependency", /\bcreatePlacementTransform\b/],
@@ -442,9 +440,7 @@ test("persistence is storage-shaped and independent of live page projection", {
   assert.deepEqual(violations, []);
 });
 
-test("content bootstrap does not mix persistence migration with live page snapshots", {
-  todo: "Load persisted durable state first; page-context reconciliation should be a machine-ingested fact.",
-}, () => {
+test("content bootstrap does not mix persistence migration with live page snapshots", () => {
   const source = readSource(repoPath("src/content/main.js"));
   const forbiddenPatterns = [
     ["map-aware persistence migration import", /\bmigratePersistedMachineSessionForMap\b/],
@@ -457,9 +453,7 @@ test("content bootstrap does not mix persistence migration with live page snapsh
   assert.deepEqual(violations, []);
 });
 
-test("page integration exposes explicit ports instead of a broad adapter object", {
-  todo: "Split page adapter into snapshot, projection, map-view, and gesture ports.",
-}, () => {
+test("page integration exposes explicit ports instead of a broad adapter object", () => {
   const source = readSource(repoPath("src/content/page-adapter.js"));
   const requiredPorts = [
     "pageSession",
@@ -481,9 +475,7 @@ test("page integration exposes explicit ports instead of a broad adapter object"
   assert.deepEqual(violations, []);
 });
 
-test("content modules consume narrow page ports, not the monolithic adapter", {
-  todo: "Pass snapshot/projection/gesture ports explicitly to each content module.",
-}, () => {
+test("content modules consume narrow page ports, not the monolithic adapter", () => {
   const violations = [];
   const allowedFiles = new Set([
     repoPath("src/content/page-adapter.js"),
@@ -503,9 +495,7 @@ test("content modules consume narrow page ports, not the monolithic adapter", {
   assert.deepEqual(violations, []);
 });
 
-test("overlay renderer is a pure render reconciler over an overlay view model", {
-  todo: "Move overlay presentation and pin projection into a machine/content view model before DOM reconciliation.",
-}, () => {
+test("overlay renderer is a pure render reconciler over an overlay view model", () => {
   const source = readSource(repoPath("src/content/overlay/renderer.js"));
   const forbiddenPatterns = [
     ["machine selector import", /\bselectOverlayPresentation\b/],
