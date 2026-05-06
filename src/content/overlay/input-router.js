@@ -17,7 +17,7 @@ import {
 
 export function createOverlayInputRouter({
   pageProjection,
-  interactions,
+  overlayInteractions,
   getRuntimeState,
   getOverlayInputContext,
   getMountElement,
@@ -76,7 +76,7 @@ export function createOverlayInputRouter({
       const runtime = getRuntimeState();
       const screenPoint = inputProjector.screenPointFromEvent(event);
       if (selectIsRuntimeDragging(runtime)) {
-        interactions.handlePointerMove?.(screenPoint);
+        overlayInteractions.handlePointerMove(screenPoint);
         consumeOverlayEvent(event);
         return;
       }
@@ -84,11 +84,11 @@ export function createOverlayInputRouter({
         pointer: createPointerInputFactFromEvent(event),
       }).pointerMove;
       if (pointerPolicy.shouldTrackPointer) {
-        interactions.handlePointerMove?.(screenPoint);
+        overlayInteractions.handlePointerMove(screenPoint);
         return;
       }
       if (selectRuntimePointerScreenPx(runtime)) {
-        interactions.handlePointerLeave?.();
+        overlayInteractions.handlePointerLeave();
       }
     });
   }
@@ -98,7 +98,7 @@ export function createOverlayInputRouter({
       if (selectIsRuntimeDragging(getRuntimeState())) {
         return;
       }
-      interactions.handlePointerLeave?.();
+      overlayInteractions.handlePointerLeave();
     });
   }
 
@@ -133,7 +133,7 @@ export function createOverlayInputRouter({
       if (!activationPolicy.shouldTogglePin) {
         return;
       }
-      if (!interactions.handleTogglePin({ screenPoint })) {
+      if (!overlayInteractions.handleTogglePin({ screenPoint })) {
         return;
       }
       consumeOverlayEvent(event);
@@ -166,7 +166,7 @@ export function createOverlayInputRouter({
       if (!wheelPolicy.shouldHandle) {
         return;
       }
-      if (!interactions.handleWheel({
+      if (!overlayInteractions.handleWheel({
         deltaY: event.deltaY,
         wheelMode: wheelPolicy.wheelMode,
         screenPoint,
@@ -192,7 +192,7 @@ export function createOverlayInputRouter({
         syncGlobalPointerListeners();
         return;
       }
-      interactions.handlePointerMove?.(screenPoint);
+      overlayInteractions.handlePointerMove(screenPoint);
       consumeOverlayEvent(event);
     });
   }
@@ -213,8 +213,8 @@ export function createOverlayInputRouter({
   }
 
   function handlePendingPointerSequenceActivation(event, pendingSequence) {
-    interactions.handlePointerMove?.(pendingSequence.startScreenPoint);
-    if (interactions.handlePointerDown({
+    overlayInteractions.handlePointerMove(pendingSequence.startScreenPoint);
+    if (overlayInteractions.handlePointerDown({
       button: pendingSequence.button,
       screenPoint: pendingSequence.startScreenPoint,
       dragMode: pendingSequence.dragMode,
@@ -239,7 +239,7 @@ export function createOverlayInputRouter({
         syncGlobalPointerListeners();
         return;
       }
-      interactions.handlePointerUp?.(inputProjector.screenPointFromEvent(event));
+      overlayInteractions.handlePointerUp(inputProjector.screenPointFromEvent(event));
       consumeOverlayEvent(event);
     });
   }
@@ -250,7 +250,7 @@ export function createOverlayInputRouter({
         return;
       }
       pendingPointerSequence.clear();
-      interactions.handlePointerCancel?.();
+      overlayInteractions.handlePointerCancel();
       consumeOverlayEvent(event);
     });
   }
@@ -262,7 +262,7 @@ export function createOverlayInputRouter({
       pendingPointerSequence.clear();
       syncGlobalPointerListeners();
       consumeOverlayEvent(event);
-      interactions.reportRuntimeError?.({
+      overlayInteractions.reportRuntimeError({
         source: RUNTIME_ERROR_SOURCE.OVERLAY,
         operation,
         error,

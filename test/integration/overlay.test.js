@@ -17,7 +17,7 @@ const DEFAULT_OVERLAY_IMAGE = createImageFixture();
 
 const DEFAULT_MAP_CENTER = Object.freeze({ lat: 0, lon: 0 });
 
-test("overlay double-click toggles pins through the interaction controller", async () => {
+test("overlay double-click toggles pins through the overlay interaction port", async () => {
   const env = createDomEnvironment();
 
   try {
@@ -45,7 +45,7 @@ test("overlay double-click toggles pins through the interaction controller", asy
     const overlay = createOverlayForTest(createOverlay, {
       pageAdapter,
       machineHost,
-      interactions,
+      overlayInteractions: interactions,
     });
 
     const event = new env.window.MouseEvent("dblclick", {
@@ -100,7 +100,7 @@ test("handled overlay wheel gestures do not bubble into the underlying map", asy
     const overlay = createOverlayForTest(createOverlay, {
       pageAdapter: createStaticOverlayPageAdapter({ map }),
       machineHost,
-      interactions: createOverlayInteractionsDouble(machineHost, {
+      overlayInteractions: createOverlayInteractionsDouble(machineHost, {
         handleWheel() {
           return true;
         },
@@ -146,7 +146,7 @@ test("plain wheel over the overlay in align mode is forwarded manually and does 
     const overlay = createOverlayForTest(createOverlay, {
       pageAdapter: createStaticOverlayPageAdapter({ map }),
       machineHost,
-      interactions: createOverlayInteractionsDouble(machineHost, {
+      overlayInteractions: createOverlayInteractionsDouble(machineHost, {
         handleWheel() {
           handledWheelCount += 1;
           return true;
@@ -193,7 +193,7 @@ test("alt-wheel in trace mode is captured from the map layer when the pointer is
     const overlay = createOverlayForTest(createOverlay, {
       pageAdapter: createStaticOverlayPageAdapter({ map }),
       machineHost,
-      interactions: createOverlayInteractionsDouble(machineHost, {
+      overlayInteractions: createOverlayInteractionsDouble(machineHost, {
         handleWheel(payload) {
           callLog.push(payload);
           return true;
@@ -245,7 +245,7 @@ test("align-mode overlay pointerdown owns the click sequence and does not bubble
     const overlay = createOverlayForTest(createOverlay, {
       pageAdapter: createStaticOverlayPageAdapter({ map }),
       machineHost,
-      interactions: createOverlayInteractionsDouble(machineHost, {
+      overlayInteractions: createOverlayInteractionsDouble(machineHost, {
         handlePointerDown() {
           handledPointerDownCount += 1;
           return true;
@@ -293,7 +293,7 @@ test("plain pointerdown over the overlay in align mode owns the click sequence w
     const overlay = createOverlayForTest(createOverlay, {
       pageAdapter: createStaticOverlayPageAdapter({ map }),
       machineHost,
-      interactions: createOverlayInteractionsDouble(machineHost, {
+      overlayInteractions: createOverlayInteractionsDouble(machineHost, {
         handlePointerMove() {
           handledPointerMoveCount += 1;
         },
@@ -341,7 +341,7 @@ test("failed overlay drag activation clears pending global pointer ownership", a
     const overlay = createOverlayForTest(createOverlay, {
       pageAdapter: createStaticOverlayPageAdapter({ map }),
       machineHost,
-      interactions: createOverlayInteractionsDouble(machineHost, {
+      overlayInteractions: createOverlayInteractionsDouble(machineHost, {
         handlePointerMove() {
           handledPointerMoveCount += 1;
         },
@@ -442,7 +442,7 @@ test("trace-mode solved transform follows map view changes from the page adapter
         },
       },
       machineHost,
-      interactions: createOverlayInteractionsDouble(machineHost),
+      overlayInteractions: createOverlayInteractionsDouble(machineHost),
     });
 
     await new Promise((resolve) => setTimeout(resolve, 0));
@@ -545,7 +545,7 @@ test("trace-mode overlay applies live surface motion from the page adapter", asy
         },
       },
       machineHost,
-      interactions: createOverlayInteractionsDouble(machineHost),
+      overlayInteractions: createOverlayInteractionsDouble(machineHost),
     });
 
     await new Promise((resolve) => setTimeout(resolve, 0));
@@ -607,7 +607,7 @@ test("global pointer listeners retarget when the overlay remounts during a pendi
         },
       },
       machineHost,
-      interactions: createOverlayInteractionsDouble(machineHost, {
+      overlayInteractions: createOverlayInteractionsDouble(machineHost, {
         handlePointerMove() {
           handledPointerMoveCount += 1;
         },
@@ -673,7 +673,7 @@ test("destroy removes pending overlay pointer listeners", async () => {
     const overlay = createOverlayForTest(createOverlay, {
       pageAdapter: createStaticOverlayPageAdapter({ map }),
       machineHost,
-      interactions: createOverlayInteractionsDouble(machineHost, {
+      overlayInteractions: createOverlayInteractionsDouble(machineHost, {
         handlePointerMove() {
           handledPointerMoveCount += 1;
         },
@@ -738,7 +738,7 @@ function createOverlayInteractionsDouble(machineHost, overrides = {}) {
     getRuntimeState() {
       return machineHost.getState().runtime;
     },
-    subscribe(listener, options) {
+    subscribeRuntime(listener, options) {
       return machineHost.subscribe((state) => listener(state.runtime), options);
     },
     handlePointerEnter() {},
@@ -755,6 +755,7 @@ function createOverlayInteractionsDouble(machineHost, overrides = {}) {
     handleTogglePin() {
       return false;
     },
+    reportRuntimeError() {},
     ...overrides,
   };
 }

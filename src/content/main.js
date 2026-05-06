@@ -1,5 +1,5 @@
 import { createExtensionStorage } from "../platform/storage.js";
-import { createInteractionController } from "./interaction-controller.js";
+import { createInteractionPorts } from "./interaction-ports.js";
 import { createMachineHost } from "../core/machine/host.js";
 import { createPageAdapter } from "./page-adapter.js";
 import { createPanel } from "./panel.js";
@@ -59,7 +59,7 @@ export async function bootstrapIdOverlay({ keyboardGateway = null } = {}) {
     clearStatusTimeout: (handle) => globalThis.clearTimeout(handle),
   });
   machineHost.ingestPageContext(pagePorts.pageObservation.getSnapshot());
-  const interactions = createInteractionController({
+  const interactionPorts = createInteractionPorts({
     machineHost,
     pageObservation: pagePorts.pageObservation,
     pageProjection: pagePorts.pageProjection,
@@ -74,7 +74,7 @@ export async function bootstrapIdOverlay({ keyboardGateway = null } = {}) {
     pageObservation: pagePorts.pageObservation,
     pageProjection: pagePorts.pageProjection,
     machineHost,
-    interactions,
+    overlayInteractions: interactionPorts.overlayInteractionPort,
   });
 
   const panel = createPanel({
@@ -87,7 +87,7 @@ export async function bootstrapIdOverlay({ keyboardGateway = null } = {}) {
     machineHost,
     panel,
     overlay,
-    interactions,
+    interactionPorts,
     pageSession: pagePorts.pageSession,
   });
   host[SESSION_KEY] = session;
@@ -216,7 +216,7 @@ function createSession({
   machineHost,
   panel,
   overlay,
-  interactions,
+  interactionPorts,
   pageSession,
 }) {
   let destroyed = false;
@@ -230,7 +230,7 @@ function createSession({
     machineHost.destroy();
     panel.destroy();
     overlay.destroy();
-    interactions.destroy();
+    interactionPorts.destroy();
     pageSession.destroy();
     if (host[SESSION_KEY] === session) {
       delete host[SESSION_KEY];

@@ -183,6 +183,7 @@ test("status notices are machine-owned, not content-controller feedback", () => 
 test("live interactions and overlay read canonical machine host, not the legacy session store", () => {
   const liveSources = new Map([
     ["src/content/interaction-controller.js", fs.readFileSync(repoPath("src/content/interaction-controller.js"), "utf8")],
+    ["src/content/interaction-ports.js", fs.readFileSync(repoPath("src/content/interaction-ports.js"), "utf8")],
     ["src/content/overlay.js", fs.readFileSync(repoPath("src/content/overlay.js"), "utf8")],
   ]);
   const violations = [];
@@ -196,8 +197,58 @@ test("live interactions and overlay read canonical machine host, not the legacy 
   assert.deepEqual(violations, []);
 });
 
-test("interaction adapter does not own registration solve or pin mutation semantics", () => {
+test("interaction controller is a compatibility wrapper, not a second composition root", () => {
   const source = fs.readFileSync(repoPath("src/content/interaction-controller.js"), "utf8");
+  const imports = parseStaticImports(source);
+  const forbiddenPatterns = [
+    ["direct adapter drag composition", /\bcreateAdapterDragController\b/],
+    ["direct gesture lifecycle composition", /\bcreateGestureLifecycle\b/],
+    ["direct runtime bridge composition", /\bcreateInteractionRuntimeBridge\b/],
+    ["direct keyboard router composition", /\bcreateKeyboardInputRouter\b/],
+    ["direct pointer interaction composition", /\bcreatePointerInteraction\b/],
+    ["direct wheel interaction composition", /\bcreateWheelInteraction\b/],
+    ["direct pin interaction composition", /\bcreatePinToggleInteraction\b/],
+    ["direct error boundary composition", /\bcreateInteractionErrorBoundary\b/],
+  ];
+  const violations = forbiddenPatterns
+    .filter(([, pattern]) => pattern.test(source))
+    .map(([name]) => name);
+
+  assert.deepEqual(imports, ["./interaction-ports.js"]);
+  assert.deepEqual(violations, []);
+});
+
+test("interaction ports are the only interaction composition root", () => {
+  const allowedCompositionRoot = "src/content/interaction-ports.js";
+  const compositionImports = [
+    "./interactions/adapter-drag.js",
+    "./interactions/gesture-lifecycle.js",
+    "./interactions/runtime-bridge.js",
+    "./interactions/keyboard-router.js",
+    "./interactions/pointer-interaction.js",
+    "./interactions/wheel-interaction.js",
+    "./interactions/pin-toggle-interaction.js",
+    "./interactions/error-boundary.js",
+  ];
+  const violations = [];
+  for (const filePath of listJavaScriptFiles(repoPath("src/content"))) {
+    const relativePath = path.relative(repoPath(), filePath);
+    const source = fs.readFileSync(filePath, "utf8");
+    for (const importPath of parseStaticImports(source)) {
+      if (
+        relativePath !== allowedCompositionRoot &&
+        compositionImports.includes(importPath)
+      ) {
+        violations.push(`${relativePath} -> ${importPath}`);
+      }
+    }
+  }
+
+  assert.deepEqual(violations, []);
+});
+
+test("interaction adapter does not own registration solve or pin mutation semantics", () => {
+  const source = fs.readFileSync(repoPath("src/content/interaction-ports.js"), "utf8");
   const forbiddenPatterns = [
     ["private command import", /private-commands\.js/],
     ["direct add/remove/restore command names", /\b(?:ADD_PIN|REMOVE_PIN|RESTORE_REGISTRATION)\b/],
@@ -277,7 +328,7 @@ test("interaction tests do not recreate semantic controller facade APIs", () => 
 });
 
 test("interaction adapter does not own placement edit lifecycle semantics", () => {
-  const source = fs.readFileSync(repoPath("src/content/interaction-controller.js"), "utf8");
+  const source = fs.readFileSync(repoPath("src/content/interaction-ports.js"), "utf8");
   const forbiddenPatterns = [
     ["private command import", /private-commands\.js/],
     ["direct placement restore command name", /\bRESTORE_PLACEMENT\b/],
@@ -291,8 +342,8 @@ test("interaction adapter does not own placement edit lifecycle semantics", () =
   assert.deepEqual(violations, []);
 });
 
-test("interaction controller shell delegates pin and wheel command semantics", () => {
-  const source = fs.readFileSync(repoPath("src/content/interaction-controller.js"), "utf8");
+test("interaction ports delegate pin and wheel command semantics", () => {
+  const source = fs.readFileSync(repoPath("src/content/interaction-ports.js"), "utf8");
   const forbiddenPatterns = [
     ["private command import", /private-commands\.js/],
     ["direct pin toggle command name", /\bTOGGLE_PIN\b/],
@@ -348,7 +399,7 @@ test("placement edit planning is centralized outside transform and live interact
 test("input eligibility is centralized in the input projection", () => {
   const sources = new Map([
     ["src/content/overlay.js", fs.readFileSync(repoPath("src/content/overlay.js"), "utf8")],
-    ["src/content/interaction-controller.js", fs.readFileSync(repoPath("src/content/interaction-controller.js"), "utf8")],
+    ["src/content/interaction-ports.js", fs.readFileSync(repoPath("src/content/interaction-ports.js"), "utf8")],
     ["src/core/interaction-policy.js", fs.readFileSync(repoPath("src/core/interaction-policy.js"), "utf8")],
   ]);
   const forbiddenPatterns = [
@@ -359,7 +410,7 @@ test("input eligibility is centralized in the input projection", () => {
     ],
     [
       "interactions imports semantic eligibility helpers",
-      "src/content/interaction-controller.js",
+      "src/content/interaction-ports.js",
       /\b(?:canCaptureOverlayPointer|canHandleWheelGesture|canEditRegistration|resolveKeyboardShortcut|shouldReleasePassThrough)\b/,
     ],
     [
