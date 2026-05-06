@@ -588,9 +588,7 @@ test("runtime observation facts are ingested once, not mirrored by content callb
   assert.deepEqual(violations, []);
 });
 
-test("core input policy consumes normalized facts, never DOM event shape", {
-  todo: "Normalize keyboard and pointer input at content ingress before policy or transition code sees it.",
-}, () => {
+test("core input policy consumes normalized facts, never DOM event shape", () => {
   const sources = new Map([
     ["src/core/machine/policy.js", readSource(repoPath("src/core/machine/policy.js"))],
     ["src/core/interaction-policy.js", readSource(repoPath("src/core/interaction-policy.js"))],
