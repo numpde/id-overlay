@@ -17,7 +17,7 @@ import {
 } from "./state.js";
 import {
   createInvalidatedRegistration,
-} from "../session.js";
+} from "../registration.js";
 import { solveSimilarityTransform } from "../geometry.js";
 import { selectPanelPolicy } from "./policy.js";
 import {

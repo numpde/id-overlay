@@ -1,7 +1,7 @@
 import {
-  hasCleanSolvedTransform,
   hasOverlayImageSession,
 } from "./session.js";
+import { hasCleanSolvedTransform } from "./registration.js";
 import { clampOpacity } from "./opacity.js";
 import {
   createPlacementScreenTransform,

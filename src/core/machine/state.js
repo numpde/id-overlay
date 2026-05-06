@@ -1,7 +1,4 @@
 import {
-  createPlacementSnapshotKey,
-  createRegistrationSnapshotKey,
-  createSessionSnapshotKey,
   createEmptyRegistration,
   createEmptySession,
   isKnownSessionMode,
@@ -11,6 +8,11 @@ import {
   normalizeSessionMode,
   normalizeSessionOpacity,
 } from "../session.js";
+import {
+  createPlacementSnapshotKey,
+  createRegistrationSnapshotKey,
+  createSessionSnapshotKey,
+} from "../session-keys.js";
 import {
   MACHINE_INPUT_OVERRIDE,
   MACHINE_PANEL_INTENT,

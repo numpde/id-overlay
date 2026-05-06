@@ -13,10 +13,10 @@ import {
   replaceSession,
 } from "./state.js";
 import {
-  createPlacementEditedRegistration,
   normalizePlacement,
-  placementsEqual,
 } from "../session.js";
+import { createPlacementEditedRegistration } from "../registration.js";
+import { placementsEqual } from "../session-keys.js";
 import { selectPanelPolicy } from "./policy.js";
 import {
   createStatusNotice,

@@ -4,27 +4,17 @@ import assert from "node:assert/strict";
 import {
   DEFAULT_SESSION_OPACITY,
   SESSION_MODE,
-  canSolveRegistration,
   createEmptyRegistration,
   createEmptySession,
-  createInvalidatedRegistration,
-  createPlacementEditedRegistration,
-  didRegistrationChange,
   getOverlayImage,
-  getRegistrationPinCount,
-  hasCleanSolvedTransform,
   hasOverlayImageSession,
   isAlignMode,
   isTraceMode,
-  needsSolveRecompute,
   normalizeRegistration,
   normalizeSession,
   normalizeSessionImage,
   normalizeSessionMode,
   normalizeSessionOpacity,
-  placementsEqual,
-  resolveRegistrationPinMutation,
-  resolveRegistrationSolveState,
 } from "../../src/core/session.js";
 
 const IMAGE = Object.freeze({
@@ -137,79 +127,4 @@ test("registration normalization drops invalid pins and resets dirty empty regis
   });
 
   assert.deepEqual(normalizeRegistration({ dirty: true }), createEmptyRegistration());
-});
-
-test("registration mutation helpers expose pure pin diffs", () => {
-  const previousRegistration = normalizeRegistration({
-    pins: [PIN_1, PIN_2],
-  });
-  const nextRegistration = normalizeRegistration({
-    pins: [
-      PIN_2,
-      { id: 3, imagePx: { x: 700, y: 250 }, mapLatLon: { lat: -1.1, lon: 38 } },
-    ],
-  });
-
-  assert.deepEqual(
-    resolveRegistrationPinMutation(previousRegistration, nextRegistration),
-    {
-      addedPin: { id: 3, imagePx: { x: 700, y: 250 }, mapLatLon: { lat: -1.1, lon: 38 } },
-      removedPinIds: [1],
-    },
-  );
-  assert.equal(didRegistrationChange(previousRegistration, previousRegistration), false);
-  assert.equal(didRegistrationChange(previousRegistration, nextRegistration), true);
-});
-
-test("placement equality compares canonical similarity components only", () => {
-  assert.equal(placementsEqual(PLACEMENT, { ...PLACEMENT, scale: 99, rotationRad: 12 }), true);
-  assert.equal(placementsEqual(PLACEMENT, { ...PLACEMENT, tx: 11 }), false);
-  assert.equal(placementsEqual(PLACEMENT, null), false);
-});
-
-test("registration solve-state predicates are centralized", () => {
-  const empty = createEmptyRegistration();
-  const insufficient = normalizeRegistration({ pins: [PIN_1], dirty: true });
-  const dirty = normalizeRegistration({ pins: [PIN_1, PIN_2], dirty: true });
-  const ready = normalizeRegistration({ pins: [PIN_1, PIN_2] });
-  const solved = normalizeRegistration({
-    pins: [PIN_1, PIN_2],
-    solvedTransform: { ...PLACEMENT, pinCount: 2 },
-    dirty: false,
-  });
-
-  assert.equal(canSolveRegistration(empty), false);
-  assert.equal(canSolveRegistration(insufficient), false);
-  assert.equal(canSolveRegistration(dirty), true);
-  assert.equal(getRegistrationPinCount(dirty), 2);
-  assert.equal(hasCleanSolvedTransform(empty), false);
-  assert.equal(hasCleanSolvedTransform(solved), true);
-  assert.equal(needsSolveRecompute(empty), false);
-  assert.equal(needsSolveRecompute(dirty), true);
-  assert.equal(needsSolveRecompute(ready), false);
-  assert.equal(needsSolveRecompute(solved), false);
-  assert.deepEqual(resolveRegistrationSolveState(empty), { kind: "empty", pinCount: 0, solvedPinCount: 0, canCompute: false });
-  assert.deepEqual(resolveRegistrationSolveState(insufficient), { kind: "insufficient-pins", pinCount: 1, solvedPinCount: 1, canCompute: false });
-  assert.deepEqual(resolveRegistrationSolveState(dirty), { kind: "dirty", pinCount: 2, solvedPinCount: 2, canCompute: true });
-  assert.deepEqual(resolveRegistrationSolveState(ready), { kind: "ready", pinCount: 2, solvedPinCount: 2, canCompute: true });
-  assert.deepEqual(resolveRegistrationSolveState(solved), { kind: "solved", pinCount: 2, solvedPinCount: 2, canCompute: true });
-});
-
-test("registration edit constructors own solved-transform invalidation semantics", () => {
-  const solvedRegistration = normalizeRegistration({
-    pins: [PIN_1, PIN_2],
-    solvedTransform: PLACEMENT,
-    dirty: false,
-  });
-
-  assert.deepEqual(createInvalidatedRegistration(solvedRegistration), {
-    pins: [PIN_1, PIN_2],
-    solvedTransform: null,
-    dirty: true,
-  });
-  assert.deepEqual(createPlacementEditedRegistration(solvedRegistration), {
-    pins: [PIN_1, PIN_2],
-    solvedTransform: PLACEMENT,
-    dirty: true,
-  });
 });

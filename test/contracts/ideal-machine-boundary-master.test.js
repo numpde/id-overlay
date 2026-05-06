@@ -409,6 +409,22 @@ test("placement planning is pure geometry and never constructs machine events", 
   assert.deepEqual(violations, []);
 });
 
+test("durable session schema is split from registration queries and equality keys", () => {
+  const sessionSource = readSource(repoPath("src/core/session.js"));
+  const forbiddenPatterns = [
+    ["registration solve query", /\bresolveRegistrationSolveState\b/],
+    ["registration edit constructor", /\bcreate(?:Invalidated|PlacementEdited)Registration\b/],
+    ["registration diff query", /\bresolveRegistrationPinMutation\b/],
+    ["durable equality key", /\bcreate(?:Session|Placement|Registration|OverlayImage)SnapshotKey\b/],
+    ["session equality", /\bsessionsEqual\b|\bplacementsEqual\b/],
+  ];
+  const violations = forbiddenPatterns
+    .filter(([, pattern]) => pattern.test(sessionSource))
+    .map(([name]) => name);
+
+  assert.deepEqual(violations, []);
+});
+
 test("paste adapter reports clipboard facts, not machine-shaped outcomes", () => {
   const source = readSource(repoPath("src/content/paste-adapter.js"));
   const forbiddenPatterns = [

@@ -1,7 +1,7 @@
 import {
-  createPlacementEditedRegistration,
   getOverlayImage,
 } from "./session.js";
+import { createPlacementEditedRegistration } from "./registration.js";
 import {
   createSimilarityTransformFromAnchor,
   derivePlacementFromScreenTransform,

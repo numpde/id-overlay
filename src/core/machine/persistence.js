@@ -1,5 +1,5 @@
 import { createInitialMachineState, normalizeMachineState } from "./state.js";
-import { createSessionSnapshotKey } from "../session.js";
+import { createSessionSnapshotKey } from "../session-keys.js";
 
 export function toPersistedMachineSession(machineState) {
   const state = normalizeMachineState(machineState);
