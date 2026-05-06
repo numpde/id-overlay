@@ -98,17 +98,16 @@ export async function bootstrapIdOverlay({ keyboardGateway = null } = {}) {
 
 function createManualPasteCapture({ ownerWindow, clipboardReader, pageObservation, logger }) {
   // TODO(smell): Manual paste capture still completes by calling the effect
-  // runner's callback with a transition-shaped paste outcome. Keep clipboard
-  // decoding fact-shaped; the next cut should deliver typed effect results
-  // through host ingress instead of this callback bridge.
+  // runner's callback from content. The final host boundary should deliver
+  // typed effect results through host ingress instead of this callback bridge.
   let activeRequestId = null;
-  let activeOutcomeHandler = null;
+  let activePasteReadOutcomeHandler = null;
 
   return {
-    startManualPasteCapture({ requestId, onPasteOutcome }) {
+    startManualPasteCapture({ requestId, onPasteReadOutcome }) {
       cancelManualPasteCapture({ requestId: null });
       activeRequestId = requestId;
-      activeOutcomeHandler = onPasteOutcome;
+      activePasteReadOutcomeHandler = onPasteReadOutcome;
       ownerWindow.addEventListener("paste", handleWindowPaste, true);
     },
     cancelManualPasteCapture,
@@ -123,13 +122,13 @@ function createManualPasteCapture({ ownerWindow, clipboardReader, pageObservatio
     }
     ownerWindow.removeEventListener("paste", handleWindowPaste, true);
     activeRequestId = null;
-    activeOutcomeHandler = null;
+    activePasteReadOutcomeHandler = null;
   }
 
   async function handleWindowPaste(event) {
     const requestId = activeRequestId;
-    const outcomeHandler = activeOutcomeHandler;
-    if (requestId === null || !outcomeHandler) {
+    const pasteReadOutcomeHandler = activePasteReadOutcomeHandler;
+    if (requestId === null || !pasteReadOutcomeHandler) {
       return;
     }
 
@@ -139,7 +138,7 @@ function createManualPasteCapture({ ownerWindow, clipboardReader, pageObservatio
       logger.info("Ignoring window paste result because paste capture was cancelled");
       return;
     }
-    outcomeHandler(createPasteReadOutcome({
+    pasteReadOutcomeHandler(createPasteReadOutcome({
       fact,
       pageObservation,
     }));

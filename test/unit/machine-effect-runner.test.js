@@ -130,7 +130,7 @@ test("manual-paste capture effects delegate request id through the effect runner
   assert.equal(calls[0][0], "start");
   assert.equal(calls[0][1].requestId, 7);
   assert.equal(calls[0][1].context, context);
-  assert.equal(typeof calls[0][1].onPasteOutcome, "function");
+  assert.equal(typeof calls[0][1].onPasteReadOutcome, "function");
   assert.deepEqual(calls[1], ["cancel", { requestId: 7, context }]);
 });
 
@@ -165,10 +165,10 @@ test("read-paste-image delegates request id and completes with a clipboard-api r
 
 test("manual-paste outcome completes with a manual-paste result", async () => {
   const calls = [];
-  let onPasteOutcome;
+  let onPasteReadOutcome;
   const runEffect = createMachineEffectRunner({
-    startManualPasteCapture: ({ onPasteOutcome: handler }) => {
-      onPasteOutcome = handler;
+    startManualPasteCapture: ({ onPasteReadOutcome: handler }) => {
+      onPasteReadOutcome = handler;
     },
     completeEffect: (result) => calls.push(result),
     getState: createPasteState(7),
@@ -179,7 +179,7 @@ test("manual-paste outcome completes with a manual-paste result", async () => {
     requestId: 7,
   }, createContext());
   const outcome = createDecodedPasteOutcome();
-  onPasteOutcome(outcome);
+  onPasteReadOutcome(outcome);
 
   assert.deepEqual(calls, [{
     kind: MACHINE_EFFECT_RESULT_KIND.READ_PASTE_IMAGE,
@@ -191,10 +191,10 @@ test("manual-paste outcome completes with a manual-paste result", async () => {
 
 test("manual-paste feedback completes with a manual-paste result", async () => {
   const calls = [];
-  let onPasteOutcome;
+  let onPasteReadOutcome;
   const runEffect = createMachineEffectRunner({
-    startManualPasteCapture: ({ onPasteOutcome: handler }) => {
-      onPasteOutcome = handler;
+    startManualPasteCapture: ({ onPasteReadOutcome: handler }) => {
+      onPasteReadOutcome = handler;
     },
     completeEffect: (result) => calls.push(result),
     getState: createPasteState(7),
@@ -205,7 +205,7 @@ test("manual-paste feedback completes with a manual-paste result", async () => {
     requestId: 7,
   }, createContext());
   const outcome = createMissingImagePasteOutcome();
-  onPasteOutcome(outcome);
+  onPasteReadOutcome(outcome);
 
   assert.deepEqual(calls, [{
     kind: MACHINE_EFFECT_RESULT_KIND.READ_PASTE_IMAGE,
@@ -217,10 +217,10 @@ test("manual-paste feedback completes with a manual-paste result", async () => {
 
 test("manual-paste outcome completes even when request may be stale", async () => {
   const calls = [];
-  let onPasteOutcome;
+  let onPasteReadOutcome;
   const runEffect = createMachineEffectRunner({
-    startManualPasteCapture: ({ onPasteOutcome: handler }) => {
-      onPasteOutcome = handler;
+    startManualPasteCapture: ({ onPasteReadOutcome: handler }) => {
+      onPasteReadOutcome = handler;
     },
     completeEffect: (result) => calls.push(result),
     getState: createPasteState(8),
@@ -231,7 +231,7 @@ test("manual-paste outcome completes even when request may be stale", async () =
     requestId: 7,
   }, createContext());
   const outcome = createDecodedPasteOutcome();
-  onPasteOutcome(outcome);
+  onPasteReadOutcome(outcome);
 
   assert.deepEqual(calls, [{
     kind: MACHINE_EFFECT_RESULT_KIND.READ_PASTE_IMAGE,

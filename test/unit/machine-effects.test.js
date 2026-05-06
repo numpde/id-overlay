@@ -382,7 +382,7 @@ test("paste effect result with image loads image through canonical session trans
   assert.equal(result.historyRecord.kind, MACHINE_HISTORY_KIND.LOAD_IMAGE);
 });
 
-test("clipboard-api paste status keeps paste armed", () => {
+test("clipboard-api paste failure keeps paste armed", () => {
   const host = createHost();
   requestPanelIntent(host, MACHINE_PANEL_INTENT.PASTE_ARMED);
   const before = state(host);
@@ -405,7 +405,7 @@ test("clipboard-api paste status keeps paste armed", () => {
   assert.equal(result.historyRecord, null);
 });
 
-test("manual paste status cancels paste before reporting status", () => {
+test("manual paste failure cancels paste before reporting status", () => {
   const host = createHost();
   requestPanelIntent(host, MACHINE_PANEL_INTENT.PASTE_ARMED);
   const before = state(host);

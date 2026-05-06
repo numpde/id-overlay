@@ -22,10 +22,6 @@ export const MACHINE_PASTE_READ_INTERPRETATION_KIND = Object.freeze({
 });
 
 export function completePasteRead(state, result) {
-  // TODO(smell): Paste completion now enters as a typed effect result, but its
-  // outcome still carries machine status details. Collapse this further so
-  // paste interpretation starts from clipboard facts, page facts, and machine
-  // policy without status-shaped payloads crossing the effect boundary.
   const source = normalizeMachinePasteSource(result.source);
   if (!isCurrentPasteRequest(state, result) || !source) {
     return createTransitionResult({ state });

@@ -31,7 +31,7 @@ export function createMachineEffectRunner({
         return startManualPasteCapture?.({
           requestId: effect.requestId,
           context,
-          onPasteOutcome: (outcome) => dispatchPasteReadCompleted({
+          onPasteReadOutcome: (outcome) => dispatchPasteReadCompleted({
             outcome,
             requestId: effect.requestId,
             source: MACHINE_PASTE_SOURCE.MANUAL_PASTE,
