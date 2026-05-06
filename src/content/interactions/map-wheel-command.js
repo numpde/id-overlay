@@ -1,6 +1,6 @@
 import {
   resolveOverlayRenderSource,
-} from "../../core/transform.js";
+} from "../../core/overlay-render.js";
 
 export function createMapWheelCommand({
   mapGesture,

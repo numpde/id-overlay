@@ -53,9 +53,11 @@ import {
   derivePlacementFromScreenTransform,
   imagePointToRenderedScreenPoint,
   imagePointToScreenPoint,
-  resolveOverlayScreenTransform,
   screenPointToImagePoint,
 } from "../../src/core/transform.js";
+import {
+  resolveOverlayScreenTransform,
+} from "../../src/core/overlay-render.js";
 import {
   createKeyEvent,
   createKeyTarget,

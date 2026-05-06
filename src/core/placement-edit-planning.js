@@ -4,16 +4,20 @@ import {
 } from "./session.js";
 import {
   createSimilarityTransformFromAnchor,
-  derivePlacementFromCurrentRenderState,
   derivePlacementFromScreenTransform,
   imagePointToRenderedScreenPoint,
   isImagePointWithinBounds,
   removeSurfaceMotionFromScreenPoint,
-  resolveOverlayScreenTransform,
-  rotationFromWheelDelta,
-  scaleFromWheelDelta,
   screenPointToRenderedImagePoint,
 } from "./transform.js";
+import {
+  derivePlacementFromCurrentRenderState,
+  resolveOverlayScreenTransform,
+} from "./overlay-render.js";
+import {
+  rotationFromWheelDelta,
+  scaleFromWheelDelta,
+} from "./wheel-adjustment.js";
 
 export function resolvePlacementEditRenderState({ machineState, snapshot }) {
   // TODO(smell): Placement edit planning accepts full machine state plus a full

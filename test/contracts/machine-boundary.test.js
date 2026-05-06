@@ -410,6 +410,24 @@ test("placement edit planning is centralized outside transform and live interact
   assert.deepEqual(violations, []);
 });
 
+test("transform stays a low-level placement and surface geometry module", () => {
+  const source = fs.readFileSync(repoPath("src/core/transform.js"), "utf8");
+  const forbiddenPatterns = [
+    ["opacity adjustment", /\b(?:clampOpacity|opacityFromWheelDelta)\b/],
+    ["wheel adjustment", /\b(?:rotationFromWheelDelta|scaleFromWheelDelta)\b/],
+    [
+      "overlay render state",
+      /\b(?:resolveOverlayRenderState|resolveOverlayScreenTransform|buildOverlayRenderModel)\b/,
+    ],
+    ["pin rendering", /\b(?:buildPinRenderModels|hitTestPin)\b/],
+  ];
+  const violations = forbiddenPatterns
+    .filter(([, pattern]) => pattern.test(source))
+    .map(([name]) => name);
+
+  assert.deepEqual(violations, []);
+});
+
 test("input eligibility is centralized in the input projection", () => {
   const sources = new Map([
     ["src/content/overlay.js", fs.readFileSync(repoPath("src/content/overlay.js"), "utf8")],

@@ -1,9 +1,4 @@
 import {
-  DEFAULT_SESSION_OPACITY,
-  hasCleanSolvedTransform,
-  hasOverlayImageSession,
-} from "./session.js";
-import {
   createSimilarityTransform,
   projectLatLonToWorld,
   solveSimilarityTransform,
@@ -20,23 +15,6 @@ const DEFAULT_SCREEN_SCALE = 1;
 const DEFAULT_ROTATION_RAD = 0;
 const MIN_SCREEN_SCALE = 0.1;
 const MAX_SCREEN_SCALE = 12;
-const WHEEL_SCALE_STEP = 1 / 400;
-const WHEEL_ROTATION_STEP = 1 / 800;
-
-// TODO(smell): This module is still a broad geometry toolbox: opacity/wheel
-// math, render-state resolution, surface-motion projection, and pin helpers.
-// Keep new domain behavior out; split by geometry/render/pin ownership next.
-export function clampOpacity(value) {
-  if (!Number.isFinite(value)) {
-    return DEFAULT_SESSION_OPACITY;
-  }
-  return Math.min(1, Math.max(0, value));
-}
-
-export function opacityFromWheelDelta(opacity, deltaY) {
-  const nextOpacity = Number(opacity) - deltaY / 1000;
-  return clampOpacity(nextOpacity);
-}
 
 export function clampScale(value) {
   if (!Number.isFinite(value)) {
@@ -129,15 +107,6 @@ export function isImagePointWithinBounds(imagePoint, image) {
   );
 }
 
-export function scaleFromWheelDelta(scale, deltaY) {
-  const factor = Math.exp(-deltaY * WHEEL_SCALE_STEP);
-  return clampScale(scale * factor);
-}
-
-export function rotationFromWheelDelta(rotationRad, deltaY) {
-  return rotationRad - deltaY * WHEEL_ROTATION_STEP;
-}
-
 export function createPlacementTransform({
   image,
   centerMapLatLon,
@@ -181,138 +150,6 @@ export function createSolvedScreenTransform({ snapshot, solvedTransform }) {
     snapshot,
     similarityTransform: solvedTransform,
   });
-}
-
-export function resolveOverlayRenderState(state) {
-  const { session, runtime } = resolveRenderInputs(state);
-  if (!hasOverlayImageSession(session)) {
-    return {
-      source: "none",
-      similarityTransform: null,
-    };
-  }
-  if (runtime?.placementEdit?.previewPlacement) {
-    return {
-      source: "placement-preview",
-      similarityTransform: runtime.placementEdit.previewPlacement,
-    };
-  }
-  if (hasCleanSolvedTransform(session.registration)) {
-    return {
-      source: "solved",
-      similarityTransform: session.registration.solvedTransform,
-    };
-  }
-  return {
-    source: "placement",
-    similarityTransform: session.placement,
-  };
-}
-
-export function resolveOverlayScreenTransform({ state, snapshot }) {
-  const renderState = resolveOverlayRenderState(state);
-  if (!renderState.similarityTransform) {
-    return null;
-  }
-
-  if (renderState.source === "solved") {
-    return createSolvedScreenTransform({
-      snapshot,
-      solvedTransform: renderState.similarityTransform,
-    });
-  }
-
-  return createPlacementScreenTransform({
-    placement: renderState.similarityTransform,
-    snapshot,
-  });
-}
-
-export function resolveOverlayRenderSource(state) {
-  return resolveOverlayRenderState(state).source;
-}
-
-export function derivePlacementFromCurrentRenderState({ state, snapshot }) {
-  const { session } = resolveRenderInputs(state);
-  if (!hasOverlayImageSession(session) || !hasCleanSolvedTransform(session.registration)) {
-    return null;
-  }
-  const transform = resolveOverlayScreenTransform({
-    state,
-    snapshot,
-  });
-  return derivePlacementFromScreenTransform({
-    snapshot,
-    transform,
-  });
-}
-
-function resolveRenderInputs(state) {
-  return {
-    session: state?.session ?? state,
-    runtime: state?.session ? state.runtime ?? null : null,
-  };
-}
-
-export function buildOverlayRenderModel({ image, transform, opacity }) {
-  const scale = Math.hypot(transform.a, transform.b);
-  const rotationRad = Math.atan2(transform.b, transform.a);
-  return {
-    left: transform.tx,
-    top: transform.ty,
-    width: image.width * scale,
-    height: image.height * scale,
-    scale,
-    rotationRad,
-    rotationDeg: (rotationRad * 180) / Math.PI,
-    opacity: clampOpacity(opacity),
-  };
-}
-
-export function buildPinRenderModels({
-  pins,
-  transform = null,
-  projectOverlayScreenPoint = (imagePoint) => imagePointToScreenPoint({ imagePoint, transform }),
-  projectMapScreenPoint = null,
-}) {
-  return pins.map((pin) => ({
-    id: pin.id,
-    imagePx: pin.imagePx,
-    mapLatLon: pin.mapLatLon,
-    overlayScreenPx: projectOverlayScreenPoint(pin.imagePx, pin),
-    mapScreenPx: projectMapScreenPoint?.(pin.mapLatLon, pin) ?? null,
-  }));
-}
-
-export function hitTestPin({
-  screenPoint,
-  renderedPins,
-  radiusPx = 12,
-  resolveTargetScreenPoint = (pin) => pin.overlayScreenPx,
-}) {
-  const radiusSquared = radiusPx * radiusPx;
-  let bestMatch = null;
-
-  for (const pin of renderedPins) {
-    const targetScreenPoint = resolveTargetScreenPoint(pin);
-    if (!targetScreenPoint) {
-      continue;
-    }
-    const dx = targetScreenPoint.x - screenPoint.x;
-    const dy = targetScreenPoint.y - screenPoint.y;
-    const distanceSquared = dx * dx + dy * dy;
-    if (distanceSquared > radiusSquared) {
-      continue;
-    }
-    if (!bestMatch || distanceSquared < bestMatch.distanceSquared) {
-      bestMatch = {
-        pin,
-        distanceSquared,
-      };
-    }
-  }
-
-  return bestMatch?.pin ?? null;
 }
 
 export function createSimilarityTransformFromAnchor({

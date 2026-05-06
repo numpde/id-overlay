@@ -11,8 +11,10 @@ import {
 import {
   createPlacementScreenTransform,
   imagePointToScreenPoint,
-  resolveOverlayScreenTransform,
 } from "../../src/core/transform.js";
+import {
+  resolveOverlayScreenTransform,
+} from "../../src/core/overlay-render.js";
 
 const IMAGE = Object.freeze({
   src: "data:image/png;base64,abc",

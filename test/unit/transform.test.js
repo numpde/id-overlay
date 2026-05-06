@@ -3,27 +3,33 @@ import assert from "node:assert/strict";
 
 import {
   applySurfaceMotionToScreenPoint,
-  buildOverlayRenderModel,
-  buildPinRenderModels,
-  clampOpacity,
   createPlacementTransform,
   derivePlacementFromScreenTransform,
   createPlacementScreenTransform,
   imagePointToRenderedScreenPoint,
-  resolveOverlayRenderState,
   createSolvedScreenTransform,
-  hitTestPin,
   imagePointToScreenPoint,
   projectLatLonToWorld,
   removeSurfaceMotionFromScreenPoint,
-  resolveOverlayRenderSource,
-  resolveOverlayScreenTransform,
-  rotationFromWheelDelta,
-  scaleFromWheelDelta,
   screenPointToImagePoint,
   screenPointToRenderedImagePoint,
   solveSimilarityTransform,
 } from "../../src/core/transform.js";
+import { clampOpacity } from "../../src/core/opacity.js";
+import {
+  rotationFromWheelDelta,
+  scaleFromWheelDelta,
+} from "../../src/core/wheel-adjustment.js";
+import {
+  buildOverlayRenderModel,
+  resolveOverlayRenderSource,
+  resolveOverlayRenderState,
+  resolveOverlayScreenTransform,
+} from "../../src/core/overlay-render.js";
+import {
+  buildPinRenderModels,
+  hitTestPin,
+} from "../../src/core/pin-render.js";
 
 test("clampOpacity keeps opacity in range", () => {
   assert.equal(clampOpacity(-1), 0);

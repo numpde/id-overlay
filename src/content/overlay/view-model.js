@@ -1,11 +1,13 @@
 import {
-  buildOverlayRenderModel,
-  buildPinRenderModels,
   imagePointToScreenPoint,
   isImagePointWithinBounds,
-  resolveOverlayScreenTransform,
   screenPointToRenderedImagePoint,
 } from "../../core/transform.js";
+import {
+  buildOverlayRenderModel,
+  resolveOverlayScreenTransform,
+} from "../../core/overlay-render.js";
+import { buildPinRenderModels } from "../../core/pin-render.js";
 import { getOverlayImage, hasOverlayImageSession } from "../../core/session.js";
 import { selectOverlayPresentation } from "../../core/machine/selectors.js";
 

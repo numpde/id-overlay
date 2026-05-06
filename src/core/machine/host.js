@@ -36,7 +36,7 @@ import { transitionMachine } from "./transition.js";
 import {
   withStatusNotice,
 } from "./transition-result.js";
-import { clampOpacity, opacityFromWheelDelta } from "../transform.js";
+import { clampOpacity, opacityFromWheelDelta } from "../opacity.js";
 
 const DEFAULT_PANEL_TIMEOUT_MS = 1800;
 const DEFAULT_STATUS_TIMEOUT_MS = 1800;
