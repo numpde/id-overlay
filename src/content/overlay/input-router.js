@@ -38,7 +38,6 @@ export function createOverlayInputRouter({
   const mountedInputDispatcher = createOverlayMountedInputDispatcher({
     overlayInteractions,
     inputProjector,
-    getRuntimeState,
     pointerSequenceRouter,
     consumeOverlayEvent: (event) => eventBoundary.consumeOverlayEvent(event),
   });

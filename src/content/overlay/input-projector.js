@@ -13,6 +13,7 @@ export function createOverlayInputProjector({
   return {
     screenPointFromEvent,
     resolveMountedActivationProjection,
+    resolveMountedPointerLeaveProjection,
     resolveMountedPointerMoveProjection,
     resolveMountedPointerSequenceProjection,
     resolveMountedWheelProjection,
@@ -34,6 +35,10 @@ export function createOverlayInputProjector({
       ...resolveMountedProjectionContext(screenPoint),
       pointer,
     });
+  }
+
+  function resolveMountedPointerLeaveProjection() {
+    return resolvePointerMoveProjection(resolveBaseProjectionContext());
   }
 
   function resolveMountedPointerSequenceProjection(screenPoint, { pointer = null } = {}) {
@@ -59,6 +64,14 @@ export function createOverlayInputProjector({
         viewModel: context.viewModel,
         screenPoint,
       }),
+    };
+  }
+
+  function resolveBaseProjectionContext() {
+    const context = getOverlayInputContext();
+    return {
+      machineState: context.machineState,
+      runtime: context.runtime,
     };
   }
 }

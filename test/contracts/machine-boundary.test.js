@@ -543,6 +543,7 @@ test("overlay pointer sequence has no content-side session wrapper", () => {
 
 test("overlay input router delegates mounted input policy dispatch", () => {
   const source = fs.readFileSync(repoPath("src/content/overlay/input-router.js"), "utf8");
+  const dispatcherSource = fs.readFileSync(repoPath("src/content/overlay/mounted-input-dispatcher.js"), "utf8");
   const forbiddenPatterns = [
     ["DOM input fact construction", /input-event-facts\.js/],
     ["mounted pointer move policy access", /\.pointerMove\b/],
@@ -557,6 +558,7 @@ test("overlay input router delegates mounted input policy dispatch", () => {
     .map(([name]) => name);
 
   assert.match(source, /mounted-input-dispatcher\.js/);
+  assert.doesNotMatch(dispatcherSource, /select(?:IsRuntimeDragging|RuntimePointerScreenPx)/);
   assert.deepEqual(violations, []);
 });
 
@@ -589,6 +591,7 @@ test("overlay input projector exposes mounted decisions explicitly", () => {
   ];
   const requiredMethods = [
     "resolveMountedActivationProjection",
+    "resolveMountedPointerLeaveProjection",
     "resolveMountedPointerMoveProjection",
     "resolveMountedPointerSequenceProjection",
     "resolveMountedWheelProjection",

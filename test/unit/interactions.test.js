@@ -972,6 +972,9 @@ test("overlay pointer move policy is single-source", () => {
     }),
     {
       shouldTrackPointer: false,
+      shouldDispatchPointerMove: false,
+      shouldConsumePointerMove: false,
+      shouldClearPointer: false,
     },
   );
 
@@ -983,6 +986,9 @@ test("overlay pointer move policy is single-source", () => {
     }),
     {
       shouldTrackPointer: true,
+      shouldDispatchPointerMove: true,
+      shouldConsumePointerMove: false,
+      shouldClearPointer: false,
     },
   );
 
@@ -995,6 +1001,43 @@ test("overlay pointer move policy is single-source", () => {
     }),
     {
       shouldTrackPointer: false,
+      shouldDispatchPointerMove: false,
+      shouldConsumePointerMove: false,
+      shouldClearPointer: false,
+    },
+  );
+
+  assert.deepEqual(
+    resolvePointerMoveProjection({
+      state,
+      runtime: {
+        ...runtime,
+        activeGesture: { kind: "move-overlay" },
+      },
+      isPointerOverOverlay: false,
+    }),
+    {
+      shouldTrackPointer: false,
+      shouldDispatchPointerMove: true,
+      shouldConsumePointerMove: true,
+      shouldClearPointer: false,
+    },
+  );
+
+  assert.deepEqual(
+    resolvePointerMoveProjection({
+      state,
+      runtime: {
+        ...runtime,
+        pointer: { screenPx: { x: 1, y: 2 } },
+      },
+      isPointerOverOverlay: false,
+    }),
+    {
+      shouldTrackPointer: false,
+      shouldDispatchPointerMove: false,
+      shouldConsumePointerMove: false,
+      shouldClearPointer: true,
     },
   );
 });

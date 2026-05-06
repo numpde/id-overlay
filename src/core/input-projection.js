@@ -7,6 +7,10 @@ import {
 } from "./interaction-policy.js";
 import { INPUT_KEY } from "./input-facts.js";
 import {
+  selectIsRuntimeDragging,
+  selectRuntimePointerScreenPx,
+} from "./machine/selectors.js";
+import {
   selectOverlayPolicy,
   shouldReleasePassThroughOverride,
 } from "./machine/policy.js";
@@ -19,13 +23,18 @@ export function resolvePointerMoveProjection({
   pointer = null,
 } = {}) {
   const resolvedPointer = pointer ?? { button: 0, buttons: 0 };
+  const hasActiveGesture = selectIsRuntimeDragging(runtime);
+  const shouldTrackPointer = resolveCanOwnOverlayPointer({
+    machineState,
+    state,
+    runtime,
+    isPointerOverOverlay,
+  }) && (resolvedPointer.buttons ?? 0) === 0;
   return {
-    shouldTrackPointer: resolveCanOwnOverlayPointer({
-      machineState,
-      state,
-      runtime,
-      isPointerOverOverlay,
-    }) && (resolvedPointer.buttons ?? 0) === 0,
+    shouldTrackPointer,
+    shouldDispatchPointerMove: hasActiveGesture || shouldTrackPointer,
+    shouldConsumePointerMove: hasActiveGesture,
+    shouldClearPointer: !hasActiveGesture && !shouldTrackPointer && Boolean(selectRuntimePointerScreenPx(runtime)),
   };
 }
 

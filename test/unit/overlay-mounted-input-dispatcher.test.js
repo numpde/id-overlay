@@ -25,6 +25,14 @@ test("mounted input dispatcher consumes active drag moves", () => {
 
   assert.deepEqual(calls, [
     ["screen-point", event],
+    ["projection", {
+      screenPoint: { x: 10, y: 20 },
+      pointer: {
+        button: 0,
+        buttons: 0,
+        modifiers: NO_MODIFIERS,
+      },
+    }],
     ["move", { x: 10, y: 20 }],
     ["consume", event],
   ]);
@@ -268,7 +276,16 @@ function createDispatcher({
       },
       resolveMountedPointerMoveProjection(screenPoint, options = {}) {
         calls.push(["projection", { screenPoint, ...options }]);
-        return pointerMoveProjection ?? { shouldTrackPointer: false };
+        return resolvePointerMoveProjection({
+          runtime,
+          overrides: pointerMoveProjection,
+        });
+      },
+      resolveMountedPointerLeaveProjection() {
+        return resolvePointerMoveProjection({
+          runtime,
+          overrides: pointerMoveProjection,
+        });
       },
       resolveMountedPointerSequenceProjection(screenPoint, options = {}) {
         calls.push(["projection", { screenPoint, ...options }]);
@@ -318,6 +335,21 @@ function createDispatcher({
       calls.push(["consume", event]);
     },
   });
+}
+
+function resolvePointerMoveProjection({ runtime, overrides }) {
+  const isDragging = Boolean(runtime.activeGesture);
+  const shouldTrackPointer = overrides?.shouldTrackPointer ?? false;
+  return {
+    shouldTrackPointer,
+    shouldDispatchPointerMove: overrides?.shouldDispatchPointerMove ?? (isDragging || shouldTrackPointer),
+    shouldConsumePointerMove: overrides?.shouldConsumePointerMove ?? isDragging,
+    shouldClearPointer: overrides?.shouldClearPointer ?? (
+      !isDragging &&
+      !shouldTrackPointer &&
+      Boolean(runtime.pointer?.screenPx)
+    ),
+  };
 }
 
 function createPointerEvent(overrides = {}) {

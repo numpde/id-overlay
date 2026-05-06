@@ -2,22 +2,13 @@ import {
   createPointerInputFactFromEvent,
   createWheelInputFactFromEvent,
 } from "../input-event-facts.js";
-import {
-  selectIsRuntimeDragging,
-  selectRuntimePointerScreenPx,
-} from "../../core/machine/selectors.js";
 
 export function createOverlayMountedInputDispatcher({
   overlayInteractions,
   inputProjector,
-  getRuntimeState,
   pointerSequenceRouter,
   consumeOverlayEvent,
 }) {
-  // TODO(smell): Mounted input dispatch still reads runtime dragging state and
-  // branches per DOM event. The ideal overlay input host would translate DOM
-  // events into normalized facts, then dispatch a single projected interaction
-  // intent without duplicating runtime predicates here.
   return {
     handlePointerMove,
     handlePointerLeave,
@@ -31,27 +22,25 @@ export function createOverlayMountedInputDispatcher({
     if (pointerSequenceRouter.hasPending()) {
       return;
     }
-    const runtime = getRuntimeState();
     const screenPoint = inputProjector.screenPointFromEvent(event);
-    if (selectIsRuntimeDragging(runtime)) {
-      overlayInteractions.handlePointerMove(screenPoint);
-      consumeOverlayEvent(event);
-      return;
-    }
     const pointerPolicy = inputProjector.resolveMountedPointerMoveProjection(screenPoint, {
       pointer: createPointerInputFactFromEvent(event),
     });
-    if (pointerPolicy.shouldTrackPointer) {
+    if (pointerPolicy.shouldDispatchPointerMove) {
       overlayInteractions.handlePointerMove(screenPoint);
+      if (pointerPolicy.shouldConsumePointerMove) {
+        consumeOverlayEvent(event);
+      }
       return;
     }
-    if (selectRuntimePointerScreenPx(runtime)) {
+    if (pointerPolicy.shouldClearPointer) {
       overlayInteractions.handlePointerLeave();
     }
   }
 
   function handlePointerLeave() {
-    if (selectIsRuntimeDragging(getRuntimeState())) {
+    const pointerPolicy = inputProjector.resolveMountedPointerLeaveProjection();
+    if (pointerPolicy.shouldConsumePointerMove) {
       return;
     }
     overlayInteractions.handlePointerLeave();
