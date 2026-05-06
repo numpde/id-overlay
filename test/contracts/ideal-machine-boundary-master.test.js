@@ -563,9 +563,7 @@ test("only machine internals import machine event vocabulary", {
   assert.deepEqual(violations, []);
 });
 
-test("runtime observation facts are ingested once, not mirrored by content callbacks", {
-  todo: "Collapse pointer, gesture, pass-through, blur, and error reset into normalized ingress facts.",
-}, () => {
+test("runtime observation facts are ingested once, not mirrored by content callbacks", () => {
   const sources = new Map([
     ["src/content/interactions/runtime-bridge.js", readSource(repoPath("src/content/interactions/runtime-bridge.js"))],
     ["src/content/interactions/pointer-interaction.js", readSource(repoPath("src/content/interactions/pointer-interaction.js"))],

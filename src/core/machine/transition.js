@@ -26,13 +26,6 @@ import {
   restorePlacement,
 } from "./placement-transition.js";
 import {
-  beginPointerGesture,
-  endPointerGesture,
-  resetInputRuntime,
-  setInputOverride,
-  updatePointerRuntime,
-} from "./runtime-transition.js";
-import {
   clearImage,
   loadImage,
   restoreImageSession,
@@ -87,14 +80,6 @@ const transitionSession = Object.freeze({
   [MACHINE_COMMAND_KIND.SET_OPACITY]: setOpacity,
 });
 
-const transitionRuntime = Object.freeze({
-  [MACHINE_COMMAND_KIND.UPDATE_POINTER_RUNTIME]: updatePointerRuntime,
-  [MACHINE_COMMAND_KIND.BEGIN_POINTER_GESTURE]: beginPointerGesture,
-  [MACHINE_COMMAND_KIND.END_POINTER_GESTURE]: endPointerGesture,
-  [MACHINE_COMMAND_KIND.SET_INPUT_OVERRIDE]: setInputOverride,
-  [MACHINE_COMMAND_KIND.RESET_INPUT_RUNTIME]: resetInputRuntime,
-});
-
 const transitionRegistration = Object.freeze({
   [MACHINE_COMMAND_KIND.TOGGLE_PIN]: togglePin,
   [MACHINE_COMMAND_KIND.ADD_PIN]: addPin,
@@ -121,7 +106,6 @@ const transitionPanelStatus = Object.freeze({
 
 const transitionDomainCommand = Object.freeze({
   ...transitionSession,
-  ...transitionRuntime,
   ...transitionRegistration,
   ...transitionPlacement,
   ...transitionPanelStatus,

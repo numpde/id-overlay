@@ -1,14 +1,10 @@
 import {
-  MACHINE_INPUT_OVERRIDE,
   MACHINE_MODE,
   MACHINE_PANEL_INTENT,
 } from "./events.js";
 import {
   MACHINE_COMMAND_KIND,
 } from "./private-commands.js";
-import {
-  MACHINE_RUNTIME_FACT_KIND,
-} from "./runtime-facts.js";
 import { MACHINE_STATUS_NOTICE_KIND } from "./status-notices.js";
 import { createMachineEffectRunner } from "./effect-runner.js";
 import {
@@ -33,6 +29,7 @@ import {
   reconcilePageContext,
 } from "./page-context.js";
 import { createMachineRuntime } from "./runtime.js";
+import { transitionRuntimeFact } from "./runtime-transition.js";
 import { transitionMachine } from "./transition.js";
 import {
   withStatusNotice,
@@ -225,59 +222,11 @@ export function createMachineHost({
   }
 
   function observeRuntimeFact(fact) {
-    switch (fact?.kind) {
-      case MACHINE_RUNTIME_FACT_KIND.POINTER_OBSERVED:
-      case MACHINE_RUNTIME_FACT_KIND.POINTER_CLEARED:
-        return updatePointer(fact.screenPx);
-      case MACHINE_RUNTIME_FACT_KIND.GESTURE_BEGAN:
-      case MACHINE_RUNTIME_FACT_KIND.GESTURE_MOVED:
-        return beginPointerGesture(fact.screenPx, { gestureKind: fact.gestureKind });
-      case MACHINE_RUNTIME_FACT_KIND.GESTURE_ENDED:
-        return endPointerGesture(fact.screenPx);
-      case MACHINE_RUNTIME_FACT_KIND.PASS_THROUGH_PRESSED:
-        return setInputPassThrough(true);
-      case MACHINE_RUNTIME_FACT_KIND.PASS_THROUGH_RELEASED:
-        return setInputPassThrough(false);
-      case MACHINE_RUNTIME_FACT_KIND.INPUT_INTERRUPTED:
-        return resetInputRuntime({ screenPx: fact.screenPx });
-      default:
-        return createNoopDispatchResult(runtime.getState());
+    if (destroyed) {
+      return createDestroyedDispatchResult(runtime.getState());
     }
-  }
-
-  function updatePointer(screenPx) {
-    return ingestMachineEvent({
-      type: MACHINE_COMMAND_KIND.UPDATE_POINTER_RUNTIME,
-      screenPx,
-    });
-  }
-
-  function beginPointerGesture(screenPx, { gestureKind }) {
-    return ingestMachineEvent({
-      type: MACHINE_COMMAND_KIND.BEGIN_POINTER_GESTURE,
-      screenPx,
-      gestureKind,
-    });
-  }
-
-  function endPointerGesture(screenPx) {
-    return ingestMachineEvent({
-      type: MACHINE_COMMAND_KIND.END_POINTER_GESTURE,
-      screenPx,
-    });
-  }
-
-  function setInputPassThrough(isActive) {
-    return ingestMachineEvent({
-      type: MACHINE_COMMAND_KIND.SET_INPUT_OVERRIDE,
-      inputOverride: isActive ? MACHINE_INPUT_OVERRIDE.PASS_THROUGH : null,
-    });
-  }
-
-  function resetInputRuntime({ screenPx }) {
-    return ingestMachineEvent({
-      type: MACHINE_COMMAND_KIND.RESET_INPUT_RUNTIME,
-      screenPx,
+    return runtime.commitMachineResult(transitionRuntimeFact(runtime.getState(), fact), {
+      runtimeFact: fact,
     });
   }
 

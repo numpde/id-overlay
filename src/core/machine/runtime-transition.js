@@ -3,54 +3,72 @@ import {
   MACHINE_POINTER_GESTURE_KIND,
 } from "./events.js";
 import {
+  MACHINE_RUNTIME_FACT_KIND,
+} from "./runtime-facts.js";
+import {
   replaceInputRuntime,
 } from "./state.js";
 import { createTransitionResult } from "./transition-result.js";
 
-export function updatePointerRuntime(state, event) {
-  // TODO(smell): Pointer runtime is updated through a low-level mutation event
-  // authored by content. The final ingress should accept observed pointer facts
-  // and keep runtime mutation details private.
+export function transitionRuntimeFact(state, fact) {
+  switch (fact?.kind) {
+    case MACHINE_RUNTIME_FACT_KIND.POINTER_OBSERVED:
+    case MACHINE_RUNTIME_FACT_KIND.POINTER_CLEARED:
+      return applyPointerObservation(state, fact.screenPx);
+    case MACHINE_RUNTIME_FACT_KIND.GESTURE_BEGAN:
+    case MACHINE_RUNTIME_FACT_KIND.GESTURE_MOVED:
+      return applyPointerGesture(state, {
+        screenPx: fact.screenPx,
+        gestureKind: fact.gestureKind,
+      });
+    case MACHINE_RUNTIME_FACT_KIND.GESTURE_ENDED:
+      return clearPointerGesture(state, fact.screenPx);
+    case MACHINE_RUNTIME_FACT_KIND.PASS_THROUGH_PRESSED:
+      return applyInputOverride(state, MACHINE_INPUT_OVERRIDE.PASS_THROUGH);
+    case MACHINE_RUNTIME_FACT_KIND.PASS_THROUGH_RELEASED:
+      return applyInputOverride(state, null);
+    case MACHINE_RUNTIME_FACT_KIND.INPUT_INTERRUPTED:
+      return applyInputInterruption(state, { screenPx: fact.screenPx });
+    default:
+      return createTransitionResult({ state });
+  }
+}
+
+function applyPointerObservation(state, screenPx) {
   return createTransitionResult({
     state: replaceInputRuntime(state, {
-      pointerScreenPx: event.screenPx ?? null,
+      pointerScreenPx: screenPx ?? null,
     }),
   });
 }
 
-export function beginPointerGesture(state, event) {
-  // TODO(smell): Gesture lifecycle transitions are public mutation commands
-  // today. They should be private consequences of observed pointer/user intent
-  // facts once the interaction boundary is cut over.
-  if (!Object.values(MACHINE_POINTER_GESTURE_KIND).includes(event.gestureKind)) {
+function applyPointerGesture(state, { screenPx, gestureKind }) {
+  if (!Object.values(MACHINE_POINTER_GESTURE_KIND).includes(gestureKind)) {
     return createTransitionResult({
       state,
     });
   }
   return createTransitionResult({
     state: replaceInputRuntime(state, {
-      pointerScreenPx: event.screenPx ?? null,
+      pointerScreenPx: screenPx ?? null,
       activeGesture: {
-        kind: event.gestureKind,
+        kind: gestureKind,
       },
     }),
   });
 }
 
-export function endPointerGesture(state, event) {
+function clearPointerGesture(state, screenPx) {
   return createTransitionResult({
     state: replaceInputRuntime(state, {
-      pointerScreenPx: event.screenPx ?? null,
+      pointerScreenPx: screenPx ?? null,
       activeGesture: null,
     }),
   });
 }
 
-export function setInputOverride(state, event) {
-  // TODO(smell): Input override is directly commanded from keyboard handling.
-  // The final shape should interpret user pass-through press/release facts here
-  // instead of exposing SET_INPUT_OVERRIDE outside the machine.
-  const inputOverride = event.inputOverride === MACHINE_INPUT_OVERRIDE.PASS_THROUGH
+function applyInputOverride(state, value) {
+  const inputOverride = value === MACHINE_INPUT_OVERRIDE.PASS_THROUGH
     ? MACHINE_INPUT_OVERRIDE.PASS_THROUGH
     : null;
   return createTransitionResult({
@@ -58,9 +76,7 @@ export function setInputOverride(state, event) {
   });
 }
 
-export function resetInputRuntime(state, event) {
-  // TODO(smell): Runtime reset is an externally callable mutation command. It
-  // should become a private cleanup consequence of blur/error/gesture-end facts.
+function applyInputInterruption(state, event) {
   return createTransitionResult({
     state: resetInputRuntimeState(state, { pointerScreenPx: event.screenPx }),
   });
