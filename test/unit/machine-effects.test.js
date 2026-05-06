@@ -247,6 +247,35 @@ test("requesting clear-pins confirmation clears stale status and emits a timeout
   ]);
 });
 
+test("request replacement cancels previous panel request and stale status before starting the next request", () => {
+  const host = createLoadedHost();
+  addPin(host);
+  requestPanelIntent(host, MACHINE_PANEL_INTENT.CLEAR_IMAGE_CONFIRM);
+  host.reportRuntimeError({ message: "runtime failure" });
+  const previousPanelRequestId = state(host).panel.requestId;
+  const previousStatusRequestId = state(host).status.notice.requestId;
+
+  const result = requestPanelIntent(host, MACHINE_PANEL_INTENT.CLEAR_PINS_CONFIRM);
+
+  assert.equal(result.state.panel.intent, MACHINE_PANEL_INTENT.CLEAR_PINS_CONFIRM);
+  assert.equal(result.state.status.notice, null);
+  assert.deepEqual(result.effects, [
+    {
+      kind: MACHINE_EFFECT_KIND.CANCEL_PANEL_TIMEOUT,
+      requestId: previousPanelRequestId,
+    },
+    {
+      kind: MACHINE_EFFECT_KIND.CANCEL_STATUS_TIMEOUT,
+      requestId: previousStatusRequestId,
+    },
+    {
+      kind: MACHINE_EFFECT_KIND.START_PANEL_TIMEOUT,
+      intent: MACHINE_PANEL_INTENT.CLEAR_PINS_CONFIRM,
+      requestId: previousPanelRequestId + 1,
+    },
+  ]);
+});
+
 test("confirmed clear-image cancels timeout and records clear-image history", () => {
   const host = createLoadedHost();
   requestPanelIntent(host, MACHINE_PANEL_INTENT.CLEAR_IMAGE_CONFIRM);

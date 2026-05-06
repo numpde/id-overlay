@@ -31,10 +31,6 @@ export function isCurrentPasteRequest(state, event) {
 }
 
 export function requestPanelIntent(state, event) {
-  // TODO(smell): Panel request lifecycle still hand-builds request ids,
-  // cancellation ordering, and timeout/capture effects in one transition
-  // branch. The final shape should isolate request transactions so intent
-  // handlers declare the requested intent and receive state/effect deltas.
   if (!isKnownPanelIntent(event.intent)) {
     return createTransitionResult({
       state,
@@ -49,18 +45,7 @@ export function requestPanelIntent(state, event) {
       state,
     });
   }
-  const requestId = nextPanelRequestId(state);
-  const nextState = replaceStatus(replacePanel(state, { intent, requestId }), {
-    notice: null,
-  });
-  return createTransitionResult({
-    state: nextState,
-    effects: [
-      ...createCancelPanelIntentEffects(state),
-      ...createCancelStatusTimeoutEffects(state),
-      ...createPanelIntentEffects({ intent, requestId }),
-    ],
-  });
+  return createTransitionResult(beginPanelRequest(state, { intent }));
 }
 
 export function cancelPanelIntent(state) {
@@ -124,7 +109,7 @@ export function clearStatusNotice(state, event) {
 export function clearPanelIntent(state, nextState = state) {
   return {
     state: replacePanel(nextState, createIdlePanel()),
-    effects: createCancelPanelIntentEffects(state),
+    effects: createEndPanelRequestEffects(state),
   };
 }
 
@@ -142,7 +127,21 @@ function nextPanelRequestId(state) {
   return state.panel.requestId === null ? 1 : state.panel.requestId + 1;
 }
 
-function createCancelPanelIntentEffects(state) {
+function beginPanelRequest(state, { intent }) {
+  const requestId = nextPanelRequestId(state);
+  return {
+    state: replaceStatus(replacePanel(state, { intent, requestId }), {
+      notice: null,
+    }),
+    effects: [
+      ...createEndPanelRequestEffects(state),
+      ...createCancelStatusTimeoutEffects(state),
+      ...createBeginPanelRequestEffects({ intent, requestId }),
+    ],
+  };
+}
+
+function createEndPanelRequestEffects(state) {
   if (state.panel.requestId === null) {
     return [];
   }
@@ -159,7 +158,7 @@ function createCancelPanelIntentEffects(state) {
   return effects;
 }
 
-function createPanelIntentEffects({ intent, requestId }) {
+function createBeginPanelRequestEffects({ intent, requestId }) {
   const timeoutEffect = createStartPanelTimeoutEffect({ intent, requestId });
   if (intent !== MACHINE_PANEL_INTENT.PASTE_ARMED) {
     return [timeoutEffect];
