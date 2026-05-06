@@ -1,6 +1,5 @@
 import {
-  selectIsInputPassThroughActive,
-  selectRuntimeGestureKind,
+  selectInputRuntimeObservationKey,
   selectRuntimePointerScreenPx,
 } from "../../core/machine/selectors.js";
 import {
@@ -66,7 +65,10 @@ export function createInteractionRuntimeBridge({
     }
     return trackRuntimeSubscription(machineHost.subscribe((state) => {
       const nextRuntime = state.runtime;
-      if (!areInputRuntimesEqual(previousRuntime, nextRuntime)) {
+      if (
+        selectInputRuntimeObservationKey(previousRuntime) !==
+        selectInputRuntimeObservationKey(nextRuntime)
+      ) {
         previousRuntime = nextRuntime;
         listener(nextRuntime);
       }
@@ -123,26 +125,4 @@ export function createInteractionRuntimeBridge({
     runtimeUnsubscribes.add(unsubscribe);
     return unsubscribe;
   }
-}
-
-function areInputRuntimesEqual(left, right) {
-  // TODO(smell): Runtime subscription equality is a content-side projection of
-  // machine runtime shape. Move this to a machine selector or expose a stable
-  // runtime observation key so subscribers cannot drift from runtime semantics.
-  const leftProjection = selectInputRuntimeProjection(left);
-  const rightProjection = selectInputRuntimeProjection(right);
-  return (
-    leftProjection.pointerScreenPx?.x === rightProjection.pointerScreenPx?.x &&
-    leftProjection.pointerScreenPx?.y === rightProjection.pointerScreenPx?.y &&
-    leftProjection.gestureKind === rightProjection.gestureKind &&
-    leftProjection.passThroughOverride === rightProjection.passThroughOverride
-  );
-}
-
-function selectInputRuntimeProjection(runtime) {
-  return {
-    pointerScreenPx: selectRuntimePointerScreenPx(runtime),
-    gestureKind: selectRuntimeGestureKind(runtime),
-    passThroughOverride: selectIsInputPassThroughActive(runtime),
-  };
 }

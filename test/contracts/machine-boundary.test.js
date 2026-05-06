@@ -269,6 +269,23 @@ test("input runtime is machine-owned, not an interaction-side reducer", () => {
   assert.deepEqual(violations, []);
 });
 
+test("runtime observation equality is machine-owned", () => {
+  const source = fs.readFileSync(repoPath("src/content/interactions/runtime-bridge.js"), "utf8");
+  const forbiddenPatterns = [
+    ["content-local runtime equality", /\bfunction\s+areInputRuntimesEqual\b/],
+    ["content-local runtime projection", /\bfunction\s+selectInputRuntimeProjection\b/],
+    ["content compares runtime pointer coordinates", /pointerScreenPx\?\.[xy]/],
+    ["content compares runtime gesture kind", /\bgestureKind\s*===/],
+    ["content compares pass-through override", /\bpassThroughOverride\s*===/],
+  ];
+  const violations = forbiddenPatterns
+    .filter(([, pattern]) => pattern.test(source))
+    .map(([name]) => name);
+
+  assert.match(source, /selectInputRuntimeObservationKey/);
+  assert.deepEqual(violations, []);
+});
+
 test("gesture lifecycle is the only content-side coordinator of adapter drag and runtime facts", () => {
   const checkedSources = new Map([
     ["src/content/interactions/pointer-interaction.js", fs.readFileSync(repoPath("src/content/interactions/pointer-interaction.js"), "utf8")],

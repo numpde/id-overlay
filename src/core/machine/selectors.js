@@ -88,6 +88,18 @@ export function selectIsInputPassThroughActive(stateOrRuntime) {
   return runtime?.inputOverride === MACHINE_INPUT_OVERRIDE.PASS_THROUGH;
 }
 
+export function selectInputRuntimeObservationKey(stateOrRuntime) {
+  const pointerScreenPx = selectRuntimePointerScreenPx(stateOrRuntime);
+  return JSON.stringify({
+    pointerX: pointerScreenPx?.x ?? null,
+    pointerY: pointerScreenPx?.y ?? null,
+    gestureKind: selectRuntimeGestureKind(stateOrRuntime),
+    inputOverride: selectIsInputPassThroughActive(stateOrRuntime)
+      ? MACHINE_INPUT_OVERRIDE.PASS_THROUGH
+      : null,
+  });
+}
+
 function formatStatusNotice(notice, state = null) {
   if (!notice) {
     return "";

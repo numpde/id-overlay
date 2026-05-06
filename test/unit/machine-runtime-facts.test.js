@@ -17,6 +17,9 @@ import {
   createPointerClearedFact,
   createPointerObservedFact,
 } from "../../src/core/machine/runtime-facts.js";
+import {
+  selectInputRuntimeObservationKey,
+} from "../../src/core/machine/selectors.js";
 import { createInitialMachineState } from "../../src/core/machine/state.js";
 
 test("runtime fact builders normalize observed input lifecycle facts", () => {
@@ -85,4 +88,26 @@ test("machine host ingests runtime facts instead of exposing lifecycle mutation 
 
   machineHost.observeRuntimeFact(createInputInterruptedFact({ pointerScreenPx: null }));
   assert.deepEqual(machineHost.getState().runtime, createInitialMachineState().runtime);
+});
+
+test("input runtime observation key changes only for observable input runtime facts", () => {
+  const machineHost = createMachineHost();
+  const initialKey = selectInputRuntimeObservationKey(machineHost.getState());
+
+  machineHost.reportRuntimeError({ message: "not input runtime" });
+  assert.equal(selectInputRuntimeObservationKey(machineHost.getState()), initialKey);
+
+  machineHost.observeRuntimeFact(createPointerObservedFact({ x: 500, y: 300 }));
+  const pointerKey = selectInputRuntimeObservationKey(machineHost.getState());
+  assert.notEqual(pointerKey, initialKey);
+
+  machineHost.observeRuntimeFact(createGestureBeganFact({
+    screenPx: { x: 500, y: 300 },
+    gestureKind: DRAG_MODE.MOVE_OVERLAY,
+  }));
+  const gestureKey = selectInputRuntimeObservationKey(machineHost.getState());
+  assert.notEqual(gestureKey, pointerKey);
+
+  machineHost.observeRuntimeFact(createInputPassThroughPressedFact());
+  assert.notEqual(selectInputRuntimeObservationKey(machineHost.getState()), gestureKey);
 });
