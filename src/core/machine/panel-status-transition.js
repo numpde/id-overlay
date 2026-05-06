@@ -71,6 +71,22 @@ export function cancelPanelIntent(state) {
   });
 }
 
+export function cancelPanelIntentWithStatusNotice(state, {
+  requestId = null,
+  noticeKind,
+  noticePayload = null,
+} = {}) {
+  if (!canCancelPanelIntent(state, { requestId })) {
+    return createTransitionResult({ state });
+  }
+  const cancelled = cancelPanelIntent(state);
+  return createTransitionResult({
+    state: cancelled.state,
+    effects: cancelled.effects,
+    statusNotice: createStatusNotice(noticeKind, noticePayload),
+  });
+}
+
 export function createStatusNoticeResult(state, event) {
   return createTransitionResult({
     state,

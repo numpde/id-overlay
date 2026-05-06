@@ -17,8 +17,7 @@ import {
 } from "./effects.js";
 import { transitionMachineEffectResult } from "./effect-result-transition.js";
 import {
-  canCancelPanelIntent,
-  cancelPanelIntent as transitionCancelPanelIntent,
+  cancelPanelIntentWithStatusNotice,
   createStatusNoticeResult,
 } from "./panel-status-transition.js";
 import {
@@ -36,8 +35,6 @@ import {
 import { createMachineRuntime } from "./runtime.js";
 import { transitionMachine } from "./transition.js";
 import {
-  createStatusNotice,
-  createTransitionResult,
   withStatusNotice,
 } from "./transition-result.js";
 import { PLACEMENT_EDIT_PLAN_PHASE } from "../placement-edit-planning.js";
@@ -341,14 +338,13 @@ export function createMachineHost({
     noticePayload = null,
   } = {}) {
     const state = runtime.getState();
-    if (destroyed || !canCancelPanelIntent(state, { requestId })) {
+    if (destroyed) {
       return createNoopDispatchResult(state);
     }
-    const cancelled = transitionCancelPanelIntent(state, { requestId });
-    return runtime.commitMachineResult(withStatusNotice(createTransitionResult({
-      state: cancelled.state,
-      effects: cancelled.effects,
-      statusNotice: createStatusNotice(noticeKind, noticePayload),
+    return runtime.commitMachineResult(withStatusNotice(cancelPanelIntentWithStatusNotice(state, {
+      requestId,
+      noticeKind,
+      noticePayload,
     })), {
       statusNotice: { noticeKind, noticePayload },
     });
