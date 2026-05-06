@@ -1,4 +1,4 @@
-export const MACHINE_COMMAND_KIND = Object.freeze({
+export const MACHINE_PRIVATE_COMMAND_KIND = Object.freeze({
   LOAD_IMAGE: "load-image",
   CLEAR_IMAGE: "clear-image",
   RESTORE_IMAGE_SESSION: "restore-image-session",

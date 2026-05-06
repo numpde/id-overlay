@@ -60,9 +60,9 @@ test("master checklist names the target seams", () => {
 test("content does not author low-level machine events", () => {
   const violations = [];
   const forbiddenPatterns = [
-    ["machine event import", /\bMACHINE_COMMAND_KIND\b/],
+    ["machine event import", /\bMACHINE_(?:PRIVATE_)?COMMAND_KIND\b/],
     ["generic machine dispatch port", /\bdispatchMachine\s*\(|\bmachineHost\.dispatch\s*\(/],
-    ["low-level event object", /\btype:\s*MACHINE_COMMAND_KIND\./],
+    ["low-level event object", /\btype:\s*MACHINE_(?:PRIVATE_)?COMMAND_KIND\./],
   ];
 
   for (const filePath of listJavaScriptFiles(CONTENT_DIR)) {
@@ -80,7 +80,7 @@ test("content does not author low-level machine events", () => {
 test("panel view model exposes render data only", () => {
   const source = readSource(repoPath("src/content/panel-view-model.js"));
   const forbiddenPatterns = [
-    ["machine event vocabulary", /\bMACHINE_COMMAND_KIND\b/],
+    ["machine event vocabulary", /\bMACHINE_(?:PRIVATE_)?COMMAND_KIND\b/],
     ["event constructor import", /\bcreate[A-Z]\w*Event\b/],
     ["executable action event", /\bevent\s*:/],
   ];
@@ -94,7 +94,7 @@ test("panel view model exposes render data only", () => {
 test("panel DOM reports product activations instead of resolving command meaning", () => {
   const source = readSource(repoPath("src/content/panel.js"));
   const forbiddenPatterns = [
-    ["machine event vocabulary", /\bMACHINE_COMMAND_KIND\b/],
+    ["machine event vocabulary", /\bMACHINE_(?:PRIVATE_)?COMMAND_KIND\b/],
     ["mode enum import", /\bMACHINE_MODE\b/],
     ["live state action lookup", /\bselectPanelView\s*\(\s*machineHost\.getState\s*\(\s*\)\s*\)/],
     ["view-model executable event dispatch", /\bdispatchMachineEvent\s*\(\s*action\.event\s*\)/],
@@ -161,10 +161,10 @@ test("status text is machine-owned and content view models do not format notices
 test("public machine event vocabulary contains only user intents and external facts", () => {
   const source = readSource(repoPath("src/core/machine/events.js"));
   const forbiddenPatterns = [
-    ["public low-level event vocabulary", /\bexport\s+const\s+MACHINE_COMMAND_KIND\b/],
+    ["public low-level event vocabulary", /\bexport\s+const\s+MACHINE_(?:PRIVATE_)?COMMAND_KIND\b/],
     ["public status notice vocabulary", /\bexport\s+const\s+MACHINE_STATUS_NOTICE_KIND\b/],
     ["low-level command constructor", /\bexport\s+function\s+create(?:LoadImage|CancelPanelIntent|ReportStatusNotice)Event\b/],
-    ["public machine command payload", /\btype:\s*MACHINE_COMMAND_KIND\./],
+    ["public machine command payload", /\btype:\s*MACHINE_(?:PRIVATE_)?COMMAND_KIND\./],
   ];
   const violations = forbiddenPatterns
     .filter(([, pattern]) => pattern.test(source))
@@ -224,9 +224,9 @@ test("transition entrypoint separates public interpretation from private domain 
   const source = readSource(repoPath("src/core/machine/transition.js"));
   const forbiddenPatterns = [
     ["flat event switch", /\bswitch\s*\(\s*event\.type\s*\)/],
-    ["public undo special case", /event\.type\s*===\s*MACHINE_COMMAND_KIND\.UNDO/],
-    ["public redo special case", /event\.type\s*===\s*MACHINE_COMMAND_KIND\.REDO/],
-    ["mutation command cases", /\bcase\s+MACHINE_COMMAND_KIND\.(?:CLEAR_IMAGE|SET_OPACITY|ADD_PIN|REMOVE_PIN|APPLY_PLACEMENT_EDIT|RESTORE_PLACEMENT)\b/],
+    ["public undo special case", /event\.type\s*===\s*MACHINE_(?:PRIVATE_)?COMMAND_KIND\.UNDO/],
+    ["public redo special case", /event\.type\s*===\s*MACHINE_(?:PRIVATE_)?COMMAND_KIND\.REDO/],
+    ["mutation command cases", /\bcase\s+MACHINE_(?:PRIVATE_)?COMMAND_KIND\.(?:CLEAR_IMAGE|SET_OPACITY|ADD_PIN|REMOVE_PIN|APPLY_PLACEMENT_EDIT|RESTORE_PLACEMENT)\b/],
   ];
   const requiredPatterns = [
     ["public event interpreter", /\binterpret(?:User|External|Ingress)/],
@@ -335,7 +335,7 @@ test("effect and timer completion returns typed facts instead of dispatching com
   const forbiddenPatterns = [
     ["paste completion event", /\bcreateCompletePasteReadEvent\b/],
     ["panel cancel event", /\bcreateCancelPanelIntentCommand\b/],
-    ["status clear command", /\bMACHINE_COMMAND_KIND\.CLEAR_STATUS_NOTICE\b/],
+    ["status clear command", /\bMACHINE_(?:PRIVATE_)?COMMAND_KIND\.CLEAR_STATUS_NOTICE\b/],
     ["host/effect dispatch callback", /\bdispatch\s*\(/],
   ];
   const violations = [];
@@ -394,12 +394,12 @@ test("machine status notice vocabulary does not leak to content or tests", () =>
 test("placement planning is pure geometry and never constructs machine events", () => {
   const source = readSource(repoPath("src/core/placement-edit-planning.js"));
   const forbiddenPatterns = [
-    ["machine event import", /\bMACHINE_COMMAND_KIND\b/],
+    ["machine event import", /\bMACHINE_(?:PRIVATE_)?COMMAND_KIND\b/],
     ["placement edit kind import", /\bMACHINE_PLACEMENT_EDIT_KIND\b/],
     ["planner lifecycle phase", /\bPLACEMENT_EDIT_PLAN_PHASE\b|\bphase\s*:/],
     ["planner semantic edit kind", /\bPLACEMENT_EDIT_PLAN_KIND\b|\bkind\s*:/],
     ["event payload property", /\bevent\s*:/],
-    ["event type payload", /\btype:\s*MACHINE_COMMAND_KIND\./],
+    ["event type payload", /\btype:\s*MACHINE_(?:PRIVATE_)?COMMAND_KIND\./],
     ["machine state parameter", /\bstate,\s*\n\s*snapshot\b/],
   ];
   const violations = forbiddenPatterns
@@ -527,7 +527,7 @@ test("only machine internals import machine event vocabulary", () => {
       continue;
     }
     const source = readSource(filePath);
-    if (/\bMACHINE_COMMAND_KIND\b/.test(source)) {
+    if (/\bMACHINE_(?:PRIVATE_)?COMMAND_KIND\b/.test(source)) {
       violations.push(path.relative(repoPath(), filePath));
     }
   }
@@ -588,7 +588,7 @@ test("core input policy consumes normalized facts, never DOM event shape", () =>
 test("tests exercise public ingress instead of raw mutation events", () => {
   const violations = [];
   const forbiddenPatterns = [
-    ["raw machine event vocabulary", /\bMACHINE_COMMAND_KIND\b/],
+    ["raw machine event vocabulary", /\bMACHINE_(?:PRIVATE_)?COMMAND_KIND\b/],
     ["flat transition dispatch", /\btransitionMachine\s*\(/],
     ["host raw dispatch", /\bmachineHost\.dispatch\s*\(/],
     ["event-shaped history", /\b(?:undoEvent|redoEvent)\b/],

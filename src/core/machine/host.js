@@ -4,7 +4,7 @@ import {
   MACHINE_PLACEMENT_EDIT_KIND,
 } from "./events.js";
 import {
-  MACHINE_COMMAND_KIND,
+  MACHINE_PRIVATE_COMMAND_KIND,
 } from "./private-commands.js";
 import { MACHINE_STATUS_NOTICE_KIND } from "./status-notices.js";
 import { createMachineEffectRunner } from "./effect-runner.js";
@@ -156,7 +156,7 @@ export function createMachineHost({
     switch (action.kind) {
       case MACHINE_PANEL_PRIMARY_ACTION_KIND.PASTE:
         return ingestMachineEvent({
-          type: MACHINE_COMMAND_KIND.REQUEST_PANEL_INTENT,
+          type: MACHINE_PRIVATE_COMMAND_KIND.REQUEST_PANEL_INTENT,
           intent: MACHINE_PANEL_INTENT.PASTE_ARMED,
         });
       case MACHINE_PANEL_PRIMARY_ACTION_KIND.PASTE_ARMED:
@@ -166,14 +166,14 @@ export function createMachineHost({
         });
       case MACHINE_PANEL_PRIMARY_ACTION_KIND.CLEAR_PINS:
         return ingestMachineEvent({
-          type: MACHINE_COMMAND_KIND.REQUEST_PANEL_INTENT,
+          type: MACHINE_PRIVATE_COMMAND_KIND.REQUEST_PANEL_INTENT,
           intent: MACHINE_PANEL_INTENT.CLEAR_PINS_CONFIRM,
         });
       case MACHINE_PANEL_PRIMARY_ACTION_KIND.CONFIRM_CLEAR_PINS:
         return clearPins();
       case MACHINE_PANEL_PRIMARY_ACTION_KIND.CLEAR_IMAGE:
         return ingestMachineEvent({
-          type: MACHINE_COMMAND_KIND.REQUEST_PANEL_INTENT,
+          type: MACHINE_PRIVATE_COMMAND_KIND.REQUEST_PANEL_INTENT,
           intent: MACHINE_PANEL_INTENT.CLEAR_IMAGE_CONFIRM,
         });
       case MACHINE_PANEL_PRIMARY_ACTION_KIND.CONFIRM_CLEAR_IMAGE:
@@ -200,23 +200,23 @@ export function createMachineHost({
   }
 
   function activateUndo() {
-    return ingestMachineEvent({ type: MACHINE_COMMAND_KIND.UNDO });
+    return ingestMachineEvent({ type: MACHINE_PRIVATE_COMMAND_KIND.UNDO });
   }
 
   function activateRedo() {
-    return ingestMachineEvent({ type: MACHINE_COMMAND_KIND.REDO });
+    return ingestMachineEvent({ type: MACHINE_PRIVATE_COMMAND_KIND.REDO });
   }
 
   function selectMode(mode) {
     return ingestMachineEvent({
-      type: MACHINE_COMMAND_KIND.SELECT_MODE,
+      type: MACHINE_PRIVATE_COMMAND_KIND.SELECT_MODE,
       mode,
     });
   }
 
   function setOpacity(opacity) {
     return ingestMachineEvent({
-      type: MACHINE_COMMAND_KIND.SET_OPACITY,
+      type: MACHINE_PRIVATE_COMMAND_KIND.SET_OPACITY,
       opacity,
     });
   }
@@ -241,7 +241,7 @@ export function createMachineHost({
 
   function loadImage({ image, placement = null, requestId = null } = {}) {
     return ingestMachineEvent({
-      type: MACHINE_COMMAND_KIND.LOAD_IMAGE,
+      type: MACHINE_PRIVATE_COMMAND_KIND.LOAD_IMAGE,
       image,
       placement,
       requestId,
@@ -250,33 +250,33 @@ export function createMachineHost({
 
   function clearImage() {
     return ingestMachineEvent({
-      type: MACHINE_COMMAND_KIND.CLEAR_IMAGE,
+      type: MACHINE_PRIVATE_COMMAND_KIND.CLEAR_IMAGE,
     });
   }
 
   function clearPins({ preservedPlacement = null } = {}) {
     return ingestMachineEvent({
-      type: MACHINE_COMMAND_KIND.CLEAR_PINS,
+      type: MACHINE_PRIVATE_COMMAND_KIND.CLEAR_PINS,
       ...(preservedPlacement ? { preservedPlacement } : {}),
     });
   }
 
   function fitOverlay() {
     return ingestMachineEvent({
-      type: MACHINE_COMMAND_KIND.FIT_OVERLAY,
+      type: MACHINE_PRIVATE_COMMAND_KIND.FIT_OVERLAY,
     });
   }
 
   function requestPanelIntent(intent) {
     return ingestMachineEvent({
-      type: MACHINE_COMMAND_KIND.REQUEST_PANEL_INTENT,
+      type: MACHINE_PRIVATE_COMMAND_KIND.REQUEST_PANEL_INTENT,
       intent,
     });
   }
 
   function cancelPanelIntent({ requestId = null } = {}) {
     return ingestMachineEvent({
-      type: MACHINE_COMMAND_KIND.CANCEL_PANEL_INTENT,
+      type: MACHINE_PRIVATE_COMMAND_KIND.CANCEL_PANEL_INTENT,
       requestId,
     });
   }
@@ -318,7 +318,7 @@ export function createMachineHost({
     preservedPlacement = null,
   }) {
     return ingestMachineEvent({
-      type: MACHINE_COMMAND_KIND.TOGGLE_PIN,
+      type: MACHINE_PRIVATE_COMMAND_KIND.TOGGLE_PIN,
       imagePx,
       mapLatLon,
       existingPinId,
@@ -328,7 +328,7 @@ export function createMachineHost({
 
   function beginOverlayMove({ renderedPlacement } = {}) {
     return ingestMachineEvent({
-      type: MACHINE_COMMAND_KIND.BEGIN_PLACEMENT_EDIT,
+      type: MACHINE_PRIVATE_COMMAND_KIND.BEGIN_PLACEMENT_EDIT,
       editKind: MACHINE_PLACEMENT_EDIT_KIND.MOVE,
       renderedPlacement,
     });
@@ -336,20 +336,20 @@ export function createMachineHost({
 
   function previewOverlayMove({ placement } = {}) {
     return ingestMachineEvent({
-      type: MACHINE_COMMAND_KIND.PREVIEW_PLACEMENT_EDIT,
+      type: MACHINE_PRIVATE_COMMAND_KIND.PREVIEW_PLACEMENT_EDIT,
       placement,
     });
   }
 
   function commitOverlayMove() {
     return ingestMachineEvent({
-      type: MACHINE_COMMAND_KIND.COMMIT_PLACEMENT_EDIT,
+      type: MACHINE_PRIVATE_COMMAND_KIND.COMMIT_PLACEMENT_EDIT,
     });
   }
 
   function rotateOverlayPlacement({ renderedPlacement, placement } = {}) {
     return ingestMachineEvent({
-      type: MACHINE_COMMAND_KIND.APPLY_PLACEMENT_EDIT,
+      type: MACHINE_PRIVATE_COMMAND_KIND.APPLY_PLACEMENT_EDIT,
       editKind: MACHINE_PLACEMENT_EDIT_KIND.ROTATE,
       renderedPlacement,
       placement,
@@ -358,7 +358,7 @@ export function createMachineHost({
 
   function scaleOverlayPlacement({ renderedPlacement, placement } = {}) {
     return ingestMachineEvent({
-      type: MACHINE_COMMAND_KIND.APPLY_PLACEMENT_EDIT,
+      type: MACHINE_PRIVATE_COMMAND_KIND.APPLY_PLACEMENT_EDIT,
       editKind: MACHINE_PLACEMENT_EDIT_KIND.SCALE,
       renderedPlacement,
       placement,

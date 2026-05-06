@@ -4,7 +4,7 @@ import {
 } from "./events.js";
 import { MACHINE_STATUS_NOTICE_KIND } from "./status-notices.js";
 import {
-  MACHINE_COMMAND_KIND,
+  MACHINE_PRIVATE_COMMAND_KIND,
 } from "./private-commands.js";
 import {
   MACHINE_HISTORY_REPLAY_OPERATION,
@@ -54,12 +54,12 @@ export function togglePin(state, event) {
       });
     }
     return removePin(prepareRegistrationEditState(state, event), {
-      type: MACHINE_COMMAND_KIND.REMOVE_PIN,
+      type: MACHINE_PRIVATE_COMMAND_KIND.REMOVE_PIN,
       id: existingPin.id,
     });
   }
   return addPin(prepareRegistrationEditState(state, event), {
-    type: MACHINE_COMMAND_KIND.ADD_PIN,
+    type: MACHINE_PRIVATE_COMMAND_KIND.ADD_PIN,
     imagePx: event.imagePx,
     mapLatLon: event.mapLatLon,
   });
