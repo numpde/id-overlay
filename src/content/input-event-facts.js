@@ -30,6 +30,10 @@ export function createWheelInputFactFromEvent(event) {
 }
 
 export function createKeyboardInputFactFromEvent(event) {
+  // TODO(smell): DOM keyboard fact normalization still decides which editable
+  // targets suppress shortcuts, including extension-safe input types. That
+  // policy can drift from panel semantics; the DOM boundary should report target
+  // facts and let canonical input policy decide shortcut eligibility.
   return createKeyboardInputFact({
     key: resolveKeyboardKey(event?.code),
     modifiers: createModifiersFromEvent(event),

@@ -112,6 +112,10 @@ export function createPasteReadOutcomeFromClipboardFact({ fact, snapshot }) {
 }
 
 export function createDecodedImagePasteOutcome({ image, placement = null, snapshot = null }) {
+  // TODO(smell): Paste outcome interpretation can derive initial placement from
+  // a live page snapshot, so paste facts still know about map placement policy.
+  // The final machine boundary should receive either a decoded image fact plus a
+  // separate page-context fact, or an already-authored load-image intent.
   if (!image) {
     return null;
   }

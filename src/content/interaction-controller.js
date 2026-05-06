@@ -1,6 +1,9 @@
 import { createInteractionPorts } from "./interaction-ports.js";
 
 export function createInteractionController(options) {
+  // TODO(smell): This compatibility facade re-exports overlay interaction
+  // methods under legacy controller names. Delete it once callers consume the
+  // explicit interaction ports directly.
   const interactionPorts = createInteractionPorts(options);
   const { overlayInteractionPort } = interactionPorts;
   return {

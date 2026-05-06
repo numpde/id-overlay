@@ -18,6 +18,10 @@ export function createOverlayInputRouter({
   getOverlayInputContext,
   getMountElement,
 }) {
+  // TODO(smell): Input routing repeats the same forwarded-event guard and error
+  // boundary wrapper for each mounted/global DOM event. Replace this with a
+  // declarative route table or normalized event fact pipeline so adding an input
+  // path does not require hand-copying guard/recovery structure.
   let isDestroyed = false;
   const pointerSequenceRouter = createOverlayPointerSequenceRouter({
     onChange: syncGlobalPointerListeners,

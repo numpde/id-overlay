@@ -9,6 +9,10 @@ import {
 } from "./effects.js";
 
 export function withHistoryRecord(result) {
+  // TODO(smell): History/status finalization still happens through generic
+  // result combinators after domain transitions return. In the final shape each
+  // domain transition should commit semantic history and status explicitly at
+  // the mutation site, leaving this file as simple result construction only.
   const historyRecord = normalizeSemanticHistoryRecord(result.historyRecord);
   if (!historyRecord) {
     return {

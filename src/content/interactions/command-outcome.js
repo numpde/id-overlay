@@ -3,6 +3,10 @@ export function applyInteractionCommandOutcome({
   runtimeBridge,
   logger,
 }) {
+  // TODO(smell): Command outcomes are content-authored mini result objects that
+  // drive logging and runtime pointer observation. Final shape should expose a
+  // machine-authored semantic result and let one presenter/lifecycle boundary
+  // decide logging and pointer observation effects.
   logInteractionCommandOutcome({ outcome, logger });
   if (!outcome.handled) {
     return false;

@@ -5,6 +5,10 @@ export function createInteractionErrorBoundary({
   resetInteraction: resetInteractionRuntime,
   logger,
 }) {
+  // TODO(smell): Interaction error handling couples local gesture reset,
+  // machine runtime-error reporting, logger formatting, and fallback values.
+  // The ideal boundary should convert thrown adapter failures into one typed
+  // external fact, with reset policy selected by the machine/gesture session.
   return {
     report,
     run,
