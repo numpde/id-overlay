@@ -1,4 +1,3 @@
-import { FORWARDED_MAP_GESTURE_EVENT_FLAG } from "../page-adapter.js";
 import {
   createPointerInputFactFromEvent,
   createWheelInputFactFromEvent,
@@ -7,7 +6,7 @@ import {
   selectIsRuntimeDragging,
   selectRuntimePointerScreenPx,
 } from "../../core/machine/selectors.js";
-import { RUNTIME_ERROR_SOURCE } from "../../core/runtime-error.js";
+import { createOverlayEventBoundary } from "./event-boundary.js";
 import { createOverlayInputHost } from "./input-host.js";
 import { createOverlayInputProjector } from "./input-projector.js";
 import {
@@ -28,6 +27,11 @@ export function createOverlayInputRouter({
   let isDestroyed = false;
   const pendingPointerSequence = createPendingPointerSequenceSession({
     onChange: syncGlobalPointerListeners,
+  });
+  const eventBoundary = createOverlayEventBoundary({
+    clearPendingPointerSequence: pendingPointerSequence.clear,
+    syncGlobalPointerListeners,
+    reportRuntimeError: overlayInteractions.reportRuntimeError,
   });
   const inputProjector = createOverlayInputProjector({
     pageProjection,
@@ -66,8 +70,8 @@ export function createOverlayInputRouter({
   }
 
   function handleMountedPointerMove(event) {
-    runOverlayBoundary("mounted-pointer-move", event, () => {
-      if (isForwardedMapGestureEvent(event)) {
+    eventBoundary.run("mounted-pointer-move", event, () => {
+      if (eventBoundary.isForwardedMapGestureEvent(event)) {
         return;
       }
       if (pendingPointerSequence.hasPending()) {
@@ -77,7 +81,7 @@ export function createOverlayInputRouter({
       const screenPoint = inputProjector.screenPointFromEvent(event);
       if (selectIsRuntimeDragging(runtime)) {
         overlayInteractions.handlePointerMove(screenPoint);
-        consumeOverlayEvent(event);
+        eventBoundary.consumeOverlayEvent(event);
         return;
       }
       const pointerPolicy = inputProjector.resolveMountedInputProjection(screenPoint, {
@@ -94,7 +98,7 @@ export function createOverlayInputRouter({
   }
 
   function handleMountedPointerLeave() {
-    runOverlayBoundary("mounted-pointer-leave", null, () => {
+    eventBoundary.run("mounted-pointer-leave", null, () => {
       if (selectIsRuntimeDragging(getRuntimeState())) {
         return;
       }
@@ -103,8 +107,8 @@ export function createOverlayInputRouter({
   }
 
   function handleMountedPointerDown(event) {
-    runOverlayBoundary("mounted-pointer-down", event, () => {
-      if (isForwardedMapGestureEvent(event)) {
+    eventBoundary.run("mounted-pointer-down", event, () => {
+      if (eventBoundary.isForwardedMapGestureEvent(event)) {
         return;
       }
       const screenPoint = inputProjector.screenPointFromEvent(event);
@@ -119,13 +123,13 @@ export function createOverlayInputRouter({
         dragMode: pointerPolicy.dragMode,
         startScreenPoint: screenPoint,
       });
-      consumeOverlayEvent(event);
+      eventBoundary.consumeOverlayEvent(event);
     });
   }
 
   function handleMountedDoubleClick(event) {
-    runOverlayBoundary("mounted-double-click", event, () => {
-      if (isForwardedMapGestureEvent(event)) {
+    eventBoundary.run("mounted-double-click", event, () => {
+      if (eventBoundary.isForwardedMapGestureEvent(event)) {
         return;
       }
       const screenPoint = inputProjector.screenPointFromEvent(event);
@@ -136,13 +140,13 @@ export function createOverlayInputRouter({
       if (!overlayInteractions.handleTogglePin({ screenPoint })) {
         return;
       }
-      consumeOverlayEvent(event);
+      eventBoundary.consumeOverlayEvent(event);
     });
   }
 
   function handleMountedClick(event) {
-    runOverlayBoundary("mounted-click", event, () => {
-      if (isForwardedMapGestureEvent(event)) {
+    eventBoundary.run("mounted-click", event, () => {
+      if (eventBoundary.isForwardedMapGestureEvent(event)) {
         return;
       }
       const screenPoint = inputProjector.screenPointFromEvent(event);
@@ -150,13 +154,13 @@ export function createOverlayInputRouter({
       if (!activationPolicy.shouldConsumeClick) {
         return;
       }
-      consumeOverlayEvent(event);
+      eventBoundary.consumeOverlayEvent(event);
     });
   }
 
   function handleMountedWheel(event) {
-    runOverlayBoundary("mounted-wheel", event, () => {
-      if (isForwardedMapGestureEvent(event)) {
+    eventBoundary.run("mounted-wheel", event, () => {
+      if (eventBoundary.isForwardedMapGestureEvent(event)) {
         return;
       }
       const screenPoint = inputProjector.screenPointFromEvent(event);
@@ -174,14 +178,14 @@ export function createOverlayInputRouter({
         return;
       }
       if (wheelPolicy.shouldConsume) {
-        consumeOverlayEvent(event);
+        eventBoundary.consumeOverlayEvent(event);
       }
     });
   }
 
   function handleGlobalPointerMove(event) {
-    runOverlayBoundary("global-pointer-move", event, () => {
-      if (isForwardedMapGestureEvent(event)) {
+    eventBoundary.run("global-pointer-move", event, () => {
+      if (eventBoundary.isForwardedMapGestureEvent(event)) {
         return;
       }
       const screenPoint = inputProjector.screenPointFromEvent(event);
@@ -193,7 +197,7 @@ export function createOverlayInputRouter({
         return;
       }
       overlayInteractions.handlePointerMove(screenPoint);
-      consumeOverlayEvent(event);
+      eventBoundary.consumeOverlayEvent(event);
     });
   }
 
@@ -203,7 +207,7 @@ export function createOverlayInputRouter({
       case PENDING_POINTER_SEQUENCE_ADVANCE_KIND.NO_PENDING_SEQUENCE:
         return true;
       case PENDING_POINTER_SEQUENCE_ADVANCE_KIND.STILL_PENDING:
-        consumeOverlayEvent(event);
+        eventBoundary.consumeOverlayEvent(event);
         return false;
       case PENDING_POINTER_SEQUENCE_ADVANCE_KIND.ACTIVATED:
         return handlePendingPointerSequenceActivation(event, outcome.sequence);
@@ -221,18 +225,18 @@ export function createOverlayInputRouter({
     })) {
       return true;
     }
-    consumeOverlayEvent(event);
+    eventBoundary.consumeOverlayEvent(event);
     return false;
   }
 
   function handleGlobalPointerUp(event) {
-    runOverlayBoundary("global-pointer-up", event, () => {
-      if (isForwardedMapGestureEvent(event)) {
+    eventBoundary.run("global-pointer-up", event, () => {
+      if (eventBoundary.isForwardedMapGestureEvent(event)) {
         return;
       }
       if (pendingPointerSequence.hasPending()) {
         pendingPointerSequence.clear();
-        consumeOverlayEvent(event);
+        eventBoundary.consumeOverlayEvent(event);
         return;
       }
       if (!selectIsRuntimeDragging(getRuntimeState())) {
@@ -240,36 +244,19 @@ export function createOverlayInputRouter({
         return;
       }
       overlayInteractions.handlePointerUp(inputProjector.screenPointFromEvent(event));
-      consumeOverlayEvent(event);
+      eventBoundary.consumeOverlayEvent(event);
     });
   }
 
   function handleGlobalPointerCancel(event) {
-    runOverlayBoundary("global-pointer-cancel", event, () => {
-      if (isForwardedMapGestureEvent(event)) {
+    eventBoundary.run("global-pointer-cancel", event, () => {
+      if (eventBoundary.isForwardedMapGestureEvent(event)) {
         return;
       }
       pendingPointerSequence.clear();
       overlayInteractions.handlePointerCancel();
-      consumeOverlayEvent(event);
+      eventBoundary.consumeOverlayEvent(event);
     });
-  }
-
-  function runOverlayBoundary(operation, event, fn) {
-    try {
-      return fn();
-    } catch (error) {
-      pendingPointerSequence.clear();
-      syncGlobalPointerListeners();
-      consumeOverlayEvent(event);
-      overlayInteractions.reportRuntimeError({
-        source: RUNTIME_ERROR_SOURCE.OVERLAY,
-        operation,
-        error,
-        resetInteraction: true,
-      });
-      return undefined;
-    }
   }
 
   function syncGlobalPointerListeners() {
@@ -280,14 +267,4 @@ export function createOverlayInputRouter({
       hasActiveGesture: selectIsRuntimeDragging(getRuntimeState()),
     }));
   }
-}
-
-function isForwardedMapGestureEvent(event) {
-  return event?.[FORWARDED_MAP_GESTURE_EVENT_FLAG] === true;
-}
-
-function consumeOverlayEvent(event) {
-  event?.preventDefault?.();
-  event?.stopPropagation?.();
-  event?.stopImmediatePropagation?.();
 }
