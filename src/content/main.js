@@ -97,51 +97,55 @@ export async function bootstrapIdOverlay({ keyboardGateway = null } = {}) {
 }
 
 function createManualPasteCapture({ ownerWindow, clipboardReader, pageObservation, logger }) {
-  // TODO(smell): Manual paste capture still completes by calling the effect
-  // runner's callback from content. The final host boundary should deliver
-  // typed effect results through host ingress instead of this callback bridge.
-  let activeRequestId = null;
-  let activePasteReadOutcomeHandler = null;
+  let activeCapture = null;
 
   return {
-    startManualPasteCapture({ requestId, onPasteReadOutcome }) {
+    startManualPasteCapture({ requestId }) {
       cancelManualPasteCapture({ requestId: null });
-      activeRequestId = requestId;
-      activePasteReadOutcomeHandler = onPasteReadOutcome;
-      ownerWindow.addEventListener("paste", handleWindowPaste, true);
+      return new Promise((resolve) => {
+        activeCapture = { requestId, resolve };
+        ownerWindow.addEventListener("paste", handleWindowPaste, true);
+      });
     },
     cancelManualPasteCapture,
   };
 
   function cancelManualPasteCapture({ requestId }) {
-    if (activeRequestId === null) {
+    if (!activeCapture) {
       return;
     }
-    if (requestId !== null && requestId !== activeRequestId) {
+    if (requestId !== null && requestId !== activeCapture.requestId) {
       return;
     }
-    ownerWindow.removeEventListener("paste", handleWindowPaste, true);
-    activeRequestId = null;
-    activePasteReadOutcomeHandler = null;
+    finishManualPasteCapture(null);
   }
 
   async function handleWindowPaste(event) {
-    const requestId = activeRequestId;
-    const pasteReadOutcomeHandler = activePasteReadOutcomeHandler;
-    if (requestId === null || !pasteReadOutcomeHandler) {
+    const requestId = activeCapture?.requestId ?? null;
+    if (requestId === null) {
       return;
     }
 
     event.preventDefault();
     const fact = await clipboardReader.readClipboardDataImage(event.clipboardData);
-    if (activeRequestId !== requestId) {
+    if (activeCapture?.requestId !== requestId) {
       logger.info("Ignoring window paste result because paste capture was cancelled");
       return;
     }
-    pasteReadOutcomeHandler(createPasteReadOutcome({
+    finishManualPasteCapture(createPasteReadOutcome({
       fact,
       pageObservation,
     }));
+  }
+
+  function finishManualPasteCapture(outcome) {
+    if (!activeCapture) {
+      return;
+    }
+    const { resolve } = activeCapture;
+    ownerWindow.removeEventListener("paste", handleWindowPaste, true);
+    activeCapture = null;
+    resolve(outcome);
   }
 }
 

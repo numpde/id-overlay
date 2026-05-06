@@ -28,15 +28,7 @@ export function createMachineEffectRunner({
       case MACHINE_EFFECT_KIND.READ_PASTE_IMAGE:
         return runReadPasteImage(effect, context);
       case MACHINE_EFFECT_KIND.START_MANUAL_PASTE_CAPTURE:
-        return startManualPasteCapture?.({
-          requestId: effect.requestId,
-          context,
-          onPasteReadOutcome: (outcome) => dispatchPasteReadCompleted({
-            outcome,
-            requestId: effect.requestId,
-            source: MACHINE_PASTE_SOURCE.MANUAL_PASTE,
-          }),
-        });
+        return runManualPasteCapture(effect, context);
       case MACHINE_EFFECT_KIND.CANCEL_MANUAL_PASTE_CAPTURE:
         return cancelManualPasteCapture?.({
           requestId: effect.requestId,
@@ -76,14 +68,29 @@ export function createMachineEffectRunner({
       requestId: effect.requestId,
       context,
     });
-    dispatchPasteReadCompleted({
+    completePasteRead({
       outcome,
       requestId: effect.requestId,
       source: MACHINE_PASTE_SOURCE.CLIPBOARD_API,
     });
   }
 
-  function dispatchPasteReadCompleted({ outcome, requestId, source }) {
+  async function runManualPasteCapture(effect, context) {
+    if (!startManualPasteCapture) {
+      return;
+    }
+    const outcome = await startManualPasteCapture({
+      requestId: effect.requestId,
+      context,
+    });
+    completePasteRead({
+      outcome,
+      requestId: effect.requestId,
+      source: MACHINE_PASTE_SOURCE.MANUAL_PASTE,
+    });
+  }
+
+  function completePasteRead({ outcome, requestId, source }) {
     completeEffect?.(createReadPasteImageResult({
       requestId,
       source,

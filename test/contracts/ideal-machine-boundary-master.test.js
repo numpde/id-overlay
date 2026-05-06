@@ -343,9 +343,7 @@ test("history replay never re-enters public ingress", () => {
   assert.deepEqual(violations, []);
 });
 
-test("effect and timer completion returns typed facts instead of dispatching commands", {
-  todo: "Replace completion event construction in host/effect runner with typed effect results.",
-}, () => {
+test("effect and timer completion returns typed facts instead of dispatching commands", () => {
   const sources = new Map([
     ["src/core/machine/effect-runner.js", readSource(repoPath("src/core/machine/effect-runner.js"))],
     ["src/core/machine/host.js", readSource(repoPath("src/core/machine/host.js"))],
