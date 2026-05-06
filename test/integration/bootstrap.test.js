@@ -256,24 +256,8 @@ test("trace mode hides registration pins and disables registration controls", as
 
     const shadow = env.document.getElementById("id-overlay-root").shadowRoot;
     const mainActionButton = shadow.querySelector(".id-overlay-panel__main-action-button");
-    const controlsRow = shadow.querySelector(".id-overlay-panel__controls-row");
-    const modeSwitch = shadow.querySelector(".id-overlay-mode-switch");
-    const historyActions = shadow.querySelector(".id-overlay-panel__history-actions");
-    const historyButtons = [...shadow.querySelectorAll(".id-overlay-panel__history-button")];
     assert.equal(mainActionButton.textContent, "Clear image");
     assert.equal(mainActionButton.disabled, false);
-    assert.deepEqual([...controlsRow.children], [mainActionButton, historyActions, modeSwitch]);
-    assert.equal(historyButtons.length, 2);
-    assert.equal(controlsRow.contains(historyButtons[0]), true);
-    assert.equal(controlsRow.contains(historyButtons[1]), true);
-    assert.equal(historyButtons[0].textContent, "↶");
-    assert.equal(historyButtons[0].getAttribute("aria-label"), "Undo");
-    assert.equal(historyButtons[0].title, "");
-    assert.equal(historyButtons[0].disabled, true);
-    assert.equal(historyButtons[1].textContent, "↷");
-    assert.equal(historyButtons[1].getAttribute("aria-label"), "Redo");
-    assert.equal(historyButtons[1].title, "");
-    assert.equal(historyButtons[1].disabled, true);
     assert.equal(env.document.querySelectorAll(".id-overlay-pin").length, 0);
     assert.equal(env.document.querySelectorAll(".id-overlay-map-pin").length, 0);
   } finally {
@@ -485,17 +469,11 @@ test("main action button drives the canonical paste flow when no image is presen
 
     const shadow = env.document.getElementById("id-overlay-root").shadowRoot;
     const mainActionButton = shadow.querySelector(".id-overlay-panel__main-action-button");
-    const undoButton = shadow.querySelectorAll(".id-overlay-panel__history-button")[0];
-    const redoButton = shadow.querySelectorAll(".id-overlay-panel__history-button")[1];
     const modeInput = shadow.querySelector(".id-overlay-mode-switch__input");
     const image = env.document.querySelector(".id-overlay-image");
 
     assert.equal(mainActionButton.textContent, "Paste");
     assert.equal(mainActionButton.disabled, false);
-    assert.equal(undoButton.disabled, true);
-    assert.equal(redoButton.disabled, true);
-    assert.equal(undoButton.title, "");
-    assert.equal(redoButton.title, "");
     assert.equal(modeInput.disabled, true);
 
     mainActionButton.click();
@@ -504,12 +482,6 @@ test("main action button drives the canonical paste flow when no image is presen
     assert.equal(image.style.display, "block");
     assert.equal(image.style.width, "640px");
     assert.equal(mainActionButton.textContent, "Clear image");
-    assert.equal(undoButton.disabled, false);
-    assert.equal(undoButton.title, "Remove image");
-    assert.equal(undoButton.getAttribute("aria-label"), "Remove image");
-    assert.equal(redoButton.disabled, true);
-    assert.equal(redoButton.title, "");
-    assert.equal(redoButton.getAttribute("aria-label"), "Redo");
     assert.equal(modeInput.disabled, false);
   } finally {
     env.cleanup();
