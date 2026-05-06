@@ -19,14 +19,6 @@ export const MACHINE_PANEL_STATUS_MESSAGE = Object.freeze({
   TRACE: "Trace using the aligned image.",
 });
 
-export function selectCanUndo(state) {
-  return Boolean(selectUndoRecord(state));
-}
-
-export function selectCanRedo(state) {
-  return Boolean(selectRedoRecord(state));
-}
-
 export function selectUndoRecord(state) {
   return peekUndoRecord(state);
 }

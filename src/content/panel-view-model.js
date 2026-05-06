@@ -3,8 +3,6 @@ import {
   selectPanelPolicy,
 } from "../core/machine/policy.js";
 import {
-  selectCanRedo,
-  selectCanUndo,
   selectPanelStatusText,
   selectRedoRecord,
   selectUndoRecord,
@@ -12,6 +10,8 @@ import {
 
 export function selectPanelView(state) {
   const policy = selectPanelPolicy(state);
+  const undoRecord = selectUndoRecord(state);
+  const redoRecord = selectRedoRecord(state);
   return {
     mode: state.session.mode,
     opacityControl: {
@@ -29,13 +29,13 @@ export function selectPanelView(state) {
     historyControls: {
       undo: createHistoryControl({
         fallbackLabel: "Undo",
-        tooltip: selectUndoRecord(state)?.undoLabel ?? "",
-        disabled: !selectCanUndo(state),
+        tooltip: undoRecord?.undoLabel ?? "",
+        disabled: !undoRecord,
       }),
       redo: createHistoryControl({
         fallbackLabel: "Redo",
-        tooltip: selectRedoRecord(state)?.redoLabel ?? "",
-        disabled: !selectCanRedo(state),
+        tooltip: redoRecord?.redoLabel ?? "",
+        disabled: !redoRecord,
       }),
     },
   };
