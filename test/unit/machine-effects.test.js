@@ -8,14 +8,13 @@ import {
   MACHINE_PASTE_SOURCE,
 } from "../../src/core/machine/events.js";
 import {
-  MACHINE_COMMAND_KIND,
-} from "../../src/core/machine/private-commands.js";
-import {
   MACHINE_EFFECT_KIND,
   createPanelTimeoutElapsedResult,
   createReadPasteImageResult,
   createStatusTimeoutElapsedResult,
 } from "../../src/core/machine/effects.js";
+import { transitionMachineEffectResult } from "../../src/core/machine/effect-result-transition.js";
+import { createMachineHost } from "../../src/core/machine/host.js";
 import {
   createIdlePanel,
   createInitialMachineState,
@@ -26,12 +25,7 @@ import {
 import {
   selectPanelStatusText,
 } from "../../src/core/machine/selectors.js";
-import { transitionMachineEffectResult } from "../../src/core/machine/effect-result-transition.js";
-import { transitionMachine } from "../../src/core/machine/transition.js";
 
-// TODO(smell): These tests still couple panel/status effects to raw request,
-// cancel, load, and clear events. Reframe them around public user/fact ingress
-// after the host dispatch surface is split.
 const IMAGE = Object.freeze({
   src: "data:image/png;base64,abc",
   width: 800,
@@ -78,10 +72,7 @@ test("panel helpers centralize intent normalization and request id validity", ()
 });
 
 test("requesting paste arms intent and emits read-paste plus timeout effects", () => {
-  const result = transitionMachine(createInitialMachineState(), {
-    type: MACHINE_COMMAND_KIND.REQUEST_PANEL_INTENT,
-    intent: MACHINE_PANEL_INTENT.PASTE_ARMED,
-  });
+  const result = requestPanelIntent(createHost(), MACHINE_PANEL_INTENT.PASTE_ARMED);
 
   assert.equal(result.state.panel.intent, MACHINE_PANEL_INTENT.PASTE_ARMED);
   assert.equal(result.state.panel.requestId, 1);
@@ -104,15 +95,10 @@ test("requesting paste arms intent and emits read-paste plus timeout effects", (
 });
 
 test("requesting paste again cancels the old request and arms a new one", () => {
-  let state = transitionMachine(createInitialMachineState(), {
-    type: MACHINE_COMMAND_KIND.REQUEST_PANEL_INTENT,
-    intent: MACHINE_PANEL_INTENT.PASTE_ARMED,
-  }).state;
+  const host = createHost();
+  requestPanelIntent(host, MACHINE_PANEL_INTENT.PASTE_ARMED);
 
-  const result = transitionMachine(state, {
-    type: MACHINE_COMMAND_KIND.REQUEST_PANEL_INTENT,
-    intent: MACHINE_PANEL_INTENT.PASTE_ARMED,
-  });
+  const result = requestPanelIntent(host, MACHINE_PANEL_INTENT.PASTE_ARMED);
 
   assert.equal(result.state.panel.requestId, 2);
   assert.deepEqual(result.effects, [
@@ -141,30 +127,22 @@ test("requesting paste again cancels the old request and arms a new one", () => 
 });
 
 test("requesting unknown panel intent is a pure no-op", () => {
-  const state = transitionMachine(createInitialMachineState(), {
-    type: MACHINE_COMMAND_KIND.REQUEST_PANEL_INTENT,
-    intent: MACHINE_PANEL_INTENT.PASTE_ARMED,
-  }).state;
+  const host = createHost();
+  requestPanelIntent(host, MACHINE_PANEL_INTENT.PASTE_ARMED);
+  const before = state(host);
 
-  const result = transitionMachine(state, {
-    type: MACHINE_COMMAND_KIND.REQUEST_PANEL_INTENT,
-    intent: "invalid",
-  });
+  const result = requestPanelIntent(host, "invalid");
 
-  assert.deepEqual(result.state, state);
+  assert.deepEqual(result.state, before);
   assert.deepEqual(result.effects, []);
   assert.equal(result.historyRecord, null);
 });
 
 test("cancelling panel intent clears request id and emits cancel-timeout effect", () => {
-  const state = transitionMachine(createInitialMachineState(), {
-    type: MACHINE_COMMAND_KIND.REQUEST_PANEL_INTENT,
-    intent: MACHINE_PANEL_INTENT.PASTE_ARMED,
-  }).state;
+  const host = createHost();
+  requestPanelIntent(host, MACHINE_PANEL_INTENT.PASTE_ARMED);
 
-  const result = transitionMachine(state, {
-    type: MACHINE_COMMAND_KIND.CANCEL_PANEL_INTENT,
-  });
+  const result = host.cancelPanelIntent();
 
   assert.deepEqual(result.state.panel, createIdlePanel());
   assert.deepEqual(result.effects, [
@@ -180,29 +158,24 @@ test("cancelling panel intent clears request id and emits cancel-timeout effect"
 });
 
 test("request-bound panel cancellation ignores stale request ids", () => {
-  const state = transitionMachine(createInitialMachineState(), {
-    type: MACHINE_COMMAND_KIND.REQUEST_PANEL_INTENT,
-    intent: MACHINE_PANEL_INTENT.PASTE_ARMED,
-  }).state;
+  const host = createHost();
+  requestPanelIntent(host, MACHINE_PANEL_INTENT.PASTE_ARMED);
+  const before = state(host);
 
-  const result = transitionMachine(state, {
-    type: MACHINE_COMMAND_KIND.CANCEL_PANEL_INTENT,
-    requestId: state.panel.requestId + 1,
+  const result = host.cancelPanelIntent({
+    requestId: before.panel.requestId + 1,
   });
 
-  assert.deepEqual(result.state, state);
+  assert.deepEqual(result.state, before);
   assert.deepEqual(result.effects, []);
 });
 
 test("request-bound panel cancellation clears only the matching request id", () => {
-  const state = transitionMachine(createInitialMachineState(), {
-    type: MACHINE_COMMAND_KIND.REQUEST_PANEL_INTENT,
-    intent: MACHINE_PANEL_INTENT.PASTE_ARMED,
-  }).state;
+  const host = createHost();
+  requestPanelIntent(host, MACHINE_PANEL_INTENT.PASTE_ARMED);
 
-  const result = transitionMachine(state, {
-    type: MACHINE_COMMAND_KIND.CANCEL_PANEL_INTENT,
-    requestId: state.panel.requestId,
+  const result = host.cancelPanelIntent({
+    requestId: state(host).panel.requestId,
   });
 
   assert.deepEqual(result.state.panel, createIdlePanel());
@@ -219,34 +192,30 @@ test("request-bound panel cancellation clears only the matching request id", () 
 });
 
 test("panel timeout effect result clears only the matching request id", () => {
-  const state = transitionMachine(loadImageState(), {
-    type: MACHINE_COMMAND_KIND.REQUEST_PANEL_INTENT,
-    intent: MACHINE_PANEL_INTENT.CLEAR_IMAGE_CONFIRM,
-  }).state;
+  const host = createLoadedHost();
+  requestPanelIntent(host, MACHINE_PANEL_INTENT.CLEAR_IMAGE_CONFIRM);
+  const before = state(host);
 
-  const staleResult = transitionMachineEffectResult(state, createPanelTimeoutElapsedResult({
-    requestId: state.panel.requestId + 1,
+  const staleResult = transitionMachineEffectResult(before, createPanelTimeoutElapsedResult({
+    requestId: before.panel.requestId + 1,
   }));
-  assert.deepEqual(staleResult.state, state);
+  assert.deepEqual(staleResult.state, before);
   assert.deepEqual(staleResult.effects, []);
 
-  const currentResult = transitionMachineEffectResult(state, createPanelTimeoutElapsedResult({
-    requestId: state.panel.requestId,
+  const currentResult = transitionMachineEffectResult(before, createPanelTimeoutElapsedResult({
+    requestId: before.panel.requestId,
   }));
   assert.deepEqual(currentResult.state.panel, createIdlePanel());
   assert.deepEqual(currentResult.effects, [{
     kind: MACHINE_EFFECT_KIND.CANCEL_PANEL_TIMEOUT,
-    requestId: state.panel.requestId,
+    requestId: before.panel.requestId,
   }]);
 });
 
 test("requesting clear-image confirmation clears stale status and emits a timeout effect", () => {
-  const state = loadImageState();
+  const host = createLoadedHost();
 
-  const result = transitionMachine(state, {
-    type: MACHINE_COMMAND_KIND.REQUEST_PANEL_INTENT,
-    intent: MACHINE_PANEL_INTENT.CLEAR_IMAGE_CONFIRM,
-  });
+  const result = requestPanelIntent(host, MACHINE_PANEL_INTENT.CLEAR_IMAGE_CONFIRM);
 
   assert.equal(result.state.panel.intent, MACHINE_PANEL_INTENT.CLEAR_IMAGE_CONFIRM);
   assert.equal(result.state.panel.requestId, 1);
@@ -264,12 +233,10 @@ test("requesting clear-image confirmation clears stale status and emits a timeou
 });
 
 test("requesting clear-pins confirmation clears stale status and emits a timeout effect", () => {
-  const state = addPin(loadImageState()).state;
+  const host = createLoadedHost();
+  addPin(host);
 
-  const result = transitionMachine(state, {
-    type: MACHINE_COMMAND_KIND.REQUEST_PANEL_INTENT,
-    intent: MACHINE_PANEL_INTENT.CLEAR_PINS_CONFIRM,
-  });
+  const result = requestPanelIntent(host, MACHINE_PANEL_INTENT.CLEAR_PINS_CONFIRM);
 
   assert.equal(result.state.panel.intent, MACHINE_PANEL_INTENT.CLEAR_PINS_CONFIRM);
   assert.equal(result.state.panel.requestId, 1);
@@ -287,15 +254,10 @@ test("requesting clear-pins confirmation clears stale status and emits a timeout
 });
 
 test("confirmed clear-image cancels timeout and records clear-image history", () => {
-  let state = loadImageState();
-  state = transitionMachine(state, {
-    type: MACHINE_COMMAND_KIND.REQUEST_PANEL_INTENT,
-    intent: MACHINE_PANEL_INTENT.CLEAR_IMAGE_CONFIRM,
-  }).state;
+  const host = createLoadedHost();
+  requestPanelIntent(host, MACHINE_PANEL_INTENT.CLEAR_IMAGE_CONFIRM);
 
-  const result = transitionMachine(state, {
-    type: MACHINE_COMMAND_KIND.CLEAR_IMAGE,
-  });
+  const result = host.clearImage();
 
   assert.deepEqual(result.state.panel, createIdlePanel());
   assert.deepEqual(result.effects, [
@@ -312,15 +274,11 @@ test("confirmed clear-image cancels timeout and records clear-image history", ()
 });
 
 test("confirmed clear-pins cancels timeout and records clear-pins history", () => {
-  let state = addPin(loadImageState()).state;
-  state = transitionMachine(state, {
-    type: MACHINE_COMMAND_KIND.REQUEST_PANEL_INTENT,
-    intent: MACHINE_PANEL_INTENT.CLEAR_PINS_CONFIRM,
-  }).state;
+  const host = createLoadedHost();
+  addPin(host);
+  requestPanelIntent(host, MACHINE_PANEL_INTENT.CLEAR_PINS_CONFIRM);
 
-  const result = transitionMachine(state, {
-    type: MACHINE_COMMAND_KIND.CLEAR_PINS,
-  });
+  const result = host.clearPins();
 
   assert.deepEqual(result.state.panel, createIdlePanel());
   assert.deepEqual(result.effects, [
@@ -337,87 +295,79 @@ test("confirmed clear-pins cancels timeout and records clear-pins history", () =
 });
 
 test("stale request-bound image load is a pure no-op", () => {
-  const state = transitionMachine(createInitialMachineState(), {
-    type: MACHINE_COMMAND_KIND.REQUEST_PANEL_INTENT,
-    intent: MACHINE_PANEL_INTENT.PASTE_ARMED,
-  }).state;
+  const host = createHost();
+  requestPanelIntent(host, MACHINE_PANEL_INTENT.PASTE_ARMED);
+  const before = state(host);
 
-  const result = transitionMachine(state, {
-    type: MACHINE_COMMAND_KIND.LOAD_IMAGE,
-    image: IMAGE,
-    placement: PLACEMENT,
-    requestId: state.panel.requestId + 1,
+  const result = loadImage(host, {
+    requestId: before.panel.requestId + 1,
   });
 
-  assert.deepEqual(result.state, state);
+  assert.deepEqual(result.state, before);
   assert.deepEqual(result.effects, []);
   assert.equal(result.historyRecord, null);
 });
 
 test("stale paste effect result is a pure no-op", () => {
-  const state = transitionMachine(createInitialMachineState(), {
-    type: MACHINE_COMMAND_KIND.REQUEST_PANEL_INTENT,
-    intent: MACHINE_PANEL_INTENT.PASTE_ARMED,
-  }).state;
+  const host = createHost();
+  requestPanelIntent(host, MACHINE_PANEL_INTENT.PASTE_ARMED);
+  const before = state(host);
 
-  const result = transitionMachineEffectResult(state, createReadPasteImageResult({
+  const result = transitionMachineEffectResult(before, createReadPasteImageResult({
     source: MACHINE_PASTE_SOURCE.CLIPBOARD_API,
     outcome: IMAGE,
-    requestId: state.panel.requestId + 1,
+    requestId: before.panel.requestId + 1,
   }));
 
-  assert.deepEqual(result.state, state);
+  assert.deepEqual(result.state, before);
   assert.deepEqual(result.effects, []);
   assert.equal(result.historyRecord, null);
 });
 
 test("paste effect result with unknown source is a pure no-op", () => {
-  const state = transitionMachine(createInitialMachineState(), {
-    type: MACHINE_COMMAND_KIND.REQUEST_PANEL_INTENT,
-    intent: MACHINE_PANEL_INTENT.PASTE_ARMED,
-  }).state;
+  const host = createHost();
+  requestPanelIntent(host, MACHINE_PANEL_INTENT.PASTE_ARMED);
+  const before = state(host);
 
-  const result = transitionMachineEffectResult(state, createReadPasteImageResult({
+  const result = transitionMachineEffectResult(before, createReadPasteImageResult({
     source: "unknown",
     outcome: IMAGE,
-    requestId: state.panel.requestId,
+    requestId: before.panel.requestId,
   }));
 
-  assert.deepEqual(result.state, state);
+  assert.deepEqual(result.state, before);
   assert.deepEqual(result.effects, []);
   assert.equal(result.historyRecord, null);
 });
 
 test("null paste effect result keeps paste armed for manual paste fallback", () => {
-  const state = transitionMachine(createInitialMachineState(), {
-    type: MACHINE_COMMAND_KIND.REQUEST_PANEL_INTENT,
-    intent: MACHINE_PANEL_INTENT.PASTE_ARMED,
-  }).state;
+  const host = createHost();
+  requestPanelIntent(host, MACHINE_PANEL_INTENT.PASTE_ARMED);
+  const before = state(host);
 
-  const result = transitionMachineEffectResult(state, createReadPasteImageResult({
+  const result = transitionMachineEffectResult(before, createReadPasteImageResult({
     source: MACHINE_PASTE_SOURCE.CLIPBOARD_API,
     outcome: null,
-    requestId: state.panel.requestId,
+    requestId: before.panel.requestId,
   }));
 
-  assert.deepEqual(result.state, state);
+  assert.deepEqual(result.state, before);
   assert.deepEqual(result.effects, []);
   assert.equal(result.historyRecord, null);
 });
 
 test("paste effect result with image loads image through canonical session transition", () => {
-  const state = transitionMachine(createInitialMachineState(), {
-    type: MACHINE_COMMAND_KIND.REQUEST_PANEL_INTENT,
-    intent: MACHINE_PANEL_INTENT.PASTE_ARMED,
-  }).state;
+  const host = createHost();
+  requestPanelIntent(host, MACHINE_PANEL_INTENT.PASTE_ARMED);
+  const before = state(host);
 
-  const result = transitionMachineEffectResult(state, createReadPasteImageResult({
+  const result = transitionMachineEffectResult(before, createReadPasteImageResult({
     source: MACHINE_PASTE_SOURCE.CLIPBOARD_API,
     outcome: {
       image: IMAGE,
       placement: PLACEMENT,
     },
-    requestId: state.panel.requestId,
+    requestId: before.panel.requestId,
   }));
 
   assert.equal(result.state.session.mode, MACHINE_MODE.ALIGN);
@@ -440,17 +390,16 @@ test("paste effect result with image loads image through canonical session trans
 });
 
 test("clipboard-api paste status keeps paste armed", () => {
-  const state = transitionMachine(createInitialMachineState(), {
-    type: MACHINE_COMMAND_KIND.REQUEST_PANEL_INTENT,
-    intent: MACHINE_PANEL_INTENT.PASTE_ARMED,
-  }).state;
+  const host = createHost();
+  requestPanelIntent(host, MACHINE_PANEL_INTENT.PASTE_ARMED);
+  const before = state(host);
 
-  const result = transitionMachineEffectResult(state, createReadPasteImageResult({
+  const result = transitionMachineEffectResult(before, createReadPasteImageResult({
     source: MACHINE_PASTE_SOURCE.CLIPBOARD_API,
     outcome: {
       noticeKind: CLIPBOARD_MISSING_IMAGE_NOTICE,
     },
-    requestId: state.panel.requestId,
+    requestId: before.panel.requestId,
   }));
 
   assert.equal(result.state.panel.intent, MACHINE_PANEL_INTENT.PASTE_ARMED);
@@ -466,17 +415,16 @@ test("clipboard-api paste status keeps paste armed", () => {
 });
 
 test("manual paste status cancels paste before reporting status", () => {
-  const state = transitionMachine(createInitialMachineState(), {
-    type: MACHINE_COMMAND_KIND.REQUEST_PANEL_INTENT,
-    intent: MACHINE_PANEL_INTENT.PASTE_ARMED,
-  }).state;
+  const host = createHost();
+  requestPanelIntent(host, MACHINE_PANEL_INTENT.PASTE_ARMED);
+  const before = state(host);
 
-  const result = transitionMachineEffectResult(state, createReadPasteImageResult({
+  const result = transitionMachineEffectResult(before, createReadPasteImageResult({
     source: MACHINE_PASTE_SOURCE.MANUAL_PASTE,
     outcome: {
       noticeKind: CLIPBOARD_MISSING_IMAGE_NOTICE,
     },
-    requestId: state.panel.requestId,
+    requestId: before.panel.requestId,
   }));
 
   assert.deepEqual(result.state.panel, createIdlePanel());
@@ -499,39 +447,34 @@ test("manual paste status cancels paste before reporting status", () => {
 });
 
 test("status timeout effect result clears only the matching request id", () => {
-  const state = transitionMachine(createInitialMachineState(), {
-    type: MACHINE_COMMAND_KIND.REPORT_STATUS_NOTICE,
+  const host = createHost();
+  host.reportStatusNotice({
     noticeKind: CLIPBOARD_MISSING_IMAGE_NOTICE,
-  }).state;
+  });
+  const before = state(host);
 
-  const staleResult = transitionMachineEffectResult(state, createStatusTimeoutElapsedResult({
-    requestId: state.status.notice.requestId + 1,
+  const staleResult = transitionMachineEffectResult(before, createStatusTimeoutElapsedResult({
+    requestId: before.status.notice.requestId + 1,
   }));
-  assert.deepEqual(staleResult.state, state);
+  assert.deepEqual(staleResult.state, before);
   assert.deepEqual(staleResult.effects, []);
 
-  const currentResult = transitionMachineEffectResult(state, createStatusTimeoutElapsedResult({
-    requestId: state.status.notice.requestId,
+  const currentResult = transitionMachineEffectResult(before, createStatusTimeoutElapsedResult({
+    requestId: before.status.notice.requestId,
   }));
   assert.equal(currentResult.state.status.notice, null);
   assert.deepEqual(currentResult.effects, [{
     kind: MACHINE_EFFECT_KIND.CANCEL_STATUS_TIMEOUT,
-    requestId: state.status.notice.requestId,
+    requestId: before.status.notice.requestId,
   }]);
 });
 
-test("restoring image session cancels active panel timeout", () => {
-  let state = loadImageState();
-  const session = state.session;
-  state = transitionMachine(state, {
-    type: MACHINE_COMMAND_KIND.REQUEST_PANEL_INTENT,
-    intent: MACHINE_PANEL_INTENT.CLEAR_IMAGE_CONFIRM,
-  }).state;
+test("redoing image load while paste is armed cancels active panel timeout", () => {
+  const host = createLoadedHost();
+  host.activateUndo();
+  requestPanelIntent(host, MACHINE_PANEL_INTENT.PASTE_ARMED);
 
-  const result = transitionMachine(state, {
-    type: MACHINE_COMMAND_KIND.RESTORE_IMAGE_SESSION,
-    session,
-  });
+  const result = host.activateRedo();
 
   assert.deepEqual(result.state.panel, createIdlePanel());
   assert.deepEqual(result.effects, [
@@ -540,24 +483,22 @@ test("restoring image session cancels active panel timeout", () => {
       requestId: 1,
     },
     {
+      kind: MACHINE_EFFECT_KIND.CANCEL_MANUAL_PASTE_CAPTURE,
+      requestId: 1,
+    },
+    {
       kind: MACHINE_EFFECT_KIND.START_STATUS_TIMEOUT,
-      requestId: 2,
+      requestId: 3,
     },
   ]);
 });
 
 test("undoing clear-image while paste is armed cancels active panel timeout", () => {
-  let state = transitionMachine(loadImageState(), {
-    type: MACHINE_COMMAND_KIND.CLEAR_IMAGE,
-  }).state;
-  state = transitionMachine(state, {
-    type: MACHINE_COMMAND_KIND.REQUEST_PANEL_INTENT,
-    intent: MACHINE_PANEL_INTENT.PASTE_ARMED,
-  }).state;
+  const host = createLoadedHost();
+  host.clearImage();
+  requestPanelIntent(host, MACHINE_PANEL_INTENT.PASTE_ARMED);
 
-  const result = transitionMachine(state, {
-    type: MACHINE_COMMAND_KIND.UNDO,
-  });
+  const result = host.activateUndo();
 
   assert.deepEqual(result.state.panel, createIdlePanel());
   assert.deepEqual(result.effects, [
@@ -577,16 +518,11 @@ test("undoing clear-image while paste is armed cancels active panel timeout", ()
 });
 
 test("loading image after paste cancels timeout and records load-image history", () => {
-  let state = transitionMachine(createInitialMachineState(), {
-    type: MACHINE_COMMAND_KIND.REQUEST_PANEL_INTENT,
-    intent: MACHINE_PANEL_INTENT.PASTE_ARMED,
-  }).state;
+  const host = createHost();
+  requestPanelIntent(host, MACHINE_PANEL_INTENT.PASTE_ARMED);
 
-  const result = transitionMachine(state, {
-    type: MACHINE_COMMAND_KIND.LOAD_IMAGE,
-    image: IMAGE,
-    placement: PLACEMENT,
-    requestId: state.panel.requestId,
+  const result = loadImage(host, {
+    requestId: state(host).panel.requestId,
   });
 
   assert.equal(result.state.session.mode, MACHINE_MODE.ALIGN);
@@ -608,17 +544,34 @@ test("loading image after paste cancels timeout and records load-image history",
   assert.equal(result.historyRecord.kind, MACHINE_HISTORY_KIND.LOAD_IMAGE);
 });
 
-function loadImageState() {
-  return transitionMachine(createInitialMachineState(), {
-    type: MACHINE_COMMAND_KIND.LOAD_IMAGE,
-    image: IMAGE,
-    placement: PLACEMENT,
-  }).state;
+function createHost() {
+  return createMachineHost();
 }
 
-function addPin(state) {
-  return transitionMachine(state, {
-    type: MACHINE_COMMAND_KIND.ADD_PIN,
+function createLoadedHost() {
+  const host = createHost();
+  loadImage(host);
+  return host;
+}
+
+function state(host) {
+  return host.getState();
+}
+
+function requestPanelIntent(host, intent) {
+  return host.requestPanelIntent(intent);
+}
+
+function loadImage(host, { requestId = null } = {}) {
+  return host.loadImage({
+    image: IMAGE,
+    placement: PLACEMENT,
+    requestId,
+  });
+}
+
+function addPin(host) {
+  return host.togglePin({
     imagePx: { x: 400, y: 200 },
     mapLatLon: { lat: -1.23, lon: 36.84 },
   });
