@@ -17,7 +17,7 @@ export function createInteractionPorts({
   keyboardGateway = null,
 }) {
   const logger = createLogger("interactions");
-  const machineActions = createMachineActionPort(machineHost);
+  const machineActions = machineHost.interactionActions;
   const adapterDrag = createAdapterDragController({
     pageObservation,
     mapGesture,
@@ -146,22 +146,4 @@ export function createInteractionPorts({
       resetInteraction,
     });
   }
-}
-
-function createMachineActionPort(machineHost) {
-  // TODO(smell): This adapter manually mirrors a growing list of machine host
-  // ingress methods. The final port boundary should be generated or grouped by
-  // capability so content composition cannot silently drift from host ingress.
-  return {
-    selectMode: machineHost.selectMode,
-    observeRuntimeFact: machineHost.observeRuntimeFact,
-    reportRuntimeError: machineHost.reportRuntimeError,
-    togglePin: machineHost.togglePin,
-    beginOverlayMove: machineHost.beginOverlayMove,
-    previewOverlayMove: machineHost.previewOverlayMove,
-    commitOverlayMove: machineHost.commitOverlayMove,
-    rotateOverlayPlacement: machineHost.rotateOverlayPlacement,
-    scaleOverlayPlacement: machineHost.scaleOverlayPlacement,
-    changeOpacityByWheel: machineHost.changeOpacityByWheel,
-  };
 }

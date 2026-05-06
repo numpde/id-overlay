@@ -451,6 +451,18 @@ export function createMachineHost({
   return {
     getState,
     subscribe,
+    interactionActions: Object.freeze({
+      selectMode,
+      observeRuntimeFact,
+      reportRuntimeError,
+      togglePin,
+      beginOverlayMove,
+      previewOverlayMove,
+      commitOverlayMove,
+      rotateOverlayPlacement,
+      scaleOverlayPlacement,
+      changeOpacityByWheel,
+    }),
     activatePanelPrimary,
     activatePanelMode,
     activatePanelModeStep,

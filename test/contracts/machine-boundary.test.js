@@ -232,6 +232,7 @@ test("interaction ports are the only interaction composition root", () => {
 test("interaction adapter does not own registration solve or pin mutation semantics", () => {
   const source = fs.readFileSync(repoPath("src/content/interaction-ports.js"), "utf8");
   const forbiddenPatterns = [
+    ["content-side machine action port mirror", /\bcreateMachineActionPort\b/],
     ["private command import", /private-commands\.js/],
     ["direct add/remove/restore command names", /\b(?:ADD_PIN|REMOVE_PIN|RESTORE_REGISTRATION)\b/],
     ["registration solver import", /\bsolveSimilarityTransform\b/],

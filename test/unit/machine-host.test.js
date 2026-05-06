@@ -164,6 +164,26 @@ test("machine host exposes semantic panel mode opacity and history activations",
   assert.deepEqual(host.getState().session.image, NORMALIZED_IMAGE);
 });
 
+test("machine host exposes a frozen interaction action capability port", () => {
+  const host = createLoadedHost();
+
+  assert.equal(Object.isFrozen(host.interactionActions), true);
+  assert.deepEqual(Object.keys(host.interactionActions), [
+    "selectMode",
+    "observeRuntimeFact",
+    "reportRuntimeError",
+    "togglePin",
+    "beginOverlayMove",
+    "previewOverlayMove",
+    "commitOverlayMove",
+    "rotateOverlayPlacement",
+    "scaleOverlayPlacement",
+    "changeOpacityByWheel",
+  ]);
+  assert.equal(host.interactionActions.togglePin, host.togglePin);
+  assert.equal(host.interactionActions.observeRuntimeFact, host.observeRuntimeFact);
+});
+
 test("machine host starts, replaces, expires, and cancels request-bound panel timers", () => {
   const timers = createTimerHarness();
   const host = createHost({
