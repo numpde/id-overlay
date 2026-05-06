@@ -79,9 +79,7 @@ test("content does not author low-level machine events", {
   assert.deepEqual(violations, []);
 });
 
-test("panel view model exposes render data only", {
-  todo: "Move panel activation semantics into the machine and keep view models event-free.",
-}, () => {
+test("panel view model exposes render data only", () => {
   const source = readSource(repoPath("src/content/panel-view-model.js"));
   const forbiddenPatterns = [
     ["machine event vocabulary", /\bMACHINE_COMMAND_KIND\b/],
@@ -95,9 +93,7 @@ test("panel view model exposes render data only", {
   assert.deepEqual(violations, []);
 });
 
-test("panel DOM reports product activations instead of resolving command meaning", {
-  todo: "Panel controls should report primary/mode/opacity/history activations; the machine should interpret them.",
-}, () => {
+test("panel DOM reports product activations instead of resolving command meaning", () => {
   const source = readSource(repoPath("src/content/panel.js"));
   const forbiddenPatterns = [
     ["machine event vocabulary", /\bMACHINE_COMMAND_KIND\b/],
@@ -122,9 +118,7 @@ test("panel DOM reports product activations instead of resolving command meaning
   assert.deepEqual(violations, []);
 });
 
-test("primary panel action has one canonical machine-owned selector", {
-  todo: "Derive primary action semantics once in core and use the same selector for render and activation.",
-}, () => {
+test("primary panel action has one canonical machine-owned selector", () => {
   const policySource = readSource(repoPath("src/core/machine/policy.js"));
   const panelViewSource = readSource(repoPath("src/content/panel-view-model.js"));
   const violations = [];
@@ -145,9 +139,7 @@ test("primary panel action has one canonical machine-owned selector", {
   assert.deepEqual(violations, []);
 });
 
-test("status text is machine-owned and content view models do not format notices", {
-  todo: "Move baseline/status-notice copy to core selectors so content receives final render text only.",
-}, () => {
+test("status text is machine-owned and content view models do not format notices", () => {
   const panelViewSource = readSource(repoPath("src/content/panel-view-model.js"));
   const selectorsSource = readSource(repoPath("src/core/machine/selectors.js"));
   const violations = [];
