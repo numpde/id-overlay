@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import { createDomEnvironment } from "../helpers/dom-env.js";
 import { repoFileUrl } from "../helpers/paths.js";
+import { createImageFixture } from "../helpers/session-fixtures.js";
 import { WHEEL_MODE } from "../../src/core/interaction-policy.js";
 import { createInteractionController } from "../../src/content/interaction-controller.js";
 import { createMachineHost } from "../../src/core/machine/host.js";
@@ -12,11 +13,7 @@ import { createPlacementTransform } from "../../src/core/transform.js";
 // TODO(smell): These integration tests seed and mutate overlay state through
 // raw machine events plus a broad page-adapter fake. Rewrite around public
 // user/fact ingress helpers and explicit render/projection/gesture ports.
-const DEFAULT_OVERLAY_IMAGE = Object.freeze({
-  src: "data:image/png;base64,abc",
-  width: 800,
-  height: 400,
-});
+const DEFAULT_OVERLAY_IMAGE = createImageFixture();
 
 const DEFAULT_MAP_CENTER = Object.freeze({ lat: 0, lon: 0 });
 
@@ -390,11 +387,10 @@ test("trace-mode solved transform follows map view changes from the page adapter
   try {
     const { createOverlay } = await import(`${repoFileUrl("src/content/overlay.js")}?o2=${Date.now()}`);
 
-    const sessionImage = {
-      src: "data:image/png;base64,abc",
+    const sessionImage = createImageFixture({
       width: 100,
       height: 50,
-    };
+    });
     const machineHost = createOverlayMachineHost(createOverlaySession({
       mode: SESSION_MODE.TRACE,
       image: sessionImage,
@@ -480,11 +476,10 @@ test("trace-mode overlay applies live surface motion from the page adapter", asy
   try {
     const { createOverlay } = await import(`${repoFileUrl("src/content/overlay.js")}?o3=${Date.now()}`);
 
-    const sessionImage = {
-      src: "data:image/png;base64,abc",
+    const sessionImage = createImageFixture({
       width: 100,
       height: 50,
-    };
+    });
     const machineHost = createOverlayMachineHost(createOverlaySession({
       mode: SESSION_MODE.TRACE,
       image: sessionImage,

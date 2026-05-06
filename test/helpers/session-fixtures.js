@@ -1,10 +1,16 @@
 import { normalizeSessionImage } from "../../src/core/session.js";
 
-export const IMAGE = Object.freeze({
-  src: "data:image/png;base64,abc",
-  width: 800,
-  height: 400,
-});
+export const IMAGE_SRC = "data:image/png;base64,abc";
+
+export function createImageFixture({
+  src = IMAGE_SRC,
+  width = 800,
+  height = 400,
+} = {}) {
+  return Object.freeze({ src, width, height });
+}
+
+export const IMAGE = createImageFixture();
 
 export const NORMALIZED_IMAGE = normalizeSessionImage(IMAGE);
 

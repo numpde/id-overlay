@@ -5,12 +5,7 @@ import { MACHINE_INPUT_OVERRIDE } from "../../src/core/machine/events.js";
 import { createInitialMachineState } from "../../src/core/machine/state.js";
 import { SESSION_MODE, createEmptySession } from "../../src/core/session.js";
 import { createKeyboardInputRouter } from "../../src/content/interactions/keyboard-router.js";
-
-const TEST_IMAGE = Object.freeze({
-  src: "data:image/png;base64,abc",
-  width: 800,
-  height: 400,
-});
+import { IMAGE as TEST_IMAGE } from "../helpers/session-fixtures.js";
 
 test("keyboard router consumes pin shortcut and delegates current-pointer toggle", () => {
   const harness = createKeyboardRouterHarness();

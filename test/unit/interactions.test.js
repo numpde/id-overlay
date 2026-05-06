@@ -48,17 +48,12 @@ import {
   resolveOverlayScreenTransform,
   screenPointToImagePoint,
 } from "../../src/core/transform.js";
+import { IMAGE as TEST_IMAGE } from "../helpers/session-fixtures.js";
 
 // TODO(smell): These tests exercise interaction behavior through the current
 // low-level dispatch/event vocabulary and monolithic page adapter. Replace the
 // harness with public user/fact ingress once content no longer authors mutation
 // commands directly.
-const TEST_IMAGE = Object.freeze({
-  src: "data:image/png;base64,abc",
-  width: 800,
-  height: 400,
-});
-
 test("shift-dragging updates placement through the adapter only", () => {
   const harness = createHarness();
   const { controller, machineHost } = harness;

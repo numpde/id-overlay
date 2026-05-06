@@ -3,7 +3,17 @@ import assert from "node:assert/strict";
 
 import { createDomEnvironment } from "../helpers/dom-env.js";
 import { repoFileUrl } from "../helpers/paths.js";
+import { createImageFixture } from "../helpers/session-fixtures.js";
 import { createPlacementTransform } from "../../src/core/transform.js";
+import { DEFAULT_STORAGE_KEY } from "../../src/platform/storage-key.js";
+
+function createStoredImage(options = {}) {
+  return createImageFixture({
+    width: 400,
+    height: 200,
+    ...options,
+  });
+}
 
 function createStoredPlacement({ width, height, scale, rotationRad }) {
   return createPlacementTransform({
@@ -15,30 +25,64 @@ function createStoredPlacement({ width, height, scale, rotationRad }) {
   });
 }
 
-test("bootstrap injects one host, one panel, and one overlay into supported pages", async () => {
-  const env = createDomEnvironment({
+function createEmptyRegistration() {
+  return {
+    pins: [],
+    solvedTransform: null,
+    dirty: false,
+  };
+}
+
+function createStoredSession({
+  mode = "align",
+  opacity = 0.6,
+  image = createStoredImage(),
+  placement = image
+    ? createStoredPlacement({
+      width: image.width,
+      height: image.height,
+      scale: 1,
+      rotationRad: 0,
+    })
+    : undefined,
+  registration = createEmptyRegistration(),
+} = {}) {
+  return {
+    mode,
+    opacity,
+    image,
+    ...(placement === undefined ? {} : { placement }),
+    registration,
+  };
+}
+
+function createEnvironmentWithPersistedSession(session) {
+  return createDomEnvironment({
     storageState: {
-      "id-overlay/state": {
-        mode: "trace",
-        opacity: 0.4,
-        image: {
-          src: "data:image/png;base64,abc",
-          width: 800,
-          height: 400,
-        },
-        placement: createStoredPlacement({
-          width: 800,
-          height: 400,
-          scale: 1.25,
-          rotationRad: 0.5,
-        }),
-        registration: {
-          pins: [],
-          solvedTransform: null,
-          dirty: false,
-        },
-      },
+      [DEFAULT_STORAGE_KEY]: session,
     },
+  });
+}
+
+function createEnvironmentWithStoredSession(sessionOptions) {
+  return createEnvironmentWithPersistedSession(createStoredSession(sessionOptions));
+}
+
+test("bootstrap injects one host, one panel, and one overlay into supported pages", async () => {
+  const imageFixture = createImageFixture({
+    width: 800,
+    height: 400,
+  });
+  const env = createEnvironmentWithStoredSession({
+    mode: "trace",
+    opacity: 0.4,
+    image: imageFixture,
+    placement: createStoredPlacement({
+      width: imageFixture.width,
+      height: imageFixture.height,
+      scale: 1.25,
+      rotationRad: 0.5,
+    }),
   });
 
   try {
@@ -83,22 +127,14 @@ test("bootstrap injects one host, one panel, and one overlay into supported page
 });
 
 test("bootstrap reconciles legacy persisted placement through page context", async () => {
-  const env = createDomEnvironment({
-    storageState: {
-      "id-overlay/state": {
-        mode: "align",
-        opacity: 0.5,
-        image: {
-          src: "data:image/png;base64,abc",
-          width: 400,
-          height: 200,
-        },
-        placement: {
-          centerMapLatLon: { lat: 0, lon: 0 },
-          scale: 1,
-          rotationRad: 0,
-        },
-      },
+  const env = createEnvironmentWithPersistedSession({
+    mode: "align",
+    opacity: 0.5,
+    image: createStoredImage(),
+    placement: {
+      centerMapLatLon: { lat: 0, lon: 0 },
+      scale: 1,
+      rotationRad: 0,
     },
   });
 
@@ -106,7 +142,7 @@ test("bootstrap reconciles legacy persisted placement through page context", asy
     const { bootstrapIdOverlay } = await import(`${repoFileUrl("src/content/main.js")}?legacy=${Date.now()}`);
     await bootstrapIdOverlay();
 
-    const persisted = env.storage["id-overlay/state"];
+    const persisted = env.storage[DEFAULT_STORAGE_KEY];
     assert.equal(persisted.placement.type, "similarity");
     assert.equal(Object.hasOwn(persisted.placement, "centerMapLatLon"), false);
   } finally {
@@ -190,29 +226,9 @@ test("panel header can drag the panel out of the way", async () => {
 });
 
 test("stored align mode restores an overlay frame that owns hit-testing", async () => {
-  const env = createDomEnvironment({
-    storageState: {
-      "id-overlay/state": {
-        mode: "align",
-        opacity: 0.5,
-        image: {
-          src: "data:image/png;base64,abc",
-          width: 400,
-          height: 200,
-        },
-        placement: createStoredPlacement({
-          width: 400,
-          height: 200,
-          scale: 1,
-          rotationRad: 0,
-        }),
-        registration: {
-          pins: [],
-          solvedTransform: null,
-          dirty: false,
-        },
-      },
-    },
+  const env = createEnvironmentWithStoredSession({
+    mode: "align",
+    opacity: 0.5,
   });
 
   try {
@@ -229,31 +245,15 @@ test("stored align mode restores an overlay frame that owns hit-testing", async 
 });
 
 test("trace mode hides registration pins and disables registration controls", async () => {
-  const env = createDomEnvironment({
-    storageState: {
-      "id-overlay/state": {
-        mode: "trace",
-        opacity: 0.5,
-        image: {
-          src: "data:image/png;base64,abc",
-          width: 400,
-          height: 200,
-        },
-        placement: createStoredPlacement({
-          width: 400,
-          height: 200,
-          scale: 1,
-          rotationRad: 0,
-        }),
-        registration: {
-          pins: [
-            { id: 1, imagePx: { x: 20, y: 40 }, mapLatLon: { lat: 0, lon: 0 } },
-            { id: 2, imagePx: { x: 80, y: 120 }, mapLatLon: { lat: 1, lon: 1 } },
-          ],
-          solvedTransform: null,
-          dirty: false,
-        },
-      },
+  const env = createEnvironmentWithStoredSession({
+    mode: "trace",
+    opacity: 0.5,
+    registration: {
+      ...createEmptyRegistration(),
+      pins: [
+        { id: 1, imagePx: { x: 20, y: 40 }, mapLatLon: { lat: 0, lon: 0 } },
+        { id: 2, imagePx: { x: 80, y: 120 }, mapLatLon: { lat: 1, lon: 1 } },
+      ],
     },
   });
 
@@ -386,19 +386,9 @@ test("unsupported pages do not inject the extension UI", async () => {
 });
 
 test("main action button arms window-level image paste capture", async () => {
-  const env = createDomEnvironment({
-    storageState: {
-      "id-overlay/state": {
-        mode: "align",
-        opacity: 0.6,
-        image: null,
-        registration: {
-          pins: [],
-          solvedTransform: null,
-          dirty: false,
-        },
-      },
-    },
+  const env = createEnvironmentWithStoredSession({
+    mode: "align",
+    image: null,
   });
   installImageReadStubs(env.window);
 
@@ -441,19 +431,9 @@ test("main action button arms window-level image paste capture", async () => {
 });
 
 test("main action button loads directly from navigator.clipboard.read when available", async () => {
-  const env = createDomEnvironment({
-    storageState: {
-      "id-overlay/state": {
-        mode: "align",
-        opacity: 0.6,
-        image: null,
-        registration: {
-          pins: [],
-          solvedTransform: null,
-          dirty: false,
-        },
-      },
-    },
+  const env = createEnvironmentWithStoredSession({
+    mode: "align",
+    image: null,
   });
   installImageReadStubs(env.window);
   env.window.navigator.clipboard = {
@@ -488,19 +468,9 @@ test("main action button loads directly from navigator.clipboard.read when avail
 });
 
 test("main action button drives the canonical paste flow when no image is present", async () => {
-  const env = createDomEnvironment({
-    storageState: {
-      "id-overlay/state": {
-        mode: "trace",
-        opacity: 0.6,
-        image: null,
-        registration: {
-          pins: [],
-          solvedTransform: null,
-          dirty: false,
-        },
-      },
-    },
+  const env = createEnvironmentWithStoredSession({
+    mode: "trace",
+    image: null,
   });
   installImageReadStubs(env.window);
   env.window.navigator.clipboard = {
@@ -554,19 +524,9 @@ test("main action button drives the canonical paste flow when no image is presen
 });
 
 test("panel undo and redo restore committed session state and reset confirmation intent", async () => {
-  const env = createDomEnvironment({
-    storageState: {
-      "id-overlay/state": {
-        mode: "trace",
-        opacity: 0.6,
-        image: null,
-        registration: {
-          pins: [],
-          solvedTransform: null,
-          dirty: false,
-        },
-      },
-    },
+  const env = createEnvironmentWithStoredSession({
+    mode: "trace",
+    image: null,
   });
   installImageReadStubs(env.window);
   env.window.navigator.clipboard = {
@@ -642,19 +602,9 @@ test("panel undo and redo restore committed session state and reset confirmation
 });
 
 test("clicking main-action Paste… again cancels canonical paste capture and ignores a later clipboard result", async () => {
-  const env = createDomEnvironment({
-    storageState: {
-      "id-overlay/state": {
-        mode: "align",
-        opacity: 0.6,
-        image: null,
-        registration: {
-          pins: [],
-          solvedTransform: null,
-          dirty: false,
-        },
-      },
-    },
+  const env = createEnvironmentWithStoredSession({
+    mode: "align",
+    image: null,
   });
   installImageReadStubs(env.window);
   let resolveClipboardRead;
@@ -700,30 +650,7 @@ test("clicking main-action Paste… again cancels canonical paste capture and ig
 });
 
 test("main action button escalates from clear-image confirmation when no pins exist and resets after its timeout", async () => {
-  const env = createDomEnvironment({
-    storageState: {
-      "id-overlay/state": {
-        mode: "align",
-        opacity: 0.6,
-        image: {
-          src: "data:image/png;base64,abc",
-          width: 400,
-          height: 200,
-        },
-        placement: createStoredPlacement({
-          width: 400,
-          height: 200,
-          scale: 1,
-          rotationRad: 0,
-        }),
-        registration: {
-          pins: [],
-          solvedTransform: null,
-          dirty: false,
-        },
-      },
-    },
-  });
+  const env = createEnvironmentWithStoredSession();
   const originalSetTimeout = globalThis.setTimeout;
   const originalClearTimeout = globalThis.clearTimeout;
   let scheduledTimeout = null;
@@ -767,30 +694,12 @@ test("main action button escalates from clear-image confirmation when no pins ex
 });
 
 test("main action button clears pins first, then escalates to clear image", async () => {
-  const env = createDomEnvironment({
-    storageState: {
-      "id-overlay/state": {
-        mode: "align",
-        opacity: 0.6,
-        image: {
-          src: "data:image/png;base64,abc",
-          width: 400,
-          height: 200,
-        },
-        placement: createStoredPlacement({
-          width: 400,
-          height: 200,
-          scale: 1,
-          rotationRad: 0,
-        }),
-        registration: {
-          pins: [
-            { id: 1, imagePx: { x: 10, y: 20 }, mapLatLon: { lat: 1, lon: 2 } },
-          ],
-          solvedTransform: null,
-          dirty: false,
-        },
-      },
+  const env = createEnvironmentWithStoredSession({
+    registration: {
+      ...createEmptyRegistration(),
+      pins: [
+        { id: 1, imagePx: { x: 10, y: 20 }, mapLatLon: { lat: 1, lon: 2 } },
+      ],
     },
   });
 
@@ -833,30 +742,7 @@ test("main action button clears pins first, then escalates to clear image", asyn
 });
 
 test("scrolling the opacity slider adjusts overlay opacity through the existing slider path", async () => {
-  const env = createDomEnvironment({
-    storageState: {
-      "id-overlay/state": {
-        mode: "align",
-        opacity: 0.6,
-        image: {
-          src: "data:image/png;base64,abc",
-          width: 400,
-          height: 200,
-        },
-        placement: createStoredPlacement({
-          width: 400,
-          height: 200,
-          scale: 1,
-          rotationRad: 0,
-        }),
-        registration: {
-          pins: [],
-          solvedTransform: null,
-          dirty: false,
-        },
-      },
-    },
-  });
+  const env = createEnvironmentWithStoredSession();
 
   try {
     const { bootstrapIdOverlay } = await import(`${repoFileUrl("src/content/main.js")}?opacitywheel=${Date.now()}`);
@@ -884,29 +770,8 @@ test("scrolling the opacity slider adjusts overlay opacity through the existing 
 });
 
 test("scrolling the mode switch selects align on wheel-up and trace on wheel-down", async () => {
-  const env = createDomEnvironment({
-    storageState: {
-      "id-overlay/state": {
-        mode: "trace",
-        opacity: 0.6,
-        image: {
-          src: "data:image/png;base64,abc",
-          width: 400,
-          height: 200,
-        },
-        placement: createStoredPlacement({
-          width: 400,
-          height: 200,
-          scale: 1,
-          rotationRad: 0,
-        }),
-        registration: {
-          pins: [],
-          solvedTransform: null,
-          dirty: false,
-        },
-      },
-    },
+  const env = createEnvironmentWithStoredSession({
+    mode: "trace",
   });
 
   try {
@@ -949,19 +814,9 @@ test("scrolling the mode switch selects align on wheel-up and trace on wheel-dow
 });
 
 test("mode switch stays disabled while no image session is present", async () => {
-  const env = createDomEnvironment({
-    storageState: {
-      "id-overlay/state": {
-        mode: "trace",
-        opacity: 0.6,
-        image: null,
-        registration: {
-          pins: [],
-          solvedTransform: null,
-          dirty: false,
-        },
-      },
-    },
+  const env = createEnvironmentWithStoredSession({
+    mode: "trace",
+    image: null,
   });
 
   try {

@@ -2,24 +2,17 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { createExtensionStorage } from "../../src/platform/storage.js";
+import { DEFAULT_STORAGE_KEY } from "../../src/platform/storage-key.js";
+import {
+  IMAGE,
+  PLACEMENT,
+} from "../helpers/session-fixtures.js";
 
 const PERSISTED_SESSION = Object.freeze({
   mode: "align",
   opacity: 0.75,
-  image: Object.freeze({
-    src: "data:image/png;base64,abc",
-    width: 800,
-    height: 400,
-  }),
-  placement: Object.freeze({
-    type: "similarity",
-    a: 1,
-    b: 0,
-    tx: 10,
-    ty: 20,
-    scale: 1,
-    rotationRad: 0,
-  }),
+  image: IMAGE,
+  placement: PLACEMENT,
   registration: Object.freeze({
     pins: Object.freeze([
       Object.freeze({
@@ -54,7 +47,7 @@ test("storage wrapper loads and saves with callback-style chrome storage", async
   };
 
   try {
-    const storage = createExtensionStorage({ storageKey: "id-overlay/state" });
+    const storage = createExtensionStorage({ storageKey: DEFAULT_STORAGE_KEY });
     assert.equal(await storage.load(), null);
     await storage.save(PERSISTED_SESSION);
     assert.deepEqual(await storage.load(), PERSISTED_SESSION);
@@ -84,7 +77,7 @@ test("storage wrapper loads and saves with promise-style browser storage", async
   };
 
   try {
-    const storage = createExtensionStorage({ storageKey: "id-overlay/state" });
+    const storage = createExtensionStorage({ storageKey: DEFAULT_STORAGE_KEY });
     assert.equal(await storage.load(), null);
     await storage.save(PERSISTED_SESSION);
     assert.deepEqual(await storage.load(), PERSISTED_SESSION);
@@ -155,7 +148,7 @@ test("storage wrapper rejects callback-style chrome errors", async () => {
   };
 
   try {
-    const storage = createExtensionStorage({ storageKey: "id-overlay/state" });
+    const storage = createExtensionStorage({ storageKey: DEFAULT_STORAGE_KEY });
     await assert.rejects(
       storage.load(),
       /storage failed/,

@@ -12,12 +12,7 @@ import {
   createEmptySession,
 } from "../../src/core/session.js";
 import { createPlacementTransform } from "../../src/core/transform.js";
-
-const TEST_IMAGE = Object.freeze({
-  src: "data:image/png;base64,abc",
-  width: 800,
-  height: 400,
-});
+import { IMAGE as TEST_IMAGE } from "../helpers/session-fixtures.js";
 
 const TEST_SNAPSHOT = Object.freeze({
   viewportRect: { left: 100, top: 200, width: 800, height: 400 },

@@ -8,11 +8,11 @@ import { createClipboardImageReader } from "./paste-adapter.js";
 import { createPasteReadOutcomeFromClipboardFact } from "../core/machine/paste-outcome.js";
 import { BUILD_INFO } from "../core/build-info.js";
 import { createLogger } from "../core/logger.js";
+import { DEFAULT_STORAGE_KEY } from "../platform/storage-key.js";
 
 const HOST_ID = "id-overlay-root";
 const OWNED_NODE_SELECTOR = "[data-id-overlay-owned='true']";
 const SESSION_KEY = "__idOverlaySession__";
-const STORAGE_KEY = "id-overlay/state";
 
 export async function bootstrapIdOverlay({ keyboardGateway = null } = {}) {
   // TODO(smell): Bootstrap still owns composition plus page cleanup, shadow
@@ -34,7 +34,7 @@ export async function bootstrapIdOverlay({ keyboardGateway = null } = {}) {
 
   const host = ensureHost();
   destroyExistingSession(host);
-  const storage = createExtensionStorage({ storageKey: STORAGE_KEY });
+  const storage = createExtensionStorage({ storageKey: DEFAULT_STORAGE_KEY });
   const persistedState = await storage.load();
   const clipboardReader = createClipboardImageReader({
     ownerWindow: window,
