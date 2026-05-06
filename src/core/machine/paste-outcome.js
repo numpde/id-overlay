@@ -2,6 +2,7 @@ import {
   CLIPBOARD_IMAGE_READ_KIND,
 } from "../clipboard-facts.js";
 import {
+  MACHINE_PASTE_READ_OUTCOME_KIND,
   MACHINE_PASTE_SOURCE,
   normalizeMachinePasteSource,
 } from "./effects.js";
@@ -14,11 +15,6 @@ import {
 import { loadImage } from "./session-transition.js";
 import { createTransitionResult } from "./transition-result.js";
 import { createPlacementTransform } from "../transform.js";
-
-export const MACHINE_PASTE_READ_OUTCOME_KIND = Object.freeze({
-  DECODED_IMAGE: "decoded-image",
-  CLIPBOARD_FAILURE: "clipboard-failure",
-});
 
 export function completePasteRead(state, result) {
   // TODO(smell): Paste completion now enters as a typed effect result, but its
@@ -66,6 +62,12 @@ export function completePasteRead(state, result) {
 export function normalizePasteReadOutcome(outcome) {
   if (!outcome || typeof outcome !== "object") {
     return null;
+  }
+  if (outcome.kind === MACHINE_PASTE_READ_OUTCOME_KIND.CLIPBOARD_FACT) {
+    return createPasteReadOutcomeFromClipboardFact({
+      fact: outcome.fact,
+      snapshot: outcome.snapshot,
+    });
   }
   if (outcome.kind === MACHINE_PASTE_READ_OUTCOME_KIND.DECODED_IMAGE) {
     return createDecodedImagePasteOutcome({

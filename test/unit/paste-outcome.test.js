@@ -9,6 +9,8 @@ import {
 } from "../../src/core/clipboard-facts.js";
 import {
   MACHINE_PASTE_READ_OUTCOME_KIND,
+} from "../../src/core/machine/effects.js";
+import {
   createPasteReadOutcomeFromClipboardFact,
 } from "../../src/core/machine/paste-outcome.js";
 import { createPlacementTransform } from "../../src/core/transform.js";

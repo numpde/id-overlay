@@ -19,6 +19,12 @@ export const MACHINE_PASTE_SOURCE = Object.freeze({
   MANUAL_PASTE: "manual-paste",
 });
 
+export const MACHINE_PASTE_READ_OUTCOME_KIND = Object.freeze({
+  CLIPBOARD_FACT: "clipboard-fact",
+  DECODED_IMAGE: "decoded-image",
+  CLIPBOARD_FAILURE: "clipboard-failure",
+});
+
 const KNOWN_PASTE_SOURCES = new Set(Object.values(MACHINE_PASTE_SOURCE));
 
 export function normalizeMachinePasteSource(source) {
@@ -42,6 +48,17 @@ export function createReadPasteImageResult({
     requestId,
     source: normalizeMachinePasteSource(source),
     outcome,
+  };
+}
+
+export function createClipboardFactPasteReadOutcome({ fact, snapshot }) {
+  if (!fact) {
+    return null;
+  }
+  return {
+    kind: MACHINE_PASTE_READ_OUTCOME_KIND.CLIPBOARD_FACT,
+    fact,
+    snapshot: snapshot ?? null,
   };
 }
 

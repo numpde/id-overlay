@@ -6,15 +6,18 @@ import {
   MACHINE_PANEL_INTENT,
 } from "../../src/core/machine/events.js";
 import {
+  createDecodedClipboardImageFact,
+} from "../../src/core/clipboard-facts.js";
+import {
+  createClipboardFactPasteReadOutcome,
+} from "../../src/core/machine/effects.js";
+import {
   selectPanelStatusText,
 } from "../../src/core/machine/selectors.js";
 import {
   createIdlePanel,
   createInitialMachineState,
 } from "../../src/core/machine/state.js";
-import {
-  createDecodedImagePasteOutcome,
-} from "../../src/core/machine/paste-outcome.js";
 import {
   addPin,
   createHost,
@@ -298,8 +301,13 @@ function createTimerHarness() {
 }
 
 function createDecodedPasteOutcome() {
-  return createDecodedImagePasteOutcome({
-    image: IMAGE,
-    placement: PLACEMENT,
+  return createClipboardFactPasteReadOutcome({
+    fact: createDecodedClipboardImageFact({ image: IMAGE }),
+    snapshot: {
+      mapView: {
+        center: { lat: -1.23, lon: 36.84 },
+        zoom: 16,
+      },
+    },
   });
 }
