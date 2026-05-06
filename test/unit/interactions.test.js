@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { createInteractionController } from "../../src/content/interaction-controller.js";
+import { createInteractionPorts } from "../../src/content/interaction-ports.js";
 import {
   DRAG_MODE,
   isKnownDragMode,
@@ -1207,14 +1207,16 @@ function createHarness({
   });
   const pageAdapter = flattenPagePorts(pagePorts);
   const machineHost = createMachineHost();
-  const interactions = createInteractionController({
+  const interactionPorts = createInteractionPorts({
     machineHost,
     keyTarget,
     keyboardGateway,
     ...pagePorts,
   });
+  const interactions = interactionPorts.overlayInteractionPort;
   return {
     controller: interactions,
+    destroy: interactionPorts.destroy,
     machineHost,
     keyTarget,
     adapterCalls,

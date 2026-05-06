@@ -182,7 +182,6 @@ test("status notices are machine-owned, not content-controller feedback", () => 
 
 test("live interactions and overlay read canonical machine host, not the legacy session store", () => {
   const liveSources = new Map([
-    ["src/content/interaction-controller.js", fs.readFileSync(repoPath("src/content/interaction-controller.js"), "utf8")],
     ["src/content/interaction-ports.js", fs.readFileSync(repoPath("src/content/interaction-ports.js"), "utf8")],
     ["src/content/overlay.js", fs.readFileSync(repoPath("src/content/overlay.js"), "utf8")],
   ]);
@@ -197,25 +196,8 @@ test("live interactions and overlay read canonical machine host, not the legacy 
   assert.deepEqual(violations, []);
 });
 
-test("interaction controller is a compatibility wrapper, not a second composition root", () => {
-  const source = fs.readFileSync(repoPath("src/content/interaction-controller.js"), "utf8");
-  const imports = parseStaticImports(source);
-  const forbiddenPatterns = [
-    ["direct adapter drag composition", /\bcreateAdapterDragController\b/],
-    ["direct gesture lifecycle composition", /\bcreateGestureLifecycle\b/],
-    ["direct runtime bridge composition", /\bcreateInteractionRuntimeBridge\b/],
-    ["direct keyboard router composition", /\bcreateKeyboardInputRouter\b/],
-    ["direct pointer interaction composition", /\bcreatePointerInteraction\b/],
-    ["direct wheel interaction composition", /\bcreateWheelInteraction\b/],
-    ["direct pin interaction composition", /\bcreatePinToggleInteraction\b/],
-    ["direct error boundary composition", /\bcreateInteractionErrorBoundary\b/],
-  ];
-  const violations = forbiddenPatterns
-    .filter(([, pattern]) => pattern.test(source))
-    .map(([name]) => name);
-
-  assert.deepEqual(imports, ["./interaction-ports.js"]);
-  assert.deepEqual(violations, []);
+test("interaction controller compatibility facade stays deleted", () => {
+  assert.equal(fs.existsSync(repoPath("src/content/interaction-controller.js")), false);
 });
 
 test("interaction ports are the only interaction composition root", () => {

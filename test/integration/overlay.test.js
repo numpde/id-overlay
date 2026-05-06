@@ -5,7 +5,7 @@ import { createDomEnvironment } from "../helpers/dom-env.js";
 import { repoFileUrl } from "../helpers/paths.js";
 import { createImageFixture } from "../helpers/session-fixtures.js";
 import { WHEEL_MODE } from "../../src/core/interaction-policy.js";
-import { createInteractionController } from "../../src/content/interaction-controller.js";
+import { createInteractionPorts } from "../../src/content/interaction-ports.js";
 import { createMachineHost } from "../../src/core/machine/host.js";
 import { SESSION_MODE } from "../../src/core/session.js";
 import { createPlacementTransform } from "../../src/core/transform.js";
@@ -37,11 +37,12 @@ test("overlay double-click toggles pins through the overlay interaction port", a
       mapDoubleClickCount += 1;
     });
     const pageAdapter = createStaticOverlayPageAdapter({ map });
-    const interactions = createInteractionController({
+    const interactionPorts = createInteractionPorts({
       machineHost,
       ...pagePortsFromAdapter(pageAdapter),
       keyTarget: env.window,
     });
+    const interactions = interactionPorts.overlayInteractionPort;
     const overlay = createOverlayForTest(createOverlay, {
       pageAdapter,
       machineHost,
@@ -75,7 +76,7 @@ test("overlay double-click toggles pins through the overlay interaction port", a
     assert.equal(mapClickCount, 0);
 
     overlay.destroy();
-    interactions.destroy();
+    interactionPorts.destroy();
   } finally {
     env.cleanup();
   }
