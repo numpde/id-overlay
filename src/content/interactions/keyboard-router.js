@@ -20,6 +20,13 @@ export function createKeyboardInputRouter({
   resetRuntimeObservation,
   logger,
 }) {
+  const shortcutHandlers = createKeyboardShortcutHandlers({
+    getPointerScreenPx,
+    executePinToggleAtScreenPoint,
+    selectMode,
+    observePassThroughPress,
+    logger,
+  });
   const keyboardListeners = createKeyboardListeners({
     keyTarget,
     keyboardGateway,
@@ -53,7 +60,7 @@ export function createKeyboardInputRouter({
     }
 
     consumeEvent(event);
-    dispatchKeyboardShortcut(shortcutAction);
+    shortcutHandlers[shortcutAction]?.();
   }
 
   function logIgnoredKeyDown({ event, state, keyboardProjection }) {
@@ -67,31 +74,6 @@ export function createKeyboardInputRouter({
     logger.debug("Ignoring keyboard shortcut because the focused target is editable", {
       code: event.code,
     });
-  }
-
-  function dispatchKeyboardShortcut(shortcutAction) {
-    // TODO(smell): Keyboard routing still maps core shortcut actions to several
-    // injected imperative callbacks. The final input boundary should expose a
-    // single semantic keyboard-action port so adding a shortcut does not edit
-    // this dispatch chain and interaction-port wiring separately.
-    if (shortcutAction === KEYBOARD_SHORTCUT_ACTION.TOGGLE_PIN_CURRENT_POINTER) {
-      logger.info("Keyboard pin toggle requested", {
-        pointerScreenPx: getPointerScreenPx(),
-      });
-      executePinToggleAtScreenPoint(getPointerScreenPx());
-      return;
-    }
-
-    if (shortcutAction === KEYBOARD_SHORTCUT_ACTION.SWITCH_TO_TRACE) {
-      logger.info("Keyboard trace escape requested");
-      selectMode(SESSION_MODE.TRACE);
-      return;
-    }
-
-    if (shortcutAction === KEYBOARD_SHORTCUT_ACTION.ENABLE_PASS_THROUGH) {
-      logger.info("Keyboard pass-through activated");
-      observePassThroughPress();
-    }
   }
 
   function handleKeyUp(event) {
@@ -118,6 +100,31 @@ export function createKeyboardInputRouter({
       pointerScreenPx: null,
     });
   }
+}
+
+function createKeyboardShortcutHandlers({
+  getPointerScreenPx,
+  executePinToggleAtScreenPoint,
+  selectMode,
+  observePassThroughPress,
+  logger,
+}) {
+  return Object.freeze({
+    [KEYBOARD_SHORTCUT_ACTION.TOGGLE_PIN_CURRENT_POINTER]() {
+      logger.info("Keyboard pin toggle requested", {
+        pointerScreenPx: getPointerScreenPx(),
+      });
+      executePinToggleAtScreenPoint(getPointerScreenPx());
+    },
+    [KEYBOARD_SHORTCUT_ACTION.SWITCH_TO_TRACE]() {
+      logger.info("Keyboard trace escape requested");
+      selectMode(SESSION_MODE.TRACE);
+    },
+    [KEYBOARD_SHORTCUT_ACTION.ENABLE_PASS_THROUGH]() {
+      logger.info("Keyboard pass-through activated");
+      observePassThroughPress();
+    },
+  });
 }
 
 function consumeEvent(event) {

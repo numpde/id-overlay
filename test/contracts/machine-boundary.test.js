@@ -451,6 +451,21 @@ test("input projection exposes narrow decisions, not aggregate bundles", () => {
   assert.deepEqual(violations, []);
 });
 
+test("keyboard shortcut routing is table-driven", () => {
+  const source = fs.readFileSync(repoPath("src/content/interactions/keyboard-router.js"), "utf8");
+  const forbiddenPatterns = [
+    ["shortcut dispatch if-chain", /\bif\s*\(\s*shortcutAction\s*===/],
+    ["shortcut dispatch switch", /\bswitch\s*\(\s*shortcutAction\s*\)/],
+    ["legacy dispatch helper", /\bfunction\s+dispatchKeyboardShortcut\b/],
+  ];
+  const violations = forbiddenPatterns
+    .filter(([, pattern]) => pattern.test(source))
+    .map(([name]) => name);
+
+  assert.match(source, /createKeyboardShortcutHandlers/);
+  assert.deepEqual(violations, []);
+});
+
 test("overlay input router delegates event recovery and pointer sequence semantics", () => {
   const source = fs.readFileSync(repoPath("src/content/overlay/input-router.js"), "utf8");
   const forbiddenPatterns = [
