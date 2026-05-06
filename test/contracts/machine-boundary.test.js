@@ -545,6 +545,7 @@ test("overlay input router delegates mounted input policy dispatch", () => {
 
 test("overlay input router delegates global pointer dispatch", () => {
   const source = fs.readFileSync(repoPath("src/content/overlay/input-router.js"), "utf8");
+  const dispatcherSource = fs.readFileSync(repoPath("src/content/overlay/global-pointer-dispatcher.js"), "utf8");
   const forbiddenPatterns = [
     ["runtime drag selector", /\bselectIsRuntimeDragging\b/],
     ["global pointer sequence advance", /\badvanceGlobalPointerMove\b/],
@@ -559,6 +560,7 @@ test("overlay input router delegates global pointer dispatch", () => {
     .map(([name]) => name);
 
   assert.match(source, /global-pointer-dispatcher\.js/);
+  assert.match(dispatcherSource, /\bfunction\s+routeActiveGlobalPointer\b/);
   assert.deepEqual(violations, []);
 });
 

@@ -10,9 +10,6 @@ export function createOverlayGlobalPointerDispatcher({
   consumeOverlayEvent,
   syncGlobalPointerListeners,
 }) {
-  // TODO(smell): Global pointer dispatch repeats runtime-drag predicates and
-  // listener synchronization outside the gesture lifecycle. A single gesture
-  // session should own global capture lifetime and expose facts to this boundary.
   return {
     handlePointerMove,
     handlePointerUp,
@@ -25,24 +22,20 @@ export function createOverlayGlobalPointerDispatcher({
     if (!pointerSequenceRouter.advanceGlobalPointerMove({ event, screenPoint })) {
       return;
     }
-    if (!selectIsRuntimeDragging(getRuntimeState())) {
-      syncGlobalPointerListeners();
-      return;
-    }
-    overlayInteractions.handlePointerMove(screenPoint);
-    consumeOverlayEvent(event);
+    routeActiveGlobalPointer(event, () => {
+      overlayInteractions.handlePointerMove(screenPoint);
+      consumeOverlayEvent(event);
+    });
   }
 
   function handlePointerUp(event) {
     if (pointerSequenceRouter.consumePendingPointerUp(event)) {
       return;
     }
-    if (!selectIsRuntimeDragging(getRuntimeState())) {
-      syncGlobalPointerListeners();
-      return;
-    }
-    overlayInteractions.handlePointerUp(inputProjector.screenPointFromEvent(event));
-    consumeOverlayEvent(event);
+    routeActiveGlobalPointer(event, () => {
+      overlayInteractions.handlePointerUp(inputProjector.screenPointFromEvent(event));
+      consumeOverlayEvent(event);
+    });
   }
 
   function handlePointerCancel(event) {
@@ -55,5 +48,13 @@ export function createOverlayGlobalPointerDispatcher({
     return pointerSequenceRouter.shouldListenGlobally({
       hasActiveGesture: selectIsRuntimeDragging(getRuntimeState()),
     });
+  }
+
+  function routeActiveGlobalPointer(event, dispatchActiveGesture) {
+    if (!selectIsRuntimeDragging(getRuntimeState())) {
+      syncGlobalPointerListeners();
+      return;
+    }
+    dispatchActiveGesture(event);
   }
 }
