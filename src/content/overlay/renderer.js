@@ -5,6 +5,9 @@ export function createOverlayRenderer({
   getMountElement,
   onMountChange,
 }) {
+  // TODO(smell): Overlay rendering still hand-patches DOM nodes, CSS state,
+  // image state, and pin list reconciliation in one renderer. Extract element
+  // reconcilers before adding more overlay render surfaces.
   const overlayRoot = document.createElement("div");
   overlayRoot.className = "id-overlay-viewport";
   overlayRoot.dataset.idOverlayOwned = "true";

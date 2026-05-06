@@ -126,6 +126,9 @@ export function createInteractionRuntimeBridge({
 }
 
 function areInputRuntimesEqual(left, right) {
+  // TODO(smell): Runtime subscription equality is a content-side projection of
+  // machine runtime shape. Move this to a machine selector or expose a stable
+  // runtime observation key so subscribers cannot drift from runtime semantics.
   const leftProjection = selectInputRuntimeProjection(left);
   const rightProjection = selectInputRuntimeProjection(right);
   return (

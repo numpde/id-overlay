@@ -68,6 +68,9 @@ function replayHistoryTransition(state, {
 }
 
 function replayHistoryRecord(state, replay = {}) {
+  // TODO(smell): History replay still re-enters domain transition functions and
+  // strips side effects afterward. Replay should apply explicit before/after
+  // semantic records directly so undo/redo cannot depend on command behavior.
   switch (replay.operation) {
     case MACHINE_HISTORY_REPLAY_OPERATION.CLEAR_IMAGE:
       return clearImage(state);

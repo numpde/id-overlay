@@ -5,6 +5,9 @@ export function createMachineRuntime({
   executeEffect = null,
   onEffectError = null,
 } = {}) {
+  // TODO(smell): Runtime commits state, notifies subscribers, and executes
+  // effects in one primitive. The ideal host/runtime split would keep this as
+  // a pure commit-notify store and let the host own effect scheduling policy.
   let state = normalizeMachineState(initialState);
   const listeners = new Set();
 

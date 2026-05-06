@@ -7,6 +7,9 @@ export function createGestureLifecycle({
   adapterDrag,
   runtimeBridge,
 }) {
+  // TODO(smell): Gesture lifecycle subscribes to machine runtime to repair
+  // adapter drag state after external transitions. The ideal boundary would
+  // make runtime interruption a lifecycle input, not an observed side effect.
   let observedRuntime = runtimeBridge.getRuntimeState();
   const unsubscribeRuntime = runtimeBridge.subscribe((nextRuntime) => {
     const previousRuntime = observedRuntime;

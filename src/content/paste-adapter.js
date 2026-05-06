@@ -12,6 +12,10 @@ export function createClipboardImageReader({
   ownerWindow = globalThis.window,
   logger = null,
 } = {}) {
+  // TODO(smell): Clipboard availability probing, Clipboard API reads, paste
+  // event reads, image normalization, and user-facing logging are all bundled
+  // in one adapter. Split source-specific readers from blob normalization so
+  // paste outcomes stay facts instead of adapter-authored policy.
   const imageNormalizationDeps = createBrowserImageNormalizationDeps({
     ownerWindow,
     maxWorkingDimension: MAX_WORKING_IMAGE_DIMENSION,

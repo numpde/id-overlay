@@ -70,6 +70,10 @@ export function createKeyboardInputRouter({
   }
 
   function dispatchKeyboardShortcut(shortcutAction) {
+    // TODO(smell): Keyboard routing still maps core shortcut actions to several
+    // injected imperative callbacks. The final input boundary should expose a
+    // single semantic keyboard-action port so adding a shortcut does not edit
+    // this dispatch chain and interaction-port wiring separately.
     if (shortcutAction === KEYBOARD_SHORTCUT_ACTION.TOGGLE_PIN_CURRENT_POINTER) {
       logger.info("Keyboard pin toggle requested", {
         pointerScreenPx: getPointerScreenPx(),
