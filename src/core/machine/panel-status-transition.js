@@ -63,15 +63,11 @@ export function requestPanelIntent(state, event) {
   });
 }
 
-export function cancelPanelIntent(state, event = {}) {
-  // TODO(smell): Cancellation accepts optional status notice fields, coupling
-  // panel request lifecycle with status presentation. The final user/fact
-  // ingress should keep request cancellation and status derivation explicit.
+export function cancelPanelIntent(state) {
   const panelTransition = clearPanelIntent(state);
   return createTransitionResult({
     state: panelTransition.state,
     effects: panelTransition.effects,
-    statusNotice: createStatusNotice(event.noticeKind, event.noticePayload),
   });
 }
 

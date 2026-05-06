@@ -13,7 +13,10 @@ import {
   reportStatusNotice,
 } from "./panel-status-transition.js";
 import { loadImage } from "./session-transition.js";
-import { createTransitionResult } from "./transition-result.js";
+import {
+  createStatusNotice,
+  createTransitionResult,
+} from "./transition-result.js";
 import { createPlacementTransform } from "../transform.js";
 
 export const MACHINE_PASTE_READ_INTERPRETATION_KIND = Object.freeze({
@@ -54,9 +57,13 @@ export function completePasteRead(state, result) {
   if (source !== MACHINE_PASTE_SOURCE.MANUAL_PASTE) {
     return reportStatusNotice(state, statusEvent);
   }
-  return cancelPanelIntent(state, {
+  const cancelled = cancelPanelIntent(state, {
     requestId: result.requestId,
-    ...statusEvent,
+  });
+  return createTransitionResult({
+    state: cancelled.state,
+    effects: cancelled.effects,
+    statusNotice: createStatusNotice(statusEvent.noticeKind, statusEvent.noticePayload),
   });
 }
 

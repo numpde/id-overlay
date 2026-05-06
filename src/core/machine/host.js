@@ -156,8 +156,7 @@ export function createMachineHost({
           intent: MACHINE_PANEL_INTENT.PASTE_ARMED,
         });
       case MACHINE_PANEL_PRIMARY_ACTION_KIND.PASTE_ARMED:
-        return ingestMachineEvent({
-          type: MACHINE_COMMAND_KIND.CANCEL_PANEL_INTENT,
+        return cancelPanelIntentWithStatusNotice({
           requestId: state.panel.requestId,
           noticeKind: MACHINE_STATUS_NOTICE_KIND.PASTE_CANCELLED,
         });
@@ -319,7 +318,14 @@ export function createMachineHost({
     });
   }
 
-  function cancelPanelIntent({ requestId = null, noticeKind = null, noticePayload = null } = {}) {
+  function cancelPanelIntent({ requestId = null } = {}) {
+    return ingestMachineEvent({
+      type: MACHINE_COMMAND_KIND.CANCEL_PANEL_INTENT,
+      requestId,
+    });
+  }
+
+  function cancelPanelIntentWithStatusNotice({ requestId = null, noticeKind, noticePayload = null } = {}) {
     return ingestMachineEvent({
       type: MACHINE_COMMAND_KIND.CANCEL_PANEL_INTENT,
       requestId,

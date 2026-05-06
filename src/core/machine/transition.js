@@ -47,6 +47,7 @@ import {
   requestPanelIntent,
 } from "./panel-status-transition.js";
 import {
+  createStatusNotice,
   createTransitionResult,
   withHistoryRecord,
   withStatusNotice,
@@ -135,5 +136,13 @@ function transitionPanelCancelIntent(state, event) {
       state,
     });
   }
-  return cancelPanelIntent(state, event);
+  const cancelled = cancelPanelIntent(state, event);
+  if (!event.noticeKind) {
+    return cancelled;
+  }
+  return createTransitionResult({
+    state: cancelled.state,
+    effects: cancelled.effects,
+    statusNotice: createStatusNotice(event.noticeKind, event.noticePayload),
+  });
 }
