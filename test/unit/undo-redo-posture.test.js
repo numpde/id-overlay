@@ -6,21 +6,13 @@ import {
   MACHINE_MODE,
   MACHINE_PLACEMENT_EDIT_KIND,
 } from "../../src/core/machine/events.js";
-import {
-  MACHINE_COMMAND_KIND,
-} from "../../src/core/machine/private-commands.js";
-import {
-  createInitialMachineState,
-} from "../../src/core/machine/state.js";
+import { createMachineHost } from "../../src/core/machine/host.js";
+import { PLACEMENT_EDIT_PLAN_PHASE } from "../../src/core/placement-edit-planning.js";
 import {
   selectPanelView,
 } from "../../src/content/panel-view-model.js";
-import { transitionMachine } from "../../src/core/machine/transition.js";
 import { normalizeSessionImage } from "../../src/core/session.js";
 
-// TODO(smell): Undo/redo posture tests depend on executable history events and
-// panel view-model labels. Rewrite around semantic history records plus the
-// canonical core action/view selectors after replay is no longer event-based.
 const IMAGE = Object.freeze({
   src: "data:image/png;base64,abc",
   width: 800,
@@ -45,17 +37,14 @@ const MOVED_PLACEMENT = Object.freeze({
 });
 
 test("pure mode switches are not history and do not clear redo", () => {
-  let state = loadImage();
-  state = addPin(state).state;
+  const host = createLoadedHost();
+  addPin(host);
 
-  let result = transitionMachine(state, { type: MACHINE_COMMAND_KIND.UNDO });
+  let result = undo(host);
   assert.equal(result.consumedHistoryRecord.kind, MACHINE_HISTORY_KIND.ADD_PIN);
   assert.equal(selectPanelView(result.state).historyControls.redo.title, "Add pin");
 
-  result = transitionMachine(result.state, {
-    type: MACHINE_COMMAND_KIND.SELECT_MODE,
-    mode: MACHINE_MODE.TRACE,
-  });
+  result = selectMode(host, MACHINE_MODE.TRACE);
 
   assert.equal(result.state.session.mode, MACHINE_MODE.TRACE);
   assert.equal(result.state.history.future.length, 1);
@@ -63,13 +52,10 @@ test("pure mode switches are not history and do not clear redo", () => {
 });
 
 test("Trace switch with dirty computable pins is an undoable fit transition", () => {
-  let state = loadImage();
-  state = addTwoPins(state);
+  const host = createLoadedHost();
+  addTwoPins(host);
 
-  const fit = transitionMachine(state, {
-    type: MACHINE_COMMAND_KIND.SELECT_MODE,
-    mode: MACHINE_MODE.TRACE,
-  });
+  const fit = selectMode(host, MACHINE_MODE.TRACE);
 
   assert.equal(fit.state.session.mode, MACHINE_MODE.TRACE);
   assert.equal(fit.state.session.registration.dirty, false);
@@ -77,24 +63,24 @@ test("Trace switch with dirty computable pins is an undoable fit transition", ()
   assert.equal(fit.historyRecord.kind, MACHINE_HISTORY_KIND.FIT_OVERLAY);
   assert.equal(selectPanelView(fit.state).historyControls.undo.title, "Undo fit overlay");
 
-  const undo = transitionMachine(fit.state, { type: MACHINE_COMMAND_KIND.UNDO });
-  assert.equal(undo.consumedHistoryRecord.kind, MACHINE_HISTORY_KIND.FIT_OVERLAY);
-  assert.equal(undo.state.session.mode, MACHINE_MODE.ALIGN);
-  assert.equal(undo.state.session.registration.dirty, true);
-  assert.equal(undo.state.session.registration.solvedTransform, null);
-  assert.equal(undo.state.session.registration.pins.length, 2);
+  const undoResult = undo(host);
+  assert.equal(undoResult.consumedHistoryRecord.kind, MACHINE_HISTORY_KIND.FIT_OVERLAY);
+  assert.equal(undoResult.state.session.mode, MACHINE_MODE.ALIGN);
+  assert.equal(undoResult.state.session.registration.dirty, true);
+  assert.equal(undoResult.state.session.registration.solvedTransform, null);
+  assert.equal(undoResult.state.session.registration.pins.length, 2);
 
-  const redo = transitionMachine(undo.state, { type: MACHINE_COMMAND_KIND.REDO });
-  assert.equal(redo.consumedHistoryRecord.kind, MACHINE_HISTORY_KIND.FIT_OVERLAY);
-  assert.equal(redo.state.session.mode, MACHINE_MODE.TRACE);
-  assert.equal(redo.state.session.registration.dirty, false);
-  assert.ok(redo.state.session.registration.solvedTransform);
-  assert.equal(redo.state.session.registration.pins.length, 2);
+  const redoResult = redo(host);
+  assert.equal(redoResult.consumedHistoryRecord.kind, MACHINE_HISTORY_KIND.FIT_OVERLAY);
+  assert.equal(redoResult.state.session.mode, MACHINE_MODE.TRACE);
+  assert.equal(redoResult.state.session.registration.dirty, false);
+  assert.ok(redoResult.state.session.registration.solvedTransform);
+  assert.equal(redoResult.state.session.registration.pins.length, 2);
 });
 
 test("Trace switch with ready unsolved pins is still an undoable fit transition", () => {
-  const state = createInitialMachineState({
-    session: {
+  const host = createHost({
+    persistedSession: {
       mode: MACHINE_MODE.ALIGN,
       opacity: 0.6,
       image: IMAGE,
@@ -107,181 +93,184 @@ test("Trace switch with ready unsolved pins is still an undoable fit transition"
     },
   });
 
-  const fit = transitionMachine(state, {
-    type: MACHINE_COMMAND_KIND.SELECT_MODE,
-    mode: MACHINE_MODE.TRACE,
-  });
+  const fit = selectMode(host, MACHINE_MODE.TRACE);
 
   assert.equal(fit.state.session.mode, MACHINE_MODE.TRACE);
   assert.ok(fit.state.session.registration.solvedTransform);
   assert.equal(fit.historyRecord.kind, MACHINE_HISTORY_KIND.FIT_OVERLAY);
 
-  const undo = transitionMachine(fit.state, { type: MACHINE_COMMAND_KIND.UNDO });
-  assert.equal(undo.state.session.mode, MACHINE_MODE.ALIGN);
-  assert.equal(undo.state.session.registration.solvedTransform, null);
-  assert.equal(undo.state.session.registration.dirty, false);
+  const undoResult = undo(host);
+  assert.equal(undoResult.state.session.mode, MACHINE_MODE.ALIGN);
+  assert.equal(undoResult.state.session.registration.solvedTransform, null);
+  assert.equal(undoResult.state.session.registration.dirty, false);
 });
 
 test("pin undo and redo land in Align because pins are the visible editable object", () => {
-  let state = loadImage();
-  state = addPin(state).state;
-  state = transitionMachine(state, {
-    type: MACHINE_COMMAND_KIND.SELECT_MODE,
-    mode: MACHINE_MODE.TRACE,
-  }).state;
+  const host = createLoadedHost();
+  addPin(host);
+  selectMode(host, MACHINE_MODE.TRACE);
 
-  const undo = transitionMachine(state, { type: MACHINE_COMMAND_KIND.UNDO });
-  assert.equal(undo.consumedHistoryRecord.kind, MACHINE_HISTORY_KIND.ADD_PIN);
-  assert.equal(undo.state.session.mode, MACHINE_MODE.ALIGN);
-  assert.equal(undo.state.session.registration.pins.length, 0);
+  const undoResult = undo(host);
+  assert.equal(undoResult.consumedHistoryRecord.kind, MACHINE_HISTORY_KIND.ADD_PIN);
+  assert.equal(undoResult.state.session.mode, MACHINE_MODE.ALIGN);
+  assert.equal(undoResult.state.session.registration.pins.length, 0);
 
-  const redo = transitionMachine(undo.state, { type: MACHINE_COMMAND_KIND.REDO });
-  assert.equal(redo.consumedHistoryRecord.kind, MACHINE_HISTORY_KIND.ADD_PIN);
-  assert.equal(redo.state.session.mode, MACHINE_MODE.ALIGN);
-  assert.equal(redo.state.session.registration.pins.length, 1);
+  const redoResult = redo(host);
+  assert.equal(redoResult.consumedHistoryRecord.kind, MACHINE_HISTORY_KIND.ADD_PIN);
+  assert.equal(redoResult.state.session.mode, MACHINE_MODE.ALIGN);
+  assert.equal(redoResult.state.session.registration.pins.length, 1);
 });
 
 test("clear-pins undo and redo land in Align because pin state is invisible in Trace", () => {
-  let state = loadImage();
-  state = addTwoPins(state);
-  state = transitionMachine(state, { type: MACHINE_COMMAND_KIND.CLEAR_PINS }).state;
-  state = transitionMachine(state, {
-    type: MACHINE_COMMAND_KIND.SELECT_MODE,
-    mode: MACHINE_MODE.TRACE,
-  }).state;
+  const host = createLoadedHost();
+  addTwoPins(host);
+  clearPins(host);
+  selectMode(host, MACHINE_MODE.TRACE);
 
-  const undo = transitionMachine(state, { type: MACHINE_COMMAND_KIND.UNDO });
-  assert.equal(undo.consumedHistoryRecord.kind, MACHINE_HISTORY_KIND.CLEAR_PINS);
-  assert.equal(undo.state.session.mode, MACHINE_MODE.ALIGN);
-  assert.equal(undo.state.session.registration.pins.length, 2);
+  const undoResult = undo(host);
+  assert.equal(undoResult.consumedHistoryRecord.kind, MACHINE_HISTORY_KIND.CLEAR_PINS);
+  assert.equal(undoResult.state.session.mode, MACHINE_MODE.ALIGN);
+  assert.equal(undoResult.state.session.registration.pins.length, 2);
 
-  const redo = transitionMachine(undo.state, { type: MACHINE_COMMAND_KIND.REDO });
-  assert.equal(redo.consumedHistoryRecord.kind, MACHINE_HISTORY_KIND.CLEAR_PINS);
-  assert.equal(redo.state.session.mode, MACHINE_MODE.ALIGN);
-  assert.equal(redo.state.session.registration.pins.length, 0);
+  const redoResult = redo(host);
+  assert.equal(redoResult.consumedHistoryRecord.kind, MACHINE_HISTORY_KIND.CLEAR_PINS);
+  assert.equal(redoResult.state.session.mode, MACHINE_MODE.ALIGN);
+  assert.equal(redoResult.state.session.registration.pins.length, 0);
 });
 
 test("placement undo and redo preserve the user's current mode", () => {
-  let state = loadImage();
-  state = transitionMachine(state, {
-    type: MACHINE_COMMAND_KIND.APPLY_PLACEMENT_EDIT,
-    renderedPlacement: PLACEMENT,
-    placement: MOVED_PLACEMENT,
-    editKind: MACHINE_PLACEMENT_EDIT_KIND.MOVE,
-  }).state;
-  state = transitionMachine(state, {
-    type: MACHINE_COMMAND_KIND.SELECT_MODE,
-    mode: MACHINE_MODE.TRACE,
-  }).state;
+  const host = createLoadedHost();
+  applyPlacement(host, MACHINE_PLACEMENT_EDIT_KIND.MOVE, MOVED_PLACEMENT);
+  selectMode(host, MACHINE_MODE.TRACE);
 
-  const undo = transitionMachine(state, { type: MACHINE_COMMAND_KIND.UNDO });
-  assert.equal(undo.consumedHistoryRecord.kind, MACHINE_HISTORY_KIND.MOVE_OVERLAY);
-  assert.equal(undo.state.session.mode, MACHINE_MODE.TRACE);
-  assert.deepEqual(undo.state.session.placement, PLACEMENT);
+  const undoResult = undo(host);
+  assert.equal(undoResult.consumedHistoryRecord.kind, MACHINE_HISTORY_KIND.MOVE_OVERLAY);
+  assert.equal(undoResult.state.session.mode, MACHINE_MODE.TRACE);
+  assert.deepEqual(undoResult.state.session.placement, PLACEMENT);
 
-  const redo = transitionMachine(undo.state, { type: MACHINE_COMMAND_KIND.REDO });
-  assert.equal(redo.consumedHistoryRecord.kind, MACHINE_HISTORY_KIND.MOVE_OVERLAY);
-  assert.equal(redo.state.session.mode, MACHINE_MODE.TRACE);
-  assert.deepEqual(redo.state.session.placement, MOVED_PLACEMENT);
+  const redoResult = redo(host);
+  assert.equal(redoResult.consumedHistoryRecord.kind, MACHINE_HISTORY_KIND.MOVE_OVERLAY);
+  assert.equal(redoResult.state.session.mode, MACHINE_MODE.TRACE);
+  assert.deepEqual(redoResult.state.session.placement, MOVED_PLACEMENT);
 });
 
 test("redoing a loaded image restores the authored image-load context, not a later pure mode switch", () => {
-  let state = loadImage();
-  state = transitionMachine(state, {
-    type: MACHINE_COMMAND_KIND.SELECT_MODE,
-    mode: MACHINE_MODE.TRACE,
-  }).state;
+  const host = createLoadedHost();
+  selectMode(host, MACHINE_MODE.TRACE);
 
-  const undo = transitionMachine(state, { type: MACHINE_COMMAND_KIND.UNDO });
-  assert.equal(undo.consumedHistoryRecord.kind, MACHINE_HISTORY_KIND.LOAD_IMAGE);
-  assert.equal(undo.state.session.image, null);
-  assert.equal(undo.state.session.mode, MACHINE_MODE.TRACE);
+  const undoResult = undo(host);
+  assert.equal(undoResult.consumedHistoryRecord.kind, MACHINE_HISTORY_KIND.LOAD_IMAGE);
+  assert.equal(undoResult.state.session.image, null);
+  assert.equal(undoResult.state.session.mode, MACHINE_MODE.TRACE);
 
-  const redo = transitionMachine(undo.state, { type: MACHINE_COMMAND_KIND.REDO });
-  assert.equal(redo.consumedHistoryRecord.kind, MACHINE_HISTORY_KIND.LOAD_IMAGE);
-  assert.deepEqual(redo.state.session.image, NORMALIZED_IMAGE);
-  assert.equal(redo.state.session.mode, MACHINE_MODE.ALIGN);
+  const redoResult = redo(host);
+  assert.equal(redoResult.consumedHistoryRecord.kind, MACHINE_HISTORY_KIND.LOAD_IMAGE);
+  assert.deepEqual(redoResult.state.session.image, NORMALIZED_IMAGE);
+  assert.equal(redoResult.state.session.mode, MACHINE_MODE.ALIGN);
 });
 
 test("clear-image undo restores the image context and redo returns to native Trace", () => {
-  let state = loadImage();
-  state = transitionMachine(state, {
-    type: MACHINE_COMMAND_KIND.SELECT_MODE,
-    mode: MACHINE_MODE.TRACE,
-  }).state;
-  state = transitionMachine(state, { type: MACHINE_COMMAND_KIND.CLEAR_IMAGE }).state;
+  const host = createLoadedHost();
+  selectMode(host, MACHINE_MODE.TRACE);
+  clearImage(host);
 
-  assert.equal(state.session.image, null);
-  assert.equal(state.session.mode, MACHINE_MODE.TRACE);
+  assert.equal(state(host).session.image, null);
+  assert.equal(state(host).session.mode, MACHINE_MODE.TRACE);
 
-  const undo = transitionMachine(state, { type: MACHINE_COMMAND_KIND.UNDO });
-  assert.equal(undo.consumedHistoryRecord.kind, MACHINE_HISTORY_KIND.CLEAR_IMAGE);
-  assert.deepEqual(undo.state.session.image, NORMALIZED_IMAGE);
-  assert.equal(undo.state.session.mode, MACHINE_MODE.TRACE);
+  const undoResult = undo(host);
+  assert.equal(undoResult.consumedHistoryRecord.kind, MACHINE_HISTORY_KIND.CLEAR_IMAGE);
+  assert.deepEqual(undoResult.state.session.image, NORMALIZED_IMAGE);
+  assert.equal(undoResult.state.session.mode, MACHINE_MODE.TRACE);
 
-  const redo = transitionMachine(undo.state, { type: MACHINE_COMMAND_KIND.REDO });
-  assert.equal(redo.consumedHistoryRecord.kind, MACHINE_HISTORY_KIND.CLEAR_IMAGE);
-  assert.equal(redo.state.session.image, null);
-  assert.equal(redo.state.session.mode, MACHINE_MODE.TRACE);
+  const redoResult = redo(host);
+  assert.equal(redoResult.consumedHistoryRecord.kind, MACHINE_HISTORY_KIND.CLEAR_IMAGE);
+  assert.equal(redoResult.state.session.image, null);
+  assert.equal(redoResult.state.session.mode, MACHINE_MODE.TRACE);
 });
 
 test("new semantic edits clear redo, but pure mode switches do not", () => {
-  let state = loadImage();
-  state = addPin(state).state;
+  const host = createLoadedHost();
+  addPin(host);
 
-  state = transitionMachine(state, { type: MACHINE_COMMAND_KIND.UNDO }).state;
-  assert.equal(state.history.future.length, 1);
+  undo(host);
+  assert.equal(state(host).history.future.length, 1);
 
-  state = transitionMachine(state, {
-    type: MACHINE_COMMAND_KIND.SELECT_MODE,
-    mode: MACHINE_MODE.TRACE,
-  }).state;
-  assert.equal(state.history.future.length, 1);
-  state = transitionMachine(state, {
-    type: MACHINE_COMMAND_KIND.SELECT_MODE,
-    mode: MACHINE_MODE.ALIGN,
-  }).state;
-  assert.equal(state.history.future.length, 1);
+  selectMode(host, MACHINE_MODE.TRACE);
+  assert.equal(state(host).history.future.length, 1);
+  selectMode(host, MACHINE_MODE.ALIGN);
+  assert.equal(state(host).history.future.length, 1);
 
-  state = transitionMachine(state, {
-    type: MACHINE_COMMAND_KIND.APPLY_PLACEMENT_EDIT,
-    renderedPlacement: PLACEMENT,
-    placement: MOVED_PLACEMENT,
-    editKind: MACHINE_PLACEMENT_EDIT_KIND.MOVE,
-  }).state;
-  assert.equal(state.history.future.length, 0);
-  assert.equal(state.history.past.at(-1).kind, MACHINE_HISTORY_KIND.MOVE_OVERLAY);
+  applyPlacement(host, MACHINE_PLACEMENT_EDIT_KIND.MOVE, MOVED_PLACEMENT);
+  assert.equal(state(host).history.future.length, 0);
+  assert.equal(state(host).history.past.at(-1).kind, MACHINE_HISTORY_KIND.MOVE_OVERLAY);
 });
 
-function loadImage() {
-  return transitionMachine(createInitialMachineState(), {
-    type: MACHINE_COMMAND_KIND.LOAD_IMAGE,
-    image: IMAGE,
-    placement: PLACEMENT,
-  }).state;
+function createHost({ persistedSession = null } = {}) {
+  return createMachineHost({ persistedSession });
 }
 
-function addPin(state) {
-  return transitionMachine(state, {
-    type: MACHINE_COMMAND_KIND.ADD_PIN,
-    imagePx: { x: 400, y: 200 },
-    mapLatLon: { lat: -1.23, lon: 36.84 },
+function createLoadedHost() {
+  const host = createHost();
+  loadImage(host);
+  return host;
+}
+
+function state(host) {
+  return host.getState();
+}
+
+function loadImage(host) {
+  return host.loadImage({
+    image: IMAGE,
+    placement: PLACEMENT,
   });
 }
 
-function addTwoPins(state) {
-  state = transitionMachine(state, {
-    type: MACHINE_COMMAND_KIND.ADD_PIN,
-    id: 1,
+function addPin(host, {
+  imagePx = { x: 400, y: 200 },
+  mapLatLon = { lat: -1.23, lon: 36.84 },
+} = {}) {
+  return host.togglePin({ imagePx, mapLatLon });
+}
+
+function addTwoPins(host) {
+  addPin(host, {
     imagePx: { x: 400, y: 200 },
     mapLatLon: { lat: -1.23, lon: 36.84 },
-  }).state;
-  return transitionMachine(state, {
-    type: MACHINE_COMMAND_KIND.ADD_PIN,
-    id: 2,
+  });
+  addPin(host, {
     imagePx: { x: 600, y: 200 },
     mapLatLon: { lat: -1.23, lon: 38.84 },
-  }).state;
+  });
+}
+
+function selectMode(host, mode) {
+  return host.selectMode(mode);
+}
+
+function clearPins(host) {
+  return host.clearPins();
+}
+
+function clearImage(host) {
+  return host.clearImage();
+}
+
+function applyPlacement(host, editKind, placement) {
+  return host.applyPlacementEditPlan({
+    phase: PLACEMENT_EDIT_PLAN_PHASE.APPLY,
+    kind: editKind,
+    renderedPlacement: PLACEMENT,
+    placement,
+  });
+}
+
+function undo(host) {
+  return host.activateUndo();
+}
+
+function redo(host) {
+  return host.activateRedo();
 }
 
 function createTwoPins() {
