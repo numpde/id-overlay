@@ -512,6 +512,8 @@ test("overlay input router delegates event recovery and pointer sequence semanti
 
   assert.match(source, /event-boundary\.js/);
   assert.match(source, /pointer-sequence-router\.js/);
+  assert.match(source, /\bfunction\s+routeOverlayInput\b/);
+  assert.equal(source.match(/isForwardedMapGestureEvent/g)?.length, 1);
   assert.deepEqual(violations, []);
 });
 

@@ -18,10 +18,6 @@ export function createOverlayInputRouter({
   getOverlayInputContext,
   getMountElement,
 }) {
-  // TODO(smell): Input routing repeats the same forwarded-event guard and error
-  // boundary wrapper for each mounted/global DOM event. Replace this with a
-  // declarative route table or normalized event fact pipeline so adding an input
-  // path does not require hand-copying guard/recovery structure.
   let isDestroyed = false;
   const pointerSequenceRouter = createOverlayPointerSequenceRouter({
     onChange: syncGlobalPointerListeners,
@@ -85,81 +81,41 @@ export function createOverlayInputRouter({
   }
 
   function handleMountedPointerMove(event) {
-    eventBoundary.run("mounted-pointer-move", event, () => {
-      if (eventBoundary.isForwardedMapGestureEvent(event)) {
-        return;
-      }
-      mountedInputDispatcher.handlePointerMove(event);
-    });
+    routeOverlayInput("mounted-pointer-move", event, mountedInputDispatcher.handlePointerMove);
   }
 
   function handleMountedPointerLeave() {
-    eventBoundary.run("mounted-pointer-leave", null, () => {
-      mountedInputDispatcher.handlePointerLeave();
+    routeOverlayInput("mounted-pointer-leave", null, mountedInputDispatcher.handlePointerLeave, {
+      skipForwardedMapGesture: false,
     });
   }
 
   function handleMountedPointerDown(event) {
-    eventBoundary.run("mounted-pointer-down", event, () => {
-      if (eventBoundary.isForwardedMapGestureEvent(event)) {
-        return;
-      }
-      mountedInputDispatcher.handlePointerDown(event);
-    });
+    routeOverlayInput("mounted-pointer-down", event, mountedInputDispatcher.handlePointerDown);
   }
 
   function handleMountedDoubleClick(event) {
-    eventBoundary.run("mounted-double-click", event, () => {
-      if (eventBoundary.isForwardedMapGestureEvent(event)) {
-        return;
-      }
-      mountedInputDispatcher.handleDoubleClick(event);
-    });
+    routeOverlayInput("mounted-double-click", event, mountedInputDispatcher.handleDoubleClick);
   }
 
   function handleMountedClick(event) {
-    eventBoundary.run("mounted-click", event, () => {
-      if (eventBoundary.isForwardedMapGestureEvent(event)) {
-        return;
-      }
-      mountedInputDispatcher.handleClick(event);
-    });
+    routeOverlayInput("mounted-click", event, mountedInputDispatcher.handleClick);
   }
 
   function handleMountedWheel(event) {
-    eventBoundary.run("mounted-wheel", event, () => {
-      if (eventBoundary.isForwardedMapGestureEvent(event)) {
-        return;
-      }
-      mountedInputDispatcher.handleWheel(event);
-    });
+    routeOverlayInput("mounted-wheel", event, mountedInputDispatcher.handleWheel);
   }
 
   function handleGlobalPointerMove(event) {
-    eventBoundary.run("global-pointer-move", event, () => {
-      if (eventBoundary.isForwardedMapGestureEvent(event)) {
-        return;
-      }
-      globalPointerDispatcher.handlePointerMove(event);
-    });
+    routeOverlayInput("global-pointer-move", event, globalPointerDispatcher.handlePointerMove);
   }
 
   function handleGlobalPointerUp(event) {
-    eventBoundary.run("global-pointer-up", event, () => {
-      if (eventBoundary.isForwardedMapGestureEvent(event)) {
-        return;
-      }
-      globalPointerDispatcher.handlePointerUp(event);
-    });
+    routeOverlayInput("global-pointer-up", event, globalPointerDispatcher.handlePointerUp);
   }
 
   function handleGlobalPointerCancel(event) {
-    eventBoundary.run("global-pointer-cancel", event, () => {
-      if (eventBoundary.isForwardedMapGestureEvent(event)) {
-        return;
-      }
-      globalPointerDispatcher.handlePointerCancel(event);
-    });
+    routeOverlayInput("global-pointer-cancel", event, globalPointerDispatcher.handlePointerCancel);
   }
 
   function syncGlobalPointerListeners() {
@@ -167,5 +123,19 @@ export function createOverlayInputRouter({
       return;
     }
     inputHost.syncGlobalPointerListeners(globalPointerDispatcher.shouldListenGlobally());
+  }
+
+  function routeOverlayInput(
+    operation,
+    event,
+    dispatch,
+    { skipForwardedMapGesture = true } = {},
+  ) {
+    eventBoundary.run(operation, event, () => {
+      if (skipForwardedMapGesture && eventBoundary.isForwardedMapGestureEvent(event)) {
+        return;
+      }
+      dispatch(event);
+    });
   }
 }
