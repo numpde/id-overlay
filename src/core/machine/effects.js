@@ -21,8 +21,6 @@ export const MACHINE_PASTE_SOURCE = Object.freeze({
 
 export const MACHINE_PASTE_READ_OUTCOME_KIND = Object.freeze({
   CLIPBOARD_FACT: "clipboard-fact",
-  DECODED_IMAGE: "decoded-image",
-  CLIPBOARD_FAILURE: "clipboard-failure",
 });
 
 const KNOWN_PASTE_SOURCES = new Set(Object.values(MACHINE_PASTE_SOURCE));

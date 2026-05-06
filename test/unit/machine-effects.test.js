@@ -9,6 +9,7 @@ import {
 import {
   MACHINE_EFFECT_KIND,
   MACHINE_PASTE_SOURCE,
+  createClipboardFactPasteReadOutcome,
   createPanelTimeoutElapsedResult,
   createReadPasteImageResult,
   createStatusTimeoutElapsedResult,
@@ -16,11 +17,9 @@ import {
 import { transitionMachineEffectResult } from "../../src/core/machine/effect-result-transition.js";
 import {
   CLIPBOARD_IMAGE_READ_KIND,
+  createClipboardImageFailureFact,
+  createDecodedClipboardImageFact,
 } from "../../src/core/clipboard-facts.js";
-import {
-  createDecodedImagePasteOutcome,
-  createClipboardFailurePasteOutcome as createMachineClipboardFailurePasteOutcome,
-} from "../../src/core/machine/paste-outcome.js";
 import {
   createIdlePanel,
   createInitialMachineState,
@@ -551,14 +550,26 @@ function loadImageForRequest(host, { requestId }) {
 }
 
 function createDecodedPasteOutcome() {
-  return createDecodedImagePasteOutcome({
-    image: IMAGE,
-    placement: PLACEMENT,
+  return createClipboardFactPasteReadOutcome({
+    fact: createDecodedClipboardImageFact({ image: IMAGE }),
+    snapshot: createPageSnapshot(),
   });
 }
 
 function createMissingImagePasteOutcome() {
-  return createMachineClipboardFailurePasteOutcome({
-    failureKind: CLIPBOARD_IMAGE_READ_KIND.MISSING_IMAGE,
+  return createClipboardFactPasteReadOutcome({
+    fact: createClipboardImageFailureFact({
+      kind: CLIPBOARD_IMAGE_READ_KIND.MISSING_IMAGE,
+    }),
+    snapshot: createPageSnapshot(),
   });
+}
+
+function createPageSnapshot() {
+  return {
+    mapView: {
+      center: { lat: -1.23, lon: 36.84 },
+      zoom: 16,
+    },
+  };
 }

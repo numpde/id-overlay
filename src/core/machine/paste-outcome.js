@@ -16,6 +16,11 @@ import { loadImage } from "./session-transition.js";
 import { createTransitionResult } from "./transition-result.js";
 import { createPlacementTransform } from "../transform.js";
 
+export const MACHINE_PASTE_READ_INTERPRETATION_KIND = Object.freeze({
+  DECODED_IMAGE: "decoded-image",
+  CLIPBOARD_FAILURE: "clipboard-failure",
+});
+
 export function completePasteRead(state, result) {
   // TODO(smell): Paste completion now enters as a typed effect result, but its
   // outcome still carries machine status details. Collapse this further so
@@ -29,7 +34,7 @@ export function completePasteRead(state, result) {
   if (!outcome) {
     return createTransitionResult({ state });
   }
-  if (outcome.kind === MACHINE_PASTE_READ_OUTCOME_KIND.DECODED_IMAGE) {
+  if (outcome.kind === MACHINE_PASTE_READ_INTERPRETATION_KIND.DECODED_IMAGE) {
     // TODO(smell): Paste completion re-enters loadImage via an event-shaped
     // object. Once image load is a private domain operation, pass typed image
     // facts directly instead of constructing transition-event payloads.
@@ -39,7 +44,7 @@ export function completePasteRead(state, result) {
       requestId: result.requestId,
     });
   }
-  if (outcome.kind !== MACHINE_PASTE_READ_OUTCOME_KIND.CLIPBOARD_FAILURE) {
+  if (outcome.kind !== MACHINE_PASTE_READ_INTERPRETATION_KIND.CLIPBOARD_FAILURE) {
     return createTransitionResult({ state });
   }
   const noticeKind = resolveClipboardFailureNoticeKind(outcome.failureKind);
@@ -69,13 +74,13 @@ export function normalizePasteReadOutcome(outcome) {
       snapshot: outcome.snapshot,
     });
   }
-  if (outcome.kind === MACHINE_PASTE_READ_OUTCOME_KIND.DECODED_IMAGE) {
+  if (outcome.kind === MACHINE_PASTE_READ_INTERPRETATION_KIND.DECODED_IMAGE) {
     return createDecodedImagePasteOutcome({
       image: outcome.image,
       placement: outcome.placement ?? null,
     });
   }
-  if (outcome.kind === MACHINE_PASTE_READ_OUTCOME_KIND.CLIPBOARD_FAILURE) {
+  if (outcome.kind === MACHINE_PASTE_READ_INTERPRETATION_KIND.CLIPBOARD_FAILURE) {
     return createClipboardFailurePasteOutcome({
       failureKind: outcome.failureKind,
     });
@@ -111,7 +116,7 @@ export function createDecodedImagePasteOutcome({ image, placement = null, snapsh
     return null;
   }
   return {
-    kind: MACHINE_PASTE_READ_OUTCOME_KIND.DECODED_IMAGE,
+    kind: MACHINE_PASTE_READ_INTERPRETATION_KIND.DECODED_IMAGE,
     image,
     placement: placement ?? (snapshot ? createPlacementTransform({
       image,
@@ -128,7 +133,7 @@ export function createClipboardFailurePasteOutcome({ failureKind }) {
     return null;
   }
   return {
-    kind: MACHINE_PASTE_READ_OUTCOME_KIND.CLIPBOARD_FAILURE,
+    kind: MACHINE_PASTE_READ_INTERPRETATION_KIND.CLIPBOARD_FAILURE,
     failureKind,
   };
 }

@@ -8,9 +8,7 @@ import {
   createDecodedClipboardImageFact,
 } from "../../src/core/clipboard-facts.js";
 import {
-  MACHINE_PASTE_READ_OUTCOME_KIND,
-} from "../../src/core/machine/effects.js";
-import {
+  MACHINE_PASTE_READ_INTERPRETATION_KIND,
   createPasteReadOutcomeFromClipboardFact,
 } from "../../src/core/machine/paste-outcome.js";
 import { createPlacementTransform } from "../../src/core/transform.js";
@@ -31,7 +29,7 @@ test("decoded clipboard image fact becomes a paste outcome with canonical initia
   });
 
   assert.deepEqual(outcome, {
-    kind: MACHINE_PASTE_READ_OUTCOME_KIND.DECODED_IMAGE,
+    kind: MACHINE_PASTE_READ_INTERPRETATION_KIND.DECODED_IMAGE,
     image: IMAGE,
     placement: createPlacementTransform({
       image: IMAGE,
@@ -50,7 +48,7 @@ test("clipboard failure facts become paste failure outcomes", () => {
     }),
     snapshot: SNAPSHOT,
   }), {
-    kind: MACHINE_PASTE_READ_OUTCOME_KIND.CLIPBOARD_FAILURE,
+    kind: MACHINE_PASTE_READ_INTERPRETATION_KIND.CLIPBOARD_FAILURE,
     failureKind: CLIPBOARD_IMAGE_READ_KIND.MISSING_IMAGE,
   });
 
@@ -60,7 +58,7 @@ test("clipboard failure facts become paste failure outcomes", () => {
     }),
     snapshot: SNAPSHOT,
   }), {
-    kind: MACHINE_PASTE_READ_OUTCOME_KIND.CLIPBOARD_FAILURE,
+    kind: MACHINE_PASTE_READ_INTERPRETATION_KIND.CLIPBOARD_FAILURE,
     failureKind: CLIPBOARD_IMAGE_READ_KIND.UNREADABLE_IMAGE,
   });
 });
