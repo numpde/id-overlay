@@ -520,6 +520,10 @@ test("overlay input router delegates event recovery and pointer sequence semanti
   assert.deepEqual(violations, []);
 });
 
+test("overlay pointer sequence has no content-side session wrapper", () => {
+  assert.equal(fs.existsSync(repoPath("src/content/overlay/pending-pointer-sequence.js")), false);
+});
+
 test("overlay input router delegates mounted input policy dispatch", () => {
   const source = fs.readFileSync(repoPath("src/content/overlay/input-router.js"), "utf8");
   const forbiddenPatterns = [

@@ -1,37 +1,67 @@
 import {
-  PENDING_POINTER_SEQUENCE_ADVANCE_KIND,
-  createPendingPointerSequenceSession,
-} from "./pending-pointer-sequence.js";
+  beginOverlayPointerSequence,
+  clearOverlayPointerSequence,
+  createInitialOverlayPointerSequenceState,
+  hasPendingOverlayPointerSequence,
+  resolveOverlayPointerSequenceActivation,
+} from "../../core/overlay-pointer-sequence.js";
 
 export function createOverlayPointerSequenceRouter({
   onChange,
   overlayInteractions,
   consumeOverlayEvent,
 }) {
-  const pendingPointerSequence = createPendingPointerSequenceSession({ onChange });
+  let state = createInitialOverlayPointerSequenceState();
 
   return {
-    begin: pendingPointerSequence.begin,
-    clear: pendingPointerSequence.clear,
-    hasPending: pendingPointerSequence.hasPending,
-    shouldListenGlobally: pendingPointerSequence.shouldListenGlobally,
+    begin,
+    clear,
+    hasPending,
+    shouldListenGlobally,
     advanceGlobalPointerMove,
     consumePendingPointerUp,
   };
 
+  function begin({
+    button,
+    dragMode,
+    startScreenPoint,
+  }) {
+    setState(beginOverlayPointerSequence({
+      button,
+      dragMode,
+      startScreenPoint,
+    }));
+  }
+
+  function clear() {
+    setState(clearOverlayPointerSequence());
+  }
+
+  function hasPending() {
+    return hasPendingOverlayPointerSequence(state);
+  }
+
+  function shouldListenGlobally({ hasActiveGesture = false } = {}) {
+    return hasPending() || hasActiveGesture;
+  }
+
   function advanceGlobalPointerMove({ event, screenPoint }) {
-    const outcome = pendingPointerSequence.advance(screenPoint);
-    switch (outcome.kind) {
-      case PENDING_POINTER_SEQUENCE_ADVANCE_KIND.NO_PENDING_SEQUENCE:
-        return true;
-      case PENDING_POINTER_SEQUENCE_ADVANCE_KIND.STILL_PENDING:
-        consumeOverlayEvent(event);
-        return false;
-      case PENDING_POINTER_SEQUENCE_ADVANCE_KIND.ACTIVATED:
-        return activatePendingPointerSequence({ event, sequence: outcome.sequence });
-      default:
-        return true;
+    if (!hasPending()) {
+      return true;
     }
+
+    const activation = resolveOverlayPointerSequenceActivation({
+      state,
+      screenPoint,
+    });
+    if (!activation.shouldStartDrag) {
+      consumeOverlayEvent(event);
+      return false;
+    }
+
+    clear();
+    return activatePendingPointerSequence({ event, sequence: activation.sequence });
   }
 
   function activatePendingPointerSequence({ event, sequence }) {
@@ -48,11 +78,19 @@ export function createOverlayPointerSequenceRouter({
   }
 
   function consumePendingPointerUp(event) {
-    if (!pendingPointerSequence.hasPending()) {
+    if (!hasPending()) {
       return false;
     }
-    pendingPointerSequence.clear();
+    clear();
     consumeOverlayEvent(event);
     return true;
+  }
+
+  function setState(nextState) {
+    if (state === nextState) {
+      return;
+    }
+    state = nextState;
+    onChange?.(state);
   }
 }
