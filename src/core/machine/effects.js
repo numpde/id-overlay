@@ -1,4 +1,8 @@
 export const MACHINE_EFFECT_KIND = Object.freeze({
+  // TODO(smell): Effect request kinds, result kinds, paste sources, and result
+  // constructors share one module. The final shape should colocate each effect
+  // request with its result fact contract and runner adapter to avoid another
+  // broad vocabulary registry.
   READ_PASTE_IMAGE: "read-paste-image",
   START_MANUAL_PASTE_CAPTURE: "start-manual-paste-capture",
   CANCEL_MANUAL_PASTE_CAPTURE: "cancel-manual-paste-capture",

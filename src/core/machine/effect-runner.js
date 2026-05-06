@@ -15,6 +15,10 @@ export function createMachineEffectRunner({
   completeEffect = null,
   onError = null,
 } = {}) {
+  // TODO(smell): Effect execution, adapter argument shaping, and effect-result
+  // completion are centralized in one switch. Split by effect family once the
+  // remaining effect vocabulary is stable so adding an effect does not require
+  // editing runner control flow and result construction together.
   return async function runMachineEffect(effect, context = {}) {
     try {
       await runEffect(effect, context);

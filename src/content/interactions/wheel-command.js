@@ -21,6 +21,10 @@ export function createWheelCommand({
   getMachineState,
   machineActions,
 }) {
+  // TODO(smell): Wheel command dispatch is mode-keyed orchestration over three
+  // command families. Keep wheel mode interpretation here for now, but the
+  // final command boundary should make each wheel mode a directly registered
+  // handler so adding a mode cannot require editing this branch chain.
   const mapWheelCommand = createMapWheelCommand({
     mapGesture,
     getMachineState,

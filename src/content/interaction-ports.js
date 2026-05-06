@@ -146,6 +146,9 @@ export function createInteractionPorts({
 }
 
 function createMachineActionPort(machineHost) {
+  // TODO(smell): This adapter manually mirrors a growing list of machine host
+  // ingress methods. The final port boundary should be generated or grouped by
+  // capability so content composition cannot silently drift from host ingress.
   return {
     selectMode: machineHost.selectMode,
     observeRuntimeFact: machineHost.observeRuntimeFact,

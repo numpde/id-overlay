@@ -13,6 +13,10 @@ export const PENDING_POINTER_SEQUENCE_ADVANCE_KIND = Object.freeze({
 });
 
 export function createPendingPointerSequenceSession({ onChange } = {}) {
+  // TODO(smell): Pending pointer ownership is split between pure core sequence
+  // state, this mutable content session, and pointer-sequence-router outcomes.
+  // Collapse the lifecycle into one small owner once the overlay router is
+  // fully reduced to listener/event-boundary wiring.
   let state = createInitialOverlayPointerSequenceState();
 
   return {

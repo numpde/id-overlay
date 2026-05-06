@@ -7,6 +7,10 @@ export function createPointerInteraction({
   runtimeBridge,
   errorBoundary,
 }) {
+  // TODO(smell): Pointer interaction still reads runtime dragging state to
+  // choose between hover observation and active gesture movement. The final
+  // gesture boundary should expose that branch as one lifecycle operation so
+  // content interaction code does not inspect runtime shape.
   return {
     handlePointerEnter,
     handlePointerLeave,
