@@ -1,15 +1,12 @@
 import { createLogger } from "../core/logger.js";
 import {
   createMapGestureForwarder,
-  FORWARDED_MAP_GESTURE_EVENT_FLAG,
 } from "./page-adapter/gesture-forwarding.js";
 import { createMapViewResolver } from "./page-adapter/map-view.js";
 import { createPageContext } from "./page-adapter/page-context.js";
 import { createPageProjection } from "./page-adapter/projection.js";
 import { createPageSnapshotSource } from "./page-adapter/snapshot-source.js";
 import { createViewportGeometryResolver } from "./page-adapter/viewport-geometry.js";
-
-export { FORWARDED_MAP_GESTURE_EVENT_FLAG };
 
 export function createPageAdapter({
   hashTarget = globalThis.window,
@@ -127,6 +124,9 @@ export function createPageAdapter({
           deltaMode,
         });
       }, false);
+    },
+    isForwardedMapGestureEvent(event) {
+      return gestureForwarder.isForwardedMapGestureEvent(event);
     },
   };
 

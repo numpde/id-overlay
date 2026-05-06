@@ -499,6 +499,7 @@ test("wheel command routing is table-driven", () => {
 
 test("overlay input router delegates event recovery and pointer sequence semantics", () => {
   const source = fs.readFileSync(repoPath("src/content/overlay/input-router.js"), "utf8");
+  const eventBoundarySource = fs.readFileSync(repoPath("src/content/overlay/event-boundary.js"), "utf8");
   const forbiddenPatterns = [
     ["runtime error vocabulary", /\bRUNTIME_ERROR_SOURCE\b/],
     ["forwarded map gesture flag", /\bFORWARDED_MAP_GESTURE_EVENT_FLAG\b/],
@@ -513,7 +514,9 @@ test("overlay input router delegates event recovery and pointer sequence semanti
   assert.match(source, /event-boundary\.js/);
   assert.match(source, /pointer-sequence-router\.js/);
   assert.match(source, /\bfunction\s+routeOverlayInput\b/);
-  assert.equal(source.match(/isForwardedMapGestureEvent/g)?.length, 1);
+  assert.equal(source.match(/eventBoundary\.isForwardedMapGestureEvent/g)?.length, 1);
+  assert.doesNotMatch(eventBoundarySource, /page-adapter/);
+  assert.doesNotMatch(eventBoundarySource, /FORWARDED_MAP_GESTURE_EVENT_FLAG/);
   assert.deepEqual(violations, []);
 });
 

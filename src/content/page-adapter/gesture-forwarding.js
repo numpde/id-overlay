@@ -8,6 +8,10 @@ import {
 
 export const FORWARDED_MAP_GESTURE_EVENT_FLAG = "idOverlayForwardedMapGesture";
 
+export function isForwardedMapGestureEvent(event) {
+  return event?.[FORWARDED_MAP_GESTURE_EVENT_FLAG] === true;
+}
+
 export function createMapGestureForwarder({ getActiveMapContext }) {
   // TODO(smell): Gesture forwarding relies on synthetic DOM events matching iD's
   // native handlers closely enough. Keep it quarantined here and cover browser
@@ -123,6 +127,7 @@ export function createMapGestureForwarder({ getActiveMapContext }) {
     updateMapPan,
     endMapPan,
     forwardMapZoom,
+    isForwardedMapGestureEvent,
   };
 }
 

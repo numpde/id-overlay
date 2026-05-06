@@ -5,6 +5,7 @@ import { buildOverlayViewModel } from "./overlay/view-model.js";
 export function createOverlay({
   pageObservation,
   pageProjection,
+  isForwardedMapGestureEvent,
   machineHost,
   overlayInteractions,
 }) {
@@ -31,6 +32,7 @@ export function createOverlay({
     getRuntimeState,
     getOverlayInputContext,
     getMountElement: renderer.getMountElement,
+    isForwardedMapGestureEvent,
   });
 
   const unsubscribeMachine = machineHost.subscribe(renderer.scheduleRender);

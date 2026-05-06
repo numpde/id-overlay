@@ -73,6 +73,7 @@ export async function bootstrapIdOverlay({ keyboardGateway = null } = {}) {
   const overlay = createOverlay({
     pageObservation: pagePorts.pageObservation,
     pageProjection: pagePorts.pageProjection,
+    isForwardedMapGestureEvent: pagePorts.mapGesture.isForwardedMapGestureEvent,
     machineHost,
     overlayInteractions: interactionPorts.overlayInteractionPort,
   });

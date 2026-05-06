@@ -5,7 +5,6 @@ import { JSDOM } from "jsdom";
 import { createDomEnvironment } from "../helpers/dom-env.js";
 import {
   createPageAdapter,
-  FORWARDED_MAP_GESTURE_EVENT_FLAG,
 } from "../../src/content/page-adapter.js";
 import { unprojectWorldToLatLon } from "../../src/core/transform.js";
 
@@ -27,6 +26,7 @@ test("page adapter exposes explicit page capability ports", () => {
     assert.equal(typeof adapter.pageObservation.getSnapshot, "function");
     assert.equal(typeof adapter.pageProjection.screenToMap, "function");
     assert.equal(typeof adapter.mapGesture.forwardMapZoom, "function");
+    assert.equal(typeof adapter.mapGesture.isForwardedMapGestureEvent, "function");
     assert.equal(typeof adapter.pageSession.destroy, "function");
     assert.equal(Object.hasOwn(adapter, "getSnapshot"), false);
     assert.equal(Object.hasOwn(adapter, "screenToMap"), false);
@@ -570,7 +570,7 @@ test("page adapter can begin/update/end a map pan in the active map document", (
         type: event.type,
         x: event.clientX,
         y: event.clientY,
-        forwarded: event[FORWARDED_MAP_GESTURE_EVENT_FLAG] === true,
+        forwarded: adapter.isForwardedMapGestureEvent(event),
       });
     });
     env.document.addEventListener("mousemove", (event) => {
@@ -707,7 +707,7 @@ test("page adapter map pan skips overlay hit-testing and always targets the map 
         type: event.type,
         x: event.clientX,
         y: event.clientY,
-        forwarded: event[FORWARDED_MAP_GESTURE_EVENT_FLAG] === true,
+        forwarded: adapter.isForwardedMapGestureEvent(event),
       });
     });
     feature.addEventListener("mousedown", () => {
@@ -759,7 +759,7 @@ test("page adapter can forward a map zoom gesture into the active map document",
         x: event.clientX,
         y: event.clientY,
         deltaY: event.deltaY,
-        forwarded: event[FORWARDED_MAP_GESTURE_EVENT_FLAG] === true,
+        forwarded: adapter.isForwardedMapGestureEvent(event),
       });
     });
 

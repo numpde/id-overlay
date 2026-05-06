@@ -17,6 +17,7 @@ export function createOverlayInputRouter({
   getRuntimeState,
   getOverlayInputContext,
   getMountElement,
+  isForwardedMapGestureEvent,
 }) {
   let isDestroyed = false;
   const pointerSequenceRouter = createOverlayPointerSequenceRouter({
@@ -28,6 +29,7 @@ export function createOverlayInputRouter({
     clearPendingPointerSequence: pointerSequenceRouter.clear,
     syncGlobalPointerListeners,
     reportRuntimeError: overlayInteractions.reportRuntimeError,
+    isForwardedMapGestureEvent,
   });
   const inputProjector = createOverlayInputProjector({
     pageProjection,

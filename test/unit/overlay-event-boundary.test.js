@@ -4,9 +4,7 @@ import assert from "node:assert/strict";
 import {
   consumeOverlayEvent,
   createOverlayEventBoundary,
-  isForwardedMapGestureEvent,
 } from "../../src/content/overlay/event-boundary.js";
-import { FORWARDED_MAP_GESTURE_EVENT_FLAG } from "../../src/content/page-adapter.js";
 import { RUNTIME_ERROR_SOURCE } from "../../src/core/runtime-error.js";
 
 test("overlay event boundary reports overlay runtime errors and resets transient input state", () => {
@@ -61,13 +59,26 @@ test("overlay event boundary returns successful handler results", () => {
   assert.equal(boundary.run("mounted-click", null, () => 42), 42);
 });
 
-test("overlay event helpers identify forwarded map gestures and consume DOM events", () => {
+test("overlay event boundary delegates forwarded map gesture identity and consumes DOM events", () => {
   const calls = [];
   const event = createConsumableEvent(calls);
-  event[FORWARDED_MAP_GESTURE_EVENT_FLAG] = true;
+  const boundary = createOverlayEventBoundary({
+    clearPendingPointerSequence() {
+      throw new Error("should not clear");
+    },
+    syncGlobalPointerListeners() {
+      throw new Error("should not sync");
+    },
+    reportRuntimeError() {
+      throw new Error("should not report");
+    },
+    isForwardedMapGestureEvent(candidate) {
+      return candidate === event;
+    },
+  });
 
-  assert.equal(isForwardedMapGestureEvent(event), true);
-  assert.equal(isForwardedMapGestureEvent({}), false);
+  assert.equal(boundary.isForwardedMapGestureEvent(event), true);
+  assert.equal(boundary.isForwardedMapGestureEvent({}), false);
 
   consumeOverlayEvent(event);
   assert.deepEqual(calls, [

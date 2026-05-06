@@ -814,6 +814,7 @@ function pagePortsFromAdapter(pageAdapter) {
       mapToOverlayLayerScreen: bindPageCapability(pageAdapter, "mapToOverlayLayerScreen"),
       screenToMap: bindPageCapability(pageAdapter, "screenToMap"),
     },
+    isForwardedMapGestureEvent: bindPageCapability(pageAdapter, "isForwardedMapGestureEvent"),
     mapGesture: {
       beginMapPan: bindPageCapability(pageAdapter, "beginMapPan"),
       updateMapPan: bindPageCapability(pageAdapter, "updateMapPan"),
