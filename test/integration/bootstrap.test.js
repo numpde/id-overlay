@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { createDomEnvironment } from "../helpers/dom-env.js";
 import { repoFileUrl } from "../helpers/paths.js";
 import { createImageFixture } from "../helpers/session-fixtures.js";
+import { createEmptyRegistration } from "../../src/core/session.js";
 import { createPlacementTransform } from "../../src/core/transform.js";
 import { DEFAULT_STORAGE_KEY } from "../../src/platform/storage-key.js";
 
@@ -23,14 +24,6 @@ function createStoredPlacement({ width, height, scale, rotationRad }) {
     rotationRad,
     zoom: 0,
   });
-}
-
-function createEmptyRegistration() {
-  return {
-    pins: [],
-    solvedTransform: null,
-    dirty: false,
-  };
 }
 
 function createStoredSession({

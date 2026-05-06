@@ -48,6 +48,10 @@ import {
   resolveOverlayScreenTransform,
   screenPointToImagePoint,
 } from "../../src/core/transform.js";
+import {
+  createKeyEvent,
+  createKeyTarget,
+} from "../helpers/keyboard-events.js";
 import { IMAGE as TEST_IMAGE } from "../helpers/session-fixtures.js";
 
 // TODO(smell): These tests exercise interaction behavior through the current
@@ -1417,53 +1421,5 @@ function createKeyboardGatewayHarness() {
     dispatch(type, event) {
       subscriber?.[type]?.(event);
     },
-  };
-}
-
-function createKeyTarget() {
-  const listeners = new Map();
-
-  return {
-    addEventListener(type, listener) {
-      listeners.set(type, listener);
-    },
-    removeEventListener(type, listener) {
-      if (listeners.get(type) === listener) {
-        listeners.delete(type);
-      }
-    },
-    dispatch(type, event) {
-      if (!event.composedPath) {
-        event.composedPath = () => [];
-      }
-      listeners.get(type)?.(event);
-    },
-  };
-}
-
-function createKeyEvent(overrides = {}) {
-  return {
-    code: "",
-    defaultPrevented: false,
-    metaKey: false,
-    ctrlKey: false,
-    altKey: false,
-    prevented: false,
-    stopped: false,
-    immediatelyStopped: false,
-    preventDefault() {
-      this.defaultPrevented = true;
-      this.prevented = true;
-    },
-    stopPropagation() {
-      this.stopped = true;
-    },
-    stopImmediatePropagation() {
-      this.immediatelyStopped = true;
-    },
-    composedPath() {
-      return [];
-    },
-    ...overrides,
   };
 }

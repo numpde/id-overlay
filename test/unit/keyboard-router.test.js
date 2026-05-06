@@ -5,6 +5,10 @@ import { MACHINE_INPUT_OVERRIDE } from "../../src/core/machine/events.js";
 import { createInitialMachineState } from "../../src/core/machine/state.js";
 import { SESSION_MODE, createEmptySession } from "../../src/core/session.js";
 import { createKeyboardInputRouter } from "../../src/content/interactions/keyboard-router.js";
+import {
+  createKeyEvent,
+  createKeyTarget,
+} from "../helpers/keyboard-events.js";
 import { IMAGE as TEST_IMAGE } from "../helpers/session-fixtures.js";
 
 test("keyboard router consumes pin shortcut and delegates current-pointer toggle", () => {
@@ -134,53 +138,5 @@ function createLoggerDouble() {
   return {
     debug() {},
     info() {},
-  };
-}
-
-function createKeyTarget() {
-  const listeners = new Map();
-
-  return {
-    addEventListener(type, listener) {
-      listeners.set(type, listener);
-    },
-    removeEventListener(type, listener) {
-      if (listeners.get(type) === listener) {
-        listeners.delete(type);
-      }
-    },
-    dispatch(type, event) {
-      if (!event.composedPath) {
-        event.composedPath = () => [];
-      }
-      listeners.get(type)?.(event);
-    },
-  };
-}
-
-function createKeyEvent(overrides = {}) {
-  return {
-    code: "",
-    defaultPrevented: false,
-    metaKey: false,
-    ctrlKey: false,
-    altKey: false,
-    prevented: false,
-    stopped: false,
-    immediatelyStopped: false,
-    preventDefault() {
-      this.defaultPrevented = true;
-      this.prevented = true;
-    },
-    stopPropagation() {
-      this.stopped = true;
-    },
-    stopImmediatePropagation() {
-      this.immediatelyStopped = true;
-    },
-    composedPath() {
-      return [];
-    },
-    ...overrides,
   };
 }
