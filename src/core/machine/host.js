@@ -12,6 +12,7 @@ import {
   createPanelTimeoutElapsedResult,
   createStatusTimeoutElapsedResult,
 } from "./effects.js";
+import { createRequestTimerRegistry } from "./request-timers.js";
 import { transitionMachineEffectResult } from "./effect-result-transition.js";
 import {
   cancelPanelIntentWithStatusNotice,
@@ -55,12 +56,10 @@ export function createMachineHost({
   onError = null,
 } = {}) {
   // TODO(smell): Host owns runtime lifecycle, persistence, effect adapter
-  // wiring, panel/status timers, and external subscribers. Split effect host
-  // services from durable persistence so machine hosting is not the catch-all
-  // boundary for every side effect.
+  // wiring, and external subscribers. Split effect host services from durable
+  // persistence so machine hosting is not the catch-all boundary for every side
+  // effect.
   let destroyed = false;
-  const panelTimers = new Map();
-  const statusTimers = new Map();
   const subscriberUnsubscribes = new Set();
   let runtime = null;
   let unsubscribePersistence = null;
@@ -77,6 +76,20 @@ export function createMachineHost({
     cancelStatusTimeout,
     completeEffect: ingestEffectResult,
     onError: reportError,
+  });
+  const panelTimers = createRequestTimerRegistry({
+    setTimer: setPanelTimeout,
+    clearTimer: clearPanelTimeout,
+    delayMs: panelTimeoutMs,
+    createElapsedResult: createPanelTimeoutElapsedResult,
+    completeElapsed: ingestEffectResult,
+  });
+  const statusTimers = createRequestTimerRegistry({
+    setTimer: setStatusTimeout,
+    clearTimer: clearStatusTimeout,
+    delayMs: statusTimeoutMs,
+    createElapsedResult: createStatusTimeoutElapsedResult,
+    completeElapsed: ingestEffectResult,
   });
 
   runtime = createMachineRuntime({
@@ -377,8 +390,8 @@ export function createMachineHost({
     unsubscribePersistence?.();
     clearSubscribers();
     cancelAllManualPasteCaptures();
-    clearAllPanelTimers();
-    clearAllStatusTimers();
+    panelTimers.clearAll();
+    statusTimers.clearAll();
   }
 
   function persistState(state) {
@@ -398,68 +411,26 @@ export function createMachineHost({
   }
 
   function startPanelTimeout({ intent, requestId, context }) {
-    cancelPanelTimeout({ requestId });
-    if (!setPanelTimeout) {
-      return;
-    }
-    const handle = setPanelTimeout(() => {
-      panelTimers.delete(requestId);
-      ingestEffectResult(createPanelTimeoutElapsedResult({ requestId }));
-    }, {
+    panelTimers.start({
       intent,
       requestId,
-      delayMs: panelTimeoutMs,
       context,
     });
-    panelTimers.set(requestId, handle);
   }
 
   function cancelPanelTimeout({ requestId }) {
-    if (!panelTimers.has(requestId)) {
-      return;
-    }
-    const handle = panelTimers.get(requestId);
-    panelTimers.delete(requestId);
-    clearPanelTimeout?.(handle);
+    panelTimers.cancel({ requestId });
   }
 
   function startStatusTimeout({ requestId, context }) {
-    cancelStatusTimeout({ requestId });
-    if (!setStatusTimeout) {
-      return;
-    }
-    const handle = setStatusTimeout(() => {
-      statusTimers.delete(requestId);
-      ingestEffectResult(createStatusTimeoutElapsedResult({ requestId }));
-    }, {
+    statusTimers.start({
       requestId,
-      delayMs: statusTimeoutMs,
       context,
     });
-    statusTimers.set(requestId, handle);
   }
 
   function cancelStatusTimeout({ requestId }) {
-    if (!statusTimers.has(requestId)) {
-      return;
-    }
-    const handle = statusTimers.get(requestId);
-    statusTimers.delete(requestId);
-    clearStatusTimeout?.(handle);
-  }
-
-  function clearAllPanelTimers() {
-    for (const handle of panelTimers.values()) {
-      clearPanelTimeout?.(handle);
-    }
-    panelTimers.clear();
-  }
-
-  function clearAllStatusTimers() {
-    for (const handle of statusTimers.values()) {
-      clearStatusTimeout?.(handle);
-    }
-    statusTimers.clear();
+    statusTimers.cancel({ requestId });
   }
 
   function clearSubscribers() {
