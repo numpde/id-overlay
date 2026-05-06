@@ -3,6 +3,7 @@ import {
 } from "../clipboard-facts.js";
 import {
   MACHINE_PASTE_SOURCE,
+  normalizeMachinePasteSource,
 } from "./effects.js";
 import { MACHINE_STATUS_NOTICE_KIND } from "./status-notices.js";
 import {
@@ -18,7 +19,8 @@ export function completePasteRead(state, result) {
   // TODO(smell): Paste completion now enters as a typed effect result, but its
   // outcome is still the legacy image/status union. Collapse that next so paste
   // interpretation starts from clipboard facts, page facts, and machine policy.
-  if (!isCurrentPasteRequest(state, result) || !isKnownPasteSource(result.source)) {
+  const source = normalizeMachinePasteSource(result.source);
+  if (!isCurrentPasteRequest(state, result) || !source) {
     return createTransitionResult({ state });
   }
   const outcome = normalizePasteReadOutcome(result.outcome);
@@ -42,7 +44,7 @@ export function completePasteRead(state, result) {
     noticeKind: outcome.noticeKind,
     noticePayload: outcome.noticePayload,
   };
-  if (result.source !== MACHINE_PASTE_SOURCE.MANUAL_PASTE) {
+  if (source !== MACHINE_PASTE_SOURCE.MANUAL_PASTE) {
     return reportStatusNotice(state, statusEvent);
   }
   return cancelPanelIntent(state, {
@@ -121,8 +123,4 @@ function createClipboardStatusPasteOutcome({ noticeKind, noticePayload = null })
     noticeKind,
     noticePayload,
   };
-}
-
-function isKnownPasteSource(source) {
-  return Object.values(MACHINE_PASTE_SOURCE).includes(source);
 }

@@ -19,6 +19,12 @@ export const MACHINE_PASTE_SOURCE = Object.freeze({
   MANUAL_PASTE: "manual-paste",
 });
 
+const KNOWN_PASTE_SOURCES = new Set(Object.values(MACHINE_PASTE_SOURCE));
+
+export function normalizeMachinePasteSource(source) {
+  return KNOWN_PASTE_SOURCES.has(source) ? source : null;
+}
+
 export function createReadPasteImageEffect({ requestId }) {
   return {
     kind: MACHINE_EFFECT_KIND.READ_PASTE_IMAGE,
@@ -34,7 +40,7 @@ export function createReadPasteImageResult({
   return {
     kind: MACHINE_EFFECT_RESULT_KIND.READ_PASTE_IMAGE,
     requestId,
-    source,
+    source: normalizeMachinePasteSource(source),
     outcome,
   };
 }

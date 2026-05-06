@@ -31,6 +31,10 @@ test("constructors centralize effect-runner result shapes", () => {
     source: MACHINE_PASTE_SOURCE.CLIPBOARD_API,
     outcome: IMAGE,
   });
+  assert.equal(createReadPasteImageResult({
+    requestId: 7,
+    source: "not-a-paste-source",
+  }).source, null);
   assert.deepEqual(createPanelTimeoutElapsedResult({
     requestId: 7,
   }), {
