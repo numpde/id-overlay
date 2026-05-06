@@ -22,10 +22,7 @@ export function createPinToggleCommand({
       screenToMap: (point) => pageProjection.screenToMap(point),
     });
     if (!pinPlan.ok) {
-      return {
-        handled: false,
-        reason: pinPlan.reason,
-      };
+      return createUnhandledPinToggleOutcome(pinPlan.reason);
     }
 
     const result = machineActions.togglePin({
@@ -35,11 +32,39 @@ export function createPinToggleCommand({
       ...(pinPlan.preservedPlacement ? { preservedPlacement: pinPlan.preservedPlacement } : {}),
     });
     const handled = Boolean(result.historyRecord);
-    return {
-      handled,
-      reason: handled ? null : "machine-rejected",
-      pointerScreenPx: pinPlan.pointerScreenPx,
-      existingPinId: pinPlan.existingPinId,
-    };
+    return handled
+      ? createHandledPinToggleOutcome({
+          pointerScreenPx: pinPlan.pointerScreenPx,
+          existingPinId: pinPlan.existingPinId,
+        })
+      : createUnhandledPinToggleOutcome("machine-rejected");
   }
+}
+
+function createHandledPinToggleOutcome({ pointerScreenPx, existingPinId }) {
+  return {
+    handled: true,
+    pointerScreenPx,
+    log: {
+      level: "info",
+      message: "Toggled registration pin",
+      details: {
+        pinId: existingPinId,
+      },
+    },
+  };
+}
+
+function createUnhandledPinToggleOutcome(reason) {
+  return {
+    handled: false,
+    reason,
+    log: {
+      level: "warn",
+      message: "Pin toggle requested without a valid pin context",
+      details: {
+        reason,
+      },
+    },
+  };
 }
