@@ -15,8 +15,11 @@ import {
 } from "../../src/core/machine/effects.js";
 import { transitionMachineEffectResult } from "../../src/core/machine/effect-result-transition.js";
 import {
+  CLIPBOARD_IMAGE_READ_KIND,
+} from "../../src/core/clipboard-facts.js";
+import {
   createDecodedImagePasteOutcome,
-  createStatusPasteOutcome as createMachineStatusPasteOutcome,
+  createClipboardFailurePasteOutcome as createMachineClipboardFailurePasteOutcome,
 } from "../../src/core/machine/paste-outcome.js";
 import {
   createIdlePanel,
@@ -387,7 +390,7 @@ test("clipboard-api paste status keeps paste armed", () => {
 
   const result = transitionMachineEffectResult(before, createReadPasteImageResult({
     source: MACHINE_PASTE_SOURCE.CLIPBOARD_API,
-    outcome: createStatusPasteOutcome(CLIPBOARD_MISSING_IMAGE_NOTICE),
+    outcome: createMissingImagePasteOutcome(),
     requestId: before.panel.requestId,
   }));
 
@@ -410,7 +413,7 @@ test("manual paste status cancels paste before reporting status", () => {
 
   const result = transitionMachineEffectResult(before, createReadPasteImageResult({
     source: MACHINE_PASTE_SOURCE.MANUAL_PASTE,
-    outcome: createStatusPasteOutcome(CLIPBOARD_MISSING_IMAGE_NOTICE),
+    outcome: createMissingImagePasteOutcome(),
     requestId: before.panel.requestId,
   }));
 
@@ -554,8 +557,8 @@ function createDecodedPasteOutcome() {
   });
 }
 
-function createStatusPasteOutcome(noticeKind) {
-  return createMachineStatusPasteOutcome({
-    noticeKind,
+function createMissingImagePasteOutcome() {
+  return createMachineClipboardFailurePasteOutcome({
+    failureKind: CLIPBOARD_IMAGE_READ_KIND.MISSING_IMAGE,
   });
 }

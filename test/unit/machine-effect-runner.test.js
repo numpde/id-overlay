@@ -17,12 +17,13 @@ import {
   createInitialMachineState,
 } from "../../src/core/machine/state.js";
 import {
+  CLIPBOARD_IMAGE_READ_KIND,
+} from "../../src/core/clipboard-facts.js";
+import {
   createDecodedImagePasteOutcome,
-  createStatusPasteOutcome as createMachineStatusPasteOutcome,
+  createClipboardFailurePasteOutcome as createMachineClipboardFailurePasteOutcome,
 } from "../../src/core/machine/paste-outcome.js";
 import { IMAGE } from "../helpers/session-fixtures.js";
-
-const CLIPBOARD_MISSING_IMAGE_NOTICE = "clipboard-missing-image";
 
 test("constructors centralize effect-runner result shapes", () => {
   const outcome = createDecodedPasteOutcome();
@@ -207,7 +208,7 @@ test("manual-paste feedback completes with a manual-paste result", async () => {
     kind: MACHINE_EFFECT_KIND.START_MANUAL_PASTE_CAPTURE,
     requestId: 7,
   }, createContext());
-  const outcome = createStatusPasteOutcome(CLIPBOARD_MISSING_IMAGE_NOTICE);
+  const outcome = createMissingImagePasteOutcome();
   onPasteOutcome(outcome);
 
   assert.deepEqual(calls, [{
@@ -347,9 +348,9 @@ test("read-paste-image reports null completion even when request may be stale", 
   }]);
 });
 
-test("read-paste-image completes explicit status outcomes as clipboard-api results", async () => {
+test("read-paste-image completes explicit clipboard-failure outcomes as clipboard-api results", async () => {
   const calls = [];
-  const outcome = createStatusPasteOutcome(CLIPBOARD_MISSING_IMAGE_NOTICE);
+  const outcome = createMissingImagePasteOutcome();
   const runEffect = createMachineEffectRunner({
     readPasteImage: () => outcome,
     completeEffect: (result) => calls.push(result),
@@ -420,9 +421,9 @@ function createContext() {
   };
 }
 
-function createStatusPasteOutcome(noticeKind) {
-  return createMachineStatusPasteOutcome({
-    noticeKind,
+function createMissingImagePasteOutcome() {
+  return createMachineClipboardFailurePasteOutcome({
+    failureKind: CLIPBOARD_IMAGE_READ_KIND.MISSING_IMAGE,
   });
 }
 

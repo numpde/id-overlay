@@ -17,7 +17,7 @@ import { createPlacementTransform } from "../transform.js";
 
 export const MACHINE_PASTE_READ_OUTCOME_KIND = Object.freeze({
   DECODED_IMAGE: "decoded-image",
-  STATUS_NOTICE: "status-notice",
+  CLIPBOARD_FAILURE: "clipboard-failure",
 });
 
 export function completePasteRead(state, result) {
@@ -43,12 +43,16 @@ export function completePasteRead(state, result) {
       requestId: result.requestId,
     });
   }
-  if (outcome.kind !== MACHINE_PASTE_READ_OUTCOME_KIND.STATUS_NOTICE) {
+  if (outcome.kind !== MACHINE_PASTE_READ_OUTCOME_KIND.CLIPBOARD_FAILURE) {
+    return createTransitionResult({ state });
+  }
+  const noticeKind = resolveClipboardFailureNoticeKind(outcome.failureKind);
+  if (!noticeKind) {
     return createTransitionResult({ state });
   }
   const statusEvent = {
-    noticeKind: outcome.notice.kind,
-    noticePayload: outcome.notice.payload,
+    noticeKind,
+    noticePayload: null,
   };
   if (source !== MACHINE_PASTE_SOURCE.MANUAL_PASTE) {
     return reportStatusNotice(state, statusEvent);
@@ -69,10 +73,9 @@ export function normalizePasteReadOutcome(outcome) {
       placement: outcome.placement ?? null,
     });
   }
-  if (outcome.kind === MACHINE_PASTE_READ_OUTCOME_KIND.STATUS_NOTICE) {
-    return createStatusPasteOutcome({
-      noticeKind: outcome.notice?.kind,
-      noticePayload: outcome.notice?.payload ?? null,
+  if (outcome.kind === MACHINE_PASTE_READ_OUTCOME_KIND.CLIPBOARD_FAILURE) {
+    return createClipboardFailurePasteOutcome({
+      failureKind: outcome.failureKind,
     });
   }
   return null;
@@ -89,13 +92,13 @@ export function createPasteReadOutcomeFromClipboardFact({ fact, snapshot }) {
     });
   }
   if (fact.kind === CLIPBOARD_IMAGE_READ_KIND.MISSING_IMAGE) {
-    return createStatusPasteOutcome({
-      noticeKind: MACHINE_STATUS_NOTICE_KIND.CLIPBOARD_MISSING_IMAGE,
+    return createClipboardFailurePasteOutcome({
+      failureKind: fact.kind,
     });
   }
   if (fact.kind === CLIPBOARD_IMAGE_READ_KIND.UNREADABLE_IMAGE) {
-    return createStatusPasteOutcome({
-      noticeKind: MACHINE_STATUS_NOTICE_KIND.CLIPBOARD_IMAGE_UNREADABLE,
+    return createClipboardFailurePasteOutcome({
+      failureKind: fact.kind,
     });
   }
   return null;
@@ -118,15 +121,23 @@ export function createDecodedImagePasteOutcome({ image, placement = null, snapsh
   };
 }
 
-export function createStatusPasteOutcome({ noticeKind, noticePayload = null }) {
-  if (!noticeKind) {
+export function createClipboardFailurePasteOutcome({ failureKind }) {
+  if (!resolveClipboardFailureNoticeKind(failureKind)) {
     return null;
   }
   return {
-    kind: MACHINE_PASTE_READ_OUTCOME_KIND.STATUS_NOTICE,
-    notice: {
-      kind: noticeKind,
-      payload: noticePayload,
-    },
+    kind: MACHINE_PASTE_READ_OUTCOME_KIND.CLIPBOARD_FAILURE,
+    failureKind,
   };
+}
+
+function resolveClipboardFailureNoticeKind(failureKind) {
+  switch (failureKind) {
+    case CLIPBOARD_IMAGE_READ_KIND.MISSING_IMAGE:
+      return MACHINE_STATUS_NOTICE_KIND.CLIPBOARD_MISSING_IMAGE;
+    case CLIPBOARD_IMAGE_READ_KIND.UNREADABLE_IMAGE:
+      return MACHINE_STATUS_NOTICE_KIND.CLIPBOARD_IMAGE_UNREADABLE;
+    default:
+      return null;
+  }
 }

@@ -14,9 +14,6 @@ import {
 import { createPlacementTransform } from "../../src/core/transform.js";
 import { IMAGE } from "../helpers/session-fixtures.js";
 
-const CLIPBOARD_MISSING_IMAGE_NOTICE = "clipboard-missing-image";
-const CLIPBOARD_IMAGE_UNREADABLE_NOTICE = "clipboard-image-unreadable";
-
 const SNAPSHOT = Object.freeze({
   viewportRect: Object.freeze({ left: 0, top: 0, width: 800, height: 400 }),
   mapView: Object.freeze({
@@ -44,18 +41,15 @@ test("decoded clipboard image fact becomes a paste outcome with canonical initia
   });
 });
 
-test("clipboard failure facts become machine-owned paste status outcomes", () => {
+test("clipboard failure facts become paste failure outcomes", () => {
   assert.deepEqual(createPasteReadOutcomeFromClipboardFact({
     fact: createClipboardImageFailureFact({
       kind: CLIPBOARD_IMAGE_READ_KIND.MISSING_IMAGE,
     }),
     snapshot: SNAPSHOT,
   }), {
-    kind: MACHINE_PASTE_READ_OUTCOME_KIND.STATUS_NOTICE,
-    notice: {
-      kind: CLIPBOARD_MISSING_IMAGE_NOTICE,
-      payload: null,
-    },
+    kind: MACHINE_PASTE_READ_OUTCOME_KIND.CLIPBOARD_FAILURE,
+    failureKind: CLIPBOARD_IMAGE_READ_KIND.MISSING_IMAGE,
   });
 
   assert.deepEqual(createPasteReadOutcomeFromClipboardFact({
@@ -64,11 +58,8 @@ test("clipboard failure facts become machine-owned paste status outcomes", () =>
     }),
     snapshot: SNAPSHOT,
   }), {
-    kind: MACHINE_PASTE_READ_OUTCOME_KIND.STATUS_NOTICE,
-    notice: {
-      kind: CLIPBOARD_IMAGE_UNREADABLE_NOTICE,
-      payload: null,
-    },
+    kind: MACHINE_PASTE_READ_OUTCOME_KIND.CLIPBOARD_FAILURE,
+    failureKind: CLIPBOARD_IMAGE_READ_KIND.UNREADABLE_IMAGE,
   });
 });
 
