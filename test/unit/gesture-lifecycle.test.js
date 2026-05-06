@@ -78,6 +78,32 @@ test("gesture lifecycle ignores moves and finishes without an active drag", () =
   assert.equal(machineHost.getState().runtime.pointer.screenPx, null);
 });
 
+test("gesture lifecycle observes pointer movement when no drag is active", () => {
+  const { lifecycle, adapterDrag, machineHost } = createLifecycleHarness();
+
+  assert.equal(lifecycle.moveOrObservePointer({ x: 30, y: 40 }), true);
+
+  assert.deepEqual(adapterDrag.moveCalls, []);
+  assert.equal(machineHost.getState().runtime.activeGesture, null);
+  assert.deepEqual(machineHost.getState().runtime.pointer.screenPx, { x: 30, y: 40 });
+});
+
+test("gesture lifecycle clears pointer only while idle", () => {
+  const { lifecycle, machineHost } = createLifecycleHarness();
+
+  lifecycle.moveOrObservePointer({ x: 30, y: 40 });
+  assert.equal(lifecycle.clearPointerIfIdle(), true);
+  assert.equal(machineHost.getState().runtime.pointer.screenPx, null);
+
+  lifecycle.begin({
+    button: 0,
+    screenPoint: { x: 10, y: 20 },
+    dragMode: DRAG_MODE.MOVE_OVERLAY,
+  });
+  assert.equal(lifecycle.clearPointerIfIdle(), false);
+  assert.deepEqual(machineHost.getState().runtime.pointer.screenPx, { x: 10, y: 20 });
+});
+
 test("gesture lifecycle reset cancels adapter drag and interrupts runtime atomically", () => {
   const { lifecycle, adapterDrag, machineHost } = createLifecycleHarness();
 

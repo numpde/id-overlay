@@ -1,16 +1,8 @@
-import {
-  selectIsRuntimeDragging,
-} from "../../core/machine/selectors.js";
-
 export function createPointerInteraction({
   gestureLifecycle,
   runtimeBridge,
   errorBoundary,
 }) {
-  // TODO(smell): Pointer interaction still reads runtime dragging state to
-  // choose between hover observation and active gesture movement. The final
-  // gesture boundary should expose that branch as one lifecycle operation so
-  // content interaction code does not inspect runtime shape.
   return {
     handlePointerEnter,
     handlePointerLeave,
@@ -25,20 +17,12 @@ export function createPointerInteraction({
   }
 
   function handlePointerLeave() {
-    if (selectIsRuntimeDragging(runtimeBridge.getRuntimeState())) {
-      return;
-    }
-    runtimeBridge.clearPointer();
+    gestureLifecycle.clearPointerIfIdle();
   }
 
   function handlePointerMove(screenPoint) {
     return errorBoundary.run("handle-pointer-move", () => {
-      if (selectIsRuntimeDragging(runtimeBridge.getRuntimeState())) {
-        gestureLifecycle.move(screenPoint);
-        return true;
-      }
-      runtimeBridge.observePointer(screenPoint);
-      return true;
+      return gestureLifecycle.moveOrObservePointer(screenPoint);
     }, { fallbackValue: false });
   }
 

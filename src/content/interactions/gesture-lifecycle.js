@@ -21,8 +21,10 @@ export function createGestureLifecycle({
     destroy,
     begin,
     move,
+    moveOrObservePointer,
     finish,
     reset,
+    clearPointerIfIdle,
   };
 
   function destroy() {
@@ -51,6 +53,14 @@ export function createGestureLifecycle({
     return true;
   }
 
+  function moveOrObservePointer(screenPoint) {
+    if (move(screenPoint)) {
+      return true;
+    }
+    runtimeBridge.observePointer(screenPoint);
+    return true;
+  }
+
   function finish(screenPoint) {
     if (!adapterDrag.hasActive()) {
       return false;
@@ -69,6 +79,14 @@ export function createGestureLifecycle({
   } = {}) {
     adapterDrag.cancel(endPointerScreenPx, { commitPlacement });
     runtimeBridge.observeInputInterrupted({ pointerScreenPx });
+  }
+
+  function clearPointerIfIdle() {
+    if (selectIsRuntimeDragging(runtimeBridge.getRuntimeState())) {
+      return false;
+    }
+    runtimeBridge.clearPointer();
+    return true;
   }
 
   function syncAdapterDragFromRuntimeChange(previousRuntime, nextRuntime) {

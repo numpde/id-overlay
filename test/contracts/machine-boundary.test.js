@@ -294,6 +294,7 @@ test("gesture lifecycle is the only content-side coordinator of adapter drag and
   const forbiddenPatterns = [
     ["adapter drag dependency", /\badapterDrag\b/],
     ["adapter drag factory dependency", /\bcreateAdapterDragController\b/],
+    ["runtime drag selector", /\bselectIsRuntimeDragging\b/],
   ];
   const violations = [];
   for (const [relativePath, source] of checkedSources) {
