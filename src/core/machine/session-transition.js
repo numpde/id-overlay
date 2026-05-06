@@ -56,10 +56,9 @@ export function loadImageSession(state, {
     placement,
     registration: createEmptyRegistration(),
   };
-  const nextState = resetInputRuntimeState(
-    clearPlacementEditRuntime(replaceSession(state, nextSession)),
-    { pointerScreenPx: null },
-  );
+  const nextState = replaceSessionAndResetInteraction(state, nextSession, {
+    pointerScreenPx: null,
+  });
   const panelTransition = clearPanelIntent(state, nextState);
   return createTransitionResult({
     state: panelTransition.state,
@@ -88,15 +87,14 @@ export function clearImage(state) {
     });
   }
   const previousSession = state.session;
-  const nextState = resetInputRuntimeState(
-    clearPlacementEditRuntime(replaceSession(state, {
-      mode: MACHINE_MODE.TRACE,
-      image: null,
-      placement: null,
-      registration: createEmptyRegistration(),
-    })),
-    { pointerScreenPx: null },
-  );
+  const nextState = replaceSessionAndResetInteraction(state, {
+    mode: MACHINE_MODE.TRACE,
+    image: null,
+    placement: null,
+    registration: createEmptyRegistration(),
+  }, {
+    pointerScreenPx: null,
+  });
   const panelTransition = clearPanelIntent(state, nextState);
   return createTransitionResult({
     state: panelTransition.state,
@@ -117,9 +115,7 @@ export function clearImage(state) {
 }
 
 export function restoreImageSession(state, event) {
-  const nextState = resetInputRuntimeState(
-    clearPlacementEditRuntime(replaceSession(state, event.session ?? {})),
-  );
+  const nextState = replaceSessionAndResetInteraction(state, event.session ?? {});
   const panelTransition = clearPanelIntent(
     state,
     nextState,
@@ -151,9 +147,7 @@ export function selectMode(state, event) {
   if (mode === MACHINE_MODE.TRACE && shouldFitOnTrace(state)) {
     return fitOverlay(state);
   }
-  const nextState = resetInputRuntimeState(
-    clearPlacementEditRuntime(replaceSession(state, { mode })),
-  );
+  const nextState = replaceSessionAndResetInteraction(state, { mode });
   const panelTransition = clearInvalidPanelIntent(
     state,
     nextState,
@@ -174,4 +168,11 @@ export function setOpacity(state, event) {
   return createTransitionResult({
     state: replaceSession(state, { opacity: normalizeOpacity(event.opacity) }),
   });
+}
+
+function replaceSessionAndResetInteraction(state, sessionPatch, resetOptions = {}) {
+  return resetInputRuntimeState(
+    clearPlacementEditRuntime(replaceSession(state, sessionPatch)),
+    resetOptions,
+  );
 }
