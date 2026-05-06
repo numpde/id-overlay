@@ -369,9 +369,7 @@ test("effect and timer completion returns typed facts instead of dispatching com
   assert.deepEqual(violations, []);
 });
 
-test("effect requests declare their result fact vocabulary beside the request", {
-  todo: "Effect contracts should define typed result facts, not complete through public machine events.",
-}, () => {
+test("effect requests declare their result fact vocabulary beside the request", () => {
   const effectsSource = readSource(repoPath("src/core/machine/effects.js"));
   const eventsSource = readSource(repoPath("src/core/machine/events.js"));
   const violations = [];
@@ -431,9 +429,7 @@ test("placement planning is pure geometry and never constructs machine events", 
   assert.deepEqual(violations, []);
 });
 
-test("paste adapter reports clipboard facts, not machine-shaped outcomes", {
-  todo: "Return decoded-image or clipboard-failure facts; derive placement and status inside the machine.",
-}, () => {
+test("paste adapter reports clipboard facts, not machine-shaped outcomes", () => {
   const source = readSource(repoPath("src/content/paste-adapter.js"));
   const forbiddenPatterns = [
     ["status notice import", /\bMACHINE_STATUS_NOTICE_KIND\b/],
