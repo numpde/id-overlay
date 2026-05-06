@@ -436,6 +436,23 @@ test("input eligibility is centralized in the input projection", () => {
   assert.ok(fs.existsSync(repoPath("src/core/input-projection.js")));
 });
 
+test("content keyboard normalizer reports target facts, not shortcut editability policy", () => {
+  const contentSource = fs.readFileSync(repoPath("src/content/input-event-facts.js"), "utf8");
+  const coreSource = fs.readFileSync(repoPath("src/core/input-facts.js"), "utf8");
+  const forbiddenPatterns = [
+    ["content editability helper", /\bfunction\s+isEditableKeyboardTarget\b/],
+    ["content resolved editability flag", /\bisEditableTarget\s*:/],
+    ["content shortcut-safe input type list", /button["'][\s\S]*range["'][\s\S]*checkbox/],
+  ];
+  const violations = forbiddenPatterns
+    .filter(([, pattern]) => pattern.test(contentSource))
+    .map(([name]) => name);
+
+  assert.match(contentSource, /\bcreateKeyboardTargetFact\b/);
+  assert.match(coreSource, /\bSHORTCUT_SAFE_INPUT_TYPES\b/);
+  assert.deepEqual(violations, []);
+});
+
 test("input projection exposes narrow decisions, not aggregate bundles", () => {
   const source = fs.readFileSync(repoPath("src/core/input-projection.js"), "utf8");
   const forbiddenPatterns = [

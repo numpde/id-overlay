@@ -5,6 +5,14 @@ export const INPUT_KEY = Object.freeze({
 });
 
 const INPUT_KEYS = new Set(Object.values(INPUT_KEY));
+const SHORTCUT_SAFE_INPUT_TYPES = new Set([
+  "button",
+  "checkbox",
+  "radio",
+  "range",
+  "reset",
+  "submit",
+]);
 
 function isKnownInputKey(key) {
   return INPUT_KEYS.has(key);
@@ -50,12 +58,28 @@ export function createKeyboardInputFact({
   modifiers = null,
   isDefaultPrevented = false,
   isEditableTarget = false,
+  target = null,
 } = {}) {
+  const targetFact = target ? createKeyboardTargetFact(target) : null;
   return {
     key: normalizeInputKey(key),
     modifiers: normalizeInputModifiers(modifiers),
     isDefaultPrevented: Boolean(isDefaultPrevented),
-    isEditableTarget: Boolean(isEditableTarget),
+    isEditableTarget: targetFact
+      ? isEditableKeyboardTarget(targetFact)
+      : Boolean(isEditableTarget),
+  };
+}
+
+export function createKeyboardTargetFact({
+  tagName = "",
+  type = "",
+  isContentEditable = false,
+} = {}) {
+  return {
+    tagName: normalizeString(tagName).toUpperCase(),
+    type: normalizeString(type).toLowerCase(),
+    isContentEditable: Boolean(isContentEditable),
   };
 }
 
@@ -69,4 +93,21 @@ function normalizeInputKey(key) {
 
 function normalizeInteger(value, fallback) {
   return Number.isInteger(value) ? value : fallback;
+}
+
+function normalizeString(value) {
+  return typeof value === "string" ? value : "";
+}
+
+function isEditableKeyboardTarget(target) {
+  if (target.isContentEditable) {
+    return true;
+  }
+  if (target.tagName === "TEXTAREA" || target.tagName === "SELECT") {
+    return true;
+  }
+  if (target.tagName !== "INPUT") {
+    return false;
+  }
+  return !SHORTCUT_SAFE_INPUT_TYPES.has(target.type);
 }

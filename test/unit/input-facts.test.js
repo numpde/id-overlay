@@ -5,6 +5,7 @@ import {
   INPUT_KEY,
   createInputModifiers,
   createKeyboardInputFact,
+  createKeyboardTargetFact,
   createPointerInputFact,
   createWheelInputFact,
 } from "../../src/core/input-facts.js";
@@ -73,6 +74,30 @@ test("input fact builders normalize primitive input facts", () => {
     isEditableTarget: false,
   });
   assert.equal(createKeyboardInputFact({ key: "KeyP" }).key, "");
+});
+
+test("core keyboard target facts own shortcut editability policy", () => {
+  assert.deepEqual(createKeyboardTargetFact({
+    tagName: "input",
+    type: "TEXT",
+    isContentEditable: 0,
+  }), {
+    tagName: "INPUT",
+    type: "text",
+    isContentEditable: false,
+  });
+  assert.equal(createKeyboardInputFact({
+    target: { tagName: "input", type: "text" },
+  }).isEditableTarget, true);
+  assert.equal(createKeyboardInputFact({
+    target: { tagName: "input", type: "button" },
+  }).isEditableTarget, false);
+  assert.equal(createKeyboardInputFact({
+    target: { tagName: "button", type: "button" },
+  }).isEditableTarget, false);
+  assert.equal(createKeyboardInputFact({
+    target: { tagName: "div", isContentEditable: true },
+  }).isEditableTarget, true);
 });
 
 test("content input normalizers are the DOM event boundary", () => {
