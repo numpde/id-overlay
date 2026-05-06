@@ -42,11 +42,6 @@ export function loadImageSession(state, {
   placement = null,
   requestId = null,
 } = {}) {
-  // TODO(smell): Image/session transitions repeat the same transaction
-  // choreography: replace durable session, clear edit/runtime state, clear the
-  // panel request, then author status/history. The final shape should expose a
-  // tiny session-change transaction helper so branches state only semantic
-  // before/after sessions and labels.
   if (!image || !canLoadImageForRequest(state, { requestId })) {
     return createTransitionResult({
       state,
@@ -58,17 +53,12 @@ export function loadImageSession(state, {
     placement,
     registration: createEmptyRegistration(),
   };
-  const nextState = replaceSessionAndResetInteraction(state, nextSession, {
-    pointerScreenPx: null,
-  });
-  const panelTransition = clearPanelIntent(state, nextState);
-  return createTransitionResult({
-    state: panelTransition.state,
-    effects: panelTransition.effects,
-    statusNotice: createStatusNotice(MACHINE_STATUS_NOTICE_KIND.IMAGE_LOADED, {
+  return commitSessionPatch(state, nextSession, {
+    resetOptions: { pointerScreenPx: null },
+    buildStatusNotice: (nextState) => createStatusNotice(MACHINE_STATUS_NOTICE_KIND.IMAGE_LOADED, {
       image: nextState.session.image,
     }),
-    historyRecord: createSemanticHistoryRecord({
+    buildHistoryRecord: (nextState) => createSemanticHistoryRecord({
       kind: MACHINE_HISTORY_KIND.LOAD_IMAGE,
       label: "Loaded image",
       undoLabel: "Remove image",
@@ -89,18 +79,13 @@ export function clearImage(state) {
     });
   }
   const previousSession = state.session;
-  const nextState = replaceSessionAndResetInteraction(state, {
+  return commitSessionPatch(state, {
     mode: MACHINE_MODE.TRACE,
     image: null,
     placement: null,
     registration: createEmptyRegistration(),
   }, {
-    pointerScreenPx: null,
-  });
-  const panelTransition = clearPanelIntent(state, nextState);
-  return createTransitionResult({
-    state: panelTransition.state,
-    effects: panelTransition.effects,
+    resetOptions: { pointerScreenPx: null },
     statusNotice: createStatusNotice(MACHINE_STATUS_NOTICE_KIND.IMAGE_CLEARED),
     historyRecord: createSemanticHistoryRecord({
       kind: MACHINE_HISTORY_KIND.CLEAR_IMAGE,
@@ -117,14 +102,7 @@ export function clearImage(state) {
 }
 
 export function restoreImageSession(state, event) {
-  const nextState = replaceSessionAndResetInteraction(state, event.session ?? {});
-  const panelTransition = clearPanelIntent(
-    state,
-    nextState,
-  );
-  return createTransitionResult({
-    state: panelTransition.state,
-    effects: panelTransition.effects,
+  return commitSessionPatch(state, event.session ?? {}, {
     statusNotice: createStatusNotice(MACHINE_STATUS_NOTICE_KIND.IMAGE_RESTORED),
   });
 }
@@ -149,14 +127,8 @@ export function selectMode(state, event) {
   if (mode === MACHINE_MODE.TRACE && shouldFitOnTrace(state)) {
     return fitOverlay(state);
   }
-  const nextState = replaceSessionAndResetInteraction(state, { mode });
-  const panelTransition = clearInvalidPanelIntent(
-    state,
-    nextState,
-  );
-  return createTransitionResult({
-    state: panelTransition.state,
-    effects: panelTransition.effects,
+  return commitSessionPatch(state, { mode }, {
+    settlePanel: clearInvalidPanelIntent,
     statusNotice: createStatusNotice(MACHINE_STATUS_NOTICE_KIND.MODE_SELECTED, { mode }),
   });
 }
@@ -177,4 +149,22 @@ function replaceSessionAndResetInteraction(state, sessionPatch, resetOptions = {
     clearPlacementEditRuntime(replaceSession(state, sessionPatch)),
     resetOptions,
   );
+}
+
+function commitSessionPatch(state, sessionPatch, {
+  resetOptions = {},
+  settlePanel = clearPanelIntent,
+  statusNotice = null,
+  buildStatusNotice = null,
+  historyRecord = null,
+  buildHistoryRecord = null,
+} = {}) {
+  const nextState = replaceSessionAndResetInteraction(state, sessionPatch, resetOptions);
+  const panelTransition = settlePanel(state, nextState);
+  return createTransitionResult({
+    state: panelTransition.state,
+    effects: panelTransition.effects,
+    statusNotice: buildStatusNotice?.(nextState) ?? statusNotice,
+    historyRecord: buildHistoryRecord?.(nextState) ?? historyRecord,
+  });
 }
