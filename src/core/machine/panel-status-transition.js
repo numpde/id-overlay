@@ -71,10 +71,7 @@ export function cancelPanelIntent(state) {
   });
 }
 
-export function reportStatusNotice(state, event) {
-  // TODO(smell): Status reporting is a public transition command today. Runtime,
-  // paste, and interaction failures should report typed facts; this module
-  // should derive notices from those facts inside the machine.
+export function createStatusNoticeResult(state, event) {
   return createTransitionResult({
     state,
     statusNotice: createStatusNotice(event.noticeKind, event.noticePayload),

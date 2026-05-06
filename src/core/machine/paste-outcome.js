@@ -9,8 +9,8 @@ import {
 import { MACHINE_STATUS_NOTICE_KIND } from "./status-notices.js";
 import {
   cancelPanelIntent,
+  createStatusNoticeResult,
   isCurrentPasteRequest,
-  reportStatusNotice,
 } from "./panel-status-transition.js";
 import { loadImageSession } from "./session-transition.js";
 import {
@@ -52,7 +52,7 @@ export function completePasteRead(state, result) {
     noticePayload: null,
   };
   if (source !== MACHINE_PASTE_SOURCE.MANUAL_PASTE) {
-    return reportStatusNotice(state, statusEvent);
+    return createStatusNoticeResult(state, statusEvent);
   }
   const cancelled = cancelPanelIntent(state, {
     requestId: result.requestId,

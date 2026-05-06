@@ -17,6 +17,11 @@ import {
 } from "./effects.js";
 import { transitionMachineEffectResult } from "./effect-result-transition.js";
 import {
+  canCancelPanelIntent,
+  cancelPanelIntent as transitionCancelPanelIntent,
+  createStatusNoticeResult,
+} from "./panel-status-transition.js";
+import {
   MACHINE_PANEL_PRIMARY_ACTION_KIND,
   selectPanelPrimaryAction,
 } from "./policy.js";
@@ -30,6 +35,11 @@ import {
 } from "./page-context.js";
 import { createMachineRuntime } from "./runtime.js";
 import { transitionMachine } from "./transition.js";
+import {
+  createStatusNotice,
+  createTransitionResult,
+  withStatusNotice,
+} from "./transition-result.js";
 import { PLACEMENT_EDIT_PLAN_PHASE } from "../placement-edit-planning.js";
 import { clampOpacity, opacityFromWheelDelta } from "../transform.js";
 
@@ -156,7 +166,7 @@ export function createMachineHost({
           intent: MACHINE_PANEL_INTENT.PASTE_ARMED,
         });
       case MACHINE_PANEL_PRIMARY_ACTION_KIND.PASTE_ARMED:
-        return cancelPanelIntentWithStatusNotice({
+        return cancelCurrentPanelIntentWithStatusNotice({
           requestId: state.panel.requestId,
           noticeKind: MACHINE_STATUS_NOTICE_KIND.PASTE_CANCELLED,
         });
@@ -275,7 +285,7 @@ export function createMachineHost({
   }
 
   function reportRuntimeError(runtimeError) {
-    return reportStatusNotice({
+    return ingestStatusNotice({
       noticeKind: MACHINE_STATUS_NOTICE_KIND.RUNTIME_ERROR,
       noticePayload: {
         error: runtimeError,
@@ -325,20 +335,34 @@ export function createMachineHost({
     });
   }
 
-  function cancelPanelIntentWithStatusNotice({ requestId = null, noticeKind, noticePayload = null } = {}) {
-    return ingestMachineEvent({
-      type: MACHINE_COMMAND_KIND.CANCEL_PANEL_INTENT,
-      requestId,
-      noticeKind,
-      noticePayload,
+  function cancelCurrentPanelIntentWithStatusNotice({
+    requestId = null,
+    noticeKind,
+    noticePayload = null,
+  } = {}) {
+    const state = runtime.getState();
+    if (destroyed || !canCancelPanelIntent(state, { requestId })) {
+      return createNoopDispatchResult(state);
+    }
+    const cancelled = transitionCancelPanelIntent(state, { requestId });
+    return runtime.commitMachineResult(withStatusNotice(createTransitionResult({
+      state: cancelled.state,
+      effects: cancelled.effects,
+      statusNotice: createStatusNotice(noticeKind, noticePayload),
+    })), {
+      statusNotice: { noticeKind, noticePayload },
     });
   }
 
-  function reportStatusNotice({ noticeKind, noticePayload = null } = {}) {
-    return ingestMachineEvent({
-      type: MACHINE_COMMAND_KIND.REPORT_STATUS_NOTICE,
+  function ingestStatusNotice({ noticeKind, noticePayload = null } = {}) {
+    if (destroyed) {
+      return createDestroyedDispatchResult(runtime.getState());
+    }
+    return runtime.commitMachineResult(withStatusNotice(createStatusNoticeResult(runtime.getState(), {
       noticeKind,
       noticePayload,
+    })), {
+      statusNotice: { noticeKind, noticePayload },
     });
   }
 
@@ -521,7 +545,6 @@ export function createMachineHost({
     fitOverlay,
     requestPanelIntent,
     cancelPanelIntent,
-    reportStatusNotice,
     observeRuntimeFact,
     reportRuntimeError,
     togglePin,

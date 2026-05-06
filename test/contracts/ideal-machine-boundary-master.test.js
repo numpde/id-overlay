@@ -385,9 +385,7 @@ test("effect requests declare their result fact vocabulary beside the request", 
   assert.deepEqual(violations, []);
 });
 
-test("machine status notice vocabulary does not leak to content or tests", {
-  todo: "Expose status through typed facts and render selectors, not raw notice-kind constants outside machine internals.",
-}, () => {
+test("machine status notice vocabulary does not leak to content or tests", () => {
   const violations = [];
   const allowedFiles = new Set([
     import.meta.filename,

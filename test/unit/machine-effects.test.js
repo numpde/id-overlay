@@ -38,8 +38,6 @@ import {
   PLACEMENT,
 } from "../helpers/machine-scenarios.js";
 
-const CLIPBOARD_MISSING_IMAGE_NOTICE = "clipboard-missing-image";
-
 test("initial panel is idle", () => {
   assert.deepEqual(createInitialMachineState().panel, createIdlePanel());
 });
@@ -437,9 +435,7 @@ test("manual paste failure cancels paste before reporting status", () => {
 
 test("status timeout effect result clears only the matching request id", () => {
   const host = createHost();
-  host.reportStatusNotice({
-    noticeKind: CLIPBOARD_MISSING_IMAGE_NOTICE,
-  });
+  host.reportRuntimeError({ message: "runtime failure" });
   const before = state(host);
 
   const staleResult = transitionMachineEffectResult(before, createStatusTimeoutElapsedResult({

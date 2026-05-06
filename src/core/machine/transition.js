@@ -43,11 +43,9 @@ import {
   canCancelPanelIntent,
   cancelPanelIntent,
   clearStatusNotice,
-  reportStatusNotice,
   requestPanelIntent,
 } from "./panel-status-transition.js";
 import {
-  createStatusNotice,
   createTransitionResult,
   withHistoryRecord,
   withStatusNotice,
@@ -118,7 +116,6 @@ const transitionPlacement = Object.freeze({
 const transitionPanelStatus = Object.freeze({
   [MACHINE_COMMAND_KIND.REQUEST_PANEL_INTENT]: requestPanelIntent,
   [MACHINE_COMMAND_KIND.CANCEL_PANEL_INTENT]: transitionPanelCancelIntent,
-  [MACHINE_COMMAND_KIND.REPORT_STATUS_NOTICE]: reportStatusNotice,
   [MACHINE_COMMAND_KIND.CLEAR_STATUS_NOTICE]: clearStatusNotice,
 });
 
@@ -136,13 +133,5 @@ function transitionPanelCancelIntent(state, event) {
       state,
     });
   }
-  const cancelled = cancelPanelIntent(state, event);
-  if (!event.noticeKind) {
-    return cancelled;
-  }
-  return createTransitionResult({
-    state: cancelled.state,
-    effects: cancelled.effects,
-    statusNotice: createStatusNotice(event.noticeKind, event.noticePayload),
-  });
+  return cancelPanelIntent(state, event);
 }

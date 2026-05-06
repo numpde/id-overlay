@@ -25,6 +25,5 @@ export const MACHINE_COMMAND_KIND = Object.freeze({
   REDO: "redo",
   REQUEST_PANEL_INTENT: "request-panel-intent",
   CANCEL_PANEL_INTENT: "cancel-panel-intent",
-  REPORT_STATUS_NOTICE: "report-status-notice",
   CLEAR_STATUS_NOTICE: "clear-status-notice",
 });

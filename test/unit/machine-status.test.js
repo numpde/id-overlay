@@ -7,7 +7,7 @@ import {
 import { MACHINE_EFFECT_KIND } from "../../src/core/machine/effects.js";
 import {
   clearStatusNotice,
-  reportStatusNotice,
+  createStatusNoticeResult,
   requestPanelIntent,
 } from "../../src/core/machine/panel-status-transition.js";
 import {
@@ -22,7 +22,7 @@ const CLIPBOARD_MISSING_IMAGE_NOTICE = "clipboard-missing-image";
 const PASTE_CANCELLED_NOTICE = "paste-cancelled";
 
 test("status notice is canonical machine state with timeout effects", () => {
-  const result = applyStatus(reportStatusNotice(createInitialMachineState(), {
+  const result = applyStatus(createStatusNoticeResult(createInitialMachineState(), {
     noticeKind: CLIPBOARD_MISSING_IMAGE_NOTICE,
   }));
 
@@ -42,7 +42,7 @@ test("status notice is canonical machine state with timeout effects", () => {
 });
 
 test("clearing a current status notice falls back to derived baseline status", () => {
-  const noticed = applyStatus(reportStatusNotice(createInitialMachineState(), {
+  const noticed = applyStatus(createStatusNoticeResult(createInitialMachineState(), {
     noticeKind: PASTE_CANCELLED_NOTICE,
   })).state;
 
@@ -60,7 +60,7 @@ test("clearing a current status notice falls back to derived baseline status", (
 });
 
 test("stale status notice clear is ignored", () => {
-  const noticed = applyStatus(reportStatusNotice(createInitialMachineState(), {
+  const noticed = applyStatus(createStatusNoticeResult(createInitialMachineState(), {
     noticeKind: PASTE_CANCELLED_NOTICE,
   })).state;
 
@@ -76,7 +76,7 @@ test("clipboard-missing notice composes with active paste instructions", () => {
   let state = requestPanelIntent(createInitialMachineState(), {
     intent: MACHINE_PANEL_INTENT.PASTE_ARMED,
   }).state;
-  state = applyStatus(reportStatusNotice(state, {
+  state = applyStatus(createStatusNoticeResult(state, {
     noticeKind: CLIPBOARD_MISSING_IMAGE_NOTICE,
   })).state;
 
@@ -87,7 +87,7 @@ test("clipboard-missing notice composes with active paste instructions", () => {
 });
 
 test("new panel intent clears stale status notice and its timeout", () => {
-  let state = applyStatus(reportStatusNotice(createInitialMachineState(), {
+  let state = applyStatus(createStatusNoticeResult(createInitialMachineState(), {
     noticeKind: PASTE_CANCELLED_NOTICE,
   })).state;
 

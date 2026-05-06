@@ -11,8 +11,6 @@ import {
 } from "../../src/core/machine/runtime-facts.js";
 import { createInteractionRuntimeBridge } from "../../src/content/interactions/runtime-bridge.js";
 
-const RUNTIME_ERROR_NOTICE = "runtime-error";
-
 test("interaction runtime bridge reports runtime facts through the action port", () => {
   const { bridge, machineHost } = createRuntimeBridgeHarness();
 
@@ -64,10 +62,7 @@ test("interaction runtime bridge subscriber emits only meaningful runtime change
     observedRuntime.push(runtime);
   });
 
-  machineHost.reportStatusNotice({
-    noticeKind: RUNTIME_ERROR_NOTICE,
-    noticePayload: { error: { message: "ignored for runtime projection" } },
-  });
+  machineHost.reportRuntimeError({ message: "ignored for runtime projection" });
   bridge.observePointer({ x: 1, y: 2 });
 
   assert.equal(observedRuntime.length, 2);

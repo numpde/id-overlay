@@ -28,9 +28,6 @@ import {
   PLACEMENT,
 } from "../helpers/machine-scenarios.js";
 
-const CLIPBOARD_MISSING_IMAGE_NOTICE = "clipboard-missing-image";
-const PASTE_CANCELLED_NOTICE = "paste-cancelled";
-
 test("machine host hydrates from persisted durable session only", () => {
   const host = createHost({
     persistedSession: {
@@ -205,15 +202,11 @@ test("machine host starts, replaces, expires, and cancels request-bound status t
     clearStatusTimeout: timers.clear,
   });
 
-  host.reportStatusNotice({
-    noticeKind: CLIPBOARD_MISSING_IMAGE_NOTICE,
-  });
+  host.reportRuntimeError({ message: "first runtime failure" });
   assert.equal(timers.pendingCount(), 1);
   assert.equal(host.getState().status.notice.requestId, 1);
 
-  host.reportStatusNotice({
-    noticeKind: PASTE_CANCELLED_NOTICE,
-  });
+  host.reportRuntimeError({ message: "second runtime failure" });
   assert.equal(timers.pendingCount(), 1);
   assert.deepEqual(timers.cleared, [1]);
   assert.equal(host.getState().status.notice.requestId, 2);
@@ -222,9 +215,7 @@ test("machine host starts, replaces, expires, and cancels request-bound status t
   assert.equal(host.getState().status.notice, null);
   assert.equal(timers.pendingCount(), 0);
 
-  host.reportStatusNotice({
-    noticeKind: PASTE_CANCELLED_NOTICE,
-  });
+  host.reportRuntimeError({ message: "third runtime failure" });
   timers.fireLatest();
 
   assert.equal(host.getState().status.notice, null);
@@ -251,9 +242,7 @@ test("machine host destroy unsubscribes persistence and cancels outstanding time
   });
 
   host.requestPanelIntent(MACHINE_PANEL_INTENT.CLEAR_IMAGE_CONFIRM);
-  host.reportStatusNotice({
-    noticeKind: PASTE_CANCELLED_NOTICE,
-  });
+  host.reportRuntimeError({ message: "runtime failure" });
   assert.equal(timers.pendingCount(), 1);
   assert.equal(statusTimers.pendingCount(), 1);
 
