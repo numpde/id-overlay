@@ -8,12 +8,16 @@ import {
 } from "../../src/core/machine/events.js";
 import {
   MACHINE_EFFECT_KIND,
-  MACHINE_PASTE_SOURCE,
-  createClipboardFactPasteReadOutcome,
+} from "../../src/core/machine/effect-requests.js";
+import {
   createPanelTimeoutElapsedResult,
   createReadPasteImageResult,
   createStatusTimeoutElapsedResult,
-} from "../../src/core/machine/effects.js";
+} from "../../src/core/machine/effect-results.js";
+import {
+  MACHINE_PASTE_SOURCE,
+  createClipboardFactPasteReadOutcome,
+} from "../../src/core/machine/paste-read.js";
 import { transitionMachineEffectResult } from "../../src/core/machine/effect-result-transition.js";
 import {
   CLIPBOARD_IMAGE_READ_KIND,

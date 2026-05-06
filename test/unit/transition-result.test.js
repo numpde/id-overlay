@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 
 import {
   MACHINE_EFFECT_KIND,
-} from "../../src/core/machine/effects.js";
+} from "../../src/core/machine/effect-requests.js";
 import {
   MACHINE_HISTORY_KIND,
 } from "../../src/core/machine/events.js";

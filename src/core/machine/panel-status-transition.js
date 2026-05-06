@@ -14,7 +14,7 @@ import {
   createReadPasteImageEffect,
   createStartManualPasteCaptureEffect,
   createStartPanelTimeoutEffect,
-} from "./effects.js";
+} from "./effect-requests.js";
 import { isPanelIntentValidForState } from "./policy.js";
 import {
   createCancelStatusTimeoutEffects,

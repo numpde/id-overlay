@@ -6,13 +6,17 @@ import {
 } from "../../src/core/machine/events.js";
 import {
   MACHINE_EFFECT_KIND,
+} from "../../src/core/machine/effect-requests.js";
+import {
   MACHINE_EFFECT_RESULT_KIND,
-  MACHINE_PASTE_SOURCE,
-  createClipboardFactPasteReadOutcome,
   createPanelTimeoutElapsedResult,
   createReadPasteImageResult,
   createStatusTimeoutElapsedResult,
-} from "../../src/core/machine/effects.js";
+} from "../../src/core/machine/effect-results.js";
+import {
+  MACHINE_PASTE_SOURCE,
+  createClipboardFactPasteReadOutcome,
+} from "../../src/core/machine/paste-read.js";
 import { createMachineEffectRunner } from "../../src/core/machine/effect-runner.js";
 import {
   createInitialMachineState,

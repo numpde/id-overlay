@@ -10,7 +10,7 @@ import {
 } from "../../src/core/clipboard-facts.js";
 import {
   createClipboardFactPasteReadOutcome,
-} from "../../src/core/machine/effects.js";
+} from "../../src/core/machine/paste-read.js";
 import {
   selectPanelStatusText,
 } from "../../src/core/machine/selectors.js";

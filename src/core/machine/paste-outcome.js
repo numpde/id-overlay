@@ -5,7 +5,7 @@ import {
   MACHINE_PASTE_READ_OUTCOME_KIND,
   MACHINE_PASTE_SOURCE,
   normalizeMachinePasteSource,
-} from "./effects.js";
+} from "./paste-read.js";
 import { MACHINE_STATUS_NOTICE_KIND } from "./status-notices.js";
 import {
   cancelPanelIntent,

@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import {
   MACHINE_PANEL_INTENT,
 } from "../../src/core/machine/events.js";
-import { MACHINE_EFFECT_KIND } from "../../src/core/machine/effects.js";
+import { MACHINE_EFFECT_KIND } from "../../src/core/machine/effect-requests.js";
 import {
   clearStatusNotice,
   createStatusNoticeResult,

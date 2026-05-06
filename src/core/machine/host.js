@@ -11,7 +11,7 @@ import { createMachineEffectRunner } from "./effect-runner.js";
 import {
   createPanelTimeoutElapsedResult,
   createStatusTimeoutElapsedResult,
-} from "./effects.js";
+} from "./effect-results.js";
 import { createRequestTimerRegistry } from "./request-timers.js";
 import { transitionMachineEffectResult } from "./effect-result-transition.js";
 import {

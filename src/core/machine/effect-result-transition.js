@@ -1,4 +1,4 @@
-import { MACHINE_EFFECT_RESULT_KIND } from "./effects.js";
+import { MACHINE_EFFECT_RESULT_KIND } from "./effect-results.js";
 import { completePasteRead } from "./paste-outcome.js";
 import {
   canCancelPanelIntent,

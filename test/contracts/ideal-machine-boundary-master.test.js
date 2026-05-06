@@ -351,16 +351,23 @@ test("effect and timer completion returns typed facts instead of dispatching com
   assert.deepEqual(violations, []);
 });
 
-test("effect requests declare their result fact vocabulary beside the request", () => {
-  const effectsSource = readSource(repoPath("src/core/machine/effects.js"));
+test("machine effect vocabulary is split by concern", () => {
+  const effectResultsSource = readSource(repoPath("src/core/machine/effect-results.js"));
+  const pasteReadSource = readSource(repoPath("src/core/machine/paste-read.js"));
   const eventsSource = readSource(repoPath("src/core/machine/events.js"));
   const violations = [];
 
-  if (!/\bMACHINE_EFFECT_RESULT_KIND\b/.test(effectsSource)) {
+  if (fs.existsSync(repoPath("src/core/machine/effects.js"))) {
+    violations.push("forbidden: broad effects registry");
+  }
+  if (!/\bMACHINE_EFFECT_RESULT_KIND\b/.test(effectResultsSource)) {
     violations.push("missing: MACHINE_EFFECT_RESULT_KIND");
   }
-  if (!/\bcreateReadPasteImageResult\b/.test(effectsSource)) {
+  if (!/\bcreateReadPasteImageResult\b/.test(effectResultsSource)) {
     violations.push("missing: paste read result constructor");
+  }
+  if (!/\bMACHINE_PASTE_READ_OUTCOME_KIND\b/.test(pasteReadSource)) {
+    violations.push("missing: paste read outcome vocabulary");
   }
   if (/\bCOMPLETE_PASTE_READ\b/.test(eventsSource)) {
     violations.push("forbidden: paste completion in public machine event vocabulary");
