@@ -1,10 +1,8 @@
 import {
   MACHINE_EFFECT_KIND,
+  MACHINE_PASTE_SOURCE,
   createReadPasteImageResult,
 } from "./effects.js";
-import {
-  MACHINE_PASTE_SOURCE,
-} from "./events.js";
 
 export function createMachineEffectRunner({
   readPasteImage = null,

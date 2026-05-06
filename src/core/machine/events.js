@@ -35,8 +35,3 @@ export const MACHINE_POINTER_GESTURE_KIND = Object.freeze({
 export const MACHINE_INPUT_OVERRIDE = Object.freeze({
   PASS_THROUGH: "pass-through",
 });
-
-export const MACHINE_PASTE_SOURCE = Object.freeze({
-  CLIPBOARD_API: "clipboard-api",
-  MANUAL_PASTE: "manual-paste",
-});

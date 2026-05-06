@@ -5,10 +5,10 @@ import {
   MACHINE_HISTORY_KIND,
   MACHINE_MODE,
   MACHINE_PANEL_INTENT,
-  MACHINE_PASTE_SOURCE,
 } from "../../src/core/machine/events.js";
 import {
   MACHINE_EFFECT_KIND,
+  MACHINE_PASTE_SOURCE,
   createPanelTimeoutElapsedResult,
   createReadPasteImageResult,
   createStatusTimeoutElapsedResult,

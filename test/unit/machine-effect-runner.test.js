@@ -3,11 +3,11 @@ import assert from "node:assert/strict";
 
 import {
   MACHINE_PANEL_INTENT,
-  MACHINE_PASTE_SOURCE,
 } from "../../src/core/machine/events.js";
 import {
   MACHINE_EFFECT_KIND,
   MACHINE_EFFECT_RESULT_KIND,
+  MACHINE_PASTE_SOURCE,
   createPanelTimeoutElapsedResult,
   createReadPasteImageResult,
   createStatusTimeoutElapsedResult,

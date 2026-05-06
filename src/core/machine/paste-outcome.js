@@ -3,7 +3,7 @@ import {
 } from "../clipboard-facts.js";
 import {
   MACHINE_PASTE_SOURCE,
-} from "./events.js";
+} from "./effects.js";
 import { MACHINE_STATUS_NOTICE_KIND } from "./status-notices.js";
 import {
   cancelPanelIntent,

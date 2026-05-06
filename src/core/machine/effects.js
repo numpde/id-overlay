@@ -14,6 +14,11 @@ export const MACHINE_EFFECT_RESULT_KIND = Object.freeze({
   STATUS_TIMEOUT_ELAPSED: "status-timeout-elapsed-result",
 });
 
+export const MACHINE_PASTE_SOURCE = Object.freeze({
+  CLIPBOARD_API: "clipboard-api",
+  MANUAL_PASTE: "manual-paste",
+});
+
 export function createReadPasteImageEffect({ requestId }) {
   return {
     kind: MACHINE_EFFECT_KIND.READ_PASTE_IMAGE,
