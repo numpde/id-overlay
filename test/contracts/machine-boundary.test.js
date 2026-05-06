@@ -445,6 +445,25 @@ test("overlay input router delegates event recovery and pointer sequence semanti
   assert.deepEqual(violations, []);
 });
 
+test("overlay input router delegates mounted input policy dispatch", () => {
+  const source = fs.readFileSync(repoPath("src/content/overlay/input-router.js"), "utf8");
+  const forbiddenPatterns = [
+    ["DOM input fact construction", /input-event-facts\.js/],
+    ["mounted pointer move policy access", /\.pointerMove\b/],
+    ["mounted pointer sequence policy access", /\.pointerSequence\b/],
+    ["mounted activation policy access", /\.activation\b/],
+    ["mounted wheel policy access", /\.wheel\b/],
+    ["mounted pin interaction dispatch", /\boverlayInteractions\.handleTogglePin\b/],
+    ["mounted wheel interaction dispatch", /\boverlayInteractions\.handleWheel\b/],
+  ];
+  const violations = forbiddenPatterns
+    .filter(([, pattern]) => pattern.test(source))
+    .map(([name]) => name);
+
+  assert.match(source, /mounted-input-dispatcher\.js/);
+  assert.deepEqual(violations, []);
+});
+
 test("similarity solving has one implementation", () => {
   const definitions = [];
   for (const filePath of listJavaScriptFiles(repoPath("src"))) {

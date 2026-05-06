@@ -1,14 +1,12 @@
 import {
-  createPointerInputFactFromEvent,
-  createWheelInputFactFromEvent,
-} from "../input-event-facts.js";
-import {
   selectIsRuntimeDragging,
-  selectRuntimePointerScreenPx,
 } from "../../core/machine/selectors.js";
 import { createOverlayEventBoundary } from "./event-boundary.js";
 import { createOverlayInputHost } from "./input-host.js";
 import { createOverlayInputProjector } from "./input-projector.js";
+import {
+  createOverlayMountedInputDispatcher,
+} from "./mounted-input-dispatcher.js";
 import {
   createOverlayPointerSequenceRouter,
 } from "./pointer-sequence-router.js";
@@ -20,9 +18,9 @@ export function createOverlayInputRouter({
   getOverlayInputContext,
   getMountElement,
 }) {
-  // TODO(smell): This router still couples DOM gesture routing, event
-  // consumption, interaction dispatch, and error recovery. Listener ownership,
-  // input projection, and pending sequence state now live behind narrow seams.
+  // TODO(smell): This router still owns global pointer gesture dispatch beside
+  // listener wiring. Mounted policy dispatch, event recovery, input projection,
+  // and pending sequence state now live behind narrow seams.
   let isDestroyed = false;
   const pointerSequenceRouter = createOverlayPointerSequenceRouter({
     onChange: syncGlobalPointerListeners,
@@ -37,6 +35,13 @@ export function createOverlayInputRouter({
   const inputProjector = createOverlayInputProjector({
     pageProjection,
     getOverlayInputContext,
+  });
+  const mountedInputDispatcher = createOverlayMountedInputDispatcher({
+    overlayInteractions,
+    inputProjector,
+    getRuntimeState,
+    pointerSequenceRouter,
+    consumeOverlayEvent: (event) => eventBoundary.consumeOverlayEvent(event),
   });
   const inputHost = createOverlayInputHost({
     getMountElement,
@@ -75,35 +80,13 @@ export function createOverlayInputRouter({
       if (eventBoundary.isForwardedMapGestureEvent(event)) {
         return;
       }
-      if (pointerSequenceRouter.hasPending()) {
-        return;
-      }
-      const runtime = getRuntimeState();
-      const screenPoint = inputProjector.screenPointFromEvent(event);
-      if (selectIsRuntimeDragging(runtime)) {
-        overlayInteractions.handlePointerMove(screenPoint);
-        eventBoundary.consumeOverlayEvent(event);
-        return;
-      }
-      const pointerPolicy = inputProjector.resolveMountedInputProjection(screenPoint, {
-        pointer: createPointerInputFactFromEvent(event),
-      }).pointerMove;
-      if (pointerPolicy.shouldTrackPointer) {
-        overlayInteractions.handlePointerMove(screenPoint);
-        return;
-      }
-      if (selectRuntimePointerScreenPx(runtime)) {
-        overlayInteractions.handlePointerLeave();
-      }
+      mountedInputDispatcher.handlePointerMove(event);
     });
   }
 
   function handleMountedPointerLeave() {
     eventBoundary.run("mounted-pointer-leave", null, () => {
-      if (selectIsRuntimeDragging(getRuntimeState())) {
-        return;
-      }
-      overlayInteractions.handlePointerLeave();
+      mountedInputDispatcher.handlePointerLeave();
     });
   }
 
@@ -112,19 +95,7 @@ export function createOverlayInputRouter({
       if (eventBoundary.isForwardedMapGestureEvent(event)) {
         return;
       }
-      const screenPoint = inputProjector.screenPointFromEvent(event);
-      const pointerPolicy = inputProjector.resolveMountedInputProjection(screenPoint, {
-        pointer: createPointerInputFactFromEvent(event),
-      }).pointerSequence;
-      if (!pointerPolicy.shouldOwnPointerSequence) {
-        return;
-      }
-      pointerSequenceRouter.begin({
-        button: event.button,
-        dragMode: pointerPolicy.dragMode,
-        startScreenPoint: screenPoint,
-      });
-      eventBoundary.consumeOverlayEvent(event);
+      mountedInputDispatcher.handlePointerDown(event);
     });
   }
 
@@ -133,15 +104,7 @@ export function createOverlayInputRouter({
       if (eventBoundary.isForwardedMapGestureEvent(event)) {
         return;
       }
-      const screenPoint = inputProjector.screenPointFromEvent(event);
-      const activationPolicy = inputProjector.resolveMountedInputProjection(screenPoint).activation;
-      if (!activationPolicy.shouldTogglePin) {
-        return;
-      }
-      if (!overlayInteractions.handleTogglePin({ screenPoint })) {
-        return;
-      }
-      eventBoundary.consumeOverlayEvent(event);
+      mountedInputDispatcher.handleDoubleClick(event);
     });
   }
 
@@ -150,12 +113,7 @@ export function createOverlayInputRouter({
       if (eventBoundary.isForwardedMapGestureEvent(event)) {
         return;
       }
-      const screenPoint = inputProjector.screenPointFromEvent(event);
-      const activationPolicy = inputProjector.resolveMountedInputProjection(screenPoint).activation;
-      if (!activationPolicy.shouldConsumeClick) {
-        return;
-      }
-      eventBoundary.consumeOverlayEvent(event);
+      mountedInputDispatcher.handleClick(event);
     });
   }
 
@@ -164,23 +122,7 @@ export function createOverlayInputRouter({
       if (eventBoundary.isForwardedMapGestureEvent(event)) {
         return;
       }
-      const screenPoint = inputProjector.screenPointFromEvent(event);
-      const wheelPolicy = inputProjector.resolveMountedInputProjection(screenPoint, {
-        wheel: createWheelInputFactFromEvent(event),
-      }).wheel;
-      if (!wheelPolicy.shouldHandle) {
-        return;
-      }
-      if (!overlayInteractions.handleWheel({
-        deltaY: event.deltaY,
-        wheelMode: wheelPolicy.wheelMode,
-        screenPoint,
-      })) {
-        return;
-      }
-      if (wheelPolicy.shouldConsume) {
-        eventBoundary.consumeOverlayEvent(event);
-      }
+      mountedInputDispatcher.handleWheel(event);
     });
   }
 
