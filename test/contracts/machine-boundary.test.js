@@ -427,6 +427,24 @@ test("input eligibility is centralized in the input projection", () => {
   assert.ok(fs.existsSync(repoPath("src/core/input-projection.js")));
 });
 
+test("overlay input router delegates event recovery and pointer sequence semantics", () => {
+  const source = fs.readFileSync(repoPath("src/content/overlay/input-router.js"), "utf8");
+  const forbiddenPatterns = [
+    ["runtime error vocabulary", /\bRUNTIME_ERROR_SOURCE\b/],
+    ["forwarded map gesture flag", /\bFORWARDED_MAP_GESTURE_EVENT_FLAG\b/],
+    ["pending sequence state module", /pending-pointer-sequence\.js/],
+    ["pending sequence outcome vocabulary", /\bPENDING_POINTER_SEQUENCE_ADVANCE_KIND\b/],
+    ["local overlay event consumer", /\bfunction\s+consumeOverlayEvent\b/],
+  ];
+  const violations = forbiddenPatterns
+    .filter(([, pattern]) => pattern.test(source))
+    .map(([name]) => name);
+
+  assert.match(source, /event-boundary\.js/);
+  assert.match(source, /pointer-sequence-router\.js/);
+  assert.deepEqual(violations, []);
+});
+
 test("similarity solving has one implementation", () => {
   const definitions = [];
   for (const filePath of listJavaScriptFiles(repoPath("src"))) {
