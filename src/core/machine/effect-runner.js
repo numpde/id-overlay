@@ -1,104 +1,20 @@
-import { MACHINE_EFFECT_KIND } from "./effect-requests.js";
-import { createReadPasteImageResult } from "./effect-results.js";
-import { MACHINE_PASTE_SOURCE } from "./paste-read.js";
+import { createPasteEffectHandlers } from "./paste-effect-handlers.js";
+import { createTimerEffectHandlers } from "./timer-effect-handlers.js";
 
-export function createMachineEffectRunner({
-  readPasteImage = null,
-  startManualPasteCapture = null,
-  cancelManualPasteCapture = null,
-  startPanelTimeout = null,
-  cancelPanelTimeout = null,
-  startStatusTimeout = null,
-  cancelStatusTimeout = null,
-  completeEffect = null,
-  onError = null,
-} = {}) {
-  // TODO(smell): Effect execution, adapter argument shaping, and effect-result
-  // completion are centralized in one switch. Split by effect family once the
-  // remaining effect vocabulary is stable so adding an effect does not require
-  // editing runner control flow and result construction together.
+export function createMachineEffectRunner(options = {}) {
+  const { onError = null } = options;
+  const handlers = {
+    ...createPasteEffectHandlers(options),
+    ...createTimerEffectHandlers(options),
+  };
+
   return async function runMachineEffect(effect, context = {}) {
     try {
-      await runEffect(effect, context);
+      await handlers[effect?.kind]?.(effect, context);
     } catch (error) {
       reportError(error, { effect, context });
     }
   };
-
-  async function runEffect(effect, context) {
-    switch (effect?.kind) {
-      case MACHINE_EFFECT_KIND.READ_PASTE_IMAGE:
-        return runReadPasteImage(effect, context);
-      case MACHINE_EFFECT_KIND.START_MANUAL_PASTE_CAPTURE:
-        return runManualPasteCapture(effect, context);
-      case MACHINE_EFFECT_KIND.CANCEL_MANUAL_PASTE_CAPTURE:
-        return cancelManualPasteCapture?.({
-          requestId: effect.requestId,
-          context,
-        });
-      case MACHINE_EFFECT_KIND.START_PANEL_TIMEOUT:
-        return startPanelTimeout?.({
-          intent: effect.intent,
-          requestId: effect.requestId,
-          context,
-        });
-      case MACHINE_EFFECT_KIND.CANCEL_PANEL_TIMEOUT:
-        return cancelPanelTimeout?.({
-          requestId: effect.requestId,
-          context,
-        });
-      case MACHINE_EFFECT_KIND.START_STATUS_TIMEOUT:
-        return startStatusTimeout?.({
-          requestId: effect.requestId,
-          context,
-        });
-      case MACHINE_EFFECT_KIND.CANCEL_STATUS_TIMEOUT:
-        return cancelStatusTimeout?.({
-          requestId: effect.requestId,
-          context,
-        });
-      default:
-        return undefined;
-    }
-  }
-
-  async function runReadPasteImage(effect, context) {
-    if (!readPasteImage) {
-      return;
-    }
-    const outcome = await readPasteImage({
-      requestId: effect.requestId,
-      context,
-    });
-    completePasteRead({
-      outcome,
-      requestId: effect.requestId,
-      source: MACHINE_PASTE_SOURCE.CLIPBOARD_API,
-    });
-  }
-
-  async function runManualPasteCapture(effect, context) {
-    if (!startManualPasteCapture) {
-      return;
-    }
-    const outcome = await startManualPasteCapture({
-      requestId: effect.requestId,
-      context,
-    });
-    completePasteRead({
-      outcome,
-      requestId: effect.requestId,
-      source: MACHINE_PASTE_SOURCE.MANUAL_PASTE,
-    });
-  }
-
-  function completePasteRead({ outcome, requestId, source }) {
-    completeEffect?.(createReadPasteImageResult({
-      requestId,
-      source,
-      outcome,
-    }));
-  }
 
   function reportError(error, payload) {
     onError?.(error, payload);

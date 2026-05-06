@@ -353,6 +353,7 @@ test("effect and timer completion returns typed facts instead of dispatching com
 
 test("machine effect vocabulary is split by concern", () => {
   const effectResultsSource = readSource(repoPath("src/core/machine/effect-results.js"));
+  const effectRunnerSource = readSource(repoPath("src/core/machine/effect-runner.js"));
   const pasteReadSource = readSource(repoPath("src/core/machine/paste-read.js"));
   const eventsSource = readSource(repoPath("src/core/machine/events.js"));
   const violations = [];
@@ -368,6 +369,9 @@ test("machine effect vocabulary is split by concern", () => {
   }
   if (!/\bMACHINE_PASTE_READ_OUTCOME_KIND\b/.test(pasteReadSource)) {
     violations.push("missing: paste read outcome vocabulary");
+  }
+  if (/\bswitch\s*\(\s*effect\?\.kind\s*\)/.test(effectRunnerSource)) {
+    violations.push("forbidden: central effect-runner switch");
   }
   if (/\bCOMPLETE_PASTE_READ\b/.test(eventsSource)) {
     violations.push("forbidden: paste completion in public machine event vocabulary");
