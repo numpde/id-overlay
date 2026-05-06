@@ -64,9 +64,6 @@ export function createWheelCommand({
   }
 
   function handleOpacityWheel({ deltaY, screenPoint }) {
-    // TODO(smell): Content computes the next durable opacity and dispatches the
-    // state command. The final boundary should report an opacity adjustment
-    // intent/fact; clamping and state mutation should remain machine-owned.
     const result = machineActions.changeOpacityByWheel({ deltaY });
     const nextOpacity = result.state.session.opacity;
     return createHandledOutcome({

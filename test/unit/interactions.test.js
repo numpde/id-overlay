@@ -54,10 +54,6 @@ import {
 } from "../helpers/keyboard-events.js";
 import { IMAGE as TEST_IMAGE } from "../helpers/session-fixtures.js";
 
-// TODO(smell): These tests exercise interaction behavior through the current
-// low-level dispatch/event vocabulary and monolithic page adapter. Replace the
-// harness with public user/fact ingress once content no longer authors mutation
-// commands directly.
 test("shift-dragging updates placement through the adapter only", () => {
   const harness = createHarness();
   const { controller, machineHost } = harness;
@@ -263,7 +259,7 @@ test("machine fit event solves from interaction-created pins and clears the dirt
   controller.handleTogglePin({ screenPoint: { x: 500, y: 300 } });
   controller.handleTogglePin({ screenPoint: { x: 700, y: 300 } });
 
-  const result = dispatchMachineFitOverlayForSetup(harness);
+  const result = fitOverlayForSetup(harness);
 
   assert.ok(result.state.session.registration.solvedTransform);
   assert.equal(getSession(harness).registration.dirty, false);
@@ -356,7 +352,7 @@ test("clearing pins preserves the current rendered placement after a solved tran
     snapshot: pageAdapter.getSnapshot(),
   });
 
-  dispatchMachineClearPinsPreservingRenderedPlacement(harness);
+  clearPinsPreservingRenderedPlacement(harness);
 
   const after = resolveOverlayScreenTransform({
     state: getSession(harness),
@@ -1306,19 +1302,19 @@ function seedMachineImageSession({ machineHost, pageAdapter }, image = TEST_IMAG
   });
 }
 
-function dispatchMachineFitOverlayForSetup({ machineHost }) {
+function fitOverlayForSetup({ machineHost }) {
   return machineHost.fitOverlay();
 }
 
 function seedMachineSolvedRegistrationForAlignSetup(harness) {
-  const result = dispatchMachineFitOverlayForSetup(harness);
+  const result = fitOverlayForSetup(harness);
   if (result.state.session.registration.solvedTransform) {
     harness.machineHost.selectMode(SESSION_MODE.ALIGN);
   }
   return result;
 }
 
-function dispatchMachineClearPinsPreservingRenderedPlacement({ machineHost, pageAdapter }) {
+function clearPinsPreservingRenderedPlacement({ machineHost, pageAdapter }) {
   return machineHost.clearPins({
     preservedPlacement: derivePreservedPlacement({
       state: machineHost.getState().session,
