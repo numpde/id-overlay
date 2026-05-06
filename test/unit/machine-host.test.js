@@ -5,7 +5,6 @@ import {
   MACHINE_MODE,
   MACHINE_PANEL_INTENT,
 } from "../../src/core/machine/events.js";
-import { createMachineHost } from "../../src/core/machine/host.js";
 import {
   selectPanelStatusText,
 } from "../../src/core/machine/selectors.js";
@@ -13,32 +12,21 @@ import {
   createIdlePanel,
   createInitialMachineState,
 } from "../../src/core/machine/state.js";
-import { normalizeSessionImage } from "../../src/core/session.js";
+import {
+  addPin,
+  createHost,
+  createLoadedHost,
+  IMAGE,
+  loadImage,
+  NORMALIZED_IMAGE,
+  PLACEMENT,
+} from "../helpers/machine-scenarios.js";
 
-// TODO(smell): Host tests still use explicit event-shaped host verbs for setup.
-// Collapse those into product-level user/fact ingress once the public
-// interpreter replaces raw machine events.
-const IMAGE = Object.freeze({
-  src: "data:image/png;base64,abc",
-  width: 800,
-  height: 400,
-});
-const NORMALIZED_IMAGE = normalizeSessionImage(IMAGE);
 const CLIPBOARD_MISSING_IMAGE_NOTICE = "clipboard-missing-image";
 const PASTE_CANCELLED_NOTICE = "paste-cancelled";
 
-const PLACEMENT = Object.freeze({
-  type: "similarity",
-  a: 1,
-  b: 0,
-  tx: 10,
-  ty: 20,
-  scale: 1,
-  rotationRad: 0,
-});
-
 test("machine host hydrates from persisted durable session only", () => {
-  const host = createMachineHost({
+  const host = createHost({
     persistedSession: {
       mode: MACHINE_MODE.ALIGN,
       opacity: 0.75,
@@ -63,7 +51,7 @@ test("machine host hydrates from persisted durable session only", () => {
 
 test("machine host persists durable session after state changes only", () => {
   const saves = [];
-  const host = createMachineHost({
+  const host = createHost({
     savePersistedSession: (session) => saves.push(session),
   });
 
@@ -74,10 +62,7 @@ test("machine host persists durable session after state changes only", () => {
   host.requestPanelIntent(MACHINE_PANEL_INTENT.CLEAR_IMAGE_CONFIRM);
   assert.deepEqual(saves, []);
 
-  host.loadImage({
-    image: IMAGE,
-    placement: PLACEMENT,
-  });
+  loadImage(host);
 
   assert.equal(saves.length, 1);
   assert.deepEqual(saves[0], {
@@ -94,7 +79,7 @@ test("machine host persists durable session after state changes only", () => {
 });
 
 test("machine host routes paste effects back through typed effect results", async () => {
-  const host = createMachineHost({
+  const host = createHost({
     readPasteImage: () => IMAGE,
   });
 
@@ -107,7 +92,7 @@ test("machine host routes paste effects back through typed effect results", asyn
 
 test("machine host ignores stale missing-paste results", async () => {
   const unresolvedSecondPaste = new Promise(() => {});
-  const host = createMachineHost({
+  const host = createHost({
     readPasteImage: ({ requestId }) => requestId === 1 ? null : unresolvedSecondPaste,
   });
 
@@ -124,7 +109,7 @@ test("machine host ignores stale missing-paste results", async () => {
 });
 
 test("machine host interprets primary panel activation from canonical state", () => {
-  const host = createMachineHost();
+  const host = createHost();
 
   host.activatePanelPrimary();
   assert.equal(host.getState().panel.intent, MACHINE_PANEL_INTENT.PASTE_ARMED);
@@ -133,11 +118,8 @@ test("machine host interprets primary panel activation from canonical state", ()
   assert.deepEqual(host.getState().panel, createIdlePanel());
   assert.equal(selectPanelStatusText(host.getState()), "Paste cancelled.");
 
-  host.loadImage({
-    image: IMAGE,
-    placement: PLACEMENT,
-  });
-  host.togglePin({
+  loadImage(host);
+  addPin(host, {
     imagePx: { x: 10, y: 20 },
     mapLatLon: { lat: 1, lon: 2 },
   });
@@ -158,11 +140,7 @@ test("machine host interprets primary panel activation from canonical state", ()
 });
 
 test("machine host exposes semantic panel mode opacity and history activations", () => {
-  const host = createMachineHost();
-  host.loadImage({
-    image: IMAGE,
-    placement: PLACEMENT,
-  });
+  const host = createLoadedHost();
 
   host.activatePanelMode({ checked: true });
   assert.equal(host.getState().session.mode, MACHINE_MODE.TRACE);
@@ -185,16 +163,13 @@ test("machine host exposes semantic panel mode opacity and history activations",
 
 test("machine host starts, replaces, expires, and cancels request-bound panel timers", () => {
   const timers = createTimerHarness();
-  const host = createMachineHost({
+  const host = createHost({
     setPanelTimeout: timers.set,
     clearPanelTimeout: timers.clear,
   });
 
-  host.loadImage({
-    image: IMAGE,
-    placement: PLACEMENT,
-  });
-  host.togglePin({
+  loadImage(host);
+  addPin(host, {
     imagePx: { x: 10, y: 20 },
     mapLatLon: { lat: 1, lon: 2 },
   });
@@ -219,7 +194,7 @@ test("machine host starts, replaces, expires, and cancels request-bound panel ti
 
 test("machine host starts, replaces, expires, and cancels request-bound status timers", () => {
   const timers = createTimerHarness();
-  const host = createMachineHost({
+  const host = createHost({
     setStatusTimeout: timers.set,
     clearStatusTimeout: timers.clear,
   });
@@ -255,17 +230,14 @@ test("machine host destroy unsubscribes persistence and cancels outstanding time
   const observedStates = [];
   const timers = createTimerHarness();
   const statusTimers = createTimerHarness();
-  const host = createMachineHost({
+  const host = createHost({
     savePersistedSession: (session) => saves.push(session),
     setPanelTimeout: timers.set,
     clearPanelTimeout: timers.clear,
     setStatusTimeout: statusTimers.set,
     clearStatusTimeout: statusTimers.clear,
   });
-  host.loadImage({
-    image: IMAGE,
-    placement: PLACEMENT,
-  });
+  loadImage(host);
   saves.length = 0;
 
   const unsubscribe = host.subscribe((state) => observedStates.push(state), {
@@ -284,10 +256,7 @@ test("machine host destroy unsubscribes persistence and cancels outstanding time
   assert.equal(statusTimers.pendingCount(), 0);
 
   const before = host.getState();
-  const result = host.loadImage({
-    image: IMAGE,
-    placement: PLACEMENT,
-  });
+  const result = loadImage(host);
 
   assert.equal(result.state, before);
   assert.equal(host.getState(), before);

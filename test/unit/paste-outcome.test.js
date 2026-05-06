@@ -9,15 +9,10 @@ import {
 } from "../../src/core/clipboard-facts.js";
 import { createPasteReadOutcomeFromClipboardFact } from "../../src/core/machine/paste-outcome.js";
 import { createPlacementTransform } from "../../src/core/transform.js";
+import { IMAGE } from "../helpers/session-fixtures.js";
 
 const CLIPBOARD_MISSING_IMAGE_NOTICE = "clipboard-missing-image";
 const CLIPBOARD_IMAGE_UNREADABLE_NOTICE = "clipboard-image-unreadable";
-
-const IMAGE = Object.freeze({
-  src: "data:image/png;base64,abc",
-  width: 800,
-  height: 400,
-});
 
 const SNAPSHOT = Object.freeze({
   viewportRect: Object.freeze({ left: 0, top: 0, width: 800, height: 400 }),

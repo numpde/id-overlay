@@ -17,25 +17,13 @@ import {
   toPersistedMachineSession,
   toPersistedMachineSessionSnapshot,
 } from "../../src/core/machine/persistence.js";
-import { normalizeSessionImage } from "../../src/core/session.js";
+import {
+  IMAGE,
+  NORMALIZED_IMAGE,
+  PLACEMENT,
+} from "../helpers/session-fixtures.js";
 
-const IMAGE = Object.freeze({
-  src: "data:image/png;base64,abc",
-  width: 800,
-  height: 400,
-});
 const PASTE_CANCELLED_NOTICE = "paste-cancelled";
-const NORMALIZED_IMAGE = normalizeSessionImage(IMAGE);
-
-const PLACEMENT = Object.freeze({
-  type: "similarity",
-  a: 1,
-  b: 0,
-  tx: 10,
-  ty: 20,
-  scale: 1,
-  rotationRad: 0,
-});
 
 const REGISTRATION = Object.freeze({
   pins: Object.freeze([

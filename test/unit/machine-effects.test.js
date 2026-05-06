@@ -14,7 +14,6 @@ import {
   createStatusTimeoutElapsedResult,
 } from "../../src/core/machine/effects.js";
 import { transitionMachineEffectResult } from "../../src/core/machine/effect-result-transition.js";
-import { createMachineHost } from "../../src/core/machine/host.js";
 import {
   createIdlePanel,
   createInitialMachineState,
@@ -25,24 +24,15 @@ import {
 import {
   selectPanelStatusText,
 } from "../../src/core/machine/selectors.js";
-
-const IMAGE = Object.freeze({
-  src: "data:image/png;base64,abc",
-  width: 800,
-  height: 400,
-});
+import {
+  addPin,
+  createHost,
+  createLoadedHost,
+  IMAGE,
+  PLACEMENT,
+} from "../helpers/machine-scenarios.js";
 
 const CLIPBOARD_MISSING_IMAGE_NOTICE = "clipboard-missing-image";
-
-const PLACEMENT = Object.freeze({
-  type: "similarity",
-  a: 1,
-  b: 0,
-  tx: 10,
-  ty: 20,
-  scale: 1,
-  rotationRad: 0,
-});
 
 test("initial panel is idle", () => {
   assert.deepEqual(createInitialMachineState().panel, createIdlePanel());
@@ -299,7 +289,7 @@ test("stale request-bound image load is a pure no-op", () => {
   requestPanelIntent(host, MACHINE_PANEL_INTENT.PASTE_ARMED);
   const before = state(host);
 
-  const result = loadImage(host, {
+  const result = loadImageForRequest(host, {
     requestId: before.panel.requestId + 1,
   });
 
@@ -521,7 +511,7 @@ test("loading image after paste cancels timeout and records load-image history",
   const host = createHost();
   requestPanelIntent(host, MACHINE_PANEL_INTENT.PASTE_ARMED);
 
-  const result = loadImage(host, {
+  const result = loadImageForRequest(host, {
     requestId: state(host).panel.requestId,
   });
 
@@ -544,16 +534,6 @@ test("loading image after paste cancels timeout and records load-image history",
   assert.equal(result.historyRecord.kind, MACHINE_HISTORY_KIND.LOAD_IMAGE);
 });
 
-function createHost() {
-  return createMachineHost();
-}
-
-function createLoadedHost() {
-  const host = createHost();
-  loadImage(host);
-  return host;
-}
-
 function state(host) {
   return host.getState();
 }
@@ -562,17 +542,10 @@ function requestPanelIntent(host, intent) {
   return host.requestPanelIntent(intent);
 }
 
-function loadImage(host, { requestId = null } = {}) {
+function loadImageForRequest(host, { requestId }) {
   return host.loadImage({
     image: IMAGE,
     placement: PLACEMENT,
     requestId,
-  });
-}
-
-function addPin(host) {
-  return host.togglePin({
-    imagePx: { x: 400, y: 200 },
-    mapLatLon: { lat: -1.23, lon: 36.84 },
   });
 }

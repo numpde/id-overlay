@@ -16,12 +16,7 @@ import { createMachineEffectRunner } from "../../src/core/machine/effect-runner.
 import {
   createInitialMachineState,
 } from "../../src/core/machine/state.js";
-
-const IMAGE = Object.freeze({
-  src: "data:image/png;base64,abc",
-  width: 800,
-  height: 400,
-});
+import { IMAGE } from "../helpers/session-fixtures.js";
 
 const CLIPBOARD_MISSING_IMAGE_NOTICE = "clipboard-missing-image";
 

@@ -6,12 +6,7 @@ import { createMachineHost } from "../../src/core/machine/host.js";
 import { reconcilePageContext } from "../../src/core/machine/page-context.js";
 import { createInitialMachineState } from "../../src/core/machine/state.js";
 import { createPlacementTransform } from "../../src/core/transform.js";
-
-const IMAGE = Object.freeze({
-  src: "data:image/png;base64,abc",
-  width: 800,
-  height: 400,
-});
+import { IMAGE } from "../helpers/session-fixtures.js";
 
 const LEGACY_PLACEMENT = Object.freeze({
   centerMapLatLon: Object.freeze({ lat: 1, lon: 2 }),

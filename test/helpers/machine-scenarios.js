@@ -3,34 +3,22 @@ import {
 } from "../../src/core/machine/events.js";
 import { createMachineHost } from "../../src/core/machine/host.js";
 import { PLACEMENT_EDIT_PLAN_PHASE } from "../../src/core/placement-edit-planning.js";
-import { normalizeSessionImage } from "../../src/core/session.js";
+import {
+  IMAGE,
+  MOVED_PLACEMENT,
+  NORMALIZED_IMAGE,
+  PLACEMENT,
+} from "./session-fixtures.js";
 
-export const IMAGE = Object.freeze({
-  src: "data:image/png;base64,abc",
-  width: 800,
-  height: 400,
-});
+export {
+  IMAGE,
+  MOVED_PLACEMENT,
+  NORMALIZED_IMAGE,
+  PLACEMENT,
+};
 
-export const NORMALIZED_IMAGE = normalizeSessionImage(IMAGE);
-
-export const PLACEMENT = Object.freeze({
-  type: "similarity",
-  a: 1,
-  b: 0,
-  tx: 10,
-  ty: 20,
-  scale: 1,
-  rotationRad: 0,
-});
-
-export const MOVED_PLACEMENT = Object.freeze({
-  ...PLACEMENT,
-  tx: 40,
-  ty: 10,
-});
-
-export function createHost({ persistedSession = null } = {}) {
-  return createMachineHost({ persistedSession });
+export function createHost(options = {}) {
+  return createMachineHost(options);
 }
 
 export function createLoadedHost() {
