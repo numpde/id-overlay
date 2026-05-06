@@ -57,9 +57,7 @@ test("master checklist names the target seams", () => {
   ]);
 });
 
-test("content does not author low-level machine events", {
-  todo: "Cut content over to public user/fact ingress.",
-}, () => {
+test("content does not author low-level machine events", () => {
   const violations = [];
   const forbiddenPatterns = [
     ["machine event import", /\bMACHINE_COMMAND_KIND\b/],
@@ -175,9 +173,7 @@ test("public machine event vocabulary contains only user intents and external fa
   assert.deepEqual(violations, []);
 });
 
-test("machine host exposes explicit ingress, not generic dispatch", {
-  todo: "Replace host.dispatch with a narrow public user/fact ingress API.",
-}, () => {
+test("machine host exposes explicit ingress, not generic dispatch", () => {
   const source = readSource(repoPath("src/core/machine/host.js"));
   const forbiddenPatterns = [
     ["public dispatch function", /\bfunction\s+dispatch\s*\(/],
@@ -201,9 +197,7 @@ test("machine host exposes explicit ingress, not generic dispatch", {
   assert.deepEqual(violations, []);
 });
 
-test("machine runtime is private state/effect plumbing, not a public event dispatcher", {
-  todo: "Move public interpretation to host ingress and keep runtime from accepting arbitrary event dispatch.",
-}, () => {
+test("machine runtime is private state/effect plumbing, not a public event dispatcher", () => {
   const source = readSource(repoPath("src/core/machine/runtime.js"));
   const forbiddenPatterns = [
     ["transition import", /\bimport\s+\{\s*transitionMachine\s*\}/],
@@ -226,9 +220,7 @@ test("machine runtime is private state/effect plumbing, not a public event dispa
   assert.deepEqual(violations, []);
 });
 
-test("transition entrypoint separates public interpretation from private domain operations", {
-  todo: "Replace the flat MACHINE_COMMAND_KIND switch with public interpreters and private domain transitions.",
-}, () => {
+test("transition entrypoint separates public interpretation from private domain operations", () => {
   const source = readSource(repoPath("src/core/machine/transition.js"));
   const forbiddenPatterns = [
     ["flat event switch", /\bswitch\s*\(\s*event\.type\s*\)/],
@@ -538,9 +530,7 @@ test("overlay renderer is a pure render reconciler over an overlay view model", 
   assert.deepEqual(violations, []);
 });
 
-test("only machine internals import machine event vocabulary", {
-  todo: "Keep public ingress helpers separate from private machine event vocabulary.",
-}, () => {
+test("only machine internals import machine event vocabulary", () => {
   const violations = [];
   for (const filePath of listJavaScriptFiles(SOURCE_DIR)) {
     if (filePath.startsWith(MACHINE_DIR)) {
@@ -605,9 +595,7 @@ test("core input policy consumes normalized facts, never DOM event shape", () =>
   assert.deepEqual(violations, []);
 });
 
-test("tests exercise public ingress instead of raw mutation events", {
-  todo: "Rewrite tests around public user/fact helpers and private domain tests.",
-}, () => {
+test("tests exercise public ingress instead of raw mutation events", () => {
   const violations = [];
   const forbiddenPatterns = [
     ["raw machine event vocabulary", /\bMACHINE_COMMAND_KIND\b/],
