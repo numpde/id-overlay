@@ -790,6 +790,8 @@ test("generic page adapter DOM helpers do not own upstream page selectors", () =
 });
 
 test("gesture forwarding delegates synthetic event construction and identity", () => {
+  const adapterSource = readSource(repoPath("src/content/page-adapter.js"));
+  const boundedSource = readSource(repoPath("src/content/page-adapter/bounded-map-gesture.js"));
   const source = readSource(repoPath("src/content/page-adapter/gesture-forwarding.js"));
   const eventSource = readSource(repoPath("src/content/page-adapter/forwarded-map-events.js"));
   const targetSource = readSource(repoPath("src/content/page-adapter/map-gesture-targets.js"));
@@ -815,6 +817,15 @@ test("gesture forwarding delegates synthetic event construction and identity", (
   }
   if (!/\belementsFromPoint\b/.test(targetSource) || !/\bisOverlayOwnedElement\b/.test(targetSource)) {
     violations.push("missing: quarantined map target hit-testing");
+  }
+  if (!/\bcreateBoundedMapGesturePort\b/.test(adapterSource)) {
+    violations.push("missing: bounded map gesture port");
+  }
+  if (/\bbegin-map-pan\b|\bforward-map-zoom\b/.test(adapterSource)) {
+    violations.push("forbidden: map gesture boundary policy in page adapter root");
+  }
+  if (!/\bbegin-map-pan\b|\bforward-map-zoom\b/.test(boundedSource)) {
+    violations.push("missing: centralized map gesture boundary policy");
   }
 
   assert.deepEqual(violations, []);

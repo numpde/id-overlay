@@ -1,4 +1,5 @@
 import { createLogger } from "../core/logger.js";
+import { createBoundedMapGesturePort } from "./page-adapter/bounded-map-gesture.js";
 import { createBoundedPageProjection } from "./page-adapter/bounded-projection.js";
 import { createPageAdapterBoundary } from "./page-adapter/boundary.js";
 import {
@@ -57,6 +58,10 @@ export function createPageAdapter({
   const gestureForwarder = createMapGestureForwarder({
     getActiveMapContext: pageContext.getActiveMapContext,
   });
+  const mapGesture = createBoundedMapGesturePort({
+    gestureForwarder,
+    runBoundary,
+  });
 
   const pageSession = {
     isSupported: pageContext.isSupported,
@@ -66,40 +71,6 @@ export function createPageAdapter({
     getSnapshot: snapshotSource.getSnapshot,
     subscribe: snapshotSource.subscribe,
   };
-  const mapGesture = {
-    // TODO(smell): Map gesture methods expose imperative begin/update/end ports.
-    // The ideal page adapter would accept a typed gesture command/fact object
-    // once target resolution and event forwarding are split.
-    beginMapPan(screenPoint) {
-      return runBoundary("begin-map-pan", () => {
-        return gestureForwarder.beginMapPan(screenPoint);
-      }, false);
-    },
-    updateMapPan(screenPoint) {
-      return runBoundary("update-map-pan", () => {
-        return gestureForwarder.updateMapPan(screenPoint);
-      }, false);
-    },
-    endMapPan(screenPoint) {
-      runBoundary("end-map-pan", () => {
-        gestureForwarder.endMapPan(screenPoint);
-      });
-    },
-    forwardMapZoom({ screenPoint, deltaX = 0, deltaY = 0, deltaMode = 0 }) {
-      return runBoundary("forward-map-zoom", () => {
-        return gestureForwarder.forwardMapZoom({
-          screenPoint,
-          deltaX,
-          deltaY,
-          deltaMode,
-        });
-      }, false);
-    },
-    isForwardedMapGestureEvent(event) {
-      return gestureForwarder.isForwardedMapGestureEvent(event);
-    },
-  };
-
   return {
     pageSession,
     pageObservation,
