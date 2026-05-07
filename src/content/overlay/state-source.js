@@ -8,12 +8,18 @@ export function createOverlayStateSource({
   onChange = null,
   onRuntimeChange = null,
 }) {
+  // TODO(smell): Overlay render/input context is assembled from three live
+  // subscriptions: machine state, page snapshot, and interaction runtime. The
+  // ideal shape should expose one canonical overlay presentation stream.
   let snapshot = pageObservation.getSnapshot();
   let runtime = overlayInteractions.getRuntimeState();
   let isReady = false;
 
   const unsubscribeMachine = machineHost.subscribe(notifyChange, { emitCurrent: false });
   const unsubscribeViewport = pageObservation.subscribe((nextSnapshot) => {
+    // TODO(smell): Page snapshot changes and machine changes both schedule the
+    // same render, but their provenance is lost. Keep this source as the only
+    // aggregation point until overlay render invalidation is explicit.
     snapshot = nextSnapshot;
     notifyChange();
   });
@@ -50,6 +56,9 @@ export function createOverlayStateSource({
   }
 
   function getOverlayInputContext() {
+    // TODO(smell): Input routing rebuilds the overlay view model on demand,
+    // separately from rendering. Final shape should share one latest overlay
+    // presentation object for render and hit-testing.
     const machineState = getMachineState();
     return {
       machineState,

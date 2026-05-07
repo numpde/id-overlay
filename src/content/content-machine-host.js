@@ -13,6 +13,10 @@ export async function createContentMachineHost({
   timers = globalThis,
   onError = null,
 } = {}) {
+  // TODO(smell): This composition root still wires persistence, paste sources,
+  // timers, page-context ingestion, and machine host construction inline. The
+  // final shape should inject named host services instead of assembling service
+  // lambdas here.
   const persistedSession = await storage.load();
   const machineHost = createMachineHost({
     persistedSession,
@@ -38,6 +42,9 @@ export async function createContentMachineHost({
 }
 
 function createManualPasteCapture({ ownerWindow, clipboardReader, pageObservation, logger }) {
+  // TODO(smell): Manual paste capture is an effect service with window listener
+  // lifecycle and request staleness policy. Split it into its own content
+  // service before changing paste UX again.
   let activeCapture = null;
 
   return {
@@ -62,6 +69,9 @@ function createManualPasteCapture({ ownerWindow, clipboardReader, pageObservatio
   }
 
   async function handleWindowPaste(event) {
+    // TODO(smell): This handler both owns DOM event capture and converts the
+    // clipboard fact into a page-placed machine outcome. Final shape should keep
+    // DOM capture and outcome placement as separate service boundaries.
     const requestId = activeCapture?.requestId ?? null;
     if (requestId === null) {
       return;
@@ -91,6 +101,9 @@ function createManualPasteCapture({ ownerWindow, clipboardReader, pageObservatio
 }
 
 async function readClipboardApiPasteOutcome({ clipboardReader, pageObservation }) {
+  // TODO(smell): Clipboard API paste and manual paste share outcome placement,
+  // but that coupling is hidden in this small helper. Prefer one paste effect
+  // service that composes source readers with the placement adapter explicitly.
   return createPasteReadOutcome({
     fact: await clipboardReader.readClipboardApiImage(),
     pageObservation,

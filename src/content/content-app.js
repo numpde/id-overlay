@@ -31,6 +31,10 @@ export async function createContentApp({
   logger = null,
   deps = DEFAULT_APP_DEPS,
 } = {}) {
+  // TODO(smell): App composition order is encoded as imperative setup. It is
+  // correct but brittle: final shape should expose a declarative content graph
+  // so page ports, machine host, interactions, overlay, and panel dependencies
+  // are visible without reading construction order.
   const host = deps.ensureExtensionHost();
   deps.destroyActiveContentSession(host);
   const machineHost = await deps.createContentMachineHost({
@@ -50,6 +54,9 @@ export async function createContentApp({
   deps.clearOwnedShadowNodes(shadow);
 
   const overlay = deps.createOverlay({
+    // TODO(smell): Overlay receives pageObservation/pageProjection/mapGesture
+    // fragments separately. Once page ports are stable, pass one typed overlay
+    // environment to avoid re-threading page dependencies through this root.
     pageObservation: pagePorts.pageObservation,
     pageProjection: pagePorts.pageProjection,
     isForwardedMapGestureEvent: pagePorts.mapGesture.isForwardedMapGestureEvent,

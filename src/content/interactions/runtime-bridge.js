@@ -17,6 +17,10 @@ export function createInteractionRuntimeBridge({
   machineHost,
   machineActions,
 }) {
+  // TODO(smell): This bridge translates content observations into machine
+  // runtime facts and also provides runtime subscriptions back to content. The
+  // final interaction boundary should separate write-only fact ingress from
+  // read-only runtime observation.
   let destroyed = false;
   const runtimeUnsubscribes = new Set();
 
@@ -55,6 +59,9 @@ export function createInteractionRuntimeBridge({
   }
 
   function subscribe(listener, options) {
+    // TODO(smell): Runtime subscription filtering duplicates the machine's
+    // observation-key selector knowledge in content. Keep the selector here as
+    // the only leak until overlay runtime observation becomes a machine port.
     if (destroyed) {
       return () => {};
     }
@@ -77,6 +84,9 @@ export function createInteractionRuntimeBridge({
   }
 
   function observePointer(screenPx) {
+    // TODO(smell): These observe* methods are thin fact constructors. If more
+    // runtime facts appear, expose a single typed runtime-fact ingress instead
+    // of adding one method per fact here.
     machineActions.observeRuntimeFact(createPointerObservedFact(screenPx));
   }
 

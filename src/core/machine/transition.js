@@ -97,6 +97,9 @@ export function transitionCancelPanelIntent(state = createInitialMachineState(),
 }
 
 function commitMachineTransition(state, transition, payload = {}) {
+  // TODO(smell): This finalization order is canonical but implicit in this
+  // helper. Keep all public transitions here until finalizers are represented as
+  // an explicit transition pipeline.
   const currentState = normalizeMachineState(state);
   return applyMachineStatusNotice(
     commitSemanticHistoryRecord(transition(currentState, payload)),

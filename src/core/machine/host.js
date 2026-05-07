@@ -51,6 +51,9 @@ export function createMachineHost({
   statusTimeoutMs = undefined,
   onError = null,
 } = {}) {
+  // TODO(smell): Machine host is the public product API and still contains UI
+  // convenience verbs plus low-level semantic verbs. The ideal surface should
+  // separate user-facing activations from internal/test semantic transitions.
   const hostedRuntime = createHostedMachineRuntime({
     persistedSession,
     savePersistedSession,
@@ -83,6 +86,9 @@ export function createMachineHost({
   }
 
   function activatePanelPrimary() {
+    // TODO(smell): Primary action selection is canonical, but execution is a
+    // switch here. If panel actions grow, move action-kind handlers into a
+    // table owned next to selectPanelPrimaryAction.
     const state = hostedRuntime.getState();
     const action = selectPanelPrimaryAction(state);
     if (action.disabled) {
@@ -110,6 +116,9 @@ export function createMachineHost({
   }
 
   function activatePanelMode({ checked }) {
+    // TODO(smell): Checkbox checked semantics leak into the host API. Prefer a
+    // panel-control adapter translating DOM checked state into explicit mode
+    // selection before it reaches the machine host.
     return selectMode(checked ? MACHINE_MODE.TRACE : MACHINE_MODE.ALIGN);
   }
 
@@ -148,6 +157,9 @@ export function createMachineHost({
   }
 
   function observeRuntimeFact(fact) {
+    // TODO(smell): Runtime facts enter through a generic fact ingress while
+    // other user actions have named host methods. This is acceptable for now,
+    // but the boundary should stay intentionally private to interaction ports.
     return commitMachineTransition((state) => transitionRuntimeFact(state, fact), {
       runtimeFact: fact,
     });

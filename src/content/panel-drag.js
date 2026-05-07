@@ -7,6 +7,9 @@ export function createPanelDragController({
   handle,
   ownerWindow = globalThis.window,
 }) {
+  // TODO(smell): Panel position is local transient UI state, separate from the
+  // machine. That is acceptable, but the controller mixes drag lifecycle,
+  // clamping policy, and style patching in one file.
   let panelPosition = captureInitialPanelPosition({ root, ownerWindow });
   let activePanelDrag = null;
 
@@ -21,6 +24,9 @@ export function createPanelDragController({
   }
 
   function handlePanelDragStart(event) {
+    // TODO(smell): This uses mouse-only document listeners while overlay input
+    // has richer pointer sequencing. If panel drag grows, reuse a small generic
+    // draggable primitive instead of extending this bespoke lifecycle.
     if (event.button !== 0) {
       return;
     }
@@ -98,6 +104,9 @@ function captureInitialPanelPosition({ root, ownerWindow }) {
 }
 
 function applyPanelPosition(root, panelPosition) {
+  // TODO(smell): Position persistence is intentionally absent. If panel position
+  // becomes durable, do not hide it here; model it as an explicit UI preference
+  // service outside the machine state.
   root.style.left = `${panelPosition.left}px`;
   root.style.top = `${panelPosition.top}px`;
   root.style.right = "auto";

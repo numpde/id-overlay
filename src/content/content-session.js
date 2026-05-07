@@ -17,6 +17,9 @@ export function installContentSession({
   interactionPorts,
   pageSession,
 }) {
+  // TODO(smell): Session lifetime owns browser beforeunload, host storage, and
+  // five component destroy calls. The final content session should be a small
+  // disposer registry so adding a component cannot forget teardown ordering.
   destroyActiveContentSession(host);
   const session = createContentSession({
     host,
@@ -44,6 +47,8 @@ function createContentSession({
   let destroyed = false;
 
   function destroy() {
+    // TODO(smell): Teardown order is currently hand-authored. Keep it explicit
+    // until component dependencies are represented by a disposer stack.
     if (destroyed) {
       return;
     }

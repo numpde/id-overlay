@@ -13,6 +13,9 @@ export function createPageAdapter({
   hashTarget = globalThis.window,
   viewportDocument = globalThis.document,
 } = {}) {
+  // TODO(smell): This is now the page-port composition root, but it still
+  // manually wraps every exposed method in the error boundary. A final port
+  // factory should apply boundary policy declaratively per port.
   const logger = createLogger("page-adapter");
   const runBoundary = createPageAdapterBoundary({ logger });
   const viewportGeometry = createViewportGeometryResolver({ hashTarget });
@@ -20,6 +23,9 @@ export function createPageAdapter({
   let notifySnapshotChanged = () => {};
   let handleStructureMutation = () => notifySnapshotChanged();
 
+  // TODO(smell): Page context and snapshot source are mutually wired through
+  // late-bound callbacks. Extract an observation graph factory so retargeting
+  // and snapshot notification dependencies are explicit.
   const pageContext = createPageContext({
     hashTarget,
     viewportDocument,
@@ -55,6 +61,9 @@ export function createPageAdapter({
     subscribe: snapshotSource.subscribe,
   };
   const pageProjection = {
+    // TODO(smell): Projection fallback values are local per method. If snapshot
+    // provenance becomes explicit, fallback policy should live in one page-port
+    // boundary rather than each wrapper.
     clientPointToScreen(clientPoint) {
       return runBoundary("client-point-to-screen", () => {
         return projection.clientPointToScreen(clientPoint);
@@ -88,6 +97,9 @@ export function createPageAdapter({
     },
   };
   const mapGesture = {
+    // TODO(smell): Map gesture methods expose imperative begin/update/end ports.
+    // The ideal page adapter would accept a typed gesture command/fact object
+    // once target resolution and event forwarding are split.
     beginMapPan(screenPoint) {
       return runBoundary("begin-map-pan", () => {
         return gestureForwarder.beginMapPan(screenPoint);

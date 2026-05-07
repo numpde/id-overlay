@@ -22,6 +22,9 @@ export function createHostedMachineRuntime({
   statusTimeoutMs = undefined,
   onError = null,
 } = {}) {
+  // TODO(smell): Hosted runtime composes persistence, effects, page-context
+  // reconciliation, subscriptions, and transition commits. It is split into
+  // services, but this root still owns their ordering and lifecycle manually.
   let destroyed = false;
 
   const runtime = createMachineRuntime({
@@ -98,6 +101,9 @@ export function createHostedMachineRuntime({
   }
 
   function commitMachineResult(result, context = {}) {
+    // TODO(smell): Effect execution is hard-wired immediately after state commit.
+    // A final runtime could expose committed results to an effect scheduler port
+    // rather than invoking services inline.
     const committedResult = runtime.commitMachineResult(result);
     runEffects(committedResult.effects, {
       ...context,

@@ -5,6 +5,9 @@ export function createPageSnapshotWatcher({
   pageContext,
   onChange,
 }) {
+  // TODO(smell): Watcher combines event listeners with RAF/interval polling.
+  // Keep scheduling quarantined here; a final page-observation service should
+  // expose the reason a snapshot was requested.
   let isWatching = false;
   let snapshotLoopHandle = null;
   let usingAnimationFrameLoop = false;
@@ -38,6 +41,9 @@ export function createPageSnapshotWatcher({
   }
 
   function startSnapshotLoop() {
+    // TODO(smell): RAF polling is a brute-force bridge for live map animation.
+    // If upstream map events become available, replace this loop instead of
+    // teaching snapshot consumers about polling cadence.
     if (typeof hashTarget.requestAnimationFrame === "function") {
       usingAnimationFrameLoop = true;
       const tick = () => {

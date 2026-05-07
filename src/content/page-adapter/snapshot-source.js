@@ -12,6 +12,9 @@ export function createPageSnapshotSource({
   mapViewResolver,
   runBoundary,
 }) {
+  // TODO(smell): Snapshot source owns subscription lifecycle, snapshot equality,
+  // fallback recovery, and resolver orchestration. It is contained, but final
+  // shape should split live observation from snapshot construction.
   let lastSnapshot = null;
   const listeners = new Set();
   const watcher = createPageSnapshotWatcher({
@@ -25,6 +28,9 @@ export function createPageSnapshotSource({
   }
 
   function subscribe(listener) {
+    // TODO(smell): First subscriber starts page watching and last unsubscribe
+    // resets map-view cache. That coupling is subtle; prefer an explicit
+    // page-observation lifecycle service if observation modes grow.
     listeners.add(listener);
     startWatching();
     runBoundary("subscribe-listener", () => {
@@ -39,6 +45,9 @@ export function createPageSnapshotSource({
   }
 
   function notifyIfChanged() {
+    // TODO(smell): Retargeting page context before every snapshot notification
+    // is correct but implicit. The final watcher should emit retarget facts that
+    // snapshot construction consumes explicitly.
     pageContext.syncObservedContext();
     const nextSnapshot = readSnapshot();
     if (lastSnapshot && pageSnapshotsEqual(lastSnapshot, nextSnapshot)) {
@@ -97,6 +106,9 @@ export function createPageSnapshotSource({
   }
 
   function createFallbackSnapshot() {
+    // TODO(smell): Boundary fallback reuses last good snapshot or a synthetic
+    // default snapshot. Once provenance is modeled, callers should know whether
+    // they are rendering stale or synthetic page facts.
     if (lastSnapshot) {
       return lastSnapshot;
     }
