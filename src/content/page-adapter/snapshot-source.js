@@ -1,7 +1,8 @@
 import {
-  createSurfaceMotion,
-  createWindowViewportRect,
-} from "./dom.js";
+  createFallbackPageSnapshot,
+  createPageSnapshot,
+  pageSnapshotsEqual,
+} from "./page-snapshot.js";
 import { createPageSnapshotWatcher } from "./snapshot-watcher.js";
 
 export function createPageSnapshotSource({
@@ -40,7 +41,7 @@ export function createPageSnapshotSource({
   function notifyIfChanged() {
     pageContext.syncObservedContext();
     const nextSnapshot = readSnapshot();
-    if (lastSnapshot && snapshotsEqual(lastSnapshot, nextSnapshot)) {
+    if (lastSnapshot && pageSnapshotsEqual(lastSnapshot, nextSnapshot)) {
       return;
     }
     lastSnapshot = nextSnapshot;
@@ -75,7 +76,7 @@ export function createPageSnapshotSource({
 
   function readSnapshot() {
     return runBoundary("get-snapshot", () => {
-      return createSnapshot(resolveSnapshotState(pageContext.getActiveMapContext()));
+      return createPageSnapshot(resolveSnapshotState(pageContext.getActiveMapContext()));
     }, createFallbackSnapshot());
   }
 
@@ -99,14 +100,9 @@ export function createPageSnapshotSource({
     if (lastSnapshot) {
       return lastSnapshot;
     }
-    const viewportRect = createWindowViewportRect(hashTarget);
-    return createSnapshot({
-      viewportElement: null,
-      mountElement: null,
-      viewportRect,
-      localViewportRect: viewportRect,
+    return createFallbackPageSnapshot({
+      hashTarget,
       mapView: mapViewResolver.getFallbackMapView(),
-      surfaceMotion: createSurfaceMotion(),
     });
   }
 
@@ -117,42 +113,4 @@ export function createPageSnapshotSource({
     notifyIfChanged,
     handleStructureMutation,
   };
-}
-
-function createSnapshot({
-  viewportElement = null,
-  mountElement = null,
-  viewportRect,
-  localViewportRect,
-  mapView,
-  surfaceMotion,
-}) {
-  return {
-    viewportElement,
-    mountElement,
-    viewportRect,
-    localViewportRect,
-    mapView,
-    surfaceMotion,
-  };
-}
-
-function snapshotsEqual(left, right) {
-  return (
-    left.viewportElement === right.viewportElement &&
-    left.mountElement === right.mountElement &&
-    left.viewportRect.left === right.viewportRect.left &&
-    left.viewportRect.top === right.viewportRect.top &&
-    left.viewportRect.width === right.viewportRect.width &&
-    left.viewportRect.height === right.viewportRect.height &&
-    left.localViewportRect.left === right.localViewportRect.left &&
-    left.localViewportRect.top === right.localViewportRect.top &&
-    left.localViewportRect.width === right.localViewportRect.width &&
-    left.localViewportRect.height === right.localViewportRect.height &&
-    left.mapView.zoom === right.mapView.zoom &&
-    left.mapView.center.lat === right.mapView.center.lat &&
-    left.mapView.center.lon === right.mapView.center.lon &&
-    left.surfaceMotion.transformCss === right.surfaceMotion.transformCss &&
-    left.surfaceMotion.transformOriginCss === right.surfaceMotion.transformOriginCss
-  );
 }

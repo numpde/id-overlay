@@ -633,6 +633,27 @@ test("page snapshot source delegates observation scheduling to a watcher", () =>
   assert.deepEqual(violations, []);
 });
 
+test("page snapshot shape and equality are centralized outside the snapshot source", () => {
+  const source = readSource(repoPath("src/content/page-adapter/snapshot-source.js"));
+  const snapshotSource = readSource(repoPath("src/content/page-adapter/page-snapshot.js"));
+  const violations = [];
+
+  if (!/\bcreatePageSnapshot\b/.test(source)) {
+    violations.push("missing: page snapshot factory");
+  }
+  if (!/\bpageSnapshotsEqual\b/.test(source)) {
+    violations.push("missing: page snapshot equality helper");
+  }
+  if (/\bfunction\s+(?:createSnapshot|snapshotsEqual)\b/.test(source)) {
+    violations.push("forbidden: local snapshot shape/equality");
+  }
+  if (!/\bfunction\s+rectsEqual\b/.test(snapshotSource)) {
+    violations.push("missing: centralized rect equality");
+  }
+
+  assert.deepEqual(violations, []);
+});
+
 test("content modules consume narrow page ports, not the monolithic adapter", () => {
   const violations = [];
   const allowedFiles = new Set([
