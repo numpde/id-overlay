@@ -10,6 +10,7 @@ import {
   readSource,
   sourceFileExists,
 } from "../helpers/source-scan.js";
+import "./machine-boundary-contracts.js";
 
 // Master architecture note:
 //
