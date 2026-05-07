@@ -349,14 +349,20 @@ test("interaction adapter does not own placement edit lifecycle semantics", () =
 test("placement preview lifecycle is split from committed placement edits", () => {
   const committedSource = fs.readFileSync(repoPath("src/core/machine/placement-transition.js"), "utf8");
   const runtimeSource = fs.readFileSync(repoPath("src/core/machine/placement-edit-runtime-transition.js"), "utf8");
+  const policySource = fs.readFileSync(repoPath("src/core/machine/placement-edit-policy.js"), "utf8");
   const forbiddenPatterns = [
     ["begin preview transition", /\bexport\s+function\s+beginPlacementEdit\b/],
     ["preview transition", /\bexport\s+function\s+previewPlacementEdit\b/],
+    ["runtime preview module import", /placement-edit-runtime-transition\.js/],
   ];
   const violations = forbiddenPatterns
     .filter(([, pattern]) => pattern.test(committedSource))
     .map(([name]) => name);
 
+  assert.match(committedSource, /placement-edit-policy\.js/);
+  assert.match(runtimeSource, /placement-edit-policy\.js/);
+  assert.match(policySource, /\bexport\s+function\s+canEditPlacement\b/);
+  assert.match(policySource, /\bexport\s+function\s+normalizePlacementEditKind\b/);
   assert.match(runtimeSource, /\bexport\s+function\s+beginPlacementEdit\b/);
   assert.match(runtimeSource, /\bexport\s+function\s+previewPlacementEdit\b/);
   assert.match(committedSource, /\bexport\s+function\s+commitPlacementEdit\b/);

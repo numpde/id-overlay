@@ -25,9 +25,8 @@ import {
 } from "./transition-result.js";
 import {
   canEditPlacement,
-  clearPlacementEditRuntime,
   normalizePlacementEditKind,
-} from "./placement-edit-runtime-transition.js";
+} from "./placement-edit-policy.js";
 
 export function commitPlacementEdit(state) {
   const edit = state.runtime.placementEdit;
@@ -38,7 +37,7 @@ export function commitPlacementEdit(state) {
   }
   if (!canEditPlacement(state)) {
     return createTransitionResult({
-      state: clearPlacementEditRuntime(state),
+      state: replacePlacementEdit(state, null),
     });
   }
   const stateWithoutPreview = replacePlacementEdit(state, null);
@@ -58,7 +57,7 @@ export function commitPlacementEdit(state) {
 export function applyPlacementEdit(state, event) {
   if (!canEditPlacement(state)) {
     return createTransitionResult({
-      state: clearPlacementEditRuntime(state),
+      state: replacePlacementEdit(state, null),
     });
   }
   const kind = normalizePlacementEditKind(event.editKind);
