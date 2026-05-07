@@ -1,4 +1,7 @@
 import {
+  MACHINE_MODE,
+} from "./events.js";
+import {
   MACHINE_STATUS_NOTICE_KIND,
   createStatusNotice,
 } from "./status-notices.js";
@@ -8,19 +11,22 @@ import {
   moveUndoRecordToFuture,
 } from "./history.js";
 import {
-  restorePlacement,
+  clearPlacementEditRuntime,
 } from "./placement-transition.js";
 import {
-  restoreRegistration,
-} from "./registration-transition.js";
-import {
-  clearImage,
-  restoreImageSession,
-} from "./session-transition.js";
+  createEmptyRegistration,
+  replaceRegistration,
+  replaceSession,
+} from "./state.js";
 import {
   createTransitionResult,
 } from "./transition-result.js";
-import { applyMachineStatusNotice } from "./panel-status-transition.js";
+import {
+  applyMachineStatusNotice,
+  clearInvalidPanelIntent,
+  clearPanelIntent,
+} from "./panel-status-transition.js";
+import { resetInputRuntimeState } from "./runtime-transition.js";
 
 export function transitionUndo(state) {
   return replayHistoryTransition(state, {
@@ -56,9 +62,7 @@ function replayHistoryTransition(state, {
       statusNotice: createStatusNotice(emptyNoticeKind),
     }));
   }
-  const replay = withoutReplaySideEffects(
-    replayHistoryRecord(moved.state, selectReplay(moved.record)),
-  );
+  const replay = replayHistoryRecord(moved.state, selectReplay(moved.record));
   return applyMachineStatusNotice(createTransitionResult({
     state: replay.state,
     effects: replay.effects,
@@ -70,32 +74,64 @@ function replayHistoryTransition(state, {
 }
 
 function replayHistoryRecord(state, replay = {}) {
-  // TODO(smell): History replay still re-enters domain transition functions and
-  // strips side effects afterward. Replay should apply explicit before/after
-  // semantic records directly so undo/redo cannot depend on command behavior.
   switch (replay.operation) {
     case MACHINE_HISTORY_REPLAY_OPERATION.CLEAR_IMAGE:
-      return clearImage(state);
+      return replayClearImage(state);
     case MACHINE_HISTORY_REPLAY_OPERATION.RESTORE_IMAGE_SESSION:
-      return restoreImageSession(state, { session: replay.session });
+      return replayRestoreImageSession(state, replay);
     case MACHINE_HISTORY_REPLAY_OPERATION.RESTORE_REGISTRATION:
-      return restoreRegistration(state, {
-        registration: replay.registration,
-        mode: replay.mode,
-      });
+      return replayRestoreRegistration(state, replay);
     case MACHINE_HISTORY_REPLAY_OPERATION.RESTORE_PLACEMENT:
-      return restorePlacement(state, {
-        placement: replay.placement,
-        registration: replay.registration,
-      });
+      return replayRestorePlacement(state, replay);
     default:
       return createTransitionResult({ state });
   }
 }
 
-function withoutReplaySideEffects(result) {
+function replayClearImage(state) {
+  const nextState = resetInputRuntimeState(
+    clearPlacementEditRuntime(replaceSession(state, {
+      mode: MACHINE_MODE.TRACE,
+      image: null,
+      placement: null,
+      registration: createEmptyRegistration(),
+    })),
+    { pointerScreenPx: null },
+  );
+  const panelTransition = clearPanelIntent(state, nextState);
   return createTransitionResult({
-    state: result.state,
-    effects: result.effects,
+    state: panelTransition.state,
+    effects: panelTransition.effects,
+  });
+}
+
+function replayRestoreImageSession(state, replay) {
+  const nextState = resetInputRuntimeState(
+    clearPlacementEditRuntime(replaceSession(state, replay.session)),
+  );
+  const panelTransition = clearPanelIntent(state, nextState);
+  return createTransitionResult({
+    state: panelTransition.state,
+    effects: panelTransition.effects,
+  });
+}
+
+function replayRestoreRegistration(state, replay) {
+  const nextState = clearPlacementEditRuntime(replaceSession(
+    replaceRegistration(state, replay.registration),
+    { mode: replay.mode },
+  ));
+  const panelTransition = clearInvalidPanelIntent(state, nextState);
+  return createTransitionResult({
+    state: panelTransition.state,
+    effects: panelTransition.effects,
+  });
+}
+
+function replayRestorePlacement(state, replay) {
+  return createTransitionResult({
+    state: clearPlacementEditRuntime(replaceRegistration(replaceSession(state, {
+      placement: replay.placement,
+    }), replay.registration)),
   });
 }
