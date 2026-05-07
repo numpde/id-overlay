@@ -3,19 +3,15 @@ import {
   isOverlayOwnedElement,
 } from "./page-dom-queries.js";
 import {
+  dispatchForwardedMapPointerPhase,
+  dispatchForwardedMapWheel,
+  isForwardedMapGestureEvent,
+} from "./forwarded-map-events.js";
+import {
   screenPointToContextClientPoint,
 } from "./projection.js";
 
-export const FORWARDED_MAP_GESTURE_EVENT_FLAG = "idOverlayForwardedMapGesture";
-
-export function isForwardedMapGestureEvent(event) {
-  return event?.[FORWARDED_MAP_GESTURE_EVENT_FLAG] === true;
-}
-
 export function createMapGestureForwarder({ getActiveMapContext }) {
-  // TODO(smell): Gesture forwarding relies on synthetic DOM events matching iD's
-  // native handlers closely enough. Keep it quarantined here and cover browser
-  // compatibility before widening supported gestures.
   let activeMapPan = null;
 
   function beginMapPan(screenPoint) {
@@ -158,69 +154,4 @@ function resolveUnderlyingMapTargetAtClientPoint(viewportDocument, clientPoint) 
   }
 
   return null;
-}
-
-function dispatchForwardedMapPointerPhase({ context, target, type, clientPoint }) {
-  const eventInit = {
-    bubbles: true,
-    cancelable: true,
-    clientX: clientPoint.x,
-    clientY: clientPoint.y,
-    screenX: clientPoint.x,
-    screenY: clientPoint.y,
-    button: 0,
-    buttons: type === "up" ? 0 : 1,
-    view: context.mapWindow,
-  };
-
-  if (typeof context.mapWindow.PointerEvent === "function") {
-    const pointerType = type === "down" ? "pointerdown" : type === "move" ? "pointermove" : "pointerup";
-    const pointerEvent = new context.mapWindow.PointerEvent(pointerType, {
-      ...eventInit,
-      pointerId: 1,
-      pointerType: "mouse",
-      isPrimary: true,
-    });
-    dispatchForwardedMapEvent(pointerEvent, target);
-  }
-
-  const mouseType = type === "down" ? "mousedown" : type === "move" ? "mousemove" : "mouseup";
-  const mouseEvent = new context.mapWindow.MouseEvent(mouseType, eventInit);
-  dispatchForwardedMapEvent(mouseEvent, target);
-}
-
-function dispatchForwardedMapWheel({
-  context,
-  target,
-  clientPoint,
-  deltaX = 0,
-  deltaY = 0,
-  deltaMode = 0,
-}) {
-  const event = new context.mapWindow.WheelEvent("wheel", {
-    bubbles: true,
-    cancelable: true,
-    clientX: clientPoint.x,
-    clientY: clientPoint.y,
-    screenX: clientPoint.x,
-    screenY: clientPoint.y,
-    deltaX,
-    deltaY,
-    deltaMode,
-    view: context.mapWindow,
-  });
-  dispatchForwardedMapEvent(event, target);
-}
-
-function dispatchForwardedMapEvent(event, target) {
-  markForwardedMapGestureEvent(event);
-  target.dispatchEvent(event);
-}
-
-function markForwardedMapGestureEvent(event) {
-  Object.defineProperty(event, FORWARDED_MAP_GESTURE_EVENT_FLAG, {
-    configurable: true,
-    enumerable: false,
-    value: true,
-  });
 }

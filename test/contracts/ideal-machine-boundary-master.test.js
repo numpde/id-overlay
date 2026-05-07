@@ -758,6 +758,27 @@ test("generic page adapter DOM helpers do not own upstream page selectors", () =
   assert.deepEqual(violations, []);
 });
 
+test("gesture forwarding delegates synthetic event construction and identity", () => {
+  const source = readSource(repoPath("src/content/page-adapter/gesture-forwarding.js"));
+  const eventSource = readSource(repoPath("src/content/page-adapter/forwarded-map-events.js"));
+  const violations = [];
+
+  if (!/\bdispatchForwardedMapPointerPhase\b/.test(source)) {
+    violations.push("missing: pointer event forwarding delegation");
+  }
+  if (!/\bdispatchForwardedMapWheel\b/.test(source)) {
+    violations.push("missing: wheel event forwarding delegation");
+  }
+  if (/\bnew\s+context\.mapWindow\.(?:PointerEvent|MouseEvent|WheelEvent)\b|\bObject\.defineProperty\s*\(/.test(source)) {
+    violations.push("forbidden: synthetic event construction in gesture coordinator");
+  }
+  if (!/\bFORWARDED_MAP_GESTURE_EVENT_FLAG\b/.test(eventSource)) {
+    violations.push("missing: forwarded event identity owner");
+  }
+
+  assert.deepEqual(violations, []);
+});
+
 test("content modules consume narrow page ports, not the monolithic adapter", () => {
   const violations = [];
   const allowedFiles = new Set([
