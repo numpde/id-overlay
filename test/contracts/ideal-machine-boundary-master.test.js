@@ -490,6 +490,20 @@ test("content machine host consumes paste effect services instead of clipboard a
   assert.deepEqual(violations, []);
 });
 
+test("content machine host consumes timer effect services instead of raw timer adapters", () => {
+  const source = readSource(repoPath("src/content/content-machine-host.js"));
+  const forbiddenPatterns = [
+    ["raw setTimeout adapter", /\bsetTimeout\b/],
+    ["raw clearTimeout adapter", /\bclearTimeout\b/],
+    ["generic timer bag", /\btimers\b/],
+  ];
+  const violations = forbiddenPatterns
+    .filter(([, pattern]) => pattern.test(source))
+    .map(([name]) => name);
+
+  assert.deepEqual(violations, []);
+});
+
 test("page-placed paste outcome consumes canonical page snapshot liveness", () => {
   const source = readSource(repoPath("src/content/paste-read-outcome.js"));
   const violations = [];

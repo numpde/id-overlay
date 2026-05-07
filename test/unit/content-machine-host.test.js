@@ -10,6 +10,7 @@ import { createEmptyRegistration } from "../../src/core/session.js";
 import { createPlacementTransform } from "../../src/core/transform.js";
 import { createContentMachineHost } from "../../src/content/content-machine-host.js";
 import { createContentPasteEffectService } from "../../src/content/paste-effect-service.js";
+import { createContentTimerEffectService } from "../../src/content/timer-effect-service.js";
 import { createDomEnvironment } from "../helpers/dom-env.js";
 import {
   IMAGE,
@@ -49,7 +50,7 @@ test("content machine host loads storage and ingests current page context before
       pageObservation,
       clipboardReader: createClipboardReaderHarness(),
     }),
-    timers: createTimerHarness(),
+    timerEffects: createTimerEffectsHarness(),
   });
 
   assert.equal(pageObservation.callCount, 1);
@@ -74,7 +75,7 @@ test("content machine host turns Clipboard API image facts into page-placed mach
         apiFact: createDecodedClipboardImageFact({ image: IMAGE }),
       }),
     }),
-    timers: createTimerHarness(),
+    timerEffects: createTimerEffectsHarness(),
   });
 
   host.requestPanelIntent(MACHINE_PANEL_INTENT.PASTE_ARMED);
@@ -109,7 +110,7 @@ test("content machine host owns manual paste capture and removes it on destroy",
         onReadData: (clipboardData) => readDataCalls.push(clipboardData),
       }),
     }),
-    timers: createTimerHarness(),
+    timerEffects: createTimerEffectsHarness(),
   });
 
   try {
@@ -148,7 +149,7 @@ test("content machine host completes manual paste captures with page-placed imag
         dataFact: createDecodedClipboardImageFact({ image: IMAGE }),
       }),
     }),
-    timers: createTimerHarness(),
+    timerEffects: createTimerEffectsHarness(),
   });
 
   try {
@@ -223,13 +224,15 @@ function createOwnerWindowHarness() {
   };
 }
 
-function createTimerHarness() {
-  return {
-    setTimeout(callback, delayMs) {
-      return { callback, delayMs };
+function createTimerEffectsHarness() {
+  return createContentTimerEffectService({
+    timers: {
+      setTimeout(callback, delayMs) {
+        return { callback, delayMs };
+      },
+      clearTimeout() {},
     },
-    clearTimeout() {},
-  };
+  });
 }
 
 async function flushEffects() {
