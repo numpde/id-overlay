@@ -364,6 +364,32 @@ test("placement preview lifecycle is split from committed placement edits", () =
   assert.deepEqual(violations, []);
 });
 
+test("registration public intent is split from registration edit mutations", () => {
+  const intentSource = fs.readFileSync(repoPath("src/core/machine/registration-transition.js"), "utf8");
+  const editSource = fs.readFileSync(repoPath("src/core/machine/registration-edit-transition.js"), "utf8");
+  const rootSource = fs.readFileSync(repoPath("src/core/machine/transition.js"), "utf8");
+  const forbiddenIntentPatterns = [
+    ["add-pin mutation", /\bfunction\s+(?:addPin|applyAddPinEdit)\b/],
+    ["remove-pin mutation", /\bfunction\s+(?:removePin|applyRemovePinEdit)\b/],
+    ["registration patch helper", /\bfunction\s+commitRegistration(?:Edit|Patch)\b/],
+    ["registration factory ownership", /\bcreate(?:Empty|Invalidated)Registration\b/],
+  ];
+  const violations = forbiddenIntentPatterns
+    .filter(([, pattern]) => pattern.test(intentSource))
+    .map(([name]) => name);
+
+  assert.match(intentSource, /registration-edit-transition\.js/);
+  assert.match(intentSource, /\bexport\s+function\s+togglePin\b/);
+  assert.match(intentSource, /\bexport\s+function\s+clearPins\b/);
+  assert.match(intentSource, /\bexport\s+function\s+fitOverlay\b/);
+  assert.match(editSource, /\bexport\s+function\s+applyAddPinEdit\b/);
+  assert.match(editSource, /\bexport\s+function\s+applyRemovePinEdit\b/);
+  assert.match(editSource, /\bexport\s+function\s+applyClearPinsEdit\b/);
+  assert.match(rootSource, /from "\.\/registration-transition\.js"/);
+  assert.doesNotMatch(rootSource, /from "\.\/registration-edit-transition\.js"/);
+  assert.deepEqual(violations, []);
+});
+
 test("interaction ports delegate pin and wheel command semantics", () => {
   const source = fs.readFileSync(repoPath("src/content/interaction-ports.js"), "utf8");
   const forbiddenPatterns = [

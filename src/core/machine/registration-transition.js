@@ -11,29 +11,25 @@ import {
   createSemanticHistoryRecord,
 } from "./history.js";
 import {
-  createEmptyRegistration,
-  replaceRegistration,
   replaceSession,
 } from "./state.js";
-import {
-  createInvalidatedRegistration,
-} from "../registration.js";
 import { solveSimilarityTransform } from "../geometry.js";
 import { selectPanelPolicy } from "./policy.js";
 import {
   clearInvalidPanelIntent,
-  clearPanelIntent,
 } from "./panel-status-transition.js";
 import { clearPlacementEditRuntime } from "./placement-edit-runtime-transition.js";
 import { resetInputRuntimeState } from "./runtime-transition.js";
 import {
   createTransitionResult,
 } from "./transition-result.js";
+import {
+  applyAddPinEdit,
+  applyClearPinsEdit,
+  applyRemovePinEdit,
+} from "./registration-edit-transition.js";
 
 export function togglePin(state, event) {
-  // TODO(smell): Toggle-pin is a user-intent interpreter embedded beside
-  // low-level add/remove mutations. Keep external toggle intent public, but make
-  // add/remove/restore private machine operations in the final event split.
   if (!canEditPins(state)) {
     return createTransitionResult({
       state,
@@ -48,100 +44,20 @@ export function togglePin(state, event) {
         state,
       });
     }
-    return removePin(prepareRegistrationEditState(state, event), {
+    return applyRemovePinEdit(state, {
+      ...event,
       id: existingPin.id,
     });
   }
-  return addPin(prepareRegistrationEditState(state, event), {
+  return applyAddPinEdit(state, {
+    ...event,
     imagePx: event.imagePx,
     mapLatLon: event.mapLatLon,
-  });
-}
-
-function addPin(state, event) {
-  if (!state.session.image || !event.imagePx || !event.mapLatLon) {
-    return createTransitionResult({
-      state,
-    });
-  }
-  const pin = {
-    id: event.id ?? nextPinId(state.session.registration.pins),
-    imagePx: event.imagePx,
-    mapLatLon: event.mapLatLon,
-  };
-  const previousRegistration = state.session.registration;
-  const nextRegistration = createInvalidatedRegistration({
-    pins: [...previousRegistration.pins, pin],
-  });
-  return commitRegistrationEdit(state, {
-    nextRegistration,
-    statusNotice: createStatusNotice(MACHINE_STATUS_NOTICE_KIND.PIN_ADDED, {
-      pinId: pin.id,
-    }),
-    historyRecord: createRegistrationHistoryRecord({
-      kind: MACHINE_HISTORY_KIND.ADD_PIN,
-      label: "Added pin",
-      undoLabel: "Remove pin",
-      redoLabel: "Add pin",
-      previousRegistration,
-      nextRegistration,
-    }),
-  });
-}
-
-function removePin(state, event) {
-  const previousRegistration = state.session.registration;
-  const removedPin = previousRegistration.pins.find((pin) => pin.id === event.id);
-  const nextPins = previousRegistration.pins.filter((pin) => pin.id !== event.id);
-  if (nextPins.length === previousRegistration.pins.length) {
-    return createTransitionResult({
-      state,
-    });
-  }
-  const nextRegistration = createInvalidatedRegistration({
-    pins: nextPins,
-  });
-  return commitRegistrationEdit(state, {
-    nextRegistration,
-    statusNotice: createStatusNotice(MACHINE_STATUS_NOTICE_KIND.PIN_REMOVED, {
-      pinId: removedPin.id,
-    }),
-    historyRecord: createRegistrationHistoryRecord({
-      kind: MACHINE_HISTORY_KIND.REMOVE_PIN,
-      label: "Removed pin",
-      undoLabel: "Restore pin",
-      redoLabel: "Remove pin",
-      previousRegistration,
-      nextRegistration,
-    }),
   });
 }
 
 export function clearPins(state, event = {}) {
-  const previousRegistration = state.session.registration;
-  if (!selectPanelPolicy(state).canClearPins) {
-    return createTransitionResult({
-      state,
-    });
-  }
-  const nextRegistration = createEmptyRegistration();
-  const editState = prepareRegistrationEditState(state, event);
-  return commitRegistrationEdit(editState, {
-    sourceState: state,
-    settlePanel: clearPanelIntent,
-    nextRegistration,
-    statusNotice: createStatusNotice(MACHINE_STATUS_NOTICE_KIND.PINS_CLEARED, {
-      pinCount: previousRegistration.pins.length,
-    }),
-    historyRecord: createRegistrationHistoryRecord({
-      kind: MACHINE_HISTORY_KIND.CLEAR_PINS,
-      label: "Cleared pins",
-      undoLabel: "Restore pins",
-      redoLabel: "Clear pins",
-      previousRegistration,
-      nextRegistration,
-    }),
-  });
+  return applyClearPinsEdit(state, event);
 }
 
 export function fitOverlay(state) {
@@ -202,82 +118,6 @@ export function fitOverlay(state) {
   });
 }
 
-function prepareRegistrationEditState(state, event) {
-  if (event.preservedPlacement?.type !== "similarity") {
-    return state;
-  }
-  return replaceSession(state, {
-    placement: event.preservedPlacement,
-  });
-}
-
-function commitRegistrationEdit(state, {
-  sourceState = state,
-  settlePanel = clearInvalidPanelIntent,
-  nextRegistration,
-  statusNotice = null,
-  historyRecord = null,
-}) {
-  return commitRegistrationPatch(state, {
-    sourceState,
-    settlePanel,
-    registration: nextRegistration,
-    mode: MACHINE_MODE.ALIGN,
-    statusNotice,
-    historyRecord,
-  });
-}
-
-function commitRegistrationPatch(state, {
-  sourceState = state,
-  settlePanel = clearInvalidPanelIntent,
-  registration,
-  mode = state.session.mode,
-  statusNotice = null,
-  historyRecord = null,
-}) {
-  const nextState = clearPlacementEditRuntime(replaceSession(replaceRegistration(state, registration), {
-    mode,
-  }));
-  const panelTransition = settlePanel(sourceState, nextState);
-  return createTransitionResult({
-    state: panelTransition.state,
-    effects: panelTransition.effects,
-    statusNotice,
-    historyRecord,
-  });
-}
-
 function canEditPins(state) {
   return selectPanelPolicy(state).canEditOverlay;
-}
-
-function nextPinId(pins) {
-  return pins.reduce((maxId, pin) => Math.max(maxId, Number(pin.id) || 0), 0) + 1;
-}
-
-function createRegistrationHistoryRecord({
-  kind,
-  label,
-  undoLabel,
-  redoLabel,
-  previousRegistration,
-  nextRegistration,
-}) {
-  return createSemanticHistoryRecord({
-    kind,
-    label,
-    undoLabel,
-    redoLabel,
-    undo: createRestoreRegistrationReplay(previousRegistration),
-    redo: createRestoreRegistrationReplay(nextRegistration),
-  });
-}
-
-function createRestoreRegistrationReplay(registration) {
-  return {
-    operation: MACHINE_HISTORY_REPLAY_OPERATION.RESTORE_REGISTRATION,
-    registration,
-    mode: MACHINE_MODE.ALIGN,
-  };
 }
