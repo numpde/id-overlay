@@ -716,6 +716,12 @@ test("page snapshot shape and equality are centralized outside the snapshot sour
   if (!/\bPAGE_SNAPSHOT_PROVENANCE_KIND\b/.test(snapshotSource)) {
     violations.push("missing: page snapshot provenance vocabulary");
   }
+  if (!/\bPAGE_VIEWPORT_PROVENANCE_KIND\b/.test(snapshotSource)) {
+    violations.push("missing: viewport provenance vocabulary");
+  }
+  if (!/\bviewportProvenance\b/.test(source)) {
+    violations.push("missing: viewport provenance propagation");
+  }
   if (!/\bcreateStalePageSnapshot\b/.test(source)) {
     violations.push("missing: stale fallback provenance");
   }
@@ -763,6 +769,9 @@ test("viewport geometry resolver delegates geometry and surface-motion fact cons
   }
   if (!/\btranslateRectByFrame\b/.test(factsSource)) {
     violations.push("missing: framed viewport translation in facts module");
+  }
+  if (!/\bPAGE_VIEWPORT_PROVENANCE_KIND\b/.test(factsSource)) {
+    violations.push("missing: viewport fact provenance");
   }
 
   assert.deepEqual(violations, []);

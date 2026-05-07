@@ -6,6 +6,7 @@ import { createDomEnvironment } from "../helpers/dom-env.js";
 import {
   createPageAdapter,
 } from "../../src/content/page-adapter.js";
+import { PAGE_VIEWPORT_PROVENANCE_KIND } from "../../src/content/page-adapter/page-snapshot.js";
 import { unprojectWorldToLatLon } from "../../src/core/transform.js";
 
 test("page adapter exposes explicit page capability ports", () => {
@@ -139,11 +140,15 @@ test("page adapter falls back to the window viewport when no map element is pres
       viewportDocument: env.document,
     }));
 
-    assert.deepEqual(adapter.getSnapshot().viewportRect, {
+    const snapshot = adapter.getSnapshot();
+    assert.deepEqual(snapshot.viewportRect, {
       left: 0,
       top: 0,
       width: 1440,
       height: 900,
+    });
+    assert.deepEqual(snapshot.provenance.viewport, {
+      kind: PAGE_VIEWPORT_PROVENANCE_KIND.FALLBACK,
     });
 
     adapter.destroy();

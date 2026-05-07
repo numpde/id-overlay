@@ -7,6 +7,7 @@ import {
   createFallbackViewportGeometry,
   resolveSurfaceMotionFact,
 } from "../../src/content/page-adapter/viewport-geometry-facts.js";
+import { PAGE_VIEWPORT_PROVENANCE_KIND } from "../../src/content/page-adapter/page-snapshot.js";
 
 test("element viewport geometry exposes screen and local viewport facts without a frame", () => {
   const viewportElement = createElementWithRect({
@@ -30,6 +31,9 @@ test("element viewport geometry exposes screen and local viewport facts without 
       top: 0,
       width: 900,
       height: 600,
+    },
+    viewportProvenance: {
+      kind: PAGE_VIEWPORT_PROVENANCE_KIND.ELEMENT,
     },
   });
 });
@@ -63,6 +67,9 @@ test("element viewport geometry translates iframe-local viewport rects into scre
       width: 700,
       height: 500,
     },
+    viewportProvenance: {
+      kind: PAGE_VIEWPORT_PROVENANCE_KIND.ELEMENT,
+    },
   });
 });
 
@@ -89,6 +96,9 @@ test("fallback viewport geometry uses window viewport facts when there is no fra
       top: 0,
       width: 900,
       height: 600,
+    },
+    viewportProvenance: {
+      kind: PAGE_VIEWPORT_PROVENANCE_KIND.FALLBACK,
     },
   });
 });
@@ -123,6 +133,9 @@ test("fallback viewport geometry uses the iframe rect for screen space when fram
       top: 0,
       width: 700,
       height: 500,
+    },
+    viewportProvenance: {
+      kind: PAGE_VIEWPORT_PROVENANCE_KIND.FALLBACK,
     },
   });
 });

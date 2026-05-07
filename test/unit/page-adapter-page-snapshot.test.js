@@ -3,9 +3,11 @@ import assert from "node:assert/strict";
 
 import {
   PAGE_SNAPSHOT_PROVENANCE_KIND,
+  PAGE_VIEWPORT_PROVENANCE_KIND,
   createFallbackPageSnapshot,
   createPageSnapshot,
   createStalePageSnapshot,
+  createPageViewportProvenance,
   isLivePageSnapshot,
   pageSnapshotsEqual,
 } from "../../src/content/page-adapter/page-snapshot.js";
@@ -35,6 +37,9 @@ test("page snapshot factory preserves the canonical snapshot shape", () => {
   assert.equal(snapshot.mountElement, mountElement);
   assert.deepEqual(snapshot.provenance, {
     kind: PAGE_SNAPSHOT_PROVENANCE_KIND.LIVE,
+    viewport: {
+      kind: PAGE_VIEWPORT_PROVENANCE_KIND.ELEMENT,
+    },
   });
 });
 
@@ -74,13 +79,23 @@ test("fallback page snapshot uses the window viewport, fallback map view, inert 
       },
       provenance: {
         kind: PAGE_SNAPSHOT_PROVENANCE_KIND.SYNTHETIC,
+        viewport: {
+          kind: PAGE_VIEWPORT_PROVENANCE_KIND.FALLBACK,
+        },
       },
     },
   );
 });
 
 test("stale page snapshot preserves facts and marks stale provenance", () => {
-  const liveSnapshot = createSnapshot();
+  const liveSnapshot = createSnapshot({
+    provenance: {
+      kind: PAGE_SNAPSHOT_PROVENANCE_KIND.LIVE,
+      viewport: {
+        kind: PAGE_VIEWPORT_PROVENANCE_KIND.FALLBACK,
+      },
+    },
+  });
   const staleSnapshot = createStalePageSnapshot(liveSnapshot);
 
   assert.notEqual(staleSnapshot, liveSnapshot);
@@ -88,6 +103,9 @@ test("stale page snapshot preserves facts and marks stale provenance", () => {
     ...liveSnapshot,
     provenance: {
       kind: PAGE_SNAPSHOT_PROVENANCE_KIND.STALE,
+      viewport: {
+        kind: PAGE_VIEWPORT_PROVENANCE_KIND.FALLBACK,
+      },
     },
   });
 });
@@ -133,6 +151,9 @@ test("page snapshot equality compares every semantic snapshot field", () => {
   })), false);
   assert.equal(pageSnapshotsEqual(base, createSnapshot({
     provenance: { kind: PAGE_SNAPSHOT_PROVENANCE_KIND.STALE },
+  })), false);
+  assert.equal(pageSnapshotsEqual(base, createSnapshot({
+    viewportProvenance: createPageViewportProvenance(PAGE_VIEWPORT_PROVENANCE_KIND.FALLBACK),
   })), false);
 });
 

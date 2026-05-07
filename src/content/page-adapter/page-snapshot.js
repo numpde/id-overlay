@@ -9,6 +9,11 @@ export const PAGE_SNAPSHOT_PROVENANCE_KIND = Object.freeze({
   SYNTHETIC: "synthetic",
 });
 
+export const PAGE_VIEWPORT_PROVENANCE_KIND = Object.freeze({
+  ELEMENT: "element",
+  FALLBACK: "fallback",
+});
+
 export function createPageSnapshot({
   viewportElement = null,
   mountElement = null,
@@ -16,7 +21,10 @@ export function createPageSnapshot({
   localViewportRect,
   mapView,
   surfaceMotion,
-  provenance = createPageSnapshotProvenance(PAGE_SNAPSHOT_PROVENANCE_KIND.LIVE),
+  viewportProvenance = createPageViewportProvenance(PAGE_VIEWPORT_PROVENANCE_KIND.ELEMENT),
+  provenance = createPageSnapshotProvenance(PAGE_SNAPSHOT_PROVENANCE_KIND.LIVE, {
+    viewportProvenance,
+  }),
 }) {
   return {
     viewportElement,
@@ -25,7 +33,7 @@ export function createPageSnapshot({
     localViewportRect,
     mapView,
     surfaceMotion,
-    provenance,
+    provenance: normalizePageSnapshotProvenance(provenance),
   };
 }
 
@@ -38,14 +46,18 @@ export function createFallbackPageSnapshot({ hashTarget, mapView }) {
     localViewportRect: viewportRect,
     mapView,
     surfaceMotion: createSurfaceMotion(),
-    provenance: createPageSnapshotProvenance(PAGE_SNAPSHOT_PROVENANCE_KIND.SYNTHETIC),
+    provenance: createPageSnapshotProvenance(PAGE_SNAPSHOT_PROVENANCE_KIND.SYNTHETIC, {
+      viewportProvenance: createPageViewportProvenance(PAGE_VIEWPORT_PROVENANCE_KIND.FALLBACK),
+    }),
   });
 }
 
 export function createStalePageSnapshot(snapshot) {
   return {
     ...snapshot,
-    provenance: createPageSnapshotProvenance(PAGE_SNAPSHOT_PROVENANCE_KIND.STALE),
+    provenance: createPageSnapshotProvenance(PAGE_SNAPSHOT_PROVENANCE_KIND.STALE, {
+      viewportProvenance: normalizeViewportProvenance(snapshot?.provenance?.viewport),
+    }),
   };
 }
 
@@ -62,11 +74,20 @@ export function pageSnapshotsEqual(left, right) {
     rectsEqual(left.localViewportRect, right.localViewportRect) &&
     mapViewsEqual(left.mapView, right.mapView) &&
     surfaceMotionsEqual(left.surfaceMotion, right.surfaceMotion) &&
-    provenanceKindsEqual(left.provenance, right.provenance)
+    provenancesEqual(left.provenance, right.provenance)
   );
 }
 
-function createPageSnapshotProvenance(kind) {
+function createPageSnapshotProvenance(kind, {
+  viewportProvenance = createPageViewportProvenance(PAGE_VIEWPORT_PROVENANCE_KIND.ELEMENT),
+} = {}) {
+  return {
+    kind,
+    viewport: normalizeViewportProvenance(viewportProvenance),
+  };
+}
+
+export function createPageViewportProvenance(kind) {
   return { kind };
 }
 
@@ -94,10 +115,25 @@ function surfaceMotionsEqual(left, right) {
   );
 }
 
-function provenanceKindsEqual(left, right) {
-  return normalizeProvenanceKind(left) === normalizeProvenanceKind(right);
+function provenancesEqual(left, right) {
+  return normalizeProvenanceKind(left) === normalizeProvenanceKind(right) &&
+    normalizeViewportProvenanceKind(left?.viewport) === normalizeViewportProvenanceKind(right?.viewport);
+}
+
+function normalizePageSnapshotProvenance(provenance) {
+  return createPageSnapshotProvenance(normalizeProvenanceKind(provenance), {
+    viewportProvenance: normalizeViewportProvenance(provenance?.viewport),
+  });
 }
 
 function normalizeProvenanceKind(provenance) {
   return provenance?.kind ?? PAGE_SNAPSHOT_PROVENANCE_KIND.LIVE;
+}
+
+function normalizeViewportProvenance(provenance) {
+  return createPageViewportProvenance(normalizeViewportProvenanceKind(provenance));
+}
+
+function normalizeViewportProvenanceKind(provenance) {
+  return provenance?.kind ?? PAGE_VIEWPORT_PROVENANCE_KIND.ELEMENT;
 }

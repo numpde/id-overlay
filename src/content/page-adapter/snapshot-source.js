@@ -98,6 +98,7 @@ export function createPageSnapshotSource({
       mountElement: viewport.mountElement,
       viewportRect: viewport.viewportRect,
       localViewportRect: viewport.localViewportRect,
+      viewportProvenance: viewport.viewportProvenance,
       mapView: mapViewResolver.resolveMapView(context, {
         viewportRect: viewport.viewportRect,
         surfaceMotion,

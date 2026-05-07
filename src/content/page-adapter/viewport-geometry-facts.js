@@ -5,6 +5,10 @@ import {
   translateRectByFrame,
 } from "./dom.js";
 import { SURFACE_MOTION_SELECTOR } from "./page-dom-queries.js";
+import {
+  PAGE_VIEWPORT_PROVENANCE_KIND,
+  createPageViewportProvenance,
+} from "./page-snapshot.js";
 
 export function createElementViewportGeometry({ viewportElement, frameElement = null }) {
   const rawViewportRect = rectFromDomRect(viewportElement.getBoundingClientRect());
@@ -22,13 +26,11 @@ export function createElementViewportGeometry({ viewportElement, frameElement = 
       width: rawViewportRect.width,
       height: rawViewportRect.height,
     },
+    viewportProvenance: createPageViewportProvenance(PAGE_VIEWPORT_PROVENANCE_KIND.ELEMENT),
   };
 }
 
 export function createFallbackViewportGeometry({ context, hashTarget }) {
-  // TODO(smell): Fallback geometry preserves availability over precision. The
-  // ideal snapshot model should carry this as provenance instead of returning a
-  // viewport-shaped object that looks fully authoritative.
   const viewportRect = context.frameElement
     ? rectFromDomRect(context.frameElement.getBoundingClientRect())
     : createWindowViewportRect(hashTarget);
@@ -40,6 +42,7 @@ export function createFallbackViewportGeometry({ context, hashTarget }) {
       ?? null,
     viewportRect,
     localViewportRect: createWindowViewportRect(context.mapWindow),
+    viewportProvenance: createPageViewportProvenance(PAGE_VIEWPORT_PROVENANCE_KIND.FALLBACK),
   };
 }
 

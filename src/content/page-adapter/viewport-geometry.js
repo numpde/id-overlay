@@ -12,9 +12,6 @@ export function createViewportGeometryResolver({ hashTarget }) {
   let viewportElement = null;
 
   function resolveViewportGeometry(context) {
-    // TODO(smell): Missing viewport falls back to window/frame geometry. The
-    // final page snapshot should expose fallback provenance so callers can avoid
-    // treating approximate geometry as authoritative.
     const resolvedViewportElement = resolveViewportElement(context);
     if (!resolvedViewportElement) {
       return createFallbackViewportGeometry({ context, hashTarget });
