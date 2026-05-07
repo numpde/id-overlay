@@ -4,19 +4,20 @@ import { createPageAdapter } from "./page-adapter.js";
 import { createPanel } from "./panel.js";
 import { createOverlay } from "./overlay.js";
 import {
-  clearActiveSession,
   clearOwnedShadowNodes,
-  destroyExistingSession,
   ensureExtensionHost,
-  storeActiveSession,
 } from "./host-lifecycle.js";
+import {
+  destroyActiveContentSession,
+  installContentSession,
+} from "./content-session.js";
 import { attachShadowStyles } from "./shadow-styles.js";
 import { BUILD_INFO } from "../core/build-info.js";
 import { createLogger } from "../core/logger.js";
 
 export async function bootstrapIdOverlay({ keyboardGateway = null } = {}) {
-  // TODO(smell): Bootstrap still owns lifecycle teardown. Extract session
-  // composition before adding more branches here.
+  // TODO(smell): Bootstrap still owns app composition. Extract a single
+  // content app factory before adding more branches here.
   const logger = createLogger("main");
   const pagePorts = createPageAdapter();
   if (!pagePorts.pageSession.isSupported()) {
@@ -32,7 +33,7 @@ export async function bootstrapIdOverlay({ keyboardGateway = null } = {}) {
   });
 
   const host = ensureExtensionHost();
-  destroyExistingSession(host);
+  destroyActiveContentSession(host);
   const machineHost = await createContentMachineHost({
     ownerWindow: window,
     pageObservation: pagePorts.pageObservation,
@@ -62,16 +63,15 @@ export async function bootstrapIdOverlay({ keyboardGateway = null } = {}) {
     machineHost,
   });
 
-  const session = createSession({
+  installContentSession({
     host,
+    ownerWindow: window,
     machineHost,
     panel,
     overlay,
     interactionPorts,
     pageSession: pagePorts.pageSession,
   });
-  storeActiveSession(host, session);
-  window.addEventListener("beforeunload", session.handleBeforeUnload);
 
   logger.info("Bootstrap complete");
 }
@@ -84,40 +84,4 @@ export function queueBootstrapIdOverlay({ keyboardGateway = null } = {}) {
     return;
   }
   bootstrapIdOverlay({ keyboardGateway });
-}
-
-function createSession({
-  host,
-  machineHost,
-  panel,
-  overlay,
-  interactionPorts,
-  pageSession,
-}) {
-  let destroyed = false;
-
-  function destroy() {
-    if (destroyed) {
-      return;
-    }
-    destroyed = true;
-    window.removeEventListener("beforeunload", handleBeforeUnload);
-    machineHost.destroy();
-    panel.destroy();
-    overlay.destroy();
-    interactionPorts.destroy();
-    pageSession.destroy();
-    clearActiveSession(host, session);
-  }
-
-  function handleBeforeUnload() {
-    destroy();
-  }
-
-  const session = {
-    destroy,
-    handleBeforeUnload,
-  };
-
-  return session;
 }

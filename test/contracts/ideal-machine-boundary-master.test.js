@@ -492,6 +492,7 @@ test("content bootstrap does not mix persistence migration with live page snapsh
     ["storage composition", /\bcreateExtensionStorage\b|\bDEFAULT_STORAGE_KEY\b/],
     ["paste composition", /\bcreateClipboardImageReader\b|\bcreatePagePlacedPasteReadOutcome\b|\bcreateManualPasteCapture\b/],
     ["core machine construction", /\bcreateMachineHost\b/],
+    ["session lifecycle internals", /\bbeforeunload\b|\bstoreActiveSession\b|\bclearActiveSession\b|\bdestroyExistingSession\b/],
   ];
   const violations = forbiddenPatterns
     .filter(([, pattern]) => pattern.test(source))
