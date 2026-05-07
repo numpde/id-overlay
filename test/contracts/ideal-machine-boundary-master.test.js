@@ -474,6 +474,22 @@ test("paste adapter reports clipboard facts, not machine-shaped outcomes", () =>
   assert.deepEqual(violations, []);
 });
 
+test("content machine host consumes paste effect services instead of clipboard adapters", () => {
+  const source = readSource(repoPath("src/content/content-machine-host.js"));
+  const forbiddenPatterns = [
+    ["clipboard reader construction", /\bcreateClipboardImageReader\b/],
+    ["page-placed paste outcome construction", /\bcreatePagePlacedPasteReadOutcome\b/],
+    ["clipboard API read", /\breadClipboardApiImage\b/],
+    ["manual clipboard data read", /\breadClipboardDataImage\b/],
+    ["manual paste listener ownership", /\baddEventListener\(\s*["']paste["']/],
+  ];
+  const violations = forbiddenPatterns
+    .filter(([, pattern]) => pattern.test(source))
+    .map(([name]) => name);
+
+  assert.deepEqual(violations, []);
+});
+
 test("page-placed paste outcome consumes canonical page snapshot liveness", () => {
   const source = readSource(repoPath("src/content/paste-read-outcome.js"));
   const violations = [];

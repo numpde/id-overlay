@@ -9,6 +9,7 @@ import { MACHINE_PANEL_INTENT } from "../../src/core/machine/events.js";
 import { createEmptyRegistration } from "../../src/core/session.js";
 import { createPlacementTransform } from "../../src/core/transform.js";
 import { createContentMachineHost } from "../../src/content/content-machine-host.js";
+import { createContentPasteEffectService } from "../../src/content/paste-effect-service.js";
 import { createDomEnvironment } from "../helpers/dom-env.js";
 import {
   IMAGE,
@@ -37,12 +38,17 @@ test("content machine host loads storage and ingests current page context before
   };
   const storage = createStorageHarness({ loadedSession: legacySession });
   const pageObservation = createPageObservation();
+  const ownerWindow = createOwnerWindowHarness();
 
   const host = await createContentMachineHost({
-    ownerWindow: createOwnerWindowHarness(),
+    ownerWindow,
     pageObservation,
     storage,
-    clipboardReader: createClipboardReaderHarness(),
+    pasteEffects: createContentPasteEffectService({
+      ownerWindow,
+      pageObservation,
+      clipboardReader: createClipboardReaderHarness(),
+    }),
     timers: createTimerHarness(),
   });
 
@@ -56,12 +62,17 @@ test("content machine host loads storage and ingests current page context before
 test("content machine host turns Clipboard API image facts into page-placed machine state", async () => {
   const storage = createStorageHarness();
   const pageObservation = createPageObservation();
+  const ownerWindow = createOwnerWindowHarness();
   const host = await createContentMachineHost({
-    ownerWindow: createOwnerWindowHarness(),
+    ownerWindow,
     pageObservation,
     storage,
-    clipboardReader: createClipboardReaderHarness({
-      apiFact: createDecodedClipboardImageFact({ image: IMAGE }),
+    pasteEffects: createContentPasteEffectService({
+      ownerWindow,
+      pageObservation,
+      clipboardReader: createClipboardReaderHarness({
+        apiFact: createDecodedClipboardImageFact({ image: IMAGE }),
+      }),
     }),
     timers: createTimerHarness(),
   });
@@ -83,15 +94,20 @@ test("content machine host turns Clipboard API image facts into page-placed mach
 
 test("content machine host owns manual paste capture and removes it on destroy", async () => {
   const env = createDomEnvironment();
+  const pageObservation = createPageObservation();
   const readDataCalls = [];
   const host = await createContentMachineHost({
     ownerWindow: env.window,
-    pageObservation: createPageObservation(),
+    pageObservation,
     storage: createStorageHarness(),
-    clipboardReader: createClipboardReaderHarness({
-      apiFact: createClipboardUnavailableFact(),
-      dataFact: createDecodedClipboardImageFact({ image: IMAGE }),
-      onReadData: (clipboardData) => readDataCalls.push(clipboardData),
+    pasteEffects: createContentPasteEffectService({
+      ownerWindow: env.window,
+      pageObservation,
+      clipboardReader: createClipboardReaderHarness({
+        apiFact: createClipboardUnavailableFact(),
+        dataFact: createDecodedClipboardImageFact({ image: IMAGE }),
+        onReadData: (clipboardData) => readDataCalls.push(clipboardData),
+      }),
     }),
     timers: createTimerHarness(),
   });
@@ -119,13 +135,18 @@ test("content machine host owns manual paste capture and removes it on destroy",
 
 test("content machine host completes manual paste captures with page-placed image state", async () => {
   const env = createDomEnvironment();
+  const pageObservation = createPageObservation();
   const host = await createContentMachineHost({
     ownerWindow: env.window,
-    pageObservation: createPageObservation(),
+    pageObservation,
     storage: createStorageHarness(),
-    clipboardReader: createClipboardReaderHarness({
-      apiFact: createClipboardUnavailableFact(),
-      dataFact: createDecodedClipboardImageFact({ image: IMAGE }),
+    pasteEffects: createContentPasteEffectService({
+      ownerWindow: env.window,
+      pageObservation,
+      clipboardReader: createClipboardReaderHarness({
+        apiFact: createClipboardUnavailableFact(),
+        dataFact: createDecodedClipboardImageFact({ image: IMAGE }),
+      }),
     }),
     timers: createTimerHarness(),
   });
