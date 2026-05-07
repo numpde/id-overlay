@@ -16,9 +16,9 @@ import {
   selectPanelPrimaryAction,
 } from "./policy.js";
 import {
-  toPersistedMachineSessionSnapshot,
   fromPersistedMachineSession,
 } from "./persistence.js";
+import { createMachineHostPersistenceService } from "./host-persistence-service.js";
 import {
   needsPageContextReconciliation,
   reconcilePageContext,
@@ -58,14 +58,13 @@ export function createMachineHost({
   statusTimeoutMs = undefined,
   onError = null,
 } = {}) {
-  // TODO(smell): Host still owns runtime lifecycle, durable persistence, and
-  // external subscribers. Split persistence/subscription adapters so this file
-  // only composes ingress methods over an already-hosted machine runtime.
+  // TODO(smell): Host still owns runtime lifecycle and external subscribers.
+  // Split subscriber ownership so this file only composes ingress methods over
+  // an already-hosted machine runtime.
   let destroyed = false;
   const subscriberUnsubscribes = new Set();
   let runtime = null;
-  let unsubscribePersistence = null;
-  let lastPersistedKey = "";
+  let persistenceService = null;
   let pendingPageContextPersistedSession = persistedSession;
 
   const effectServices = createMachineHostEffectServices({
@@ -87,9 +86,10 @@ export function createMachineHost({
     executeEffect: effectServices.runEffect,
     onEffectError: reportError,
   });
-  lastPersistedKey = toPersistedMachineSessionSnapshot(runtime.getState()).key;
-  unsubscribePersistence = runtime.subscribe(persistState, {
-    emitCurrent: false,
+  persistenceService = createMachineHostPersistenceService({
+    runtime,
+    savePersistedSession,
+    reportError,
   });
 
   function getState() {
@@ -365,25 +365,9 @@ export function createMachineHost({
       return;
     }
     destroyed = true;
-    unsubscribePersistence?.();
+    persistenceService.destroy();
     clearSubscribers();
     effectServices.destroy();
-  }
-
-  function persistState(state) {
-    const snapshot = toPersistedMachineSessionSnapshot(state);
-    if (snapshot.key === lastPersistedKey) {
-      return;
-    }
-    lastPersistedKey = snapshot.key;
-    try {
-      const maybePromise = savePersistedSession?.(snapshot.session);
-      if (isPromiseLike(maybePromise)) {
-        maybePromise.catch((error) => reportError(error, { operation: "save" }));
-      }
-    } catch (error) {
-      reportError(error, { operation: "save" });
-    }
   }
 
   function clearSubscribers() {
@@ -451,8 +435,4 @@ function createNoopDispatchResult(state) {
     historyRecord: null,
     consumedHistoryRecord: null,
   };
-}
-
-function isPromiseLike(value) {
-  return value && typeof value.catch === "function";
 }
