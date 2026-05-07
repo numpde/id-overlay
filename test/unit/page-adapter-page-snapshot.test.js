@@ -6,6 +6,7 @@ import {
   createFallbackPageSnapshot,
   createPageSnapshot,
   createStalePageSnapshot,
+  isLivePageSnapshot,
   pageSnapshotsEqual,
 } from "../../src/content/page-adapter/page-snapshot.js";
 
@@ -89,6 +90,23 @@ test("stale page snapshot preserves facts and marks stale provenance", () => {
       kind: PAGE_SNAPSHOT_PROVENANCE_KIND.STALE,
     },
   });
+});
+
+test("page snapshot liveness is derived from canonical provenance", () => {
+  assert.equal(isLivePageSnapshot(createSnapshot()), true);
+  assert.equal(isLivePageSnapshot({}), true);
+  assert.equal(isLivePageSnapshot(null), false);
+  assert.equal(isLivePageSnapshot(createStalePageSnapshot(createSnapshot())), false);
+  assert.equal(
+    isLivePageSnapshot(createFallbackPageSnapshot({
+      hashTarget: {
+        innerWidth: 1440,
+        innerHeight: 900,
+      },
+      mapView: createMapView(),
+    })),
+    false,
+  );
 });
 
 test("page snapshot equality compares every semantic snapshot field", () => {

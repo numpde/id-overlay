@@ -49,6 +49,11 @@ export function createStalePageSnapshot(snapshot) {
   };
 }
 
+export function isLivePageSnapshot(snapshot) {
+  return snapshot != null &&
+    normalizeProvenanceKind(snapshot.provenance) === PAGE_SNAPSHOT_PROVENANCE_KIND.LIVE;
+}
+
 export function pageSnapshotsEqual(left, right) {
   return (
     left.viewportElement === right.viewportElement &&

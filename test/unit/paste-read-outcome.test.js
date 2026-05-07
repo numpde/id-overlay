@@ -11,6 +11,7 @@ import {
 } from "../../src/core/machine/paste-read.js";
 import { createPlacementTransform } from "../../src/core/transform.js";
 import { createPagePlacedPasteReadOutcome } from "../../src/content/paste-read-outcome.js";
+import { PAGE_SNAPSHOT_PROVENANCE_KIND } from "../../src/content/page-adapter/page-snapshot.js";
 import { IMAGE } from "../helpers/session-fixtures.js";
 
 const SNAPSHOT = Object.freeze({
@@ -57,10 +58,40 @@ test("page-placed paste outcome does not read page context for failures", () => 
   });
 });
 
-function createPageObservation() {
+test("page-placed paste outcome does not author initial placement from stale page facts", () => {
+  const outcome = createPagePlacedPasteReadOutcome({
+    fact: createDecodedClipboardImageFact({ image: IMAGE }),
+    pageObservation: createPageObservation({
+      provenance: { kind: PAGE_SNAPSHOT_PROVENANCE_KIND.STALE },
+    }),
+  });
+
+  assert.deepEqual(outcome, {
+    kind: MACHINE_PASTE_READ_OUTCOME_KIND.DECODED_IMAGE,
+    image: IMAGE,
+    placement: null,
+  });
+});
+
+test("page-placed paste outcome does not author initial placement from synthetic page facts", () => {
+  const outcome = createPagePlacedPasteReadOutcome({
+    fact: createDecodedClipboardImageFact({ image: IMAGE }),
+    pageObservation: createPageObservation({
+      provenance: { kind: PAGE_SNAPSHOT_PROVENANCE_KIND.SYNTHETIC },
+    }),
+  });
+
+  assert.deepEqual(outcome, {
+    kind: MACHINE_PASTE_READ_OUTCOME_KIND.DECODED_IMAGE,
+    image: IMAGE,
+    placement: null,
+  });
+});
+
+function createPageObservation(snapshot = SNAPSHOT) {
   return {
     getSnapshot() {
-      return SNAPSHOT;
+      return snapshot;
     },
   };
 }

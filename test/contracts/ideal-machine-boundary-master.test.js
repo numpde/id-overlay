@@ -469,6 +469,20 @@ test("paste adapter reports clipboard facts, not machine-shaped outcomes", () =>
   assert.deepEqual(violations, []);
 });
 
+test("page-placed paste outcome consumes canonical page snapshot liveness", () => {
+  const source = readSource(repoPath("src/content/paste-read-outcome.js"));
+  const violations = [];
+
+  if (!/\bisLivePageSnapshot\b/.test(source)) {
+    violations.push("missing: canonical page snapshot liveness predicate");
+  }
+  if (/\bPAGE_SNAPSHOT_PROVENANCE_KIND\b|\bprovenance\s*\.\s*kind\b/.test(source)) {
+    violations.push("forbidden: local page snapshot provenance interpretation");
+  }
+
+  assert.deepEqual(violations, []);
+});
+
 test("persistence is storage-shaped and independent of live page projection", () => {
   const source = readSource(repoPath("src/core/machine/persistence.js"));
   const forbiddenPatterns = [
