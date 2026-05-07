@@ -4,8 +4,10 @@ import {
   MACHINE_PLACEMENT_EDIT_KIND,
 } from "./events.js";
 import { MACHINE_STATUS_NOTICE_KIND } from "./status-notices.js";
-import { transitionMachineEffectResult } from "./effect-result-transition.js";
-import { createMachineHostEffectServices } from "./host-effect-services.js";
+import {
+  createHostedMachineRuntime,
+  createNoopMachineResult,
+} from "./host-runtime.js";
 import {
   applyMachineStatusNotice,
   cancelPanelIntentWithStatusNotice,
@@ -15,13 +17,6 @@ import {
   MACHINE_PANEL_PRIMARY_ACTION_KIND,
   selectPanelPrimaryAction,
 } from "./policy.js";
-import {
-  fromPersistedMachineSession,
-} from "./persistence.js";
-import { createMachineHostPageContextService } from "./host-page-context-service.js";
-import { createMachineHostPersistenceService } from "./host-persistence-service.js";
-import { createMachineHostSubscriptionService } from "./host-subscription-service.js";
-import { createMachineRuntime } from "./runtime.js";
 import { transitionRuntimeFact } from "./runtime-transition.js";
 import {
   transitionActivateRedo,
@@ -56,15 +51,9 @@ export function createMachineHost({
   statusTimeoutMs = undefined,
   onError = null,
 } = {}) {
-  // TODO(smell): Host still creates the runtime. The ideal host would compose
-  // ingress methods over an already-hosted machine runtime.
-  let destroyed = false;
-  let runtime = null;
-  let pageContextService = null;
-  let persistenceService = null;
-  let subscriptionService = null;
-
-  const effectServices = createMachineHostEffectServices({
+  const hostedRuntime = createHostedMachineRuntime({
+    persistedSession,
+    savePersistedSession,
     readPasteImage,
     startManualPasteCapture,
     cancelManualPasteCapture,
@@ -74,64 +63,30 @@ export function createMachineHost({
     setStatusTimeout,
     clearStatusTimeout,
     statusTimeoutMs,
-    completeEffectResult: ingestEffectResult,
-    reportError,
-  });
-
-  runtime = createMachineRuntime({
-    initialState: fromPersistedMachineSession(persistedSession),
-  });
-  pageContextService = createMachineHostPageContextService({
-    runtime,
-    persistedSession,
-    commitMachineResult,
-  });
-  persistenceService = createMachineHostPersistenceService({
-    runtime,
-    savePersistedSession,
-    reportError,
-  });
-  subscriptionService = createMachineHostSubscriptionService({
-    runtime,
-    isDestroyed: () => destroyed,
+    onError,
   });
 
   function getState() {
-    return runtime.getState();
+    return hostedRuntime.getState();
   }
 
   function subscribe(listener, options) {
-    return subscriptionService.subscribe(listener, options);
+    return hostedRuntime.subscribe(listener, options);
   }
 
   function commitMachineTransition(transition, context = {}) {
-    if (destroyed) {
-      return createDestroyedDispatchResult(runtime.getState());
-    }
-    return commitMachineResult(transition(runtime.getState()), context);
-  }
-
-  function ingestEffectResult(result) {
-    if (destroyed) {
-      return createDestroyedDispatchResult(runtime.getState());
-    }
-    return commitMachineResult(transitionMachineEffectResult(runtime.getState(), result), {
-      effectResult: result,
-    });
+    return hostedRuntime.commitTransition(transition, context);
   }
 
   function ingestPageContext(pageContext) {
-    if (destroyed) {
-      return createDestroyedDispatchResult(runtime.getState());
-    }
-    return pageContextService.ingestPageContext(pageContext);
+    return hostedRuntime.ingestPageContext(pageContext);
   }
 
   function activatePanelPrimary() {
-    const state = runtime.getState();
+    const state = hostedRuntime.getState();
     const action = selectPanelPrimaryAction(state);
     if (action.disabled) {
-      return createNoopDispatchResult(state);
+      return createNoopMachineResult(state);
     }
     switch (action.kind) {
       case MACHINE_PANEL_PRIMARY_ACTION_KIND.PASTE:
@@ -150,7 +105,7 @@ export function createMachineHost({
       case MACHINE_PANEL_PRIMARY_ACTION_KIND.CONFIRM_CLEAR_IMAGE:
         return clearImage();
       default:
-        return createNoopDispatchResult(state);
+        return createNoopMachineResult(state);
     }
   }
 
@@ -193,10 +148,7 @@ export function createMachineHost({
   }
 
   function observeRuntimeFact(fact) {
-    if (destroyed) {
-      return createDestroyedDispatchResult(runtime.getState());
-    }
-    return commitMachineResult(transitionRuntimeFact(runtime.getState(), fact), {
+    return commitMachineTransition((state) => transitionRuntimeFact(state, fact), {
       runtimeFact: fact,
     });
   }
@@ -251,11 +203,7 @@ export function createMachineHost({
     noticeKind,
     noticePayload = null,
   } = {}) {
-    const state = runtime.getState();
-    if (destroyed) {
-      return createNoopDispatchResult(state);
-    }
-    return commitMachineResult(applyMachineStatusNotice(cancelPanelIntentWithStatusNotice(state, {
+    return commitMachineTransition((state) => applyMachineStatusNotice(cancelPanelIntentWithStatusNotice(state, {
       requestId,
       noticeKind,
       noticePayload,
@@ -265,10 +213,7 @@ export function createMachineHost({
   }
 
   function ingestStatusNotice({ noticeKind, noticePayload = null } = {}) {
-    if (destroyed) {
-      return createDestroyedDispatchResult(runtime.getState());
-    }
-    return commitMachineResult(applyMachineStatusNotice(createStatusNoticeResult(runtime.getState(), {
+    return commitMachineTransition((state) => applyMachineStatusNotice(createStatusNoticeResult(state, {
       noticeKind,
       noticePayload,
     })), {
@@ -339,40 +284,11 @@ export function createMachineHost({
   }
 
   function changeOpacityByWheel({ deltaY }) {
-    return setOpacity(opacityFromWheelDelta(runtime.getState().session.opacity, deltaY));
+    return setOpacity(opacityFromWheelDelta(hostedRuntime.getState().session.opacity, deltaY));
   }
 
   function destroy() {
-    if (destroyed) {
-      return;
-    }
-    destroyed = true;
-    persistenceService.destroy();
-    subscriptionService.destroy();
-    effectServices.destroy();
-  }
-
-  function commitMachineResult(result, context = {}) {
-    const committedResult = runtime.commitMachineResult(result);
-    runEffects(committedResult.effects, {
-      ...context,
-      state: committedResult.state,
-      result: committedResult,
-    });
-    return committedResult;
-  }
-
-  function runEffects(effects, context) {
-    if (!Array.isArray(effects)) {
-      return;
-    }
-    for (const effect of effects) {
-      effectServices.runEffect(effect, context);
-    }
-  }
-
-  function reportError(error, context) {
-    onError?.(error, context);
+    hostedRuntime.destroy();
   }
 
   return {
@@ -415,18 +331,5 @@ export function createMachineHost({
     scaleOverlayPlacement,
     changeOpacityByWheel,
     destroy,
-  };
-}
-
-function createDestroyedDispatchResult(state) {
-  return createNoopDispatchResult(state);
-}
-
-function createNoopDispatchResult(state) {
-  return {
-    state,
-    effects: [],
-    historyRecord: null,
-    consumedHistoryRecord: null,
   };
 }

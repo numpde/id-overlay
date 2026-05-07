@@ -175,22 +175,28 @@ test("public machine event vocabulary contains only user intents and external fa
 
 test("machine host exposes explicit ingress, not generic dispatch", () => {
   const source = readSource(repoPath("src/core/machine/host.js"));
+  const hostedRuntimeSource = readSource(repoPath("src/core/machine/host-runtime.js"));
   const forbiddenPatterns = [
     ["public dispatch function", /\bfunction\s+dispatch\s*\(/],
     ["dispatch returned from host", /\breturn\s*\{[^}]*\bdispatch\b/s],
     ["runtime raw dispatch", /\bruntime\.dispatch\s*\(/],
   ];
-  const requiredPatterns = [
+  const hostRequiredPatterns = [
     ["explicit user ingress verb", /\bfunction\s+(?:loadImage|selectMode|togglePin|activateUndo)\b/],
-    ["effect-result ingress", /\b(?:completeEffect|ingestEffectResult|ingestExternalFact)\b/],
+  ];
+  const hostedRuntimeRequiredPatterns = [
+    ["effect-result ingress", /\bfunction\s+completeEffectResult\b/],
   ];
 
   const violations = [
     ...forbiddenPatterns
       .filter(([, pattern]) => pattern.test(source))
       .map(([name]) => `forbidden: ${name}`),
-    ...requiredPatterns
+    ...hostRequiredPatterns
       .filter(([, pattern]) => !pattern.test(source))
+      .map(([name]) => `missing: ${name}`),
+    ...hostedRuntimeRequiredPatterns
+      .filter(([, pattern]) => !pattern.test(hostedRuntimeSource))
       .map(([name]) => `missing: ${name}`),
   ];
 
@@ -337,6 +343,7 @@ test("effect and timer completion returns typed facts instead of dispatching com
       readSource(repoPath("src/core/machine/effect-result-transition.js")),
     ],
     ["src/core/machine/host.js", readSource(repoPath("src/core/machine/host.js"))],
+    ["src/core/machine/host-runtime.js", readSource(repoPath("src/core/machine/host-runtime.js"))],
   ]);
   const forbiddenPatterns = [
     ["paste completion event", /\bcreateCompletePasteReadEvent\b/],
