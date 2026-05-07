@@ -3,6 +3,9 @@ import {
   planScalePlacementEdit,
 } from "../../core/placement-edit-planning.js";
 import {
+  createPlacementEditPlanningContext,
+} from "../../core/placement-edit-context.js";
+import {
   WHEEL_MODE,
 } from "../../core/interaction-policy.js";
 
@@ -18,15 +21,18 @@ export function createPlacementWheelCommand({
 
   function handlePlacementWheel({ deltaY, wheelMode, screenPoint }) {
     const snapshot = pageObservation.getSnapshot();
-    return wheelMode === WHEEL_MODE.ROTATE_OVERLAY
-      ? handleRotateWheel({ deltaY, screenPoint, snapshot })
-      : handleScaleWheel({ deltaY, screenPoint, snapshot });
-  }
-
-  function handleRotateWheel({ deltaY, screenPoint, snapshot }) {
-    const rotatePlan = planRotatePlacementEdit({
+    const editContext = createPlacementEditPlanningContext({
       machineState: getMachineState(),
       snapshot,
+    });
+    return wheelMode === WHEEL_MODE.ROTATE_OVERLAY
+      ? handleRotateWheel({ deltaY, screenPoint, editContext })
+      : handleScaleWheel({ deltaY, screenPoint, editContext });
+  }
+
+  function handleRotateWheel({ deltaY, screenPoint, editContext }) {
+    const rotatePlan = planRotatePlacementEdit({
+      editContext,
       anchorScreenPx: screenPoint,
       deltaY,
     });
@@ -41,10 +47,9 @@ export function createPlacementWheelCommand({
     return true;
   }
 
-  function handleScaleWheel({ deltaY, screenPoint, snapshot }) {
+  function handleScaleWheel({ deltaY, screenPoint, editContext }) {
     const scalePlan = planScalePlacementEdit({
-      machineState: getMachineState(),
-      snapshot,
+      editContext,
       anchorScreenPx: screenPoint,
       deltaY,
     });

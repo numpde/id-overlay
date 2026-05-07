@@ -2,6 +2,9 @@ import {
   planMovePlacementEditPreview,
   planMovePlacementEditStart,
 } from "../../core/placement-edit-planning.js";
+import {
+  createPlacementEditPlanningContext,
+} from "../../core/placement-edit-context.js";
 
 export function createOverlayMoveDragController({
   pageObservation,
@@ -20,9 +23,12 @@ export function createOverlayMoveDragController({
 
   function begin(screenPoint) {
     const snapshot = pageObservation.getSnapshot();
-    const movePlan = planMovePlacementEditStart({
+    const editContext = createPlacementEditPlanningContext({
       machineState: getMachineState(),
       snapshot,
+    });
+    const movePlan = planMovePlacementEditStart({
+      editContext,
       startPointerScreenPx: screenPoint,
     });
     if (!movePlan) {
@@ -43,9 +49,12 @@ export function createOverlayMoveDragController({
     }
 
     const snapshot = pageObservation.getSnapshot();
-    const previewPlan = planMovePlacementEditPreview({
+    const editContext = createPlacementEditPlanningContext({
       machineState: getMachineState(),
       snapshot,
+    });
+    const previewPlan = planMovePlacementEditPreview({
+      editContext,
       startPointerScreenPx: activeMove.startPointerScreenPx,
       startCenterScreenPx: activeMove.startCenterScreenPx,
       pointerScreenPx: screenPoint,

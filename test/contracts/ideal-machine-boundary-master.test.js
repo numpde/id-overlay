@@ -418,6 +418,7 @@ test("machine status notice vocabulary does not leak to content or tests", () =>
 
 test("placement planning is pure geometry and never constructs machine events", () => {
   const source = readSource(repoPath("src/core/placement-edit-planning.js"));
+  const contextSource = readSource(repoPath("src/core/placement-edit-context.js"));
   const forbiddenPatterns = [
     ["machine event import", /\bMACHINE_(?:PRIVATE_)?COMMAND_KIND\b/],
     ["placement edit kind import", /\bMACHINE_PLACEMENT_EDIT_KIND\b/],
@@ -426,11 +427,13 @@ test("placement planning is pure geometry and never constructs machine events", 
     ["event payload property", /\bevent\s*:/],
     ["event type payload", /\btype:\s*MACHINE_(?:PRIVATE_)?COMMAND_KIND\./],
     ["machine state parameter", /\bstate,\s*\n\s*snapshot\b/],
+    ["machine state projection", /\bmachineState\b/],
   ];
   const violations = forbiddenPatterns
     .filter(([, pattern]) => pattern.test(source))
     .map(([name]) => name);
 
+  assert.match(contextSource, /\bcreatePlacementEditPlanningContext\b/);
   assert.deepEqual(violations, []);
 });
 

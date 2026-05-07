@@ -1,7 +1,6 @@
 import {
   getOverlayImage,
 } from "./session.js";
-import { createPlacementEditedRegistration } from "./registration.js";
 import {
   createSimilarityTransformFromAnchor,
   derivePlacementFromScreenTransform,
@@ -11,7 +10,6 @@ import {
   screenPointToRenderedImagePoint,
 } from "./transform.js";
 import {
-  derivePlacementFromCurrentRenderState,
   resolveOverlayScreenTransform,
 } from "./overlay-render.js";
 import {
@@ -19,35 +17,12 @@ import {
   scaleFromWheelDelta,
 } from "./wheel-adjustment.js";
 
-export function resolvePlacementEditRenderState({ machineState, snapshot }) {
-  // TODO(smell): Placement edit planning accepts full machine state plus a full
-  // page snapshot, then rebuilds the editable render context internally. The
-  // principled boundary is a narrow, precomputed render/edit context so this
-  // module stays geometry planning rather than machine/page-state projection.
-  const session = machineState?.session ?? machineState;
-  const runtime = machineState?.session ? machineState.runtime ?? null : null;
-  if (!session) {
-    return null;
-  }
-  const placement = runtime?.placementEdit?.previewPlacement ??
-    derivePlacementFromCurrentRenderState({ state: session, snapshot }) ??
-    session.placement;
-  if (placement?.type !== "similarity") {
-    return null;
-  }
-  return {
-    ...session,
-    placement,
-    registration: createPlacementEditedRegistration(session.registration),
-  };
-}
-
 export function planMovePlacementEditStart({
-  machineState,
-  snapshot,
+  editContext,
   startPointerScreenPx,
 }) {
-  const editState = resolvePlacementEditRenderState({ machineState, snapshot });
+  const editState = editContext?.editState;
+  const snapshot = editContext?.snapshot;
   if (!editState || !isScreenPoint(startPointerScreenPx)) {
     return null;
   }
@@ -63,13 +38,13 @@ export function planMovePlacementEditStart({
 }
 
 export function planMovePlacementEditPreview({
-  machineState,
-  snapshot,
+  editContext,
   startPointerScreenPx,
   startCenterScreenPx,
   pointerScreenPx,
 }) {
-  const editState = resolvePlacementEditRenderState({ machineState, snapshot });
+  const editState = editContext?.editState;
+  const snapshot = editContext?.snapshot;
   if (
     !editState ||
     !isScreenPoint(startPointerScreenPx) ||
@@ -84,27 +59,24 @@ export function planMovePlacementEditPreview({
   };
   return {
     placement: createRetunedPlacementTransform({
-      editState,
-      snapshot,
+      editContext,
       centerScreenPx: nextCenterScreenPx,
     }),
   };
 }
 
 export function planRotatePlacementEdit({
-  machineState,
-  snapshot,
+  editContext,
   anchorScreenPx,
   deltaY,
 }) {
-  const editState = resolvePlacementEditRenderState({ machineState, snapshot });
+  const editState = editContext?.editState;
   if (!editState) {
     return null;
   }
   const rotationRad = rotationFromWheelDelta(editState.placement.rotationRad, deltaY);
   const placement = createRetunedPlacementTransform({
-    editState,
-    snapshot,
+    editContext,
     anchorScreenPx,
     rotationRad,
   });
@@ -116,12 +88,12 @@ export function planRotatePlacementEdit({
 }
 
 export function planScalePlacementEdit({
-  machineState,
-  snapshot,
+  editContext,
   anchorScreenPx,
   deltaY,
 }) {
-  const editState = resolvePlacementEditRenderState({ machineState, snapshot });
+  const editState = editContext?.editState;
+  const snapshot = editContext?.snapshot;
   if (!editState) {
     return null;
   }
@@ -131,8 +103,7 @@ export function planScalePlacementEdit({
   ) * (2 ** snapshot.mapView.zoom);
   const scale = scaleFromWheelDelta(screenScale, deltaY);
   const placement = createRetunedPlacementTransform({
-    editState,
-    snapshot,
+    editContext,
     anchorScreenPx,
     screenScale: scale,
   });
@@ -144,13 +115,14 @@ export function planScalePlacementEdit({
 }
 
 function createRetunedPlacementTransform({
-  editState,
-  snapshot,
+  editContext,
   centerScreenPx = null,
   anchorScreenPx = null,
   screenScale = null,
   rotationRad = null,
 }) {
+  const editState = editContext.editState;
+  const snapshot = editContext.snapshot;
   const image = getOverlayImage(editState);
   const screenTransform = resolveOverlayScreenTransform({
     state: editState,

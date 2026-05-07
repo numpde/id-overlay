@@ -400,6 +400,8 @@ test("pin toggle planning is centralized in core", () => {
 
 test("placement edit planning is centralized outside transform and live interaction routing", () => {
   const sources = new Map([
+    ["src/core/placement-edit-planning.js", fs.readFileSync(repoPath("src/core/placement-edit-planning.js"), "utf8")],
+    ["src/core/placement-edit-context.js", fs.readFileSync(repoPath("src/core/placement-edit-context.js"), "utf8")],
     ["src/core/transform.js", fs.readFileSync(repoPath("src/core/transform.js"), "utf8")],
     ["src/content/interactions/adapter-drag.js", fs.readFileSync(repoPath("src/content/interactions/adapter-drag.js"), "utf8")],
     ["src/content/interactions/wheel-command.js", fs.readFileSync(repoPath("src/content/interactions/wheel-command.js"), "utf8")],
@@ -420,11 +422,17 @@ test("placement edit planning is centralized outside transform and live interact
       "src/content/interactions/wheel-command.js",
       /\b(?:resolvePlacementEditRenderState|createRetunedPlacementTransform|rotationFromWheelDelta|scaleFromWheelDelta|MACHINE_PLACEMENT_EDIT_KIND)\b/,
     ],
+    [
+      "planner-owned machine/page projection",
+      "src/core/placement-edit-planning.js",
+      /\b(?:machineState|derivePlacementFromCurrentRenderState|createPlacementEditedRegistration)\b/,
+    ],
   ];
   const violations = forbiddenPatterns
     .filter(([, relativePath, pattern]) => pattern.test(sources.get(relativePath)))
     .map(([name]) => name);
 
+  assert.match(sources.get("src/core/placement-edit-context.js"), /\bcreatePlacementEditPlanningContext\b/);
   assert.deepEqual(violations, []);
 });
 

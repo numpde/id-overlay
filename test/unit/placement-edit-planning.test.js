@@ -6,8 +6,11 @@ import {
   planMovePlacementEditStart,
   planRotatePlacementEdit,
   planScalePlacementEdit,
-  resolvePlacementEditRenderState,
 } from "../../src/core/placement-edit-planning.js";
+import {
+  createPlacementEditPlanningContext,
+  resolvePlacementEditRenderState,
+} from "../../src/core/placement-edit-context.js";
 import {
   createPlacementScreenTransform,
   imagePointToScreenPoint,
@@ -138,10 +141,11 @@ test("placement edit render state falls back to durable placement and rejects mi
 
 test("placement edit planner creates move begin and preview facts", () => {
   const state = createSolvedSession();
-  const editState = resolvePlacementEditRenderState({
+  const editContext = createPlacementEditPlanningContext({
     machineState: state,
     snapshot: SNAPSHOT,
   });
+  const editState = editContext.editState;
   const editTransform = resolveOverlayScreenTransform({
     state: editState,
     snapshot: SNAPSHOT,
@@ -153,8 +157,7 @@ test("placement edit planner creates move begin and preview facts", () => {
   });
   const startPointerScreenPx = { x: 500, y: 250 };
   const start = planMovePlacementEditStart({
-    machineState: state,
-    snapshot: SNAPSHOT,
+    editContext,
     startPointerScreenPx,
   });
 
@@ -166,8 +169,7 @@ test("placement edit planner creates move begin and preview facts", () => {
   });
 
   const preview = planMovePlacementEditPreview({
-    machineState: state,
-    snapshot: SNAPSHOT,
+    editContext,
     startPointerScreenPx,
     startCenterScreenPx: start.startCenterScreenPx,
     pointerScreenPx: { x: 520, y: 270 },
@@ -190,10 +192,11 @@ test("placement edit planner creates move begin and preview facts", () => {
 
 test("placement edit planner creates anchored rotate and scale edit facts", () => {
   const state = createSolvedSession();
-  const editState = resolvePlacementEditRenderState({
+  const editContext = createPlacementEditPlanningContext({
     machineState: state,
     snapshot: SNAPSHOT,
   });
+  const editState = editContext.editState;
   const anchorImagePx = { x: 60, y: 25 };
   const anchorScreenPx = imagePointToScreenPoint({
     imagePoint: anchorImagePx,
@@ -204,8 +207,7 @@ test("placement edit planner creates anchored rotate and scale edit facts", () =
   });
 
   const rotate = planRotatePlacementEdit({
-    machineState: state,
-    snapshot: SNAPSHOT,
+    editContext,
     anchorScreenPx,
     deltaY: -100,
   });
@@ -215,8 +217,7 @@ test("placement edit planner creates anchored rotate and scale edit facts", () =
   assertPlacementKeepsAnchor(rotate.placement, anchorImagePx, anchorScreenPx);
 
   const scale = planScalePlacementEdit({
-    machineState: state,
-    snapshot: SNAPSHOT,
+    editContext,
     anchorScreenPx,
     deltaY: -100,
   });
