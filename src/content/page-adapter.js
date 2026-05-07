@@ -1,4 +1,5 @@
 import { createLogger } from "../core/logger.js";
+import { createPageAdapterBoundary } from "./page-adapter/boundary.js";
 import {
   createMapGestureForwarder,
 } from "./page-adapter/gesture-forwarding.js";
@@ -13,24 +14,11 @@ export function createPageAdapter({
   viewportDocument = globalThis.document,
 } = {}) {
   const logger = createLogger("page-adapter");
+  const runBoundary = createPageAdapterBoundary({ logger });
   const viewportGeometry = createViewportGeometryResolver({ hashTarget });
   const mapViewResolver = createMapViewResolver();
   let notifySnapshotChanged = () => {};
   let handleStructureMutation = () => notifySnapshotChanged();
-
-  function runAdapterBoundary(operation, fn, fallbackValue = undefined) {
-    // TODO(smell): Adapter fallbacks keep the extension alive but can mask
-    // projection/page-integration regressions. Keep fallback values boring and
-    // make real adapter behavior observable in tests.
-    try {
-      return fn();
-    } catch (error) {
-      logger.error("Page adapter boundary failed", {
-        operation,
-      }, error);
-      return typeof fallbackValue === "function" ? fallbackValue(error) : fallbackValue;
-    }
-  }
 
   const pageContext = createPageContext({
     hashTarget,
@@ -45,7 +33,7 @@ export function createPageAdapter({
     pageContext,
     viewportGeometry,
     mapViewResolver,
-    runBoundary: runAdapterBoundary,
+    runBoundary,
   });
   notifySnapshotChanged = snapshotSource.notifyIfChanged;
   handleStructureMutation = snapshotSource.handleStructureMutation;
@@ -68,7 +56,7 @@ export function createPageAdapter({
   };
   const pageProjection = {
     clientPointToScreen(clientPoint) {
-      return runAdapterBoundary("client-point-to-screen", () => {
+      return runBoundary("client-point-to-screen", () => {
         return projection.clientPointToScreen(clientPoint);
       }, {
         x: clientPoint?.x ?? 0,
@@ -76,7 +64,7 @@ export function createPageAdapter({
       });
     },
     screenPointToClient(screenPoint) {
-      return runAdapterBoundary("screen-point-to-client", () => {
+      return runBoundary("screen-point-to-client", () => {
         return projection.screenPointToClient(screenPoint);
       }, {
         x: screenPoint?.x ?? 0,
@@ -84,39 +72,39 @@ export function createPageAdapter({
       });
     },
     mapToScreen(point) {
-      return runAdapterBoundary("map-to-screen", () => {
+      return runBoundary("map-to-screen", () => {
         return projection.mapToScreen(point);
       }, { x: 0, y: 0 });
     },
     mapToOverlayLayerScreen(point) {
-      return runAdapterBoundary("map-to-overlay-layer-screen", () => {
+      return runBoundary("map-to-overlay-layer-screen", () => {
         return projection.mapToOverlayLayerScreen(point);
       }, { x: 0, y: 0 });
     },
     screenToMap(screenPoint) {
-      return runAdapterBoundary("screen-to-map", () => {
+      return runBoundary("screen-to-map", () => {
         return projection.screenToMap(screenPoint);
       }, mapViewResolver.getFallbackMapView().center);
     },
   };
   const mapGesture = {
     beginMapPan(screenPoint) {
-      return runAdapterBoundary("begin-map-pan", () => {
+      return runBoundary("begin-map-pan", () => {
         return gestureForwarder.beginMapPan(screenPoint);
       }, false);
     },
     updateMapPan(screenPoint) {
-      return runAdapterBoundary("update-map-pan", () => {
+      return runBoundary("update-map-pan", () => {
         return gestureForwarder.updateMapPan(screenPoint);
       }, false);
     },
     endMapPan(screenPoint) {
-      runAdapterBoundary("end-map-pan", () => {
+      runBoundary("end-map-pan", () => {
         gestureForwarder.endMapPan(screenPoint);
       });
     },
     forwardMapZoom({ screenPoint, deltaX = 0, deltaY = 0, deltaMode = 0 }) {
-      return runAdapterBoundary("forward-map-zoom", () => {
+      return runBoundary("forward-map-zoom", () => {
         return gestureForwarder.forwardMapZoom({
           screenPoint,
           deltaX,

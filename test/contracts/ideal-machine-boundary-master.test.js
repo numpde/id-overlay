@@ -549,6 +549,27 @@ test("page integration exposes explicit ports instead of a broad adapter object"
   assert.deepEqual(violations, []);
 });
 
+test("page adapter centralizes fallback handling in a dedicated boundary", () => {
+  const source = readSource(repoPath("src/content/page-adapter.js"));
+  const boundarySource = readSource(repoPath("src/content/page-adapter/boundary.js"));
+  const violations = [];
+
+  if (!/\bcreatePageAdapterBoundary\b/.test(source)) {
+    violations.push("missing: page adapter boundary import/use");
+  }
+  if (/\btry\s*\{|\bcatch\s*\(/.test(source)) {
+    violations.push("forbidden: inline page adapter try/catch");
+  }
+  if (!/\bPage adapter boundary failed\b/.test(boundarySource)) {
+    violations.push("missing: centralized adapter failure log");
+  }
+  if (/\btypeof\s+fallbackValue\s*===\s*["']function["']/.test(boundarySource)) {
+    violations.push("forbidden: executable fallback policy");
+  }
+
+  assert.deepEqual(violations, []);
+});
+
 test("content modules consume narrow page ports, not the monolithic adapter", () => {
   const violations = [];
   const allowedFiles = new Set([
