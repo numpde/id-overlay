@@ -1,11 +1,8 @@
-import { createExtensionStorage } from "../platform/storage.js";
+import { createContentMachineHost } from "./content-machine-host.js";
 import { createInteractionPorts } from "./interaction-ports.js";
-import { createMachineHost } from "../core/machine/host.js";
 import { createPageAdapter } from "./page-adapter.js";
 import { createPanel } from "./panel.js";
 import { createOverlay } from "./overlay.js";
-import { createClipboardImageReader } from "./paste-adapter.js";
-import { createPagePlacedPasteReadOutcome } from "./paste-read-outcome.js";
 import {
   clearActiveSession,
   clearOwnedShadowNodes,
@@ -16,11 +13,10 @@ import {
 import { attachShadowStyles } from "./shadow-styles.js";
 import { BUILD_INFO } from "../core/build-info.js";
 import { createLogger } from "../core/logger.js";
-import { DEFAULT_STORAGE_KEY } from "../platform/storage-key.js";
 
 export async function bootstrapIdOverlay({ keyboardGateway = null } = {}) {
-  // TODO(smell): Bootstrap still owns machine/paste composition and lifecycle
-  // teardown. Extract those before adding more branches here.
+  // TODO(smell): Bootstrap still owns lifecycle teardown. Extract session
+  // composition before adding more branches here.
   const logger = createLogger("main");
   const pagePorts = createPageAdapter();
   if (!pagePorts.pageSession.isSupported()) {
@@ -37,31 +33,11 @@ export async function bootstrapIdOverlay({ keyboardGateway = null } = {}) {
 
   const host = ensureExtensionHost();
   destroyExistingSession(host);
-  const storage = createExtensionStorage({ storageKey: DEFAULT_STORAGE_KEY });
-  const persistedState = await storage.load();
-  const clipboardReader = createClipboardImageReader({
+  const machineHost = await createContentMachineHost({
     ownerWindow: window,
+    pageObservation: pagePorts.pageObservation,
     logger,
   });
-  const machineHost = createMachineHost({
-    persistedSession: persistedState,
-    savePersistedSession: (session) => storage.save(session),
-    readPasteImage: () => readClipboardApiPasteOutcome({
-      clipboardReader,
-      pageObservation: pagePorts.pageObservation,
-    }),
-    ...createManualPasteCapture({
-      ownerWindow: window,
-      clipboardReader,
-      pageObservation: pagePorts.pageObservation,
-      logger,
-    }),
-    setPanelTimeout: (callback, { delayMs }) => globalThis.setTimeout(callback, delayMs),
-    clearPanelTimeout: (handle) => globalThis.clearTimeout(handle),
-    setStatusTimeout: (callback, { delayMs }) => globalThis.setTimeout(callback, delayMs),
-    clearStatusTimeout: (handle) => globalThis.clearTimeout(handle),
-  });
-  machineHost.ingestPageContext(pagePorts.pageObservation.getSnapshot());
   const interactionPorts = createInteractionPorts({
     machineHost,
     pageObservation: pagePorts.pageObservation,
@@ -98,73 +74,6 @@ export async function bootstrapIdOverlay({ keyboardGateway = null } = {}) {
   window.addEventListener("beforeunload", session.handleBeforeUnload);
 
   logger.info("Bootstrap complete");
-}
-
-function createManualPasteCapture({ ownerWindow, clipboardReader, pageObservation, logger }) {
-  let activeCapture = null;
-
-  return {
-    startManualPasteCapture({ requestId }) {
-      cancelManualPasteCapture({ requestId: null });
-      return new Promise((resolve) => {
-        activeCapture = { requestId, resolve };
-        ownerWindow.addEventListener("paste", handleWindowPaste, true);
-      });
-    },
-    cancelManualPasteCapture,
-  };
-
-  function cancelManualPasteCapture({ requestId }) {
-    if (!activeCapture) {
-      return;
-    }
-    if (requestId !== null && requestId !== activeCapture.requestId) {
-      return;
-    }
-    finishManualPasteCapture(null);
-  }
-
-  async function handleWindowPaste(event) {
-    const requestId = activeCapture?.requestId ?? null;
-    if (requestId === null) {
-      return;
-    }
-
-    event.preventDefault();
-    const fact = await clipboardReader.readClipboardDataImage(event.clipboardData);
-    if (activeCapture?.requestId !== requestId) {
-      logger.info("Ignoring window paste result because paste capture was cancelled");
-      return;
-    }
-    finishManualPasteCapture(createPasteReadOutcome({
-      fact,
-      pageObservation,
-    }));
-  }
-
-  function finishManualPasteCapture(outcome) {
-    if (!activeCapture) {
-      return;
-    }
-    const { resolve } = activeCapture;
-    ownerWindow.removeEventListener("paste", handleWindowPaste, true);
-    activeCapture = null;
-    resolve(outcome);
-  }
-}
-
-async function readClipboardApiPasteOutcome({ clipboardReader, pageObservation }) {
-  return createPasteReadOutcome({
-    fact: await clipboardReader.readClipboardApiImage(),
-    pageObservation,
-  });
-}
-
-function createPasteReadOutcome({ fact, pageObservation }) {
-  return createPagePlacedPasteReadOutcome({
-    fact,
-    pageObservation,
-  });
 }
 
 export function queueBootstrapIdOverlay({ keyboardGateway = null } = {}) {

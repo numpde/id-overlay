@@ -136,7 +136,7 @@ test("clean-room machine does not import legacy semantic ownership modules", () 
 test("content bootstrap uses the machine host instead of the legacy state store", () => {
   const source = fs.readFileSync(repoPath("src/content/main.js"), "utf8");
 
-  assert.match(source, /createMachineHost/);
+  assert.match(source, /createContentMachineHost/);
   assert.doesNotMatch(source, /createStateStore/);
   assert.doesNotMatch(source, /createMachineBackedStateStore/);
   assert.doesNotMatch(source, /"\.\.\/core\/state\.js"/);

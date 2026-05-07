@@ -489,6 +489,9 @@ test("content bootstrap does not mix persistence migration with live page snapsh
   const forbiddenPatterns = [
     ["map-aware persistence migration import", /\bmigratePersistedMachineSessionForMap\b/],
     ["snapshot passed while constructing persisted session", /\bpersistedSession:\s*[^,\n]*pageAdapter\.getSnapshot\s*\(/s],
+    ["storage composition", /\bcreateExtensionStorage\b|\bDEFAULT_STORAGE_KEY\b/],
+    ["paste composition", /\bcreateClipboardImageReader\b|\bcreatePagePlacedPasteReadOutcome\b|\bcreateManualPasteCapture\b/],
+    ["core machine construction", /\bcreateMachineHost\b/],
   ];
   const violations = forbiddenPatterns
     .filter(([, pattern]) => pattern.test(source))
