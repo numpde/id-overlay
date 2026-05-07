@@ -761,6 +761,7 @@ test("generic page adapter DOM helpers do not own upstream page selectors", () =
 test("gesture forwarding delegates synthetic event construction and identity", () => {
   const source = readSource(repoPath("src/content/page-adapter/gesture-forwarding.js"));
   const eventSource = readSource(repoPath("src/content/page-adapter/forwarded-map-events.js"));
+  const targetSource = readSource(repoPath("src/content/page-adapter/map-gesture-targets.js"));
   const violations = [];
 
   if (!/\bdispatchForwardedMapPointerPhase\b/.test(source)) {
@@ -774,6 +775,15 @@ test("gesture forwarding delegates synthetic event construction and identity", (
   }
   if (!/\bFORWARDED_MAP_GESTURE_EVENT_FLAG\b/.test(eventSource)) {
     violations.push("missing: forwarded event identity owner");
+  }
+  if (!/\bresolveMapZoomTarget\b/.test(source) || !/\bresolveMapPanTarget\b/.test(source)) {
+    violations.push("missing: target resolution delegation");
+  }
+  if (/\bfindViewportElement\b|\bisOverlayOwnedElement\b|\belementsFromPoint\b|\belementFromPoint\b/.test(source)) {
+    violations.push("forbidden: DOM target resolution in gesture coordinator");
+  }
+  if (!/\belementsFromPoint\b/.test(targetSource) || !/\bisOverlayOwnedElement\b/.test(targetSource)) {
+    violations.push("missing: quarantined map target hit-testing");
   }
 
   assert.deepEqual(violations, []);
