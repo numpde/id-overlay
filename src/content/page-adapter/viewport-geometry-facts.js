@@ -2,9 +2,9 @@ import {
   createSurfaceMotion,
   createWindowViewportRect,
   rectFromDomRect,
-  SURFACE_MOTION_SELECTOR,
   translateRectByFrame,
 } from "./dom.js";
+import { SURFACE_MOTION_SELECTOR } from "./page-dom-queries.js";
 
 export function createElementViewportGeometry({ viewportElement, frameElement = null }) {
   const rawViewportRect = rectFromDomRect(viewportElement.getBoundingClientRect());

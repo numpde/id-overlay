@@ -1,9 +1,9 @@
 import {
-  findEmbeddedIdFrame,
   getSafeLocation,
   resolveMutationRoot,
 } from "./dom.js";
 import { observeHistoryMutations } from "./history-observation.js";
+import { findEmbeddedIdFrame } from "./page-dom-queries.js";
 
 export function createPageContext({
   hashTarget,

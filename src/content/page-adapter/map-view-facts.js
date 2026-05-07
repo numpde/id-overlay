@@ -1,7 +1,7 @@
 import {
   unprojectWorldToLatLon,
 } from "../../core/geometry.js";
-import { findReferenceTile } from "./dom.js";
+import { findReferenceTile } from "./page-dom-queries.js";
 
 const TILE_SIZE = 256;
 

@@ -1,7 +1,7 @@
 import {
   findViewportElement,
   isOverlayOwnedElement,
-} from "./dom.js";
+} from "./page-dom-queries.js";
 import {
   screenPointToContextClientPoint,
 } from "./projection.js";

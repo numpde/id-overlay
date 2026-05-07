@@ -699,6 +699,27 @@ test("viewport geometry resolver delegates geometry and surface-motion fact cons
   assert.deepEqual(violations, []);
 });
 
+test("generic page adapter DOM helpers do not own upstream page selectors", () => {
+  const domSource = readSource(repoPath("src/content/page-adapter/dom.js"));
+  const querySource = readSource(repoPath("src/content/page-adapter/page-dom-queries.js"));
+  const violations = [];
+
+  if (/\bquerySelector\b|\bquerySelectorAll\b|\bVIEWPORT_SELECTORS\b|\bID_EMBED_SELECTOR\b/.test(domSource)) {
+    violations.push("forbidden: upstream page selector queries in generic DOM helpers");
+  }
+  if (!/\bVIEWPORT_SELECTORS\b/.test(querySource)) {
+    violations.push("missing: viewport selector quarantine");
+  }
+  if (!/\bfindEmbeddedIdFrame\b/.test(querySource)) {
+    violations.push("missing: embedded iD frame query");
+  }
+  if (!/\bfindReferenceTile\b/.test(querySource)) {
+    violations.push("missing: reference tile query");
+  }
+
+  assert.deepEqual(violations, []);
+});
+
 test("content modules consume narrow page ports, not the monolithic adapter", () => {
   const violations = [];
   const allowedFiles = new Set([

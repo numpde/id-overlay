@@ -1,7 +1,5 @@
-import {
-  findViewportElement,
-  isVisible,
-} from "./dom.js";
+import { isVisible } from "./dom.js";
+import { findViewportElement } from "./page-dom-queries.js";
 import {
   createElementViewportGeometry,
   createFallbackViewportGeometry,
