@@ -16,43 +16,29 @@ test("page adapter exposes explicit page capability ports", () => {
   const env = createDomEnvironment();
 
   try {
-    const adapter = createPageAdapter({
+    const pagePorts = createPageAdapter({
       hashTarget: env.window,
       viewportDocument: env.document,
     });
 
-    assert.deepEqual(Object.keys(adapter).sort(), [
+    assert.deepEqual(Object.keys(pagePorts).sort(), [
       "mapGesture",
       "pageObservation",
       "pageProjection",
       "pageSession",
     ]);
-    assert.equal(typeof adapter.pageObservation.getSnapshot, "function");
-    assert.equal(typeof adapter.pageProjection.screenToMap, "function");
-    assert.equal(typeof adapter.mapGesture.forwardMapZoom, "function");
-    assert.equal(typeof adapter.mapGesture.isForwardedMapGestureEvent, "function");
-    assert.equal(typeof adapter.pageSession.destroy, "function");
-    assert.equal(Object.hasOwn(adapter, "getSnapshot"), false);
-    assert.equal(Object.hasOwn(adapter, "screenToMap"), false);
-    assert.equal(Object.hasOwn(adapter, "forwardMapZoom"), false);
+    assert.equal(typeof pagePorts.pageObservation.getSnapshot, "function");
+    assert.equal(typeof pagePorts.pageProjection.screenToMap, "function");
+    assert.equal(typeof pagePorts.mapGesture.forwardMapZoom, "function");
+    assert.equal(typeof pagePorts.mapGesture.isForwardedMapGestureEvent, "function");
+    assert.equal(typeof pagePorts.pageSession.destroy, "function");
+    assert.equal(Object.hasOwn(pagePorts, "getSnapshot"), false);
+    assert.equal(Object.hasOwn(pagePorts, "screenToMap"), false);
+    assert.equal(Object.hasOwn(pagePorts, "forwardMapZoom"), false);
   } finally {
     env.cleanup();
   }
 });
-
-function flattenPagePorts({
-  pageSession,
-  pageObservation,
-  pageProjection,
-  mapGesture,
-}) {
-  return {
-    ...pageSession,
-    ...pageObservation,
-    ...pageProjection,
-    ...mapGesture,
-  };
-}
 
 test("page adapter uses the viewport element and keeps map/screen projection consistent", () => {
   const env = createDomEnvironment({
@@ -71,13 +57,13 @@ test("page adapter uses the viewport element and keeps map/screen projection con
       bottom: 680,
     });
 
-    const adapter = flattenPagePorts(createPageAdapter({
+    const pagePorts = createPageAdapter({
       hashTarget: env.window,
       viewportDocument: env.document,
-    }));
-    const snapshot = adapter.getSnapshot();
+    });
+    const snapshot = pagePorts.pageObservation.getSnapshot();
 
-    assert.equal(adapter.isSupported(), true);
+    assert.equal(pagePorts.pageSession.isSupported(), true);
     assert.deepEqual(snapshot.viewportRect, {
       left: 120,
       top: 80,
@@ -101,25 +87,27 @@ test("page adapter uses the viewport element and keeps map/screen projection con
     });
 
     const viewportCenter = { x: 570, y: 380 };
-    assert.deepEqual(adapter.mapToScreen(snapshot.mapView.center), viewportCenter);
-    assert.deepEqual(adapter.mapToOverlayLayerScreen(snapshot.mapView.center), viewportCenter);
-    const resolvedCenter = adapter.screenToMap(viewportCenter);
+    assert.deepEqual(pagePorts.pageProjection.mapToScreen(snapshot.mapView.center), viewportCenter);
+    assert.deepEqual(pagePorts.pageProjection.mapToOverlayLayerScreen(snapshot.mapView.center), viewportCenter);
+    const resolvedCenter = pagePorts.pageProjection.screenToMap(viewportCenter);
     assert.ok(Math.abs(resolvedCenter.lat - snapshot.mapView.center.lat) < 1e-9);
     assert.ok(Math.abs(resolvedCenter.lon - snapshot.mapView.center.lon) < 1e-9);
 
     const point = { lat: -1.2259, lon: 36.8271 };
-    const projected = adapter.mapToScreen(point);
-    const baseProjected = adapter.mapToOverlayLayerScreen(point);
-    const resolved = adapter.screenToMap(projected);
+    const projected = pagePorts.pageProjection.mapToScreen(point);
+    const baseProjected = pagePorts.pageProjection.mapToOverlayLayerScreen(point);
+    const resolved = pagePorts.pageProjection.screenToMap(projected);
     assert.ok(Math.abs(resolved.lat - point.lat) < 1e-9);
     assert.ok(Math.abs(resolved.lon - point.lon) < 1e-9);
     assert.deepEqual(projected, baseProjected);
     assert.deepEqual(
-      adapter.screenPointToClient(adapter.clientPointToScreen({ x: 320, y: 260 })),
+      pagePorts.pageProjection.screenPointToClient(
+        pagePorts.pageProjection.clientPointToScreen({ x: 320, y: 260 }),
+      ),
       { x: 320, y: 260 },
     );
 
-    adapter.destroy();
+    pagePorts.pageSession.destroy();
   } finally {
     env.cleanup();
   }
@@ -141,12 +129,12 @@ test("page adapter falls back to the window viewport when no map element is pres
       value: 900,
     });
 
-    const adapter = flattenPagePorts(createPageAdapter({
+    const pagePorts = createPageAdapter({
       hashTarget: env.window,
       viewportDocument: env.document,
-    }));
+    });
 
-    const snapshot = adapter.getSnapshot();
+    const snapshot = pagePorts.pageObservation.getSnapshot();
     assert.deepEqual(snapshot.viewportRect, {
       left: 0,
       top: 0,
@@ -160,7 +148,7 @@ test("page adapter falls back to the window viewport when no map element is pres
       kind: PAGE_MAP_VIEW_PROVENANCE_KIND.DEFAULT,
     });
 
-    adapter.destroy();
+    pagePorts.pageSession.destroy();
   } finally {
     env.cleanup();
   }
@@ -220,11 +208,11 @@ test("page adapter prefers the embedded iD iframe for viewport, map view, and su
     surface.style.transform = "matrix(1, 0, 0, 1, 18, -12)";
     surface.style.transformOrigin = "0px 0px";
 
-    const adapter = flattenPagePorts(createPageAdapter({
+    const pagePorts = createPageAdapter({
       hashTarget: env.window,
       viewportDocument: env.document,
-    }));
-    const snapshot = adapter.getSnapshot();
+    });
+    const snapshot = pagePorts.pageObservation.getSnapshot();
 
     assert.deepEqual(snapshot.mapView.center, {
       lat: -1.21,
@@ -248,24 +236,24 @@ test("page adapter prefers the embedded iD iframe for viewport, map view, and su
       transformCss: "matrix(1, 0, 0, 1, 18, -12)",
       transformOriginCss: "0px 0px",
     });
-    assert.deepEqual(adapter.clientPointToScreen({ x: 500, y: 200 }), {
+    assert.deepEqual(pagePorts.pageProjection.clientPointToScreen({ x: 500, y: 200 }), {
       x: 800,
       y: 240,
     });
-    assert.deepEqual(adapter.screenPointToClient({ x: 800, y: 240 }), {
+    assert.deepEqual(pagePorts.pageProjection.screenPointToClient({ x: 800, y: 240 }), {
       x: 500,
       y: 200,
     });
     assert.deepEqual(
-      adapter.mapToOverlayLayerScreen(snapshot.mapView.center),
+      pagePorts.pageProjection.mapToOverlayLayerScreen(snapshot.mapView.center),
       { x: 670, y: 320 },
     );
     assert.deepEqual(
-      adapter.mapToScreen(snapshot.mapView.center),
+      pagePorts.pageProjection.mapToScreen(snapshot.mapView.center),
       { x: 688, y: 308 },
     );
 
-    adapter.destroy();
+    pagePorts.pageSession.destroy();
   } finally {
     innerDom.window.close();
     env.cleanup();
@@ -292,10 +280,10 @@ test("page adapter derives a more precise map view from rendered tiles when avai
     const tile = env.document.querySelector(".tile-center");
     tile.style.transform = "matrix(2, 0, 0, 2, 120, 140)";
 
-    const adapter = flattenPagePorts(createPageAdapter({
+    const pagePorts = createPageAdapter({
       hashTarget: env.window,
       viewportDocument: env.document,
-    }));
+    });
 
     const preciseCenterWorld = {
       x: 128 - (120 - 400) / 16,
@@ -303,7 +291,7 @@ test("page adapter derives a more precise map view from rendered tiles when avai
     };
     const preciseCenter = unprojectWorldToLatLon(preciseCenterWorld);
 
-    const snapshot = adapter.getSnapshot();
+    const snapshot = pagePorts.pageObservation.getSnapshot();
     assert.equal(snapshot.mapView.zoom, 4);
     assert.ok(Math.abs(snapshot.mapView.center.lat - preciseCenter.lat) < 1e-9);
     assert.ok(Math.abs(snapshot.mapView.center.lon - preciseCenter.lon) < 1e-9);
@@ -311,7 +299,7 @@ test("page adapter derives a more precise map view from rendered tiles when avai
       kind: PAGE_MAP_VIEW_PROVENANCE_KIND.PRECISE,
     });
 
-    adapter.destroy();
+    pagePorts.pageSession.destroy();
   } finally {
     env.cleanup();
   }
@@ -341,12 +329,12 @@ test("page adapter retains the last coherent map view while live surface motion 
     const tile = env.document.querySelector(".tile-center");
     tile.style.transform = "matrix(2, 0, 0, 2, 120, 140)";
 
-    const adapter = flattenPagePorts(createPageAdapter({
+    const pagePorts = createPageAdapter({
       hashTarget: env.window,
       viewportDocument: env.document,
-    }));
+    });
 
-    const coherentSnapshot = adapter.getSnapshot();
+    const coherentSnapshot = pagePorts.pageObservation.getSnapshot();
     const coherentMapView = coherentSnapshot.mapView;
     assert.equal(coherentMapView.zoom, 4);
     assert.deepEqual(coherentSnapshot.provenance.mapView, {
@@ -356,14 +344,14 @@ test("page adapter retains the last coherent map view while live surface motion 
     tile.remove();
     surface.style.transform = "matrix(1.2, 0, 0, 1.2, -40, -30)";
 
-    const retainedSnapshot = adapter.getSnapshot();
+    const retainedSnapshot = pagePorts.pageObservation.getSnapshot();
     const retainedMapView = retainedSnapshot.mapView;
     assert.deepEqual(retainedMapView, coherentMapView);
     assert.deepEqual(retainedSnapshot.provenance.mapView, {
       kind: PAGE_MAP_VIEW_PROVENANCE_KIND.RETAINED,
     });
 
-    adapter.destroy();
+    pagePorts.pageSession.destroy();
   } finally {
     env.cleanup();
   }
@@ -396,23 +384,23 @@ test("page adapter keeps the same viewport mount through style churn while it re
       bottom: 760,
     });
 
-    const adapter = flattenPagePorts(createPageAdapter({
+    const pagePorts = createPageAdapter({
       hashTarget: env.window,
       viewportDocument: env.document,
-    }));
+    });
 
-    const initialMount = adapter.getSnapshot().mountElement;
+    const initialMount = pagePorts.pageObservation.getSnapshot().mountElement;
     assert.equal(initialMount.classList.contains("main-map"), true);
     assert.equal(initialMount.classList.contains("supersurface"), false);
 
     surface.style.transform = "matrix(1.1, 0, 0, 1.1, -12, -8)";
     surface.dispatchEvent(new env.window.Event("transitionrun", { bubbles: true }));
 
-    const nextMount = adapter.getSnapshot().mountElement;
+    const nextMount = pagePorts.pageObservation.getSnapshot().mountElement;
     assert.equal(nextMount.classList.contains("main-map"), true);
     assert.equal(nextMount.classList.contains("supersurface"), false);
 
-    adapter.destroy();
+    pagePorts.pageSession.destroy();
   } finally {
     env.cleanup();
   }
@@ -445,22 +433,22 @@ test("page adapter replaces a cached viewport mount after it becomes hidden", as
       bottom: 680,
     });
 
-    const adapter = flattenPagePorts(createPageAdapter({
+    const pagePorts = createPageAdapter({
       hashTarget: env.window,
       viewportDocument: env.document,
-    }));
+    });
 
-    const unsubscribe = adapter.subscribe(() => {});
-    assert.equal(adapter.getSnapshot().mountElement, initialViewport);
+    const unsubscribe = pagePorts.pageObservation.subscribe(() => {});
+    assert.equal(pagePorts.pageObservation.getSnapshot().mountElement, initialViewport);
 
     initialViewportVisible = false;
     initialViewport.setAttribute("style", "display: none");
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    assert.equal(adapter.getSnapshot().mountElement, fallbackViewport);
+    assert.equal(pagePorts.pageObservation.getSnapshot().mountElement, fallbackViewport);
 
     unsubscribe();
-    adapter.destroy();
+    pagePorts.pageSession.destroy();
   } finally {
     env.cleanup();
   }
@@ -493,13 +481,13 @@ test("page adapter snapshot changes when the semantic viewport host changes", as
       bottom: 680,
     });
 
-    const adapter = flattenPagePorts(createPageAdapter({
+    const pagePorts = createPageAdapter({
       hashTarget: env.window,
       viewportDocument: env.document,
-    }));
+    });
 
     const snapshots = [];
-    const unsubscribe = adapter.subscribe((snapshot) => {
+    const unsubscribe = pagePorts.pageObservation.subscribe((snapshot) => {
       snapshots.push(snapshot);
     });
 
@@ -512,10 +500,10 @@ test("page adapter snapshot changes when the semantic viewport host changes", as
 
     assert.equal(snapshots.length >= 2, true);
     assert.equal(snapshots.at(-1).mountElement, surface);
-    assert.equal(adapter.getSnapshot().mountElement, surface);
+    assert.equal(pagePorts.pageObservation.getSnapshot().mountElement, surface);
 
     unsubscribe();
-    adapter.destroy();
+    pagePorts.pageSession.destroy();
   } finally {
     env.cleanup();
   }
@@ -538,12 +526,12 @@ test("page adapter emits subscriber updates immediately when history.replaceStat
       bottom: 680,
     });
 
-    const adapter = flattenPagePorts(createPageAdapter({
+    const pagePorts = createPageAdapter({
       hashTarget: env.window,
       viewportDocument: env.document,
-    }));
+    });
     const centers = [];
-    const unsubscribe = adapter.subscribe((snapshot) => {
+    const unsubscribe = pagePorts.pageObservation.subscribe((snapshot) => {
       centers.push(snapshot.mapView.center);
     });
 
@@ -560,7 +548,7 @@ test("page adapter emits subscriber updates immediately when history.replaceStat
     });
 
     unsubscribe();
-    adapter.destroy();
+    pagePorts.pageSession.destroy();
   } finally {
     env.cleanup();
   }
@@ -584,10 +572,10 @@ test("page adapter can begin/update/end a map pan in the active map document", (
     });
     viewport.ownerDocument.elementFromPoint = () => viewport;
 
-    const adapter = flattenPagePorts(createPageAdapter({
+    const pagePorts = createPageAdapter({
       hashTarget: env.window,
       viewportDocument: env.document,
-    }));
+    });
 
     const received = [];
     viewport.addEventListener("mousedown", (event) => {
@@ -595,7 +583,7 @@ test("page adapter can begin/update/end a map pan in the active map document", (
         type: event.type,
         x: event.clientX,
         y: event.clientY,
-        forwarded: adapter.isForwardedMapGestureEvent(event),
+        forwarded: pagePorts.mapGesture.isForwardedMapGestureEvent(event),
       });
     });
     env.document.addEventListener("mousemove", (event) => {
@@ -605,9 +593,9 @@ test("page adapter can begin/update/end a map pan in the active map document", (
       received.push({ type: event.type, x: event.clientX, y: event.clientY });
     });
 
-    adapter.beginMapPan({ x: 200, y: 180 });
-    adapter.updateMapPan({ x: 240, y: 210 });
-    adapter.endMapPan({ x: 240, y: 210 });
+    pagePorts.mapGesture.beginMapPan({ x: 200, y: 180 });
+    pagePorts.mapGesture.updateMapPan({ x: 240, y: 210 });
+    pagePorts.mapGesture.endMapPan({ x: 240, y: 210 });
 
     assert.deepEqual(received, [
       { type: "mousedown", x: 200, y: 180, forwarded: true },
@@ -615,7 +603,7 @@ test("page adapter can begin/update/end a map pan in the active map document", (
       { type: "mouseup", x: 240, y: 210 },
     ]);
 
-    adapter.destroy();
+    pagePorts.pageSession.destroy();
   } finally {
     env.cleanup();
   }
@@ -663,10 +651,10 @@ test("page adapter keeps one iframe-local pan context through begin, move, and e
       bottom: 530,
     });
 
-    const adapter = flattenPagePorts(createPageAdapter({
+    const pagePorts = createPageAdapter({
       hashTarget: env.window,
       viewportDocument: env.document,
-    }));
+    });
 
     const received = [];
     viewport.addEventListener("mousedown", (event) => {
@@ -679,9 +667,9 @@ test("page adapter keeps one iframe-local pan context through begin, move, and e
       received.push({ type: event.type, x: event.clientX, y: event.clientY });
     });
 
-    adapter.beginMapPan({ x: 800, y: 240 });
-    adapter.updateMapPan({ x: 820, y: 260 });
-    adapter.endMapPan({ x: 820, y: 260 });
+    pagePorts.mapGesture.beginMapPan({ x: 800, y: 240 });
+    pagePorts.mapGesture.updateMapPan({ x: 820, y: 260 });
+    pagePorts.mapGesture.endMapPan({ x: 820, y: 260 });
 
     assert.deepEqual(received, [
       { type: "mousedown", x: 500, y: 200 },
@@ -689,7 +677,7 @@ test("page adapter keeps one iframe-local pan context through begin, move, and e
       { type: "mouseup", x: 520, y: 220 },
     ]);
 
-    adapter.destroy();
+    pagePorts.pageSession.destroy();
   } finally {
     innerDom.window.close();
     env.cleanup();
@@ -721,10 +709,10 @@ test("page adapter map pan skips overlay hit-testing and always targets the map 
     env.document.elementsFromPoint = () => [overlayImage, feature, viewport];
     env.document.elementFromPoint = () => feature;
 
-    const adapter = flattenPagePorts(createPageAdapter({
+    const pagePorts = createPageAdapter({
       hashTarget: env.window,
       viewportDocument: env.document,
-    }));
+    });
 
     const received = [];
     viewport.addEventListener("mousedown", (event) => {
@@ -732,7 +720,7 @@ test("page adapter map pan skips overlay hit-testing and always targets the map 
         type: event.type,
         x: event.clientX,
         y: event.clientY,
-        forwarded: adapter.isForwardedMapGestureEvent(event),
+        forwarded: pagePorts.mapGesture.isForwardedMapGestureEvent(event),
       });
     });
     feature.addEventListener("mousedown", () => {
@@ -741,14 +729,14 @@ test("page adapter map pan skips overlay hit-testing and always targets the map 
       });
     });
 
-    const started = adapter.beginMapPan({ x: 200, y: 180 });
+    const started = pagePorts.mapGesture.beginMapPan({ x: 200, y: 180 });
 
     assert.equal(started, true);
     assert.deepEqual(received, [
       { type: "mousedown", x: 200, y: 180, forwarded: true },
     ]);
 
-    adapter.destroy();
+    pagePorts.pageSession.destroy();
   } finally {
     env.cleanup();
   }
@@ -772,10 +760,10 @@ test("page adapter can forward a map zoom gesture into the active map document",
     });
     viewport.ownerDocument.elementFromPoint = () => viewport;
 
-    const adapter = flattenPagePorts(createPageAdapter({
+    const pagePorts = createPageAdapter({
       hashTarget: env.window,
       viewportDocument: env.document,
-    }));
+    });
 
     const received = [];
     viewport.addEventListener("wheel", (event) => {
@@ -784,11 +772,11 @@ test("page adapter can forward a map zoom gesture into the active map document",
         x: event.clientX,
         y: event.clientY,
         deltaY: event.deltaY,
-        forwarded: adapter.isForwardedMapGestureEvent(event),
+        forwarded: pagePorts.mapGesture.isForwardedMapGestureEvent(event),
       });
     });
 
-    const forwarded = adapter.forwardMapZoom({
+    const forwarded = pagePorts.mapGesture.forwardMapZoom({
       screenPoint: { x: 240, y: 210 },
       deltaY: -100,
     });
@@ -798,7 +786,7 @@ test("page adapter can forward a map zoom gesture into the active map document",
       { type: "wheel", x: 240, y: 210, deltaY: -100, forwarded: true },
     ]);
 
-    adapter.destroy();
+    pagePorts.pageSession.destroy();
   } finally {
     env.cleanup();
   }
@@ -824,10 +812,10 @@ test("page adapter map zoom skips extension-owned overlay elements and targets t
     env.document.elementsFromPoint = () => [overlayImage, viewport];
     env.document.elementFromPoint = () => overlayImage;
 
-    const adapter = flattenPagePorts(createPageAdapter({
+    const pagePorts = createPageAdapter({
       hashTarget: env.window,
       viewportDocument: env.document,
-    }));
+    });
 
     const received = [];
     viewport.addEventListener("wheel", (event) => {
@@ -839,7 +827,7 @@ test("page adapter map zoom skips extension-owned overlay elements and targets t
       });
     });
 
-    const forwarded = adapter.forwardMapZoom({
+    const forwarded = pagePorts.mapGesture.forwardMapZoom({
       screenPoint: { x: 240, y: 210 },
       deltaY: -100,
     });
@@ -849,7 +837,7 @@ test("page adapter map zoom skips extension-owned overlay elements and targets t
       { type: "wheel", x: 240, y: 210, deltaY: -100 },
     ]);
 
-    adapter.destroy();
+    pagePorts.pageSession.destroy();
   } finally {
     env.cleanup();
   }

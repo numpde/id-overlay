@@ -67,7 +67,7 @@ import {
 } from "../helpers/keyboard-events.js";
 import { IMAGE as TEST_IMAGE } from "../helpers/session-fixtures.js";
 
-test("shift-dragging updates placement through the adapter only", () => {
+test("shift-dragging updates placement through page projection only", () => {
   const harness = createHarness();
   const { controller, machineHost } = harness;
   seedMachineImageSession(harness);
@@ -137,17 +137,17 @@ test("shift-dragging stays anchored to the visible overlay under live surface mo
   const harness = createHarness({
     snapshot: surfaceMotionSnapshot,
   });
-  const { controller, pageAdapter } = harness;
+  const { controller, pageObservation } = harness;
   seedMachineImageSession(harness);
 
   const beforeTransform = resolveOverlayScreenTransform({
     state: getSession(harness),
-    snapshot: pageAdapter.getSnapshot(),
+    snapshot: pageObservation.getSnapshot(),
   });
   const startScreenPoint = imagePointToRenderedScreenPoint({
     imagePoint: { x: 400, y: 200 },
     transform: beforeTransform,
-    snapshot: pageAdapter.getSnapshot(),
+    snapshot: pageObservation.getSnapshot(),
   });
   const endScreenPoint = {
     x: startScreenPoint.x + 60,
@@ -164,21 +164,21 @@ test("shift-dragging stays anchored to the visible overlay under live surface mo
 
   const afterTransform = resolveOverlayScreenTransform({
     state: getSession(harness),
-    snapshot: pageAdapter.getSnapshot(),
+    snapshot: pageObservation.getSnapshot(),
   });
   const afterCenterScreenPoint = imagePointToRenderedScreenPoint({
     imagePoint: { x: 400, y: 200 },
     transform: afterTransform,
-    snapshot: pageAdapter.getSnapshot(),
+    snapshot: pageObservation.getSnapshot(),
   });
 
   assert.ok(Math.abs(afterCenterScreenPoint.x - endScreenPoint.x) < 1e-9);
   assert.ok(Math.abs(afterCenterScreenPoint.y - endScreenPoint.y) < 1e-9);
 });
 
-test("plain drag uses the map-pan adapter path and keeps placement unchanged", () => {
+test("plain drag uses the map-gesture port path and keeps placement unchanged", () => {
   const harness = createHarness();
-  const { controller, adapterCalls } = harness;
+  const { controller, pageGestureCalls } = harness;
   seedMachineImageSession(harness);
   const initialPlacement = getSession(harness).placement;
 
@@ -191,8 +191,8 @@ test("plain drag uses the map-pan adapter path and keeps placement unchanged", (
   controller.handlePointerUp({ x: 520, y: 310 });
 
   assert.deepEqual(getSession(harness).placement, initialPlacement);
-  assert.deepEqual(adapterCalls.mapPan.starts, [{ x: 500, y: 300 }]);
-  assert.deepEqual(adapterCalls.mapPan.moves, [
+  assert.deepEqual(pageGestureCalls.mapPan.starts, [{ x: 500, y: 300 }]);
+  assert.deepEqual(pageGestureCalls.mapPan.moves, [
     {
       screenPoint: { x: 520, y: 310 },
     },
@@ -200,7 +200,7 @@ test("plain drag uses the map-pan adapter path and keeps placement unchanged", (
       screenPoint: { x: 520, y: 310 },
     },
   ]);
-  assert.deepEqual(adapterCalls.mapPan.ends, [{ x: 520, y: 310 }]);
+  assert.deepEqual(pageGestureCalls.mapPan.ends, [{ x: 520, y: 310 }]);
 });
 
 test("pin-toggle interaction adds a pin at the correct image and map coordinates", () => {
@@ -218,9 +218,9 @@ test("pin-toggle interaction adds a pin at the correct image and map coordinates
   });
 });
 
-test("interaction boundaries report machine status instead of throwing raw adapter failures", () => {
+test("interaction boundaries report machine status instead of throwing raw page projection failures", () => {
   const harness = createHarness({
-    screenToMapThrows: new Error("adapter exploded"),
+    screenToMapThrows: new Error("projection exploded"),
   });
   const { controller, machineHost } = harness;
   seedMachineImageSession(harness);
@@ -237,7 +237,7 @@ test("keyboard pin toggle uses the same interaction error boundary", () => {
   const keyTarget = createKeyTarget();
   const harness = createHarness({
     keyTarget,
-    screenToMapThrows: new Error("adapter exploded"),
+    screenToMapThrows: new Error("projection exploded"),
   });
   const { controller, machineHost } = harness;
   seedMachineImageSession(harness);
@@ -301,7 +301,7 @@ test("input runtime lifecycle facts are canonical machine ingress", () => {
 
 test("adding a pin preserves the current rendered placement after a solved transform exists", () => {
   const harness = createHarness();
-  const { controller, pageAdapter } = harness;
+  const { controller, pageObservation } = harness;
   seedMachineImageSession(harness);
 
   controller.handleTogglePin({ screenPoint: { x: 500, y: 300 } });
@@ -310,14 +310,14 @@ test("adding a pin preserves the current rendered placement after a solved trans
 
   const before = resolveOverlayScreenTransform({
     state: getSession(harness),
-    snapshot: pageAdapter.getSnapshot(),
+    snapshot: pageObservation.getSnapshot(),
   });
 
   controller.handleTogglePin({ screenPoint: { x: 650, y: 340 } });
 
   const after = resolveOverlayScreenTransform({
     state: getSession(harness),
-    snapshot: pageAdapter.getSnapshot(),
+    snapshot: pageObservation.getSnapshot(),
   });
 
   assert.deepEqual(after, before);
@@ -327,7 +327,7 @@ test("adding a pin preserves the current rendered placement after a solved trans
 
 test("removing a pin preserves the current rendered placement after a solved transform exists", () => {
   const harness = createHarness();
-  const { controller, pageAdapter } = harness;
+  const { controller, pageObservation } = harness;
   seedMachineImageSession(harness);
 
   controller.handleTogglePin({ screenPoint: { x: 500, y: 300 } });
@@ -336,14 +336,14 @@ test("removing a pin preserves the current rendered placement after a solved tra
 
   const before = resolveOverlayScreenTransform({
     state: getSession(harness),
-    snapshot: pageAdapter.getSnapshot(),
+    snapshot: pageObservation.getSnapshot(),
   });
 
   controller.handleTogglePin({ screenPoint: { x: 500, y: 300 } });
 
   const after = resolveOverlayScreenTransform({
     state: getSession(harness),
-    snapshot: pageAdapter.getSnapshot(),
+    snapshot: pageObservation.getSnapshot(),
   });
 
   assert.deepEqual(after, before);
@@ -353,7 +353,7 @@ test("removing a pin preserves the current rendered placement after a solved tra
 
 test("clearing pins preserves the current rendered placement after a solved transform exists", () => {
   const harness = createHarness();
-  const { controller, pageAdapter } = harness;
+  const { controller, pageObservation } = harness;
   seedMachineImageSession(harness);
 
   controller.handleTogglePin({ screenPoint: { x: 500, y: 300 } });
@@ -362,14 +362,14 @@ test("clearing pins preserves the current rendered placement after a solved tran
 
   const before = resolveOverlayScreenTransform({
     state: getSession(harness),
-    snapshot: pageAdapter.getSnapshot(),
+    snapshot: pageObservation.getSnapshot(),
   });
 
   clearPinsPreservingRenderedPlacement(harness);
 
   const after = resolveOverlayScreenTransform({
     state: getSession(harness),
-    snapshot: pageAdapter.getSnapshot(),
+    snapshot: pageObservation.getSnapshot(),
   });
 
   assert.deepEqual(after, before);
@@ -417,13 +417,13 @@ test("ctrl-wheel rotates the overlay only and marks a solved transform dirty aga
 
 test("ctrl-wheel rotates around the image point under the mouse", () => {
   const harness = createHarness();
-  const { controller, pageAdapter } = harness;
+  const { controller, pageObservation } = harness;
   seedMachineImageSession(harness);
 
   const anchorScreenPoint = { x: 650, y: 260 };
   const beforeTransform = resolveOverlayScreenTransform({
     state: getSession(harness),
-    snapshot: pageAdapter.getSnapshot(),
+    snapshot: pageObservation.getSnapshot(),
   });
   const anchorImagePoint = screenPointToImagePoint({
     screenPoint: anchorScreenPoint,
@@ -438,7 +438,7 @@ test("ctrl-wheel rotates around the image point under the mouse", () => {
 
   const afterTransform = resolveOverlayScreenTransform({
     state: getSession(harness),
-    snapshot: pageAdapter.getSnapshot(),
+    snapshot: pageObservation.getSnapshot(),
   });
   const afterAnchorScreenPoint = imagePointToScreenPoint({
     imagePoint: anchorImagePoint,
@@ -451,7 +451,7 @@ test("ctrl-wheel rotates around the image point under the mouse", () => {
 
 test("plain wheel zooms the map only and leaves overlay placement unchanged", () => {
   const harness = createHarness();
-  const { controller, adapterCalls } = harness;
+  const { controller, pageGestureCalls } = harness;
   seedMachineImageSession(harness);
 
   const initialPlacement = getSession(harness).placement;
@@ -462,21 +462,21 @@ test("plain wheel zooms the map only and leaves overlay placement unchanged", ()
   });
 
   assert.deepEqual(getSession(harness).placement, initialPlacement);
-  assert.equal(adapterCalls.mapZoomCalls.length, 1);
-  assert.deepEqual(adapterCalls.mapZoomCalls[0].screenPoint, { x: 600, y: 320 });
-  assert.equal(adapterCalls.mapZoomCalls[0].deltaY, -100);
+  assert.equal(pageGestureCalls.mapZoomCalls.length, 1);
+  assert.deepEqual(pageGestureCalls.mapZoomCalls[0].screenPoint, { x: 600, y: 320 });
+  assert.equal(pageGestureCalls.mapZoomCalls[0].deltaY, -100);
 });
 
 test("shift-wheel scales around the image point under the mouse", () => {
   const harness = createHarness();
-  const { controller, pageAdapter, machineHost } = harness;
+  const { controller, pageObservation, machineHost } = harness;
   seedMachineImageSession(harness);
 
   const anchorScreenPoint = { x: 650, y: 260 };
   const initialPlacement = getSession(harness).placement;
   const beforeTransform = resolveOverlayScreenTransform({
     state: getSession(harness),
-    snapshot: pageAdapter.getSnapshot(),
+    snapshot: pageObservation.getSnapshot(),
   });
   const anchorImagePoint = screenPointToImagePoint({
     screenPoint: anchorScreenPoint,
@@ -491,7 +491,7 @@ test("shift-wheel scales around the image point under the mouse", () => {
 
   const afterTransform = resolveOverlayScreenTransform({
     state: getSession(harness),
-    snapshot: pageAdapter.getSnapshot(),
+    snapshot: pageObservation.getSnapshot(),
   });
   const afterAnchorScreenPoint = imagePointToScreenPoint({
     imagePoint: anchorImagePoint,
@@ -517,7 +517,7 @@ test("shift-wheel scales around the image point under the mouse", () => {
 
 test("map pan/zoom gestures keep a solved transform clean until overlay-only editing begins", () => {
   const harness = createHarness();
-  const { controller, adapterCalls } = harness;
+  const { controller, pageGestureCalls } = harness;
   seedMachineImageSession(harness);
 
   controller.handleTogglePin({ screenPoint: { x: 500, y: 300 } });
@@ -542,8 +542,8 @@ test("map pan/zoom gestures keep a solved transform clean until overlay-only edi
 
   assert.deepEqual(getSession(harness).placement, solvedPlacement);
   assert.equal(getSession(harness).registration.dirty, false);
-  assert.equal(adapterCalls.mapPan.starts.length, 1);
-  assert.equal(adapterCalls.mapZoomCalls.length, 1);
+  assert.equal(pageGestureCalls.mapPan.starts.length, 1);
+  assert.equal(pageGestureCalls.mapZoomCalls.length, 1);
 
   controller.handleWheel({
     deltaY: -100,
@@ -556,7 +556,7 @@ test("map pan/zoom gestures keep a solved transform clean until overlay-only edi
 
 test("ctrl-wheel rotates the overlay without zooming the map", () => {
   const harness = createHarness();
-  const { controller, adapterCalls } = harness;
+  const { controller, pageGestureCalls } = harness;
   seedMachineImageSession(harness);
 
   controller.handleWheel({
@@ -566,12 +566,12 @@ test("ctrl-wheel rotates the overlay without zooming the map", () => {
   });
 
   assert.notEqual(getSession(harness).placement.rotationRad, 0);
-  assert.equal(adapterCalls.mapZoomCalls.length, 0);
+  assert.equal(pageGestureCalls.mapZoomCalls.length, 0);
 });
 
 test("alt-wheel adjusts the overlay opacity in align mode without zooming the map", () => {
   const harness = createHarness();
-  const { controller, adapterCalls } = harness;
+  const { controller, pageGestureCalls } = harness;
   seedMachineImageSession(harness);
 
   const initialOpacity = getSession(harness).opacity;
@@ -583,13 +583,13 @@ test("alt-wheel adjusts the overlay opacity in align mode without zooming the ma
 
   const adjustedOpacity = getSession(harness).opacity;
   assert.ok(getSession(harness).opacity > initialOpacity);
-  assert.equal(adapterCalls.mapZoomCalls.length, 0);
+  assert.equal(pageGestureCalls.mapZoomCalls.length, 0);
   assert.equal(adjustedOpacity, getSession(harness).opacity);
 });
 
 test("alt-wheel adjusts the overlay opacity in trace mode", () => {
   const harness = createHarness();
-  const { controller, adapterCalls, machineHost } = harness;
+  const { controller, pageGestureCalls, machineHost } = harness;
   seedMachineImageSession(harness);
   machineHost.selectMode(SESSION_MODE.TRACE);
 
@@ -603,7 +603,7 @@ test("alt-wheel adjusts the overlay opacity in trace mode", () => {
   const adjustedOpacity = getSession(harness).opacity;
   assert.equal(handled, true);
   assert.ok(getSession(harness).opacity < initialOpacity);
-  assert.equal(adapterCalls.mapZoomCalls.length, 0);
+  assert.equal(pageGestureCalls.mapZoomCalls.length, 0);
   assert.equal(adjustedOpacity, getSession(harness).opacity);
 });
 
@@ -666,7 +666,7 @@ test("clearing pins with no image is a machine no-op", () => {
 test("switching mode clears pass-through and ends any active map pan through one transition path", () => {
   const keyTarget = createKeyTarget();
   const harness = createHarness({ keyTarget });
-  const { controller, adapterCalls, machineHost } = harness;
+  const { controller, pageGestureCalls, machineHost } = harness;
   seedMachineImageSession(harness);
 
   controller.handlePointerDown({
@@ -682,14 +682,14 @@ test("switching mode clears pass-through and ends any active map pan through one
 
   assert.equal(controller.getRuntimeState().activeGesture, null);
   assert.equal(controller.getRuntimeState().inputOverride, null);
-  assert.deepEqual(adapterCalls.mapPan.ends, [{ x: 520, y: 310 }]);
+  assert.deepEqual(pageGestureCalls.mapPan.ends, [{ x: 520, y: 310 }]);
 });
 
 test("clearing the image resets runtime and ends any active map pan through one transition path", () => {
-  // The machine owns runtime cleanup; the interaction adapter only releases
-  // page-adapter resources tied to the ended gesture.
+  // The machine owns runtime cleanup; the map gesture port only releases
+  // page gesture resources tied to the ended gesture.
   const harness = createHarness();
-  const { controller, adapterCalls, machineHost } = harness;
+  const { controller, pageGestureCalls, machineHost } = harness;
   seedMachineImageSession(harness);
 
   controller.handlePointerDown({
@@ -704,7 +704,7 @@ test("clearing the image resets runtime and ends any active map pan through one 
   assert.equal(controller.getRuntimeState().activeGesture, null);
   assert.equal(controller.getRuntimeState().inputOverride, null);
   assert.equal(controller.getRuntimeState().pointer.screenPx, null);
-  assert.deepEqual(adapterCalls.mapPan.ends, [{ x: 520, y: 310 }]);
+  assert.deepEqual(pageGestureCalls.mapPan.ends, [{ x: 520, y: 310 }]);
 });
 
 test("space activates temporary pass-through while aligning", () => {
@@ -724,7 +724,7 @@ test("space activates temporary pass-through while aligning", () => {
 });
 
 test("pressing P toggles a pin at the current pointer location", () => {
-  // Keyboard delivery is adapter plumbing; the pin mutation itself is still a
+  // Keyboard delivery is input plumbing; the pin mutation itself is still a
   // canonical machine transition.
   const keyTarget = createKeyTarget();
   const harness = createHarness({ keyTarget });
@@ -1155,11 +1155,11 @@ test("overlay activation policy is single-source", () => {
   );
 });
 
-test("map pan does nothing when the page adapter cannot start it", () => {
+test("map pan does nothing when the map gesture port cannot start it", () => {
   const harness = createHarness({
     beginMapPanReturns: false,
   });
-  const { controller, adapterCalls } = harness;
+  const { controller, pageGestureCalls } = harness;
   seedMachineImageSession(harness);
 
   const initialPlacement = getSession(harness).placement;
@@ -1172,14 +1172,14 @@ test("map pan does nothing when the page adapter cannot start it", () => {
   assert.equal(handled, false);
   assert.deepEqual(getSession(harness).placement, initialPlacement);
   assert.equal(controller.getRuntimeState().activeGesture, null);
-  assert.deepEqual(adapterCalls.mapPan.starts, [{ x: 500, y: 300 }]);
+  assert.deepEqual(pageGestureCalls.mapPan.starts, [{ x: 500, y: 300 }]);
 });
 
-test("map zoom does nothing when the page adapter cannot forward it", () => {
+test("map zoom does nothing when the map gesture port cannot forward it", () => {
   const harness = createHarness({
     forwardMapZoomReturns: false,
   });
-  const { controller, adapterCalls } = harness;
+  const { controller, pageGestureCalls } = harness;
   seedMachineImageSession(harness);
 
   const initialPlacement = getSession(harness).placement;
@@ -1191,7 +1191,7 @@ test("map zoom does nothing when the page adapter cannot forward it", () => {
 
   assert.equal(handled, false);
   assert.deepEqual(getSession(harness).placement, initialPlacement);
-  assert.equal(adapterCalls.mapZoomCalls.length, 1);
+  assert.equal(pageGestureCalls.mapZoomCalls.length, 1);
 });
 
 test("pass-through release stays active until the runtime says it can be released", () => {
@@ -1238,7 +1238,7 @@ function createHarness({
   screenToMapThrows = null,
   snapshot = null,
 } = {}) {
-  const adapterCalls = {
+  const pageGestureCalls = {
     mapPan: {
       starts: [],
       moves: [],
@@ -1246,14 +1246,13 @@ function createHarness({
     },
     mapZoomCalls: [],
   };
-  const pagePorts = createPageAdapter({
-    adapterCalls,
+  const pagePorts = createPagePorts({
+    pageGestureCalls,
     beginMapPanReturns,
     forwardMapZoomReturns,
     screenToMapThrows,
     snapshot,
   });
-  const pageAdapter = flattenPagePorts(pagePorts);
   const machineHost = createMachineHost();
   const interactionPorts = createInteractionPorts({
     machineHost,
@@ -1267,8 +1266,10 @@ function createHarness({
     destroy: interactionPorts.destroy,
     machineHost,
     keyTarget,
-    adapterCalls,
-    pageAdapter,
+    pageGestureCalls,
+    pageObservation: pagePorts.pageObservation,
+    pageProjection: pagePorts.pageProjection,
+    mapGesture: pagePorts.mapGesture,
   };
 }
 
@@ -1337,8 +1338,8 @@ function createProjectionSession({
   });
 }
 
-function seedMachineImageSession({ machineHost, pageAdapter }, image = TEST_IMAGE) {
-  const snapshot = pageAdapter.getSnapshot();
+function seedMachineImageSession({ machineHost, pageObservation }, image = TEST_IMAGE) {
+  const snapshot = pageObservation.getSnapshot();
   machineHost.loadImage({
     image,
     placement: createPlacementTransform({
@@ -1363,20 +1364,20 @@ function seedMachineSolvedRegistrationForAlignSetup(harness) {
   return result;
 }
 
-function clearPinsPreservingRenderedPlacement({ machineHost, pageAdapter }) {
+function clearPinsPreservingRenderedPlacement({ machineHost, pageObservation }) {
   return machineHost.clearPins({
     preservedPlacement: derivePreservedPlacement({
       state: machineHost.getState().session,
-      pageAdapter,
+      pageObservation,
     }),
   });
 }
 
-function derivePreservedPlacement({ state, pageAdapter }) {
+function derivePreservedPlacement({ state, pageObservation }) {
   if (!state.image || !state.registration.solvedTransform || state.registration.dirty) {
     return null;
   }
-  const snapshot = pageAdapter.getSnapshot();
+  const snapshot = pageObservation.getSnapshot();
   return derivePlacementFromScreenTransform({
     snapshot,
     transform: resolveOverlayScreenTransform({ state, snapshot }),
@@ -1391,8 +1392,8 @@ function redo(machineHost) {
   return machineHost.activateRedo().consumedHistoryRecord;
 }
 
-function createPageAdapter({
-  adapterCalls,
+function createPagePorts({
+  pageGestureCalls,
   beginMapPanReturns,
   forwardMapZoomReturns,
   screenToMapThrows,
@@ -1427,28 +1428,20 @@ function createPageAdapter({
     },
     mapGesture: {
       beginMapPan(screenPoint) {
-        adapterCalls.mapPan.starts.push(screenPoint);
+        pageGestureCalls.mapPan.starts.push(screenPoint);
         return beginMapPanReturns;
       },
       updateMapPan(screenPoint) {
-        adapterCalls.mapPan.moves.push({ screenPoint });
+        pageGestureCalls.mapPan.moves.push({ screenPoint });
       },
       endMapPan(screenPoint) {
-        adapterCalls.mapPan.ends.push(screenPoint);
+        pageGestureCalls.mapPan.ends.push(screenPoint);
       },
       forwardMapZoom(payload) {
-        adapterCalls.mapZoomCalls.push(payload);
+        pageGestureCalls.mapZoomCalls.push(payload);
         return forwardMapZoomReturns;
       },
     },
-  };
-}
-
-function flattenPagePorts({ pageObservation, pageProjection, mapGesture }) {
-  return {
-    ...pageObservation,
-    ...pageProjection,
-    ...mapGesture,
   };
 }
 

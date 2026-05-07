@@ -10,9 +10,6 @@ import { createMachineHost } from "../../src/core/machine/host.js";
 import { SESSION_MODE } from "../../src/core/session.js";
 import { createPlacementTransform } from "../../src/core/transform.js";
 
-// TODO(smell): These integration tests seed and mutate overlay state through
-// raw machine events plus a broad page-adapter fake. Rewrite around public
-// user/fact ingress helpers and explicit render/projection/gesture ports.
 const DEFAULT_OVERLAY_IMAGE = createImageFixture();
 
 const DEFAULT_MAP_CENTER = Object.freeze({ lat: 0, lon: 0 });
@@ -36,15 +33,15 @@ test("overlay double-click toggles pins through the overlay interaction port", a
     map.addEventListener("dblclick", () => {
       mapDoubleClickCount += 1;
     });
-    const pageAdapter = createStaticOverlayPageAdapter({ map });
+    const pagePorts = createStaticOverlayPagePorts({ map });
     const interactionPorts = createInteractionPorts({
       machineHost,
-      ...pagePortsFromAdapter(pageAdapter),
+      ...pagePorts,
       keyTarget: env.window,
     });
     const interactions = interactionPorts.overlayInteractionPort;
     const overlay = createOverlayForTest(createOverlay, {
-      pageAdapter,
+      pagePorts,
       machineHost,
       overlayInteractions: interactions,
     });
@@ -99,7 +96,7 @@ test("handled overlay wheel gestures do not bubble into the underlying map", asy
     });
 
     const overlay = createOverlayForTest(createOverlay, {
-      pageAdapter: createStaticOverlayPageAdapter({ map }),
+      pagePorts: createStaticOverlayPagePorts({ map }),
       machineHost,
       overlayInteractions: createOverlayInteractionsDouble(machineHost, {
         handleWheel() {
@@ -145,7 +142,7 @@ test("plain wheel over the overlay in align mode is forwarded manually and does 
     });
 
     const overlay = createOverlayForTest(createOverlay, {
-      pageAdapter: createStaticOverlayPageAdapter({ map }),
+      pagePorts: createStaticOverlayPagePorts({ map }),
       machineHost,
       overlayInteractions: createOverlayInteractionsDouble(machineHost, {
         handleWheel() {
@@ -192,7 +189,7 @@ test("alt-wheel in trace mode is captured from the map layer when the pointer is
     });
 
     const overlay = createOverlayForTest(createOverlay, {
-      pageAdapter: createStaticOverlayPageAdapter({ map }),
+      pagePorts: createStaticOverlayPagePorts({ map }),
       machineHost,
       overlayInteractions: createOverlayInteractionsDouble(machineHost, {
         handleWheel(payload) {
@@ -244,7 +241,7 @@ test("align-mode overlay pointerdown owns the click sequence and does not bubble
     });
 
     const overlay = createOverlayForTest(createOverlay, {
-      pageAdapter: createStaticOverlayPageAdapter({ map }),
+      pagePorts: createStaticOverlayPagePorts({ map }),
       machineHost,
       overlayInteractions: createOverlayInteractionsDouble(machineHost, {
         handlePointerDown() {
@@ -292,7 +289,7 @@ test("plain pointerdown over the overlay in align mode owns the click sequence w
     });
 
     const overlay = createOverlayForTest(createOverlay, {
-      pageAdapter: createStaticOverlayPageAdapter({ map }),
+      pagePorts: createStaticOverlayPagePorts({ map }),
       machineHost,
       overlayInteractions: createOverlayInteractionsDouble(machineHost, {
         handlePointerMove() {
@@ -340,7 +337,7 @@ test("failed overlay drag activation clears pending global pointer ownership", a
     let handledPointerMoveCount = 0;
 
     const overlay = createOverlayForTest(createOverlay, {
-      pageAdapter: createStaticOverlayPageAdapter({ map }),
+      pagePorts: createStaticOverlayPagePorts({ map }),
       machineHost,
       overlayInteractions: createOverlayInteractionsDouble(machineHost, {
         handlePointerMove() {
@@ -382,7 +379,7 @@ test("failed overlay drag activation clears pending global pointer ownership", a
   }
 });
 
-test("trace-mode solved transform follows map view changes from the page adapter", async () => {
+test("trace-mode solved transform follows map view changes from page observation", async () => {
   const env = createDomEnvironment();
 
   try {
@@ -427,21 +424,21 @@ test("trace-mode solved transform follows map view changes from the page adapter
     let listener = null;
 
     const overlay = createOverlayForTest(createOverlay, {
-      pageAdapter: {
-        getSnapshot() {
-          return snapshot;
+      pagePorts: createStaticOverlayPagePorts({
+        map: env.document.getElementById("map") ?? env.document.body,
+        pageObservation: {
+          getSnapshot() {
+            return snapshot;
+          },
+          subscribe(nextListener) {
+            listener = nextListener;
+            nextListener(snapshot);
+            return () => {
+              listener = null;
+            };
+          },
         },
-        subscribe(nextListener) {
-          listener = nextListener;
-          nextListener(snapshot);
-          return () => {
-            listener = null;
-          };
-        },
-        clientPointToScreen(point) {
-          return point;
-        },
-      },
+      }),
       machineHost,
       overlayInteractions: createOverlayInteractionsDouble(machineHost),
     });
@@ -471,7 +468,7 @@ test("trace-mode solved transform follows map view changes from the page adapter
   }
 });
 
-test("trace-mode overlay applies live surface motion from the page adapter", async () => {
+test("trace-mode overlay applies live surface motion from page observation", async () => {
   const env = createDomEnvironment();
 
   try {
@@ -524,27 +521,18 @@ test("trace-mode overlay applies live surface motion from the page adapter", asy
     };
 
     const overlay = createOverlayForTest(createOverlay, {
-      pageAdapter: {
-        getSnapshot() {
-          return snapshot;
+      pagePorts: createStaticOverlayPagePorts({
+        map: env.document.getElementById("map") ?? env.document.body,
+        pageObservation: {
+          getSnapshot() {
+            return snapshot;
+          },
+          subscribe(listener) {
+            listener(snapshot);
+            return () => {};
+          },
         },
-        subscribe(listener) {
-          listener(snapshot);
-          return () => {};
-        },
-        clientPointToScreen(point) {
-          return point;
-        },
-        mapToScreen(point) {
-          return {
-            x: 428 + point.lon * 50,
-            y: 208 - point.lat * 50,
-          };
-        },
-        mapToOverlayLayerScreen(point) {
-          return this.mapToScreen(point);
-        },
-      },
+      }),
       machineHost,
       overlayInteractions: createOverlayInteractionsDouble(machineHost),
     });
@@ -594,19 +582,21 @@ test("global pointer listeners retarget when the overlay remounts during a pendi
     let handledPointerDownCount = 0;
 
     const overlay = createOverlayForTest(createOverlay, {
-      pageAdapter: {
-        ...createStaticOverlayPageAdapter({ map: mapA }),
-        getSnapshot() {
-          return snapshot;
+      pagePorts: createStaticOverlayPagePorts({
+        map: mapA,
+        pageObservation: {
+          getSnapshot() {
+            return snapshot;
+          },
+          subscribe(listener) {
+            snapshotListener = listener;
+            listener(snapshot);
+            return () => {
+              snapshotListener = null;
+            };
+          },
         },
-        subscribe(listener) {
-          snapshotListener = listener;
-          listener(snapshot);
-          return () => {
-            snapshotListener = null;
-          };
-        },
-      },
+      }),
       machineHost,
       overlayInteractions: createOverlayInteractionsDouble(machineHost, {
         handlePointerMove() {
@@ -672,7 +662,7 @@ test("destroy removes pending overlay pointer listeners", async () => {
     let handledPointerDownCount = 0;
 
     const overlay = createOverlayForTest(createOverlay, {
-      pageAdapter: createStaticOverlayPageAdapter({ map }),
+      pagePorts: createStaticOverlayPagePorts({ map }),
       machineHost,
       overlayInteractions: createOverlayInteractionsDouble(machineHost, {
         handlePointerMove() {
@@ -761,73 +751,78 @@ function createOverlayInteractionsDouble(machineHost, overrides = {}) {
   };
 }
 
-function createStaticOverlayPageAdapter({ map }) {
+function createStaticOverlayPagePorts({
+  map,
+  pageObservation = {},
+  pageProjection = {},
+  mapGesture = {},
+}) {
   return {
-    getSnapshot() {
-      return createStaticOverlaySnapshot({ map });
+    pageObservation: {
+      getSnapshot() {
+        return createStaticOverlaySnapshot({ map });
+      },
+      subscribe(listener) {
+        listener(this.getSnapshot());
+        return () => {};
+      },
+      ...pageObservation,
     },
-    subscribe(listener) {
-      listener(this.getSnapshot());
-      return () => {};
+    pageProjection: {
+      clientPointToScreen(point) {
+        return point;
+      },
+      screenPointToClient(point) {
+        return point;
+      },
+      mapToScreen: projectMapPointToScreen,
+      mapToOverlayLayerScreen: projectMapPointToScreen,
+      screenToMap: projectScreenPointToMap,
+      ...pageProjection,
     },
-    clientPointToScreen(point) {
-      return point;
-    },
-    mapToScreen(point) {
-      return {
-        x: 428 + point.lon * 50,
-        y: 208 - point.lat * 50,
-      };
-    },
-    mapToOverlayLayerScreen(point) {
-      return this.mapToScreen(point);
-    },
-    screenToMap(point) {
-      return {
-        lat: (208 - point.y) / 50,
-        lon: (point.x - 428) / 50,
-      };
+    mapGesture: {
+      beginMapPan() {
+        return false;
+      },
+      updateMapPan() {
+        return false;
+      },
+      endMapPan() {},
+      forwardMapZoom() {
+        return false;
+      },
+      isForwardedMapGestureEvent() {
+        return false;
+      },
+      ...mapGesture,
     },
   };
 }
 
 function createOverlayForTest(createOverlay, {
-  pageAdapter,
+  pagePorts,
   ...options
 }) {
   return createOverlay({
-    ...pagePortsFromAdapter(pageAdapter),
+    pageObservation: pagePorts.pageObservation,
+    pageProjection: pagePorts.pageProjection,
+    isForwardedMapGestureEvent: pagePorts.mapGesture.isForwardedMapGestureEvent,
     ...options,
   });
 }
 
-function pagePortsFromAdapter(pageAdapter) {
+function projectMapPointToScreen(point) {
   return {
-    pageObservation: {
-      getSnapshot: bindPageCapability(pageAdapter, "getSnapshot"),
-      subscribe: bindPageCapability(pageAdapter, "subscribe"),
-    },
-    pageProjection: {
-      clientPointToScreen: bindPageCapability(pageAdapter, "clientPointToScreen"),
-      screenPointToClient: bindPageCapability(pageAdapter, "screenPointToClient"),
-      mapToScreen: bindPageCapability(pageAdapter, "mapToScreen"),
-      mapToOverlayLayerScreen: bindPageCapability(pageAdapter, "mapToOverlayLayerScreen"),
-      screenToMap: bindPageCapability(pageAdapter, "screenToMap"),
-    },
-    isForwardedMapGestureEvent: bindPageCapability(pageAdapter, "isForwardedMapGestureEvent"),
-    mapGesture: {
-      beginMapPan: bindPageCapability(pageAdapter, "beginMapPan"),
-      updateMapPan: bindPageCapability(pageAdapter, "updateMapPan"),
-      endMapPan: bindPageCapability(pageAdapter, "endMapPan"),
-      forwardMapZoom: bindPageCapability(pageAdapter, "forwardMapZoom"),
-    },
+    x: 428 + point.lon * 50,
+    y: 208 - point.lat * 50,
   };
 }
 
-function bindPageCapability(pageAdapter, name) {
-  return typeof pageAdapter[name] === "function"
-    ? (...args) => pageAdapter[name](...args)
-    : undefined;
+function projectScreenPointToMap(point) {
+  return {
+    lat: (208 - point.y) / 50,
+    lon: (point.x - 428) / 50,
+  };
 }
 
 function createStaticOverlaySnapshot({ map }) {

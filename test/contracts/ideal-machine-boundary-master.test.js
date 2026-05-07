@@ -1013,6 +1013,30 @@ test("tests exercise public ingress instead of raw mutation events", () => {
   assert.deepEqual(violations, []);
 });
 
+test("test harnesses exercise typed page ports instead of recreating a broad adapter", () => {
+  const violations = [];
+  const forbiddenPatterns = [
+    ["broad page adapter fixture", /\bpageAdapter\b/],
+    ["flattened page ports", /\bflattenPagePorts\b/],
+    ["adapter-to-port bridge", /\bpagePortsFromAdapter\b/],
+    ["legacy static page adapter", /\bcreateStaticOverlayPageAdapter\b/],
+  ];
+
+  for (const filePath of listJavaScriptFiles(TEST_DIR)) {
+    if (filePath === import.meta.filename) {
+      continue;
+    }
+    const source = readSource(filePath);
+    for (const [name, pattern] of forbiddenPatterns) {
+      if (pattern.test(source)) {
+        violations.push(formatViolation(filePath, name));
+      }
+    }
+  }
+
+  assert.deepEqual(violations, []);
+});
+
 function readSource(filePath) {
   return fs.readFileSync(filePath, "utf8");
 }
