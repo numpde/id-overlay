@@ -20,62 +20,14 @@ import {
 } from "../session.js";
 import { createPlacementEditedRegistration } from "../registration.js";
 import { placementsEqual } from "../session-keys.js";
-import { selectPanelPolicy } from "./policy.js";
 import {
   createTransitionResult,
 } from "./transition-result.js";
-
-export function beginPlacementEdit(state, event) {
-  // TODO(smell): Placement transition owns both the transient preview lifecycle
-  // and committed history replay shape. Split preview state updates from
-  // committed placement edits so one-shot wheel edits and drag commits share
-  // the same semantic commit path.
-  if (!canEditPlacement(state)) {
-    return createTransitionResult({
-      state,
-    });
-  }
-  const kind = normalizePlacementEditKind(event.editKind);
-  const renderedPlacement = normalizePlacement(event.renderedPlacement);
-  if (!kind || !renderedPlacement) {
-    return createTransitionResult({
-      state,
-    });
-  }
-  return createTransitionResult({
-    state: replacePlacementEdit(state, {
-      kind,
-      beforePlacement: renderedPlacement,
-      beforeRegistration: state.session.registration,
-      previewPlacement: renderedPlacement,
-    }),
-  });
-}
-
-export function previewPlacementEdit(state, event) {
-  if (!state.runtime.placementEdit) {
-    return createTransitionResult({
-      state,
-    });
-  }
-  if (!canEditPlacement(state)) {
-    return createTransitionResult({
-      state: clearPlacementEditRuntime(state),
-    });
-  }
-  const previewPlacement = normalizePlacement(event.placement);
-  if (!previewPlacement) {
-    return createTransitionResult({
-      state,
-    });
-  }
-  return createTransitionResult({
-    state: replacePlacementEdit(state, {
-      ...state.runtime.placementEdit,
-      previewPlacement,
-    }),
-  });
-}
+import {
+  canEditPlacement,
+  clearPlacementEditRuntime,
+  normalizePlacementEditKind,
+} from "./placement-edit-runtime-transition.js";
 
 export function commitPlacementEdit(state) {
   const edit = state.runtime.placementEdit;
@@ -100,17 +52,6 @@ export function commitPlacementEdit(state) {
     previousPlacement: edit.beforePlacement,
     previousRegistration: edit.beforeRegistration,
     editKind: edit.kind,
-  });
-}
-
-export function cancelPlacementEdit(state) {
-  if (!state.runtime.placementEdit) {
-    return createTransitionResult({
-      state,
-    });
-  }
-  return createTransitionResult({
-    state: replacePlacementEdit(state, null),
   });
 }
 
@@ -139,10 +80,6 @@ export function applyPlacementEdit(state, event) {
     previousRegistration: state.session.registration,
     editKind: kind,
   });
-}
-
-export function clearPlacementEditRuntime(state) {
-  return state.runtime.placementEdit ? replacePlacementEdit(state, null) : state;
 }
 
 function commitPlacementChange(state, event) {
@@ -183,14 +120,6 @@ function commitPlacementChange(state, event) {
       },
     }),
   });
-}
-
-function canEditPlacement(state) {
-  return selectPanelPolicy(state).canEditOverlay;
-}
-
-function normalizePlacementEditKind(kind) {
-  return Object.values(MACHINE_PLACEMENT_EDIT_KIND).includes(kind) ? kind : null;
 }
 
 const PLACEMENT_HISTORY_METADATA = Object.freeze({

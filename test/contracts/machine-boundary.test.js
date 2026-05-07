@@ -346,6 +346,24 @@ test("interaction adapter does not own placement edit lifecycle semantics", () =
   assert.deepEqual(violations, []);
 });
 
+test("placement preview lifecycle is split from committed placement edits", () => {
+  const committedSource = fs.readFileSync(repoPath("src/core/machine/placement-transition.js"), "utf8");
+  const runtimeSource = fs.readFileSync(repoPath("src/core/machine/placement-edit-runtime-transition.js"), "utf8");
+  const forbiddenPatterns = [
+    ["begin preview transition", /\bexport\s+function\s+beginPlacementEdit\b/],
+    ["preview transition", /\bexport\s+function\s+previewPlacementEdit\b/],
+  ];
+  const violations = forbiddenPatterns
+    .filter(([, pattern]) => pattern.test(committedSource))
+    .map(([name]) => name);
+
+  assert.match(runtimeSource, /\bexport\s+function\s+beginPlacementEdit\b/);
+  assert.match(runtimeSource, /\bexport\s+function\s+previewPlacementEdit\b/);
+  assert.match(committedSource, /\bexport\s+function\s+commitPlacementEdit\b/);
+  assert.match(committedSource, /\bexport\s+function\s+applyPlacementEdit\b/);
+  assert.deepEqual(violations, []);
+});
+
 test("interaction ports delegate pin and wheel command semantics", () => {
   const source = fs.readFileSync(repoPath("src/content/interaction-ports.js"), "utf8");
   const forbiddenPatterns = [

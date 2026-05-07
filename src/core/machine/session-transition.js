@@ -22,7 +22,7 @@ import {
   clearInvalidPanelIntent,
   clearPanelIntent,
 } from "./panel-status-transition.js";
-import { clearPlacementEditRuntime } from "./placement-transition.js";
+import { clearPlacementEditRuntime } from "./placement-edit-runtime-transition.js";
 import { fitOverlay } from "./registration-transition.js";
 import { resetInputRuntimeState } from "./runtime-transition.js";
 import {

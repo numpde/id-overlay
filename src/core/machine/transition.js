@@ -14,10 +14,12 @@ import {
 } from "./registration-transition.js";
 import {
   applyPlacementEdit,
-  beginPlacementEdit,
   commitPlacementEdit,
-  previewPlacementEdit,
 } from "./placement-transition.js";
+import {
+  beginPlacementEdit,
+  previewPlacementEdit,
+} from "./placement-edit-runtime-transition.js";
 import {
   clearImage,
   loadImage,

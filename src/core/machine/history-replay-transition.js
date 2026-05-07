@@ -12,7 +12,7 @@ import {
 } from "./history.js";
 import {
   clearPlacementEditRuntime,
-} from "./placement-transition.js";
+} from "./placement-edit-runtime-transition.js";
 import {
   createEmptyRegistration,
   replaceRegistration,
