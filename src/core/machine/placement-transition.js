@@ -141,20 +141,6 @@ export function applyPlacementEdit(state, event) {
   });
 }
 
-export function restorePlacement(state, event) {
-  if (!state.session.image || !Object.hasOwn(event, "placement")) {
-    return createTransitionResult({
-      state,
-    });
-  }
-  const nextRegistration = event.registration ?? state.session.registration;
-  return createTransitionResult({
-    state: replacePlacementEdit(replaceRegistration(replaceSession(state, {
-      placement: event.placement,
-    }), nextRegistration), null),
-  });
-}
-
 export function clearPlacementEditRuntime(state) {
   return state.runtime.placementEdit ? replacePlacementEdit(state, null) : state;
 }

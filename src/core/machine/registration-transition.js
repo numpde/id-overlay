@@ -144,13 +144,6 @@ export function clearPins(state, event = {}) {
   });
 }
 
-export function restoreRegistration(state, event) {
-  return commitRegistrationPatch(state, {
-    registration: event.registration,
-    mode: event.mode ?? state.session.mode,
-  });
-}
-
 export function fitOverlay(state) {
   const previousSession = state.session;
   const solvedTransform = solveSimilarityTransform(state.session.registration.pins);

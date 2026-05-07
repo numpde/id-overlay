@@ -101,12 +101,6 @@ export function clearImage(state) {
   });
 }
 
-export function restoreImageSession(state, event) {
-  return commitSessionPatch(state, event.session ?? {}, {
-    statusNotice: createStatusNotice(MACHINE_STATUS_NOTICE_KIND.IMAGE_RESTORED),
-  });
-}
-
 export function selectMode(state, event) {
   if (!isKnownMachineMode(event.mode)) {
     return createTransitionResult({

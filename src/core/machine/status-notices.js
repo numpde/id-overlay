@@ -1,7 +1,6 @@
 export const MACHINE_STATUS_NOTICE_KIND = Object.freeze({
   IMAGE_LOADED: "image-loaded",
   IMAGE_CLEARED: "image-cleared",
-  IMAGE_RESTORED: "image-restored",
   MODE_SELECTED: "mode-selected",
   PIN_ADDED: "pin-added",
   PIN_REMOVED: "pin-removed",

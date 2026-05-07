@@ -13,7 +13,6 @@ import { commitSemanticHistoryRecord } from "./history.js";
 import {
   clearPins,
   fitOverlay,
-  restoreRegistration,
   togglePin,
 } from "./registration-transition.js";
 import {
@@ -22,12 +21,10 @@ import {
   cancelPlacementEdit,
   commitPlacementEdit,
   previewPlacementEdit,
-  restorePlacement,
 } from "./placement-transition.js";
 import {
   clearImage,
   loadImage,
-  restoreImageSession,
   selectMode,
   setOpacity,
 } from "./session-transition.js";
@@ -75,7 +72,6 @@ const transitionHistoryIngress = Object.freeze({
 const transitionSession = Object.freeze({
   [MACHINE_PRIVATE_COMMAND_KIND.LOAD_IMAGE]: loadImage,
   [MACHINE_PRIVATE_COMMAND_KIND.CLEAR_IMAGE]: clearImage,
-  [MACHINE_PRIVATE_COMMAND_KIND.RESTORE_IMAGE_SESSION]: restoreImageSession,
   [MACHINE_PRIVATE_COMMAND_KIND.SELECT_MODE]: selectMode,
   [MACHINE_PRIVATE_COMMAND_KIND.SET_OPACITY]: setOpacity,
 });
@@ -83,7 +79,6 @@ const transitionSession = Object.freeze({
 const transitionRegistration = Object.freeze({
   [MACHINE_PRIVATE_COMMAND_KIND.TOGGLE_PIN]: togglePin,
   [MACHINE_PRIVATE_COMMAND_KIND.CLEAR_PINS]: clearPins,
-  [MACHINE_PRIVATE_COMMAND_KIND.RESTORE_REGISTRATION]: restoreRegistration,
   [MACHINE_PRIVATE_COMMAND_KIND.FIT_OVERLAY]: fitOverlay,
 });
 
@@ -93,7 +88,6 @@ const transitionPlacement = Object.freeze({
   [MACHINE_PRIVATE_COMMAND_KIND.COMMIT_PLACEMENT_EDIT]: commitPlacementEdit,
   [MACHINE_PRIVATE_COMMAND_KIND.CANCEL_PLACEMENT_EDIT]: cancelPlacementEdit,
   [MACHINE_PRIVATE_COMMAND_KIND.APPLY_PLACEMENT_EDIT]: applyPlacementEdit,
-  [MACHINE_PRIVATE_COMMAND_KIND.RESTORE_PLACEMENT]: restorePlacement,
 });
 
 const transitionPanelStatus = Object.freeze({

@@ -110,8 +110,6 @@ function formatStatusNotice(notice, state = null) {
       return describeLoadedImage(payload.image) ?? "Loaded image.";
     case MACHINE_STATUS_NOTICE_KIND.IMAGE_CLEARED:
       return "Cleared image.";
-    case MACHINE_STATUS_NOTICE_KIND.IMAGE_RESTORED:
-      return "Restored image.";
     case MACHINE_STATUS_NOTICE_KIND.MODE_SELECTED:
       return payload.mode ? `Switched to ${payload.mode}.` : "";
     case MACHINE_STATUS_NOTICE_KIND.PIN_ADDED:
