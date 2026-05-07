@@ -82,13 +82,25 @@ test("machine host persists durable session after state changes only", () => {
 });
 
 test("machine host routes paste effects back through typed effect results", async () => {
+  const calls = [];
   const host = createHost({
-    readPasteImage: () => createDecodedPasteOutcome(),
+    readPasteImage: (payload) => {
+      calls.push(payload);
+      assert.deepEqual(host.getState().panel, {
+        intent: MACHINE_PANEL_INTENT.PASTE_ARMED,
+        requestId: 1,
+      });
+      return createDecodedPasteOutcome();
+    },
   });
 
-  host.requestPanelIntent(MACHINE_PANEL_INTENT.PASTE_ARMED);
+  const result = host.requestPanelIntent(MACHINE_PANEL_INTENT.PASTE_ARMED);
   await Promise.resolve();
 
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].requestId, 1);
+  assert.equal(calls[0].context.state, result.state);
+  assert.equal(calls[0].context.result, result);
   assert.deepEqual(host.getState().session.image, NORMALIZED_IMAGE);
   assert.deepEqual(host.getState().panel, createIdlePanel());
 });

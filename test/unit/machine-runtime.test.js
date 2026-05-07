@@ -162,76 +162,17 @@ test("equal result states keep the previous state identity", () => {
   assert.equal(states.length, 0);
 });
 
-test("effects execute after state commit with caller context, state, and result", () => {
-  const calls = [];
-  const runtime = createMachineRuntime({
-    executeEffect(effect, context) {
-      calls.push({ effect, context, committedState: runtime.getState() });
-    },
-  });
-  const sourceFact = { kind: "test-fact" };
+test("commitMachineResult returns effects without executing host work", () => {
+  const runtime = createMachineRuntime();
   const result = runtime.commitMachineResult(createTransitionResult({
     state: effectfulState(),
     effects: [{ type: "external-work" }],
-  }), {
-    sourceFact,
-  });
-
-  assert.equal(calls.length, 1);
-  assert.deepEqual(calls[0].effect, { type: "external-work" });
-  assert.equal(calls[0].context.sourceFact, sourceFact);
-  assert.equal(calls[0].context.state, result.state);
-  assert.equal(calls[0].context.result, result);
-  assert.equal(calls[0].committedState, result.state);
-});
-
-test("sync effect failures are reported without rolling back committed state", () => {
-  const errors = [];
-  const runtime = createMachineRuntime({
-    executeEffect() {
-      throw new Error("boom");
-    },
-    onEffectError(error, context) {
-      errors.push({ error, context });
-    },
-  });
-
-  const result = commitEffectfulResult(runtime);
-
-  assert.equal(runtime.getState(), result.state);
-  assert.equal(runtime.getState().session.mode, MACHINE_MODE.ALIGN);
-  assert.equal(errors.length, 1);
-  assert.equal(errors[0].error.message, "boom");
-  assert.equal(errors[0].context.result, result);
-});
-
-test("async effect rejections are reported without rolling back committed state", async () => {
-  const errors = [];
-  const runtime = createMachineRuntime({
-    executeEffect() {
-      return Promise.reject(new Error("async boom"));
-    },
-    onEffectError(error, context) {
-      errors.push({ error, context });
-    },
-  });
-
-  const result = commitEffectfulResult(runtime);
-  await Promise.resolve();
-
-  assert.equal(runtime.getState(), result.state);
-  assert.equal(runtime.getState().session.mode, MACHINE_MODE.ALIGN);
-  assert.equal(errors.length, 1);
-  assert.equal(errors[0].error.message, "async boom");
-  assert.equal(errors[0].context.result, result);
-});
-
-function commitEffectfulResult(runtime) {
-  return runtime.commitMachineResult(createTransitionResult({
-    state: effectfulState(),
-    effects: [{ type: "external-work" }],
   }));
-}
+
+  assert.equal(runtime.getState(), result.state);
+  assert.equal(runtime.getState().session.mode, MACHINE_MODE.ALIGN);
+  assert.deepEqual(result.effects, [{ type: "external-work" }]);
+});
 
 function effectfulState() {
   return createInitialMachineState({

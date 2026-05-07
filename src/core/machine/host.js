@@ -84,8 +84,6 @@ export function createMachineHost({
 
   runtime = createMachineRuntime({
     initialState: fromPersistedMachineSession(persistedSession),
-    executeEffect: effectServices.runEffect,
-    onEffectError: reportError,
   });
   persistenceService = createMachineHostPersistenceService({
     runtime,
@@ -109,14 +107,14 @@ export function createMachineHost({
     if (destroyed) {
       return createDestroyedDispatchResult(runtime.getState());
     }
-    return runtime.commitMachineResult(transition(runtime.getState()), context);
+    return commitMachineResult(transition(runtime.getState()), context);
   }
 
   function ingestEffectResult(result) {
     if (destroyed) {
       return createDestroyedDispatchResult(runtime.getState());
     }
-    return runtime.commitMachineResult(transitionMachineEffectResult(runtime.getState(), result), {
+    return commitMachineResult(transitionMachineEffectResult(runtime.getState(), result), {
       effectResult: result,
     });
   }
@@ -126,7 +124,7 @@ export function createMachineHost({
       return createDestroyedDispatchResult(runtime.getState());
     }
     const currentState = runtime.getState();
-    const result = runtime.commitMachineResult(reconcilePageContext(currentState, {
+    const result = commitMachineResult(reconcilePageContext(currentState, {
       persistedSession: pendingPageContextPersistedSession,
       pageContext,
     }), {
@@ -210,7 +208,7 @@ export function createMachineHost({
     if (destroyed) {
       return createDestroyedDispatchResult(runtime.getState());
     }
-    return runtime.commitMachineResult(transitionRuntimeFact(runtime.getState(), fact), {
+    return commitMachineResult(transitionRuntimeFact(runtime.getState(), fact), {
       runtimeFact: fact,
     });
   }
@@ -269,7 +267,7 @@ export function createMachineHost({
     if (destroyed) {
       return createNoopDispatchResult(state);
     }
-    return runtime.commitMachineResult(applyMachineStatusNotice(cancelPanelIntentWithStatusNotice(state, {
+    return commitMachineResult(applyMachineStatusNotice(cancelPanelIntentWithStatusNotice(state, {
       requestId,
       noticeKind,
       noticePayload,
@@ -282,7 +280,7 @@ export function createMachineHost({
     if (destroyed) {
       return createDestroyedDispatchResult(runtime.getState());
     }
-    return runtime.commitMachineResult(applyMachineStatusNotice(createStatusNoticeResult(runtime.getState(), {
+    return commitMachineResult(applyMachineStatusNotice(createStatusNoticeResult(runtime.getState(), {
       noticeKind,
       noticePayload,
     })), {
@@ -364,6 +362,25 @@ export function createMachineHost({
     persistenceService.destroy();
     subscriptionService.destroy();
     effectServices.destroy();
+  }
+
+  function commitMachineResult(result, context = {}) {
+    const committedResult = runtime.commitMachineResult(result);
+    runEffects(committedResult.effects, {
+      ...context,
+      state: committedResult.state,
+      result: committedResult,
+    });
+    return committedResult;
+  }
+
+  function runEffects(effects, context) {
+    if (!Array.isArray(effects)) {
+      return;
+    }
+    for (const effect of effects) {
+      effectServices.runEffect(effect, context);
+    }
   }
 
   function reportError(error, context) {

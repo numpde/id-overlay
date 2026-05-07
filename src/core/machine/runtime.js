@@ -2,12 +2,7 @@ import { machineStatesEqual, normalizeMachineState } from "./state.js";
 
 export function createMachineRuntime({
   initialState = undefined,
-  executeEffect = null,
-  onEffectError = null,
 } = {}) {
-  // TODO(smell): Runtime commits state, notifies subscribers, and executes
-  // effects in one primitive. The ideal host/runtime split would keep this as
-  // a pure commit-notify store and let the host own effect scheduling policy.
   let state = normalizeMachineState(initialState);
   const listeners = new Set();
 
@@ -23,7 +18,7 @@ export function createMachineRuntime({
     return () => listeners.delete(listener);
   }
 
-  function commitMachineResult(result, context = {}) {
+  function commitMachineResult(result) {
     const previousState = state;
     state = machineStatesEqual(previousState, result.state) ? previousState : result.state;
     const committedResult = state === result.state
@@ -37,12 +32,6 @@ export function createMachineRuntime({
       notify();
     }
 
-    runEffects(committedResult.effects, {
-      ...context,
-      state,
-      result: committedResult,
-    });
-
     return committedResult;
   }
 
@@ -52,41 +41,9 @@ export function createMachineRuntime({
     }
   }
 
-  function runEffects(effects, context) {
-    if (!executeEffect || !Array.isArray(effects)) {
-      return;
-    }
-    for (const effect of effects) {
-      try {
-        const maybePromise = executeEffect(effect, context);
-        if (isPromiseLike(maybePromise)) {
-          maybePromise.catch((error) => reportEffectError(error, {
-            ...context,
-            effect,
-          }));
-        }
-      } catch (error) {
-        reportEffectError(error, {
-          ...context,
-          effect,
-        });
-      }
-    }
-  }
-
-  function reportEffectError(error, context) {
-    if (onEffectError) {
-      onEffectError(error, context);
-    }
-  }
-
   return {
     getState,
     subscribe,
     commitMachineResult,
   };
-}
-
-function isPromiseLike(value) {
-  return value && typeof value.catch === "function";
 }
