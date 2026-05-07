@@ -373,11 +373,29 @@ test("interaction ports delegate pin and wheel command semantics", () => {
 test("interaction outcome plumbing stays deleted", () => {
   const deletedFiles = [
     "src/content/interactions/command-outcome.js",
+    "src/content/interactions/pin-toggle-command.js",
+    "src/content/interactions/pin-toggle-planning.js",
     "src/content/interactions/wheel-outcome.js",
     "test/unit/interaction-command-outcome.test.js",
   ].filter((relativePath) => fs.existsSync(repoPath(relativePath)));
 
   assert.deepEqual(deletedFiles, []);
+});
+
+test("pin toggle planning is centralized in core", () => {
+  const interactionSource = fs.readFileSync(repoPath("src/content/interactions/pin-toggle-interaction.js"), "utf8");
+  const corePlannerPath = repoPath("src/core/pin-toggle-planning.js");
+  const forbiddenPatterns = [
+    ["content-side pin render geometry", /\b(?:buildPinRenderModels|hitTestPin|screenPointToRenderedImagePoint)\b/],
+    ["content-side render placement derivation", /\bderivePlacementFromCurrentRenderState\b/],
+  ];
+  const violations = forbiddenPatterns
+    .filter(([, pattern]) => pattern.test(interactionSource))
+    .map(([name]) => name);
+
+  assert.ok(fs.existsSync(corePlannerPath));
+  assert.match(interactionSource, /core\/pin-toggle-planning\.js/);
+  assert.deepEqual(violations, []);
 });
 
 test("placement edit planning is centralized outside transform and live interaction routing", () => {

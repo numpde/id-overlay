@@ -203,7 +203,7 @@ test("plain drag uses the map-pan adapter path and keeps placement unchanged", (
   assert.deepEqual(adapterCalls.mapPan.ends, [{ x: 520, y: 310 }]);
 });
 
-test("pin-toggle command adds a pin at the correct image and map coordinates", () => {
+test("pin-toggle interaction adds a pin at the correct image and map coordinates", () => {
   const harness = createHarness();
   const { controller } = harness;
   seedMachineImageSession(harness);
@@ -252,7 +252,7 @@ test("keyboard pin toggle uses the same interaction error boundary", () => {
   assert.equal(selectPanelStatusText(machineHost.getState()), "The overlay interaction failed. Try the action again.");
 });
 
-test("pin-toggle command on an existing pin removes it", () => {
+test("pin-toggle interaction on an existing pin removes it", () => {
   const harness = createHarness();
   const { controller } = harness;
   seedMachineImageSession(harness);

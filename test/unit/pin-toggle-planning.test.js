@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { planPinToggleAtScreenPoint } from "../../src/content/interactions/pin-toggle-planning.js";
+import { planPinToggleAtScreenPoint } from "../../src/core/pin-toggle-planning.js";
 import { createInitialMachineState } from "../../src/core/machine/state.js";
 import {
   SESSION_MODE,

@@ -1,17 +1,17 @@
-import { getOverlayImage, hasOverlayImageSession } from "../../core/session.js";
+import { getOverlayImage, hasOverlayImageSession } from "./session.js";
 import {
   imagePointToRenderedScreenPoint,
   isImagePointWithinBounds,
   screenPointToRenderedImagePoint,
-} from "../../core/transform.js";
+} from "./transform.js";
 import {
   derivePlacementFromCurrentRenderState,
   resolveOverlayScreenTransform,
-} from "../../core/overlay-render.js";
+} from "./overlay-render.js";
 import {
   buildPinRenderModels,
   hitTestPin,
-} from "../../core/pin-render.js";
+} from "./pin-render.js";
 
 export function planPinToggleAtScreenPoint({
   machineState,
