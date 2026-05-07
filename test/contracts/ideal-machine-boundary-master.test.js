@@ -504,6 +504,21 @@ test("content machine host consumes timer effect services instead of raw timer a
   assert.deepEqual(violations, []);
 });
 
+test("content machine host consumes persistence services instead of platform storage", () => {
+  const source = readSource(repoPath("src/content/content-machine-host.js"));
+  const forbiddenPatterns = [
+    ["platform storage construction", /\bcreateExtensionStorage\b/],
+    ["storage key ownership", /\bDEFAULT_STORAGE_KEY\b/],
+    ["storage load wiring", /\bstorage\.load\b/],
+    ["storage save wiring", /\bstorage\.save\b/],
+  ];
+  const violations = forbiddenPatterns
+    .filter(([, pattern]) => pattern.test(source))
+    .map(([name]) => name);
+
+  assert.deepEqual(violations, []);
+});
+
 test("page-placed paste outcome consumes canonical page snapshot liveness", () => {
   const source = readSource(repoPath("src/content/paste-read-outcome.js"));
   const violations = [];

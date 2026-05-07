@@ -10,6 +10,7 @@ import { createEmptyRegistration } from "../../src/core/session.js";
 import { createPlacementTransform } from "../../src/core/transform.js";
 import { createContentMachineHost } from "../../src/content/content-machine-host.js";
 import { createContentPasteEffectService } from "../../src/content/paste-effect-service.js";
+import { createContentPersistenceService } from "../../src/content/persistence-service.js";
 import { createContentTimerEffectService } from "../../src/content/timer-effect-service.js";
 import { createDomEnvironment } from "../helpers/dom-env.js";
 import {
@@ -44,7 +45,7 @@ test("content machine host loads storage and ingests current page context before
   const host = await createContentMachineHost({
     ownerWindow,
     pageObservation,
-    storage,
+    persistence: createContentPersistenceService({ storage }),
     pasteEffects: createContentPasteEffectService({
       ownerWindow,
       pageObservation,
@@ -67,7 +68,7 @@ test("content machine host turns Clipboard API image facts into page-placed mach
   const host = await createContentMachineHost({
     ownerWindow,
     pageObservation,
-    storage,
+    persistence: createContentPersistenceService({ storage }),
     pasteEffects: createContentPasteEffectService({
       ownerWindow,
       pageObservation,
@@ -100,7 +101,7 @@ test("content machine host owns manual paste capture and removes it on destroy",
   const host = await createContentMachineHost({
     ownerWindow: env.window,
     pageObservation,
-    storage: createStorageHarness(),
+    persistence: createContentPersistenceService({ storage: createStorageHarness() }),
     pasteEffects: createContentPasteEffectService({
       ownerWindow: env.window,
       pageObservation,
@@ -140,7 +141,7 @@ test("content machine host completes manual paste captures with page-placed imag
   const host = await createContentMachineHost({
     ownerWindow: env.window,
     pageObservation,
-    storage: createStorageHarness(),
+    persistence: createContentPersistenceService({ storage: createStorageHarness() }),
     pasteEffects: createContentPasteEffectService({
       ownerWindow: env.window,
       pageObservation,
