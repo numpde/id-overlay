@@ -17,6 +17,7 @@ test("content app composes host, machine, UI, and session in dependency order", 
   const interactionPorts = {
     overlayInteractionPort: { label: "overlayInteractionPort" },
   };
+  const overlayEnvironment = { label: "overlayEnvironment" };
   const overlay = { label: "overlay" };
   const panel = { label: "panel" };
   const session = { label: "session" };
@@ -46,6 +47,10 @@ test("content app composes host, machine, UI, and session in dependency order", 
         createInteractionPorts(options) {
           calls.push(["create-interaction-ports", options]);
           return interactionPorts;
+        },
+        createOverlayEnvironment(options) {
+          calls.push(["create-overlay-environment", options]);
+          return overlayEnvironment;
         },
         async attachShadowStyles(shadow) {
           calls.push(["attach-shadow-styles", shadow]);
@@ -91,12 +96,13 @@ test("content app composes host, machine, UI, and session in dependency order", 
       }],
       ["attach-shadow-styles", shadow],
       ["clear-owned-shadow-nodes", shadow],
-      ["create-overlay", {
-        pageObservation: pagePorts.pageObservation,
-        pageProjection: pagePorts.pageProjection,
-        isForwardedMapGestureEvent: pagePorts.mapGesture.isForwardedMapGestureEvent,
+      ["create-overlay-environment", {
+        pagePorts,
         machineHost,
         overlayInteractions: interactionPorts.overlayInteractionPort,
+      }],
+      ["create-overlay", {
+        environment: overlayEnvironment,
       }],
       ["create-panel", {
         shadow,
@@ -166,6 +172,7 @@ function createMinimalDeps({ host, attachShadowStyles = () => {} }) {
     createContentMachineHostServices: () => ({}),
     createContentMachineHost: async () => ({}),
     createInteractionPorts: () => ({ overlayInteractionPort: {} }),
+    createOverlayEnvironment: () => ({}),
     attachShadowStyles,
     clearOwnedShadowNodes: () => {},
     createOverlay: () => ({}),

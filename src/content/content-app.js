@@ -1,6 +1,7 @@
 import { createContentMachineHost } from "./content-machine-host.js";
 import { createContentMachineHostServices } from "./content-machine-host-services.js";
 import { createInteractionPorts } from "./interaction-ports.js";
+import { createOverlayEnvironment } from "./overlay-environment.js";
 import { createPanel } from "./panel.js";
 import { createOverlay } from "./overlay.js";
 import {
@@ -19,6 +20,7 @@ const DEFAULT_APP_DEPS = Object.freeze({
   createContentMachineHost,
   createContentMachineHostServices,
   createInteractionPorts,
+  createOverlayEnvironment,
   createOverlay,
   createPanel,
   destroyActiveContentSession,
@@ -59,15 +61,13 @@ export async function createContentApp({
   await deps.attachShadowStyles(shadow);
   deps.clearOwnedShadowNodes(shadow);
 
-  const overlay = deps.createOverlay({
-    // TODO(smell): Overlay receives pageObservation/pageProjection/mapGesture
-    // fragments separately. Once page ports are stable, pass one typed overlay
-    // environment to avoid re-threading page dependencies through this root.
-    pageObservation: pagePorts.pageObservation,
-    pageProjection: pagePorts.pageProjection,
-    isForwardedMapGestureEvent: pagePorts.mapGesture.isForwardedMapGestureEvent,
+  const overlayEnvironment = deps.createOverlayEnvironment({
+    pagePorts,
     machineHost,
     overlayInteractions: interactionPorts.overlayInteractionPort,
+  });
+  const overlay = deps.createOverlay({
+    environment: overlayEnvironment,
   });
 
   const panel = deps.createPanel({

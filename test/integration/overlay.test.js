@@ -804,10 +804,12 @@ function createOverlayForTest(createOverlay, {
   ...options
 }) {
   return createOverlay({
-    pageObservation: pagePorts.pageObservation,
-    pageProjection: pagePorts.pageProjection,
-    isForwardedMapGestureEvent: pagePorts.mapGesture.isForwardedMapGestureEvent,
-    ...options,
+    environment: {
+      pageObservation: pagePorts.pageObservation,
+      pageProjection: pagePorts.pageProjection,
+      isForwardedMapGestureEvent: pagePorts.mapGesture.isForwardedMapGestureEvent,
+      ...options,
+    },
   });
 }
 

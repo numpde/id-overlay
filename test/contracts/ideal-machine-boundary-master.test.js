@@ -992,6 +992,27 @@ test("overlay composition consumes one state source for render and input facts",
   assert.deepEqual(violations, []);
 });
 
+test("overlay composition receives one explicit environment object", () => {
+  const source = readSource(repoPath("src/content/overlay.js"));
+  const appSource = readSource(repoPath("src/content/content-app.js"));
+  const violations = [];
+
+  if (!/\bexport\s+function\s+createOverlay\s*\(\s*\{\s*environment\s*,?\s*\}/s.test(source)) {
+    violations.push("missing: overlay environment parameter");
+  }
+  if (/\bexport\s+function\s+createOverlay\s*\(\s*\{\s*(?:pageObservation|pageProjection|isForwardedMapGestureEvent|machineHost|overlayInteractions)\b/s.test(source)) {
+    violations.push("forbidden: exploded overlay constructor parameters");
+  }
+  if (!/\bcreateOverlayEnvironment\s*\(\s*\{[^}]*\bpagePorts\b[^}]*\bmachineHost\b[^}]*\boverlayInteractions\b/s.test(appSource)) {
+    violations.push("missing: app-owned overlay environment construction");
+  }
+  if (!/\bcreateOverlay\s*\(\s*\{\s*environment:\s*overlayEnvironment\s*,?\s*\}/s.test(appSource)) {
+    violations.push("missing: overlay receives environment only");
+  }
+
+  assert.deepEqual(violations, []);
+});
+
 test("only machine internals import machine event vocabulary", () => {
   const violations = [];
   for (const filePath of listJavaScriptFiles(SOURCE_DIR)) {

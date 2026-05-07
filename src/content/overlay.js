@@ -3,12 +3,15 @@ import { createOverlayRenderer } from "./overlay/renderer.js";
 import { createOverlayStateSource } from "./overlay/state-source.js";
 
 export function createOverlay({
-  pageObservation,
-  pageProjection,
-  isForwardedMapGestureEvent,
-  machineHost,
-  overlayInteractions,
+  environment,
 }) {
+  const {
+    pageObservation,
+    pageProjection,
+    isForwardedMapGestureEvent,
+    machineHost,
+    overlayInteractions,
+  } = environment;
   let overlayStateSource = null;
   let inputRouter = null;
 
