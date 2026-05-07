@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { createOverlayHost } from "../../src/content/overlay/host.js";
 import { createDomEnvironment } from "../helpers/dom-env.js";
 
-test("overlay host mounts, injects styles, and notifies mount changes", () => {
+test("overlay host mounts, delegates style installation, and notifies mount changes", () => {
   const env = createDomEnvironment();
   try {
     const root = env.document.createElement("div");
@@ -14,6 +14,7 @@ test("overlay host mounts, injects styles, and notifies mount changes", () => {
     let nextMountElement = firstMount;
     const mountChanges = [];
     const renderCalls = [];
+    const installedStyleDocuments = [];
 
     const host = createOverlayHost({
       root,
@@ -21,13 +22,18 @@ test("overlay host mounts, injects styles, and notifies mount changes", () => {
       render: () => renderCalls.push(root.parentElement),
       onMountChange: (mountElement) => mountChanges.push(mountElement),
       frameTarget: {},
+      styleInjector: {
+        ensureInstalled(targetDocument) {
+          installedStyleDocuments.push(targetDocument);
+        },
+      },
     });
 
     host.scheduleRender();
     nextMountElement = secondMount;
     host.scheduleRender();
 
-    assert.equal(env.document.querySelectorAll("#id-overlay-map-styles").length, 1);
+    assert.deepEqual(installedStyleDocuments, [env.document, env.document]);
     assert.equal(renderCalls.length, 2);
     assert.deepEqual(renderCalls, [firstMount, secondMount]);
     assert.deepEqual(mountChanges, [firstMount, secondMount]);
