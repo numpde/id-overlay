@@ -61,9 +61,9 @@ export function createPageAdapter({
     subscribe: snapshotSource.subscribe,
   };
   const pageProjection = {
-    // TODO(smell): Projection fallback values are local per method. If snapshot
-    // provenance becomes explicit, fallback policy should live in one page-port
-    // boundary rather than each wrapper.
+    // TODO(smell): Projection fallback values are local per method. As snapshot
+    // provenance becomes actionable, fallback policy should live in one
+    // page-port boundary rather than each wrapper.
     clientPointToScreen(clientPoint) {
       return runBoundary("client-point-to-screen", () => {
         return projection.clientPointToScreen(clientPoint);

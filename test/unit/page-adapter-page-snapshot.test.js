@@ -2,8 +2,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  PAGE_SNAPSHOT_PROVENANCE_KIND,
   createFallbackPageSnapshot,
   createPageSnapshot,
+  createStalePageSnapshot,
   pageSnapshotsEqual,
 } from "../../src/content/page-adapter/page-snapshot.js";
 
@@ -26,12 +28,16 @@ test("page snapshot factory preserves the canonical snapshot shape", () => {
     "localViewportRect",
     "mapView",
     "surfaceMotion",
+    "provenance",
   ]);
   assert.equal(snapshot.viewportElement, viewportElement);
   assert.equal(snapshot.mountElement, mountElement);
+  assert.deepEqual(snapshot.provenance, {
+    kind: PAGE_SNAPSHOT_PROVENANCE_KIND.LIVE,
+  });
 });
 
-test("fallback page snapshot uses the window viewport, fallback map view, and inert surface motion", () => {
+test("fallback page snapshot uses the window viewport, fallback map view, inert surface motion, and synthetic provenance", () => {
   const mapView = createMapView({
     center: { lat: -1.2, lon: 36.8 },
     zoom: 16,
@@ -65,8 +71,24 @@ test("fallback page snapshot uses the window viewport, fallback map view, and in
         transformCss: "none",
         transformOriginCss: "0px 0px",
       },
+      provenance: {
+        kind: PAGE_SNAPSHOT_PROVENANCE_KIND.SYNTHETIC,
+      },
     },
   );
+});
+
+test("stale page snapshot preserves facts and marks stale provenance", () => {
+  const liveSnapshot = createSnapshot();
+  const staleSnapshot = createStalePageSnapshot(liveSnapshot);
+
+  assert.notEqual(staleSnapshot, liveSnapshot);
+  assert.deepEqual(staleSnapshot, {
+    ...liveSnapshot,
+    provenance: {
+      kind: PAGE_SNAPSHOT_PROVENANCE_KIND.STALE,
+    },
+  });
 });
 
 test("page snapshot equality compares every semantic snapshot field", () => {
@@ -90,6 +112,9 @@ test("page snapshot equality compares every semantic snapshot field", () => {
   })), false);
   assert.equal(pageSnapshotsEqual(base, createSnapshot({
     surfaceMotion: createSurfaceMotion({ transformCss: "matrix(1, 0, 0, 1, 1, 2)" }),
+  })), false);
+  assert.equal(pageSnapshotsEqual(base, createSnapshot({
+    provenance: { kind: PAGE_SNAPSHOT_PROVENANCE_KIND.STALE },
   })), false);
 });
 

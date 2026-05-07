@@ -6,8 +6,8 @@ import { createPlacementTransform } from "../core/transform.js";
 
 export function createPagePlacedPasteReadOutcome({ fact, pageObservation }) {
   // TODO(smell): This is the content-side bridge from clipboard facts to
-  // machine paste outcomes. The ideal service should make "page placement was
-  // available" explicit rather than always asking live page observation here.
+  // machine paste outcomes. The ideal service should consume page-snapshot
+  // provenance and make "page placement was authoritative" explicit.
   return createPasteReadOutcomeFromClipboardFact({
     fact,
     placement: createInitialPastePlacement({ fact, pageObservation }),
@@ -16,8 +16,8 @@ export function createPagePlacedPasteReadOutcome({ fact, pageObservation }) {
 
 function createInitialPastePlacement({ fact, pageObservation }) {
   // TODO(smell): Initial paste placement reads live page snapshot synchronously.
-  // If snapshot provenance becomes explicit, this should reject approximate or
-  // stale page facts instead of blindly centering on the current fallback map.
+  // It should reject approximate or stale page facts once paste placement policy
+  // consumes snapshot provenance.
   if (fact?.kind !== CLIPBOARD_IMAGE_READ_KIND.DECODED_IMAGE) {
     return null;
   }

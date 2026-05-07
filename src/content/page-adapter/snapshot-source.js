@@ -1,6 +1,7 @@
 import {
   createFallbackPageSnapshot,
   createPageSnapshot,
+  createStalePageSnapshot,
   pageSnapshotsEqual,
 } from "./page-snapshot.js";
 import { createPageSnapshotWatcher } from "./snapshot-watcher.js";
@@ -106,11 +107,11 @@ export function createPageSnapshotSource({
   }
 
   function createFallbackSnapshot() {
-    // TODO(smell): Boundary fallback reuses last good snapshot or a synthetic
-    // default snapshot. Once provenance is modeled, callers should know whether
-    // they are rendering stale or synthetic page facts.
+    // TODO(smell): Boundary fallback now marks stale vs synthetic page facts,
+    // but callers still mostly ignore provenance. Keep fallback construction
+    // centralized here until degraded rendering/paste policy consumes it.
     if (lastSnapshot) {
-      return lastSnapshot;
+      return createStalePageSnapshot(lastSnapshot);
     }
     return createFallbackPageSnapshot({
       hashTarget,

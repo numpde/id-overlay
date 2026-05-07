@@ -688,6 +688,12 @@ test("page snapshot shape and equality are centralized outside the snapshot sour
   if (!/\bfunction\s+rectsEqual\b/.test(snapshotSource)) {
     violations.push("missing: centralized rect equality");
   }
+  if (!/\bPAGE_SNAPSHOT_PROVENANCE_KIND\b/.test(snapshotSource)) {
+    violations.push("missing: page snapshot provenance vocabulary");
+  }
+  if (!/\bcreateStalePageSnapshot\b/.test(source)) {
+    violations.push("missing: stale fallback provenance");
+  }
 
   assert.deepEqual(violations, []);
 });

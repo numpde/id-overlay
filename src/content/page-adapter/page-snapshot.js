@@ -3,6 +3,12 @@ import {
   createWindowViewportRect,
 } from "./dom.js";
 
+export const PAGE_SNAPSHOT_PROVENANCE_KIND = Object.freeze({
+  LIVE: "live",
+  STALE: "stale",
+  SYNTHETIC: "synthetic",
+});
+
 export function createPageSnapshot({
   viewportElement = null,
   mountElement = null,
@@ -10,6 +16,7 @@ export function createPageSnapshot({
   localViewportRect,
   mapView,
   surfaceMotion,
+  provenance = createPageSnapshotProvenance(PAGE_SNAPSHOT_PROVENANCE_KIND.LIVE),
 }) {
   return {
     viewportElement,
@@ -18,6 +25,7 @@ export function createPageSnapshot({
     localViewportRect,
     mapView,
     surfaceMotion,
+    provenance,
   };
 }
 
@@ -30,7 +38,15 @@ export function createFallbackPageSnapshot({ hashTarget, mapView }) {
     localViewportRect: viewportRect,
     mapView,
     surfaceMotion: createSurfaceMotion(),
+    provenance: createPageSnapshotProvenance(PAGE_SNAPSHOT_PROVENANCE_KIND.SYNTHETIC),
   });
+}
+
+export function createStalePageSnapshot(snapshot) {
+  return {
+    ...snapshot,
+    provenance: createPageSnapshotProvenance(PAGE_SNAPSHOT_PROVENANCE_KIND.STALE),
+  };
 }
 
 export function pageSnapshotsEqual(left, right) {
@@ -40,8 +56,13 @@ export function pageSnapshotsEqual(left, right) {
     rectsEqual(left.viewportRect, right.viewportRect) &&
     rectsEqual(left.localViewportRect, right.localViewportRect) &&
     mapViewsEqual(left.mapView, right.mapView) &&
-    surfaceMotionsEqual(left.surfaceMotion, right.surfaceMotion)
+    surfaceMotionsEqual(left.surfaceMotion, right.surfaceMotion) &&
+    provenanceKindsEqual(left.provenance, right.provenance)
   );
+}
+
+function createPageSnapshotProvenance(kind) {
+  return { kind };
 }
 
 function rectsEqual(left, right) {
@@ -66,4 +87,12 @@ function surfaceMotionsEqual(left, right) {
     left.transformCss === right.transformCss &&
     left.transformOriginCss === right.transformOriginCss
   );
+}
+
+function provenanceKindsEqual(left, right) {
+  return normalizeProvenanceKind(left) === normalizeProvenanceKind(right);
+}
+
+function normalizeProvenanceKind(provenance) {
+  return provenance?.kind ?? PAGE_SNAPSHOT_PROVENANCE_KIND.LIVE;
 }
