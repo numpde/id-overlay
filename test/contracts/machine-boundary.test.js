@@ -1,9 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import fs from "node:fs";
 import path from "node:path";
 
 import { repoPath } from "../helpers/paths.js";
+import {
+  listJavaScriptFiles,
+  parseStaticImports,
+  readSource,
+  sourceFileExists,
+} from "../helpers/source-scan.js";
 
 const MACHINE_DIR = repoPath("src/core/machine");
 
@@ -85,7 +90,7 @@ const CORE_FORBIDDEN_BOUNDARY_IMPORTS = Object.freeze([
 
 test("legacy bridge, store, and duplicated mode files stay deleted", () => {
   const violations = LEGACY_BRIDGE_FILES.filter((relativePath) => {
-    return fs.existsSync(repoPath(relativePath));
+    return sourceFileExists(repoPath(relativePath));
   });
 
   assert.deepEqual(violations, []);
@@ -94,7 +99,7 @@ test("legacy bridge, store, and duplicated mode files stay deleted", () => {
 test("core does not import live content or platform adapters", () => {
   const violations = [];
   for (const filePath of listJavaScriptFiles(repoPath("src/core"))) {
-    const source = fs.readFileSync(filePath, "utf8");
+    const source = readSource(filePath);
     for (const importPath of parseStaticImports(source)) {
       if (CORE_FORBIDDEN_BOUNDARY_IMPORTS.some((forbidden) => importPath.startsWith(forbidden))) {
         violations.push(`${path.relative(repoPath(), filePath)} -> ${importPath}`);
@@ -108,7 +113,7 @@ test("core does not import live content or platform adapters", () => {
 test("source does not reintroduce the legacy state-store vocabulary", () => {
   const violations = [];
   for (const filePath of listJavaScriptFiles(repoPath("src"))) {
-    const source = fs.readFileSync(filePath, "utf8");
+    const source = readSource(filePath);
     for (const [name, pattern] of LEGACY_STATE_STORE_PATTERNS) {
       if (pattern.test(source)) {
         violations.push(`${path.relative(repoPath(), filePath)}: ${name}`);
@@ -122,7 +127,7 @@ test("source does not reintroduce the legacy state-store vocabulary", () => {
 test("clean-room machine does not import legacy semantic ownership modules", () => {
   const violations = [];
   for (const filePath of listJavaScriptFiles(MACHINE_DIR)) {
-    const source = fs.readFileSync(filePath, "utf8");
+    const source = readSource(filePath);
     for (const importPath of parseStaticImports(source)) {
       if (FORBIDDEN_IMPORTS.some((forbidden) => importPath.startsWith(forbidden))) {
         violations.push(`${path.relative(repoPath(), filePath)} -> ${importPath}`);
@@ -134,7 +139,7 @@ test("clean-room machine does not import legacy semantic ownership modules", () 
 });
 
 test("content bootstrap uses the machine host instead of the legacy state store", () => {
-  const source = fs.readFileSync(repoPath("src/content/main.js"), "utf8");
+  const source = readSource(repoPath("src/content/main.js"));
 
   assert.match(source, /createContentApp/);
   assert.doesNotMatch(source, /createStateStore/);
@@ -146,7 +151,7 @@ test("content bootstrap uses the machine host instead of the legacy state store"
 test("live panel controller does not import the legacy ui bridge", () => {
   const violations = [];
   for (const relativePath of ["src/content/panel.js"]) {
-    const source = fs.readFileSync(repoPath(relativePath), "utf8");
+    const source = readSource(repoPath(relativePath));
     for (const importPath of parseStaticImports(source)) {
       if (CONTENT_BRIDGE_FORBIDDEN_IMPORTS.includes(importPath)) {
         violations.push(`${relativePath} -> ${importPath}`);
@@ -169,7 +174,7 @@ test("status notices are machine-owned, not content-controller feedback", () => 
   ];
   const violations = [];
   for (const filePath of listJavaScriptFiles(repoPath("src"))) {
-    const source = fs.readFileSync(filePath, "utf8");
+    const source = readSource(filePath);
     for (const [name, pattern] of forbiddenPatterns) {
       if (pattern.test(source)) {
         violations.push(`${path.relative(repoPath(), filePath)}: ${name}`);
@@ -181,8 +186,8 @@ test("status notices are machine-owned, not content-controller feedback", () => 
 });
 
 test("machine paste read outcomes do not carry page snapshots", () => {
-  const pasteReadSource = fs.readFileSync(repoPath("src/core/machine/paste-read.js"), "utf8");
-  const pasteOutcomeSource = fs.readFileSync(repoPath("src/core/machine/paste-outcome.js"), "utf8");
+  const pasteReadSource = readSource(repoPath("src/core/machine/paste-read.js"));
+  const pasteOutcomeSource = readSource(repoPath("src/core/machine/paste-outcome.js"));
   const forbiddenPatterns = [
     ["clipboard fact wrapper outcome", /\bCLIPBOARD_FACT\b/],
     ["page snapshot vocabulary", /\bsnapshot\b/],
@@ -207,11 +212,11 @@ test("machine paste read outcomes do not carry page snapshots", () => {
 });
 
 test("root machine state composes transient domain state helpers", () => {
-  const rootSource = fs.readFileSync(repoPath("src/core/machine/state.js"), "utf8");
-  const runtimeSource = fs.readFileSync(repoPath("src/core/machine/runtime-state.js"), "utf8");
-  const panelStatusSource = fs.readFileSync(repoPath("src/core/machine/panel-status-state.js"), "utf8");
-  const runtimeTransitionSource = fs.readFileSync(repoPath("src/core/machine/runtime-transition.js"), "utf8");
-  const panelTransitionSource = fs.readFileSync(repoPath("src/core/machine/panel-status-transition.js"), "utf8");
+  const rootSource = readSource(repoPath("src/core/machine/state.js"));
+  const runtimeSource = readSource(repoPath("src/core/machine/runtime-state.js"));
+  const panelStatusSource = readSource(repoPath("src/core/machine/panel-status-state.js"));
+  const runtimeTransitionSource = readSource(repoPath("src/core/machine/runtime-transition.js"));
+  const panelTransitionSource = readSource(repoPath("src/core/machine/panel-status-transition.js"));
   const forbiddenRootPatterns = [
     ["runtime normalizer definition", /\bfunction\s+normalizeRuntime\b/],
     ["panel normalizer definition", /\bfunction\s+normalizePanel\b/],
@@ -236,8 +241,8 @@ test("root machine state composes transient domain state helpers", () => {
 
 test("live interactions and overlay read canonical machine host, not the legacy session store", () => {
   const liveSources = new Map([
-    ["src/content/interaction-ports.js", fs.readFileSync(repoPath("src/content/interaction-ports.js"), "utf8")],
-    ["src/content/overlay.js", fs.readFileSync(repoPath("src/content/overlay.js"), "utf8")],
+    ["src/content/interaction-ports.js", readSource(repoPath("src/content/interaction-ports.js"))],
+    ["src/content/overlay.js", readSource(repoPath("src/content/overlay.js"))],
   ]);
   const violations = [];
 
@@ -251,7 +256,7 @@ test("live interactions and overlay read canonical machine host, not the legacy 
 });
 
 test("interaction controller compatibility facade stays deleted", () => {
-  assert.equal(fs.existsSync(repoPath("src/content/interaction-controller.js")), false);
+  assert.equal(sourceFileExists(repoPath("src/content/interaction-controller.js")), false);
 });
 
 test("interaction ports are the only interaction composition root", () => {
@@ -269,7 +274,7 @@ test("interaction ports are the only interaction composition root", () => {
   const violations = [];
   for (const filePath of listJavaScriptFiles(repoPath("src/content"))) {
     const relativePath = path.relative(repoPath(), filePath);
-    const source = fs.readFileSync(filePath, "utf8");
+    const source = readSource(filePath);
     for (const importPath of parseStaticImports(source)) {
       if (
         relativePath !== allowedCompositionRoot &&
@@ -284,7 +289,7 @@ test("interaction ports are the only interaction composition root", () => {
 });
 
 test("interaction adapter does not own registration solve or pin mutation semantics", () => {
-  const source = fs.readFileSync(repoPath("src/content/interaction-ports.js"), "utf8");
+  const source = readSource(repoPath("src/content/interaction-ports.js"));
   const forbiddenPatterns = [
     ["content-side machine action port mirror", /\bcreateMachineActionPort\b/],
     ["private command import", /private-commands\.js/],
@@ -313,7 +318,7 @@ test("input runtime is machine-owned, not an interaction-side reducer", () => {
   ];
   const violations = [];
   for (const filePath of listJavaScriptFiles(repoPath("src"))) {
-    const source = fs.readFileSync(filePath, "utf8");
+    const source = readSource(filePath);
     for (const [name, pattern] of forbiddenPatterns) {
       if (pattern.test(source)) {
         violations.push(`${path.relative(repoPath(), filePath)}: ${name}`);
@@ -325,7 +330,7 @@ test("input runtime is machine-owned, not an interaction-side reducer", () => {
 });
 
 test("runtime observation equality is machine-owned", () => {
-  const source = fs.readFileSync(repoPath("src/content/interactions/runtime-bridge.js"), "utf8");
+  const source = readSource(repoPath("src/content/interactions/runtime-bridge.js"));
   const forbiddenPatterns = [
     ["content-local runtime equality", /\bfunction\s+areInputRuntimesEqual\b/],
     ["content-local runtime projection", /\bfunction\s+selectInputRuntimeProjection\b/],
@@ -343,10 +348,10 @@ test("runtime observation equality is machine-owned", () => {
 
 test("gesture lifecycle is the only content-side coordinator of adapter drag and runtime facts", () => {
   const checkedSources = new Map([
-    ["src/content/interactions/pointer-interaction.js", fs.readFileSync(repoPath("src/content/interactions/pointer-interaction.js"), "utf8")],
-    ["src/content/interactions/runtime-bridge.js", fs.readFileSync(repoPath("src/content/interactions/runtime-bridge.js"), "utf8")],
+    ["src/content/interactions/pointer-interaction.js", readSource(repoPath("src/content/interactions/pointer-interaction.js"))],
+    ["src/content/interactions/runtime-bridge.js", readSource(repoPath("src/content/interactions/runtime-bridge.js"))],
   ]);
-  const gestureLifecycleSource = fs.readFileSync(repoPath("src/content/interactions/gesture-lifecycle.js"), "utf8");
+  const gestureLifecycleSource = readSource(repoPath("src/content/interactions/gesture-lifecycle.js"));
   const forbiddenPatterns = [
     ["adapter drag dependency", /\badapterDrag\b/],
     ["adapter drag factory dependency", /\bcreateAdapterDragController\b/],
@@ -367,7 +372,7 @@ test("gesture lifecycle is the only content-side coordinator of adapter drag and
 });
 
 test("interaction tests do not recreate semantic controller facade APIs", () => {
-  const source = fs.readFileSync(repoPath("test/unit/interactions.test.js"), "utf8");
+  const source = readSource(repoPath("test/unit/interactions.test.js"));
   const forbiddenPatterns = [
     [
       "controller semantic helper calls",
@@ -386,7 +391,7 @@ test("interaction tests do not recreate semantic controller facade APIs", () => 
 });
 
 test("interaction adapter does not own placement edit lifecycle semantics", () => {
-  const source = fs.readFileSync(repoPath("src/content/interaction-ports.js"), "utf8");
+  const source = readSource(repoPath("src/content/interaction-ports.js"));
   const forbiddenPatterns = [
     ["private command import", /private-commands\.js/],
     ["direct placement restore command name", /\bRESTORE_PLACEMENT\b/],
@@ -401,9 +406,9 @@ test("interaction adapter does not own placement edit lifecycle semantics", () =
 });
 
 test("placement preview lifecycle is split from committed placement edits", () => {
-  const committedSource = fs.readFileSync(repoPath("src/core/machine/placement-transition.js"), "utf8");
-  const runtimeSource = fs.readFileSync(repoPath("src/core/machine/placement-edit-runtime-transition.js"), "utf8");
-  const policySource = fs.readFileSync(repoPath("src/core/machine/placement-edit-policy.js"), "utf8");
+  const committedSource = readSource(repoPath("src/core/machine/placement-transition.js"));
+  const runtimeSource = readSource(repoPath("src/core/machine/placement-edit-runtime-transition.js"));
+  const policySource = readSource(repoPath("src/core/machine/placement-edit-policy.js"));
   const forbiddenPatterns = [
     ["begin preview transition", /\bexport\s+function\s+beginPlacementEdit\b/],
     ["preview transition", /\bexport\s+function\s+previewPlacementEdit\b/],
@@ -425,9 +430,9 @@ test("placement preview lifecycle is split from committed placement edits", () =
 });
 
 test("registration public intent is split from registration edit mutations", () => {
-  const intentSource = fs.readFileSync(repoPath("src/core/machine/registration-transition.js"), "utf8");
-  const editSource = fs.readFileSync(repoPath("src/core/machine/registration-edit-transition.js"), "utf8");
-  const rootSource = fs.readFileSync(repoPath("src/core/machine/transition.js"), "utf8");
+  const intentSource = readSource(repoPath("src/core/machine/registration-transition.js"));
+  const editSource = readSource(repoPath("src/core/machine/registration-edit-transition.js"));
+  const rootSource = readSource(repoPath("src/core/machine/transition.js"));
   const forbiddenIntentPatterns = [
     ["add-pin mutation", /\bfunction\s+(?:addPin|applyAddPinEdit)\b/],
     ["remove-pin mutation", /\bfunction\s+(?:removePin|applyRemovePinEdit)\b/],
@@ -451,7 +456,7 @@ test("registration public intent is split from registration edit mutations", () 
 });
 
 test("interaction ports delegate pin and wheel command semantics", () => {
-  const source = fs.readFileSync(repoPath("src/content/interaction-ports.js"), "utf8");
+  const source = readSource(repoPath("src/content/interaction-ports.js"));
   const forbiddenPatterns = [
     ["private command import", /private-commands\.js/],
     ["direct pin toggle command name", /\bTOGGLE_PIN\b/],
@@ -481,13 +486,13 @@ test("interaction outcome plumbing stays deleted", () => {
     "src/content/interactions/pin-toggle-planning.js",
     "src/content/interactions/wheel-outcome.js",
     "test/unit/interaction-command-outcome.test.js",
-  ].filter((relativePath) => fs.existsSync(repoPath(relativePath)));
+  ].filter((relativePath) => sourceFileExists(repoPath(relativePath)));
 
   assert.deepEqual(deletedFiles, []);
 });
 
 test("pin toggle planning is centralized in core", () => {
-  const interactionSource = fs.readFileSync(repoPath("src/content/interactions/pin-toggle-interaction.js"), "utf8");
+  const interactionSource = readSource(repoPath("src/content/interactions/pin-toggle-interaction.js"));
   const corePlannerPath = repoPath("src/core/pin-toggle-planning.js");
   const forbiddenPatterns = [
     ["content-side pin render geometry", /\b(?:buildPinRenderModels|hitTestPin|screenPointToRenderedImagePoint)\b/],
@@ -497,18 +502,18 @@ test("pin toggle planning is centralized in core", () => {
     .filter(([, pattern]) => pattern.test(interactionSource))
     .map(([name]) => name);
 
-  assert.ok(fs.existsSync(corePlannerPath));
+  assert.ok(sourceFileExists(corePlannerPath));
   assert.match(interactionSource, /core\/pin-toggle-planning\.js/);
   assert.deepEqual(violations, []);
 });
 
 test("placement edit planning is centralized outside transform and live interaction routing", () => {
   const sources = new Map([
-    ["src/core/placement-edit-planning.js", fs.readFileSync(repoPath("src/core/placement-edit-planning.js"), "utf8")],
-    ["src/core/placement-edit-context.js", fs.readFileSync(repoPath("src/core/placement-edit-context.js"), "utf8")],
-    ["src/core/transform.js", fs.readFileSync(repoPath("src/core/transform.js"), "utf8")],
-    ["src/content/interactions/adapter-drag.js", fs.readFileSync(repoPath("src/content/interactions/adapter-drag.js"), "utf8")],
-    ["src/content/interactions/wheel-command.js", fs.readFileSync(repoPath("src/content/interactions/wheel-command.js"), "utf8")],
+    ["src/core/placement-edit-planning.js", readSource(repoPath("src/core/placement-edit-planning.js"))],
+    ["src/core/placement-edit-context.js", readSource(repoPath("src/core/placement-edit-context.js"))],
+    ["src/core/transform.js", readSource(repoPath("src/core/transform.js"))],
+    ["src/content/interactions/adapter-drag.js", readSource(repoPath("src/content/interactions/adapter-drag.js"))],
+    ["src/content/interactions/wheel-command.js", readSource(repoPath("src/content/interactions/wheel-command.js"))],
   ]);
   const forbiddenPatterns = [
     [
@@ -541,7 +546,7 @@ test("placement edit planning is centralized outside transform and live interact
 });
 
 test("transform stays a low-level placement and surface geometry module", () => {
-  const source = fs.readFileSync(repoPath("src/core/transform.js"), "utf8");
+  const source = readSource(repoPath("src/core/transform.js"));
   const forbiddenPatterns = [
     ["opacity adjustment", /\b(?:clampOpacity|opacityFromWheelDelta)\b/],
     ["wheel adjustment", /\b(?:rotationFromWheelDelta|scaleFromWheelDelta)\b/],
@@ -560,9 +565,9 @@ test("transform stays a low-level placement and surface geometry module", () => 
 
 test("input eligibility is centralized in the input projection", () => {
   const sources = new Map([
-    ["src/content/overlay.js", fs.readFileSync(repoPath("src/content/overlay.js"), "utf8")],
-    ["src/content/interaction-ports.js", fs.readFileSync(repoPath("src/content/interaction-ports.js"), "utf8")],
-    ["src/core/interaction-policy.js", fs.readFileSync(repoPath("src/core/interaction-policy.js"), "utf8")],
+    ["src/content/overlay.js", readSource(repoPath("src/content/overlay.js"))],
+    ["src/content/interaction-ports.js", readSource(repoPath("src/content/interaction-ports.js"))],
+    ["src/core/interaction-policy.js", readSource(repoPath("src/core/interaction-policy.js"))],
   ]);
   const forbiddenPatterns = [
     [
@@ -586,12 +591,12 @@ test("input eligibility is centralized in the input projection", () => {
     .map(([name]) => name);
 
   assert.deepEqual(violations, []);
-  assert.ok(fs.existsSync(repoPath("src/core/input-projection.js")));
+  assert.ok(sourceFileExists(repoPath("src/core/input-projection.js")));
 });
 
 test("content keyboard normalizer reports target facts, not shortcut editability policy", () => {
-  const contentSource = fs.readFileSync(repoPath("src/content/input-event-facts.js"), "utf8");
-  const coreSource = fs.readFileSync(repoPath("src/core/input-facts.js"), "utf8");
+  const contentSource = readSource(repoPath("src/content/input-event-facts.js"));
+  const coreSource = readSource(repoPath("src/core/input-facts.js"));
   const forbiddenPatterns = [
     ["content editability helper", /\bfunction\s+isEditableKeyboardTarget\b/],
     ["content resolved editability flag", /\bisEditableTarget\s*:/],
@@ -607,7 +612,7 @@ test("content keyboard normalizer reports target facts, not shortcut editability
 });
 
 test("input projection exposes narrow decisions, not aggregate bundles", () => {
-  const source = fs.readFileSync(repoPath("src/core/input-projection.js"), "utf8");
+  const source = readSource(repoPath("src/core/input-projection.js"));
   const forbiddenPatterns = [
     ["aggregate projection export", /\bexport\s+function\s+resolveInputProjection\b/],
     ["aggregate overlay policy member", /\boverlayPolicy\s*:/],
@@ -639,7 +644,7 @@ test("input projection exposes narrow decisions, not aggregate bundles", () => {
 });
 
 test("keyboard shortcut routing is table-driven", () => {
-  const source = fs.readFileSync(repoPath("src/content/interactions/keyboard-router.js"), "utf8");
+  const source = readSource(repoPath("src/content/interactions/keyboard-router.js"));
   const forbiddenPatterns = [
     ["shortcut dispatch if-chain", /\bif\s*\(\s*shortcutAction\s*===/],
     ["shortcut dispatch switch", /\bswitch\s*\(\s*shortcutAction\s*\)/],
@@ -654,7 +659,7 @@ test("keyboard shortcut routing is table-driven", () => {
 });
 
 test("wheel command routing is table-driven", () => {
-  const source = fs.readFileSync(repoPath("src/content/interactions/wheel-command.js"), "utf8");
+  const source = readSource(repoPath("src/content/interactions/wheel-command.js"));
   const forbiddenPatterns = [
     ["wheel-mode dispatch if-chain", /\bif\s*\(\s*wheelMode\s*===/],
     ["wheel-mode dispatch switch", /\bswitch\s*\(\s*wheelMode\s*\)/],
@@ -668,8 +673,8 @@ test("wheel command routing is table-driven", () => {
 });
 
 test("overlay input router delegates event recovery and pointer sequence semantics", () => {
-  const source = fs.readFileSync(repoPath("src/content/overlay/input-router.js"), "utf8");
-  const eventBoundarySource = fs.readFileSync(repoPath("src/content/overlay/event-boundary.js"), "utf8");
+  const source = readSource(repoPath("src/content/overlay/input-router.js"));
+  const eventBoundarySource = readSource(repoPath("src/content/overlay/event-boundary.js"));
   const forbiddenPatterns = [
     ["runtime error vocabulary", /\bRUNTIME_ERROR_SOURCE\b/],
     ["forwarded map gesture flag", /\bFORWARDED_MAP_GESTURE_EVENT_FLAG\b/],
@@ -691,12 +696,12 @@ test("overlay input router delegates event recovery and pointer sequence semanti
 });
 
 test("overlay pointer sequence has no content-side session wrapper", () => {
-  assert.equal(fs.existsSync(repoPath("src/content/overlay/pending-pointer-sequence.js")), false);
+  assert.equal(sourceFileExists(repoPath("src/content/overlay/pending-pointer-sequence.js")), false);
 });
 
 test("overlay input router delegates mounted input policy dispatch", () => {
-  const source = fs.readFileSync(repoPath("src/content/overlay/input-router.js"), "utf8");
-  const dispatcherSource = fs.readFileSync(repoPath("src/content/overlay/mounted-input-dispatcher.js"), "utf8");
+  const source = readSource(repoPath("src/content/overlay/input-router.js"));
+  const dispatcherSource = readSource(repoPath("src/content/overlay/mounted-input-dispatcher.js"));
   const forbiddenPatterns = [
     ["DOM input fact construction", /input-event-facts\.js/],
     ["mounted pointer move policy access", /\.pointerMove\b/],
@@ -716,8 +721,8 @@ test("overlay input router delegates mounted input policy dispatch", () => {
 });
 
 test("overlay input router delegates global pointer dispatch", () => {
-  const source = fs.readFileSync(repoPath("src/content/overlay/input-router.js"), "utf8");
-  const dispatcherSource = fs.readFileSync(repoPath("src/content/overlay/global-pointer-dispatcher.js"), "utf8");
+  const source = readSource(repoPath("src/content/overlay/input-router.js"));
+  const dispatcherSource = readSource(repoPath("src/content/overlay/global-pointer-dispatcher.js"));
   const forbiddenPatterns = [
     ["runtime drag selector", /\bselectIsRuntimeDragging\b/],
     ["global pointer sequence advance", /\badvanceGlobalPointerMove\b/],
@@ -737,7 +742,7 @@ test("overlay input router delegates global pointer dispatch", () => {
 });
 
 test("overlay input projector exposes mounted decisions explicitly", () => {
-  const source = fs.readFileSync(repoPath("src/content/overlay/input-projector.js"), "utf8");
+  const source = readSource(repoPath("src/content/overlay/input-projector.js"));
   const forbiddenPatterns = [
     ["aggregate core projection import", /\bresolveInputProjection\b/],
     ["aggregate mounted projection method", /\bresolveMountedInputProjection\b/],
@@ -764,7 +769,7 @@ test("overlay input projector exposes mounted decisions explicitly", () => {
 test("similarity solving has one implementation", () => {
   const definitions = [];
   for (const filePath of listJavaScriptFiles(repoPath("src"))) {
-    const source = fs.readFileSync(filePath, "utf8");
+    const source = readSource(filePath);
     if (/\bexport\s+function\s+solveSimilarityTransform\b/.test(source)) {
       definitions.push(path.relative(repoPath(), filePath));
     }
@@ -789,23 +794,4 @@ function findLegacySessionStoreUsage(source) {
   return forbiddenPatterns
     .filter(([, pattern]) => pattern.test(source))
     .map(([name]) => name);
-}
-
-function listJavaScriptFiles(directory) {
-  return fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
-    const entryPath = path.join(directory, entry.name);
-    if (entry.isDirectory()) {
-      return listJavaScriptFiles(entryPath);
-    }
-    return entry.isFile() && entry.name.endsWith(".js") ? [entryPath] : [];
-  });
-}
-
-function parseStaticImports(source) {
-  const imports = [];
-  const importRegex = /import\s+(?:[^"']+\s+from\s+)?["']([^"']+)["']/g;
-  for (const match of source.matchAll(importRegex)) {
-    imports.push(match[1]);
-  }
-  return imports;
 }

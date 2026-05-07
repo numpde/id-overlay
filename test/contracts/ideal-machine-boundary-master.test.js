@@ -1,9 +1,15 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import fs from "node:fs";
 import path from "node:path";
 
 import { repoPath } from "../helpers/paths.js";
+import {
+  formatViolation,
+  listJavaScriptFiles,
+  listTestNames,
+  readSource,
+  sourceFileExists,
+} from "../helpers/source-scan.js";
 
 // Master architecture note:
 //
@@ -370,7 +376,7 @@ test("machine effect vocabulary is split by concern", () => {
   const eventsSource = readSource(repoPath("src/core/machine/events.js"));
   const violations = [];
 
-  if (fs.existsSync(repoPath("src/core/machine/effects.js"))) {
+  if (sourceFileExists(repoPath("src/core/machine/effects.js"))) {
     violations.push("forbidden: broad effects registry");
   }
   if (!/\bMACHINE_EFFECT_RESULT_KIND\b/.test(effectResultsSource)) {
@@ -1084,20 +1090,21 @@ test("test suite has no skipped, focused, or placeholder tests", () => {
   assert.deepEqual(violations, []);
 });
 
-function readSource(filePath) {
-  return fs.readFileSync(filePath, "utf8");
-}
+test("test names are unique across the suite", () => {
+  const seen = new Map();
+  const violations = [];
 
-function formatViolation(filePath, name) {
-  return `${path.relative(repoPath(), filePath)}: ${name}`;
-}
-
-function listJavaScriptFiles(directory) {
-  return fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
-    const entryPath = path.join(directory, entry.name);
-    if (entry.isDirectory()) {
-      return listJavaScriptFiles(entryPath);
+  for (const filePath of listJavaScriptFiles(TEST_DIR)) {
+    const relativePath = path.relative(repoPath(), filePath);
+    for (const testName of listTestNames(readSource(filePath))) {
+      const firstPath = seen.get(testName);
+      if (firstPath) {
+        violations.push(`${testName}: ${firstPath}, ${relativePath}`);
+      } else {
+        seen.set(testName, relativePath);
+      }
     }
-    return entry.isFile() && entry.name.endsWith(".js") ? [entryPath] : [];
-  });
-}
+  }
+
+  assert.deepEqual(violations, []);
+});
