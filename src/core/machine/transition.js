@@ -11,10 +11,8 @@ import {
 } from "./history-replay-transition.js";
 import { commitSemanticHistoryRecord } from "./history.js";
 import {
-  addPin,
   clearPins,
   fitOverlay,
-  removePin,
   restoreRegistration,
   togglePin,
 } from "./registration-transition.js";
@@ -84,8 +82,6 @@ const transitionSession = Object.freeze({
 
 const transitionRegistration = Object.freeze({
   [MACHINE_PRIVATE_COMMAND_KIND.TOGGLE_PIN]: togglePin,
-  [MACHINE_PRIVATE_COMMAND_KIND.ADD_PIN]: addPin,
-  [MACHINE_PRIVATE_COMMAND_KIND.REMOVE_PIN]: removePin,
   [MACHINE_PRIVATE_COMMAND_KIND.CLEAR_PINS]: clearPins,
   [MACHINE_PRIVATE_COMMAND_KIND.RESTORE_REGISTRATION]: restoreRegistration,
   [MACHINE_PRIVATE_COMMAND_KIND.FIT_OVERLAY]: fitOverlay,

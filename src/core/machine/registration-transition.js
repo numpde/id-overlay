@@ -7,9 +7,6 @@ import {
   createStatusNotice,
 } from "./status-notices.js";
 import {
-  MACHINE_PRIVATE_COMMAND_KIND,
-} from "./private-commands.js";
-import {
   MACHINE_HISTORY_REPLAY_OPERATION,
   createSemanticHistoryRecord,
 } from "./history.js";
@@ -52,18 +49,16 @@ export function togglePin(state, event) {
       });
     }
     return removePin(prepareRegistrationEditState(state, event), {
-      type: MACHINE_PRIVATE_COMMAND_KIND.REMOVE_PIN,
       id: existingPin.id,
     });
   }
   return addPin(prepareRegistrationEditState(state, event), {
-    type: MACHINE_PRIVATE_COMMAND_KIND.ADD_PIN,
     imagePx: event.imagePx,
     mapLatLon: event.mapLatLon,
   });
 }
 
-export function addPin(state, event) {
+function addPin(state, event) {
   if (!state.session.image || !event.imagePx || !event.mapLatLon) {
     return createTransitionResult({
       state,
@@ -94,7 +89,7 @@ export function addPin(state, event) {
   });
 }
 
-export function removePin(state, event) {
+function removePin(state, event) {
   const previousRegistration = state.session.registration;
   const removedPin = previousRegistration.pins.find((pin) => pin.id === event.id);
   const nextPins = previousRegistration.pins.filter((pin) => pin.id !== event.id);

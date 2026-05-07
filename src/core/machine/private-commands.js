@@ -5,8 +5,6 @@ export const MACHINE_PRIVATE_COMMAND_KIND = Object.freeze({
   SELECT_MODE: "select-mode",
   SET_OPACITY: "set-opacity",
   TOGGLE_PIN: "toggle-pin",
-  ADD_PIN: "add-pin",
-  REMOVE_PIN: "remove-pin",
   CLEAR_PINS: "clear-pins",
   RESTORE_REGISTRATION: "restore-registration",
   FIT_OVERLAY: "fit-overlay",
