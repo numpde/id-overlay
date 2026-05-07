@@ -1,11 +1,10 @@
+import { createKeyboardGateway } from "./keyboard-gateway.js";
+
 (() => {
   installContentEntrypoint(window).start();
 })();
 
 function installContentEntrypoint(windowTarget) {
-  // TODO(smell): The entrypoint installs global keyboard capture before the
-  // lazy bootstrap module loads. Keep early capture, but move gateway lifecycle
-  // ownership into bootstrap so reinjection/teardown is handled in one place.
   const BOOTSTRAP_KEY = "__idOverlayBootstrap__";
   const existingEntrypoint = windowTarget[BOOTSTRAP_KEY];
   if (existingEntrypoint) {
@@ -47,39 +46,4 @@ function createBootstrapStarter({ keyboardGateway }) {
 
     return bootstrapPromise;
   };
-}
-
-function createKeyboardGateway(windowTarget) {
-  const subscribers = new Set();
-
-  function notify(type, event) {
-    for (const subscriber of subscribers) {
-      subscriber[type]?.(event);
-    }
-  }
-
-  function handleKeyDown(event) {
-    notify("keydown", event);
-  }
-
-  function handleKeyUp(event) {
-    notify("keyup", event);
-  }
-
-  function handleBlur(event) {
-    notify("blur", event);
-  }
-
-  windowTarget.addEventListener("keydown", handleKeyDown, true);
-  windowTarget.addEventListener("keyup", handleKeyUp, true);
-  windowTarget.addEventListener("blur", handleBlur);
-
-  return Object.freeze({
-    subscribe(subscriber) {
-      subscribers.add(subscriber);
-      return () => {
-        subscribers.delete(subscriber);
-      };
-    },
-  });
 }

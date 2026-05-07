@@ -502,6 +502,31 @@ test("content bootstrap does not mix persistence migration with live page snapsh
   assert.deepEqual(violations, []);
 });
 
+test("content entrypoint owns page-lifetime lazy bootstrap and keyboard gateway only", () => {
+  const source = readSource(repoPath("src/content/content.js"));
+  const keyboardGatewaySource = readSource(repoPath("src/content/keyboard-gateway.js"));
+  const forbiddenPatterns = [
+    ["inline keyboard gateway", /\bfunction\s+createKeyboardGateway\b/],
+    ["content app import", /\bcreateContentApp\b/],
+    ["page adapter import", /\bcreatePageAdapter\b/],
+    ["machine host import", /\bcreateContentMachineHost\b/],
+  ];
+  const violations = [
+    ...forbiddenPatterns
+      .filter(([, pattern]) => pattern.test(source))
+      .map(([name]) => `forbidden: ${name}`),
+  ];
+
+  if (!/\bimport\s+\{\s*createKeyboardGateway\s*\}/.test(source)) {
+    violations.push("missing: keyboard gateway import");
+  }
+  if (!/\bdestroy\s*\(\)/.test(keyboardGatewaySource)) {
+    violations.push("missing: explicit keyboard gateway destroy");
+  }
+
+  assert.deepEqual(violations, []);
+});
+
 test("page integration exposes explicit ports instead of a broad adapter object", () => {
   const source = readSource(repoPath("src/content/page-adapter.js"));
   const requiredPorts = [
