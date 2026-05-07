@@ -594,13 +594,20 @@ test("page projection math uses explicit projection facts", () => {
   assert.deepEqual(violations, []);
 });
 
-test("page context delegates history observation instead of monkey-patching inline", () => {
+test("page context delegates navigation observation instead of owning listeners inline", () => {
   const source = readSource(repoPath("src/content/page-adapter/page-context.js"));
+  const navigationSource = readSource(repoPath("src/content/page-adapter/navigation-observation.js"));
   const historySource = readSource(repoPath("src/content/page-adapter/history-observation.js"));
   const violations = [];
 
-  if (!/\bobserveHistoryMutations\b/.test(source)) {
-    violations.push("missing: history observation delegation");
+  if (!/\bcreatePageNavigationObservation\b/.test(source)) {
+    violations.push("missing: navigation observation delegation");
+  }
+  if (/\bobserveHistoryMutations\b|\b(?:add|remove)EventListener\s*\(\s*["'](?:hashchange|popstate)["']/.test(source)) {
+    violations.push("forbidden: inline navigation observation ownership");
+  }
+  if (!/\bobserveHistoryMutations\b/.test(navigationSource)) {
+    violations.push("missing: navigation observer history delegation");
   }
   if (/\bhistory\.(?:replaceState|pushState)\s*=/.test(source)) {
     violations.push("forbidden: inline history monkey-patching");

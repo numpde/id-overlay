@@ -2,8 +2,8 @@ import {
   getSafeLocation,
   resolveMutationRoot,
 } from "./dom.js";
-import { observeHistoryMutations } from "./history-observation.js";
 import { createPageMutationObservation } from "./mutation-observation.js";
+import { createPageNavigationObservation } from "./navigation-observation.js";
 import { findEmbeddedIdFrame } from "./page-dom-queries.js";
 
 export function createPageContext({
@@ -14,14 +14,15 @@ export function createPageContext({
   onContextRetarget = () => {},
 }) {
   // TODO(smell): Page-context tracking owns iframe retargeting, mutation
-  // observation coordination, and history patching. Those are all
-  // browser-integration seams; keep domain logic out of this layer.
+  // observation coordination, and navigation observation coordination. Those
+  // are all browser-integration seams; keep domain logic out of this layer.
   const mutationObservation = createPageMutationObservation({
     onMutation: onStructureMutation,
     onObservedRootChanged: onContextRetarget,
   });
-  let restoreHistoryMethods = null;
-  let observedMapWindow = null;
+  const navigationObservation = createPageNavigationObservation({
+    onNavigation: onChange,
+  });
 
   function isSupported() {
     const location = getSafeLocation(hashTarget);
@@ -54,36 +55,12 @@ export function createPageContext({
     const context = getActiveMapContext();
     const mutationRoot = resolveMutationRoot(context.viewportDocument);
     mutationObservation.observeRoot(mutationRoot);
-
-    if (observedMapWindow === context.mapWindow) {
-      return;
-    }
-
-    detachObservedMapWindow();
-    observedMapWindow = context.mapWindow;
-    if (observedMapWindow) {
-      observedMapWindow.addEventListener("hashchange", onChange);
-      observedMapWindow.addEventListener("popstate", onChange);
-      restoreHistoryMethods = observeHistoryMutations({
-        hashTarget: observedMapWindow,
-        onHistoryMutation: onChange,
-      });
-    }
+    navigationObservation.observeWindow(context.mapWindow);
   }
 
   function destroy() {
-    detachObservedMapWindow();
+    navigationObservation.destroy();
     mutationObservation.destroy();
-  }
-
-  function detachObservedMapWindow() {
-    restoreHistoryMethods?.();
-    restoreHistoryMethods = null;
-    if (observedMapWindow) {
-      observedMapWindow.removeEventListener("hashchange", onChange);
-      observedMapWindow.removeEventListener("popstate", onChange);
-    }
-    observedMapWindow = null;
   }
 
   return {
