@@ -181,7 +181,7 @@ test("machine host exposes explicit ingress, not generic dispatch", () => {
     ["runtime raw dispatch", /\bruntime\.dispatch\s*\(/],
   ];
   const requiredPatterns = [
-    ["user ingress export", /\bingest(?:User|External|Machine)?(?:Intent|Fact|Event)\b/],
+    ["explicit user ingress verb", /\bfunction\s+(?:loadImage|selectMode|togglePin|activateUndo)\b/],
     ["effect-result ingress", /\b(?:completeEffect|ingestEffectResult|ingestExternalFact)\b/],
   ];
 
@@ -220,17 +220,19 @@ test("machine runtime is private state/effect plumbing, not a public event dispa
   assert.deepEqual(violations, []);
 });
 
-test("transition entrypoint separates public interpretation from private domain operations", () => {
+test("transition entrypoint exposes explicit committed domain transitions", () => {
   const source = readSource(repoPath("src/core/machine/transition.js"));
   const forbiddenPatterns = [
     ["flat event switch", /\bswitch\s*\(\s*event\.type\s*\)/],
     ["public undo special case", /event\.type\s*===\s*MACHINE_(?:PRIVATE_)?COMMAND_KIND\.UNDO/],
     ["public redo special case", /event\.type\s*===\s*MACHINE_(?:PRIVATE_)?COMMAND_KIND\.REDO/],
     ["mutation command cases", /\bcase\s+MACHINE_(?:PRIVATE_)?COMMAND_KIND\.(?:CLEAR_IMAGE|SET_OPACITY|ADD_PIN|REMOVE_PIN|APPLY_PLACEMENT_EDIT|RESTORE_PLACEMENT)\b/],
+    ["private command vocabulary", /\bMACHINE_PRIVATE_COMMAND_KIND\b/],
   ];
   const requiredPatterns = [
-    ["public event interpreter", /\binterpret(?:User|External|Ingress)/],
-    ["private domain transition", /\btransition(?:Session|Registration|Placement|Runtime|Panel|History)\b/],
+    ["explicit load transition", /\bexport\s+function\s+transitionLoadImage\b/],
+    ["explicit pin transition", /\bexport\s+function\s+transitionTogglePin\b/],
+    ["single finalizer", /\bfunction\s+commitMachineTransition\b/],
   ];
 
   const violations = [

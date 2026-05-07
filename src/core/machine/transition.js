@@ -1,7 +1,4 @@
 import {
-  MACHINE_PRIVATE_COMMAND_KIND,
-} from "./private-commands.js";
-import {
   createInitialMachineState,
   normalizeMachineState,
 } from "./state.js";
@@ -18,7 +15,6 @@ import {
 import {
   applyPlacementEdit,
   beginPlacementEdit,
-  cancelPlacementEdit,
   commitPlacementEdit,
   previewPlacementEdit,
 } from "./placement-transition.js";
@@ -31,7 +27,6 @@ import {
 import {
   canCancelPanelIntent,
   cancelPanelIntent,
-  clearStatusNotice,
   applyMachineStatusNotice,
   requestPanelIntent,
 } from "./panel-status-transition.js";
@@ -39,75 +34,78 @@ import {
   createTransitionResult,
 } from "./transition-result.js";
 
-export function transitionMachine(state = createInitialMachineState(), event = {}) {
+export function transitionActivateUndo(state = createInitialMachineState()) {
+  return commitMachineTransition(state, transitionUndo);
+}
+
+export function transitionActivateRedo(state = createInitialMachineState()) {
+  return commitMachineTransition(state, transitionRedo);
+}
+
+export function transitionLoadImage(state = createInitialMachineState(), payload = {}) {
+  return commitMachineTransition(state, loadImage, payload);
+}
+
+export function transitionClearImage(state = createInitialMachineState()) {
+  return commitMachineTransition(state, clearImage);
+}
+
+export function transitionSelectMode(state = createInitialMachineState(), payload = {}) {
+  return commitMachineTransition(state, selectMode, payload);
+}
+
+export function transitionSetOpacity(state = createInitialMachineState(), payload = {}) {
+  return commitMachineTransition(state, setOpacity, payload);
+}
+
+export function transitionTogglePin(state = createInitialMachineState(), payload = {}) {
+  return commitMachineTransition(state, togglePin, payload);
+}
+
+export function transitionClearPins(state = createInitialMachineState(), payload = {}) {
+  return commitMachineTransition(state, clearPins, payload);
+}
+
+export function transitionFitOverlay(state = createInitialMachineState()) {
+  return commitMachineTransition(state, fitOverlay);
+}
+
+export function transitionBeginPlacementEdit(state = createInitialMachineState(), payload = {}) {
+  return commitMachineTransition(state, beginPlacementEdit, payload);
+}
+
+export function transitionPreviewPlacementEdit(state = createInitialMachineState(), payload = {}) {
+  return commitMachineTransition(state, previewPlacementEdit, payload);
+}
+
+export function transitionCommitPlacementEdit(state = createInitialMachineState()) {
+  return commitMachineTransition(state, commitPlacementEdit);
+}
+
+export function transitionApplyPlacementEdit(state = createInitialMachineState(), payload = {}) {
+  return commitMachineTransition(state, applyPlacementEdit, payload);
+}
+
+export function transitionRequestPanelIntent(state = createInitialMachineState(), payload = {}) {
+  return commitMachineTransition(state, requestPanelIntent, payload);
+}
+
+export function transitionCancelPanelIntent(state = createInitialMachineState(), payload = {}) {
+  return commitMachineTransition(state, cancelPanelIntentIfCurrent, payload);
+}
+
+function commitMachineTransition(state, transition, payload = {}) {
   const currentState = normalizeMachineState(state);
   return applyMachineStatusNotice(
-    commitSemanticHistoryRecord(interpretIngressEvent(currentState, event)),
+    commitSemanticHistoryRecord(transition(currentState, payload)),
   );
 }
 
-function interpretIngressEvent(state, event) {
-  // TODO(smell): Ingress is now grouped by domain, but the event vocabulary
-  // still mixes public user facts with private mutation/replay commands. Split
-  // those vocabularies once history records stop storing executable events.
-  const transitionHistory = transitionHistoryIngress[event?.type];
-  if (transitionHistory) {
-    return transitionHistory(state);
-  }
-
-  const transitionDomain = transitionDomainCommand[event?.type];
-  if (!transitionDomain) {
+function cancelPanelIntentIfCurrent(state, payload) {
+  if (!canCancelPanelIntent(state, payload)) {
     return createTransitionResult({
       state,
     });
   }
-  return transitionDomain(state, event);
-}
-
-const transitionHistoryIngress = Object.freeze({
-  [MACHINE_PRIVATE_COMMAND_KIND.UNDO]: transitionUndo,
-  [MACHINE_PRIVATE_COMMAND_KIND.REDO]: transitionRedo,
-});
-
-const transitionSession = Object.freeze({
-  [MACHINE_PRIVATE_COMMAND_KIND.LOAD_IMAGE]: loadImage,
-  [MACHINE_PRIVATE_COMMAND_KIND.CLEAR_IMAGE]: clearImage,
-  [MACHINE_PRIVATE_COMMAND_KIND.SELECT_MODE]: selectMode,
-  [MACHINE_PRIVATE_COMMAND_KIND.SET_OPACITY]: setOpacity,
-});
-
-const transitionRegistration = Object.freeze({
-  [MACHINE_PRIVATE_COMMAND_KIND.TOGGLE_PIN]: togglePin,
-  [MACHINE_PRIVATE_COMMAND_KIND.CLEAR_PINS]: clearPins,
-  [MACHINE_PRIVATE_COMMAND_KIND.FIT_OVERLAY]: fitOverlay,
-});
-
-const transitionPlacement = Object.freeze({
-  [MACHINE_PRIVATE_COMMAND_KIND.BEGIN_PLACEMENT_EDIT]: beginPlacementEdit,
-  [MACHINE_PRIVATE_COMMAND_KIND.PREVIEW_PLACEMENT_EDIT]: previewPlacementEdit,
-  [MACHINE_PRIVATE_COMMAND_KIND.COMMIT_PLACEMENT_EDIT]: commitPlacementEdit,
-  [MACHINE_PRIVATE_COMMAND_KIND.CANCEL_PLACEMENT_EDIT]: cancelPlacementEdit,
-  [MACHINE_PRIVATE_COMMAND_KIND.APPLY_PLACEMENT_EDIT]: applyPlacementEdit,
-});
-
-const transitionPanelStatus = Object.freeze({
-  [MACHINE_PRIVATE_COMMAND_KIND.REQUEST_PANEL_INTENT]: requestPanelIntent,
-  [MACHINE_PRIVATE_COMMAND_KIND.CANCEL_PANEL_INTENT]: transitionPanelCancelIntent,
-  [MACHINE_PRIVATE_COMMAND_KIND.CLEAR_STATUS_NOTICE]: clearStatusNotice,
-});
-
-const transitionDomainCommand = Object.freeze({
-  ...transitionSession,
-  ...transitionRegistration,
-  ...transitionPlacement,
-  ...transitionPanelStatus,
-});
-
-function transitionPanelCancelIntent(state, event) {
-  if (!canCancelPanelIntent(state, event)) {
-    return createTransitionResult({
-      state,
-    });
-  }
-  return cancelPanelIntent(state, event);
+  return cancelPanelIntent(state, payload);
 }

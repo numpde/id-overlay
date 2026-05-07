@@ -3,9 +3,6 @@ import {
   MACHINE_PANEL_INTENT,
   MACHINE_PLACEMENT_EDIT_KIND,
 } from "./events.js";
-import {
-  MACHINE_PRIVATE_COMMAND_KIND,
-} from "./private-commands.js";
 import { MACHINE_STATUS_NOTICE_KIND } from "./status-notices.js";
 import { createMachineEffectRunner } from "./effect-runner.js";
 import {
@@ -33,7 +30,23 @@ import {
 } from "./page-context.js";
 import { createMachineRuntime } from "./runtime.js";
 import { transitionRuntimeFact } from "./runtime-transition.js";
-import { transitionMachine } from "./transition.js";
+import {
+  transitionActivateRedo,
+  transitionActivateUndo,
+  transitionApplyPlacementEdit,
+  transitionBeginPlacementEdit,
+  transitionClearImage,
+  transitionClearPins,
+  transitionCommitPlacementEdit,
+  transitionCancelPanelIntent,
+  transitionFitOverlay,
+  transitionLoadImage,
+  transitionPreviewPlacementEdit,
+  transitionRequestPanelIntent,
+  transitionSelectMode,
+  transitionSetOpacity,
+  transitionTogglePin,
+} from "./transition.js";
 import { clampOpacity, opacityFromWheelDelta } from "../opacity.js";
 
 const DEFAULT_PANEL_TIMEOUT_MS = 1800;
@@ -117,16 +130,11 @@ export function createMachineHost({
     return unsubscribe;
   }
 
-  function ingestMachineEvent(event) {
-    // TODO(smell): Host still ingests event-shaped private commands behind
-    // explicit verbs. The final host should interpret public user/fact ingress
-    // without routing through the flat machine event vocabulary.
+  function commitMachineTransition(transition, context = {}) {
     if (destroyed) {
       return createDestroyedDispatchResult(runtime.getState());
     }
-    return runtime.commitMachineResult(transitionMachine(runtime.getState(), event), {
-      event,
-    });
+    return runtime.commitMachineResult(transition(runtime.getState()), context);
   }
 
   function ingestEffectResult(result) {
@@ -166,27 +174,18 @@ export function createMachineHost({
     }
     switch (action.kind) {
       case MACHINE_PANEL_PRIMARY_ACTION_KIND.PASTE:
-        return ingestMachineEvent({
-          type: MACHINE_PRIVATE_COMMAND_KIND.REQUEST_PANEL_INTENT,
-          intent: MACHINE_PANEL_INTENT.PASTE_ARMED,
-        });
+        return requestPanelIntent(MACHINE_PANEL_INTENT.PASTE_ARMED);
       case MACHINE_PANEL_PRIMARY_ACTION_KIND.PASTE_ARMED:
         return cancelCurrentPanelIntentWithStatusNotice({
           requestId: state.panel.requestId,
           noticeKind: MACHINE_STATUS_NOTICE_KIND.PASTE_CANCELLED,
         });
       case MACHINE_PANEL_PRIMARY_ACTION_KIND.CLEAR_PINS:
-        return ingestMachineEvent({
-          type: MACHINE_PRIVATE_COMMAND_KIND.REQUEST_PANEL_INTENT,
-          intent: MACHINE_PANEL_INTENT.CLEAR_PINS_CONFIRM,
-        });
+        return requestPanelIntent(MACHINE_PANEL_INTENT.CLEAR_PINS_CONFIRM);
       case MACHINE_PANEL_PRIMARY_ACTION_KIND.CONFIRM_CLEAR_PINS:
         return clearPins();
       case MACHINE_PANEL_PRIMARY_ACTION_KIND.CLEAR_IMAGE:
-        return ingestMachineEvent({
-          type: MACHINE_PRIVATE_COMMAND_KIND.REQUEST_PANEL_INTENT,
-          intent: MACHINE_PANEL_INTENT.CLEAR_IMAGE_CONFIRM,
-        });
+        return requestPanelIntent(MACHINE_PANEL_INTENT.CLEAR_IMAGE_CONFIRM);
       case MACHINE_PANEL_PRIMARY_ACTION_KIND.CONFIRM_CLEAR_IMAGE:
         return clearImage();
       default:
@@ -211,25 +210,25 @@ export function createMachineHost({
   }
 
   function activateUndo() {
-    return ingestMachineEvent({ type: MACHINE_PRIVATE_COMMAND_KIND.UNDO });
+    return commitMachineTransition(transitionActivateUndo, { transition: "undo" });
   }
 
   function activateRedo() {
-    return ingestMachineEvent({ type: MACHINE_PRIVATE_COMMAND_KIND.REDO });
+    return commitMachineTransition(transitionActivateRedo, { transition: "redo" });
   }
 
   function selectMode(mode) {
-    return ingestMachineEvent({
-      type: MACHINE_PRIVATE_COMMAND_KIND.SELECT_MODE,
-      mode,
-    });
+    return commitMachineTransition(
+      (state) => transitionSelectMode(state, { mode }),
+      { transition: "select-mode", mode },
+    );
   }
 
   function setOpacity(opacity) {
-    return ingestMachineEvent({
-      type: MACHINE_PRIVATE_COMMAND_KIND.SET_OPACITY,
-      opacity,
-    });
+    return commitMachineTransition(
+      (state) => transitionSetOpacity(state, { opacity }),
+      { transition: "set-opacity", opacity },
+    );
   }
 
   function observeRuntimeFact(fact) {
@@ -251,45 +250,39 @@ export function createMachineHost({
   }
 
   function loadImage({ image, placement = null, requestId = null } = {}) {
-    return ingestMachineEvent({
-      type: MACHINE_PRIVATE_COMMAND_KIND.LOAD_IMAGE,
-      image,
-      placement,
-      requestId,
-    });
+    return commitMachineTransition(
+      (state) => transitionLoadImage(state, { image, placement, requestId }),
+      { transition: "load-image", requestId },
+    );
   }
 
   function clearImage() {
-    return ingestMachineEvent({
-      type: MACHINE_PRIVATE_COMMAND_KIND.CLEAR_IMAGE,
-    });
+    return commitMachineTransition(transitionClearImage, { transition: "clear-image" });
   }
 
   function clearPins({ preservedPlacement = null } = {}) {
-    return ingestMachineEvent({
-      type: MACHINE_PRIVATE_COMMAND_KIND.CLEAR_PINS,
-      ...(preservedPlacement ? { preservedPlacement } : {}),
-    });
+    return commitMachineTransition(
+      (state) => transitionClearPins(state, { preservedPlacement }),
+      { transition: "clear-pins" },
+    );
   }
 
   function fitOverlay() {
-    return ingestMachineEvent({
-      type: MACHINE_PRIVATE_COMMAND_KIND.FIT_OVERLAY,
-    });
+    return commitMachineTransition(transitionFitOverlay, { transition: "fit-overlay" });
   }
 
   function requestPanelIntent(intent) {
-    return ingestMachineEvent({
-      type: MACHINE_PRIVATE_COMMAND_KIND.REQUEST_PANEL_INTENT,
-      intent,
-    });
+    return commitMachineTransition(
+      (state) => transitionRequestPanelIntent(state, { intent }),
+      { transition: "request-panel-intent", intent },
+    );
   }
 
   function cancelPanelIntent({ requestId = null } = {}) {
-    return ingestMachineEvent({
-      type: MACHINE_PRIVATE_COMMAND_KIND.CANCEL_PANEL_INTENT,
-      requestId,
-    });
+    return commitMachineTransition(
+      (state) => transitionCancelPanelIntent(state, { requestId }),
+      { transition: "cancel-panel-intent", requestId },
+    );
   }
 
   function cancelCurrentPanelIntentWithStatusNotice({
@@ -328,52 +321,60 @@ export function createMachineHost({
     existingPinId = null,
     preservedPlacement = null,
   }) {
-    return ingestMachineEvent({
-      type: MACHINE_PRIVATE_COMMAND_KIND.TOGGLE_PIN,
-      imagePx,
-      mapLatLon,
-      existingPinId,
-      ...(preservedPlacement ? { preservedPlacement } : {}),
-    });
+    return commitMachineTransition(
+      (state) => transitionTogglePin(state, {
+        imagePx,
+        mapLatLon,
+        existingPinId,
+        preservedPlacement,
+      }),
+      { transition: "toggle-pin" },
+    );
   }
 
   function beginOverlayMove({ renderedPlacement } = {}) {
-    return ingestMachineEvent({
-      type: MACHINE_PRIVATE_COMMAND_KIND.BEGIN_PLACEMENT_EDIT,
-      editKind: MACHINE_PLACEMENT_EDIT_KIND.MOVE,
-      renderedPlacement,
-    });
+    return commitMachineTransition(
+      (state) => transitionBeginPlacementEdit(state, {
+        editKind: MACHINE_PLACEMENT_EDIT_KIND.MOVE,
+        renderedPlacement,
+      }),
+      { transition: "begin-overlay-move" },
+    );
   }
 
   function previewOverlayMove({ placement } = {}) {
-    return ingestMachineEvent({
-      type: MACHINE_PRIVATE_COMMAND_KIND.PREVIEW_PLACEMENT_EDIT,
-      placement,
-    });
+    return commitMachineTransition(
+      (state) => transitionPreviewPlacementEdit(state, { placement }),
+      { transition: "preview-overlay-move" },
+    );
   }
 
   function commitOverlayMove() {
-    return ingestMachineEvent({
-      type: MACHINE_PRIVATE_COMMAND_KIND.COMMIT_PLACEMENT_EDIT,
+    return commitMachineTransition(transitionCommitPlacementEdit, {
+      transition: "commit-overlay-move",
     });
   }
 
   function rotateOverlayPlacement({ renderedPlacement, placement } = {}) {
-    return ingestMachineEvent({
-      type: MACHINE_PRIVATE_COMMAND_KIND.APPLY_PLACEMENT_EDIT,
-      editKind: MACHINE_PLACEMENT_EDIT_KIND.ROTATE,
-      renderedPlacement,
-      placement,
-    });
+    return commitMachineTransition(
+      (state) => transitionApplyPlacementEdit(state, {
+        editKind: MACHINE_PLACEMENT_EDIT_KIND.ROTATE,
+        renderedPlacement,
+        placement,
+      }),
+      { transition: "rotate-overlay-placement" },
+    );
   }
 
   function scaleOverlayPlacement({ renderedPlacement, placement } = {}) {
-    return ingestMachineEvent({
-      type: MACHINE_PRIVATE_COMMAND_KIND.APPLY_PLACEMENT_EDIT,
-      editKind: MACHINE_PLACEMENT_EDIT_KIND.SCALE,
-      renderedPlacement,
-      placement,
-    });
+    return commitMachineTransition(
+      (state) => transitionApplyPlacementEdit(state, {
+        editKind: MACHINE_PLACEMENT_EDIT_KIND.SCALE,
+        renderedPlacement,
+        placement,
+      }),
+      { transition: "scale-overlay-placement" },
+    );
   }
 
   function changeOpacityByWheel({ deltaY }) {
