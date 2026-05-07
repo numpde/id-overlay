@@ -93,16 +93,18 @@ export function createPageSnapshotSource({
   function resolveSnapshotState(context) {
     const viewport = viewportGeometry.resolveViewportGeometry(context);
     const surfaceMotion = viewportGeometry.resolveSurfaceMotion(context);
+    const mapView = mapViewResolver.resolveMapView(context, {
+      viewportRect: viewport.viewportRect,
+      surfaceMotion,
+    });
     return {
       viewportElement: viewport.viewportElement,
       mountElement: viewport.mountElement,
       viewportRect: viewport.viewportRect,
       localViewportRect: viewport.localViewportRect,
       viewportProvenance: viewport.viewportProvenance,
-      mapView: mapViewResolver.resolveMapView(context, {
-        viewportRect: viewport.viewportRect,
-        surfaceMotion,
-      }),
+      mapView: mapView.mapView,
+      mapViewProvenance: mapView.mapViewProvenance,
       surfaceMotion,
     };
   }

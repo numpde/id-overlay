@@ -4,9 +4,13 @@ import {
 } from "./dom.js";
 import {
   DEFAULT_MAP_VIEW,
+  deriveHashMapView,
   deriveTileMapView,
-  parseHashMapView,
 } from "./map-view-facts.js";
+import {
+  PAGE_MAP_VIEW_PROVENANCE_KIND,
+  createPageMapViewProvenance,
+} from "./page-snapshot.js";
 
 export { DEFAULT_MAP_VIEW } from "./map-view-facts.js";
 
@@ -16,23 +20,36 @@ export function createMapViewResolver() {
   let lastCoherentMapView = null;
 
   function resolveMapView(context, { viewportRect, surfaceMotion }) {
-    // TODO(smell): This precedence order encodes confidence policy: rendered
-    // tile facts beat stale live-motion cache, which beats URL hash fallback.
-    // Final shape should return provenance/confidence with the map view.
     const preciseMapView = deriveTileMapView({
       viewportDocument: context.viewportDocument,
       viewportRect,
     });
     if (preciseMapView) {
       lastCoherentMapView = preciseMapView;
-      return preciseMapView;
+      return createMapViewResolution({
+        mapView: preciseMapView,
+        provenanceKind: PAGE_MAP_VIEW_PROVENANCE_KIND.PRECISE,
+      });
     }
     if (isSurfaceMotionActive(surfaceMotion) && lastCoherentMapView) {
-      return lastCoherentMapView;
+      return createMapViewResolution({
+        mapView: lastCoherentMapView,
+        provenanceKind: PAGE_MAP_VIEW_PROVENANCE_KIND.RETAINED,
+      });
     }
-    const hashMapView = parseHashMapView(getSafeLocation(context.mapWindow).hash);
-    lastCoherentMapView = hashMapView;
-    return hashMapView;
+    const hashMapView = deriveHashMapView(getSafeLocation(context.mapWindow).hash);
+    if (hashMapView) {
+      lastCoherentMapView = hashMapView;
+      return createMapViewResolution({
+        mapView: hashMapView,
+        provenanceKind: PAGE_MAP_VIEW_PROVENANCE_KIND.HASH,
+      });
+    }
+    lastCoherentMapView = null;
+    return createMapViewResolution({
+      mapView: DEFAULT_MAP_VIEW,
+      provenanceKind: PAGE_MAP_VIEW_PROVENANCE_KIND.DEFAULT,
+    });
   }
 
   function getFallbackMapView() {
@@ -47,5 +64,12 @@ export function createMapViewResolver() {
     resolveMapView,
     getFallbackMapView,
     reset,
+  };
+}
+
+function createMapViewResolution({ mapView, provenanceKind }) {
+  return {
+    mapView,
+    mapViewProvenance: createPageMapViewProvenance(provenanceKind),
   };
 }

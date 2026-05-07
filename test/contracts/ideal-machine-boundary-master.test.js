@@ -719,8 +719,14 @@ test("page snapshot shape and equality are centralized outside the snapshot sour
   if (!/\bPAGE_VIEWPORT_PROVENANCE_KIND\b/.test(snapshotSource)) {
     violations.push("missing: viewport provenance vocabulary");
   }
+  if (!/\bPAGE_MAP_VIEW_PROVENANCE_KIND\b/.test(snapshotSource)) {
+    violations.push("missing: map-view provenance vocabulary");
+  }
   if (!/\bviewportProvenance\b/.test(source)) {
     violations.push("missing: viewport provenance propagation");
+  }
+  if (!/\bmapViewProvenance\b/.test(source)) {
+    violations.push("missing: map-view provenance propagation");
   }
   if (!/\bcreateStalePageSnapshot\b/.test(source)) {
     violations.push("missing: stale fallback provenance");
@@ -737,11 +743,17 @@ test("map view resolver delegates tile and hash fact extraction", () => {
   if (!/\bderiveTileMapView\b/.test(source)) {
     violations.push("missing: tile map-view fact delegation");
   }
-  if (!/\bparseHashMapView\b/.test(source)) {
+  if (!/\bderiveHashMapView\b/.test(source)) {
     violations.push("missing: hash map-view fact delegation");
+  }
+  if (!/\bPAGE_MAP_VIEW_PROVENANCE_KIND\b/.test(source)) {
+    violations.push("missing: map-view provenance policy");
   }
   if (/\bunprojectWorldToLatLon\b|\bfindReferenceTile\b|\bparseTileCoordinates\b|\bquadkeyToTileCoordinates\b/.test(source)) {
     violations.push("forbidden: low-level map-view fact extraction in resolver");
+  }
+  if (!/\bderiveHashMapView\b/.test(factsSource)) {
+    violations.push("missing: nullable hash map-view derivation");
   }
   if (!/\bquadkeyToTileCoordinates\b/.test(factsSource)) {
     violations.push("missing: Bing quadkey parsing in facts module");

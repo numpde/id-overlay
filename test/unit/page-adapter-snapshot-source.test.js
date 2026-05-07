@@ -3,7 +3,9 @@ import assert from "node:assert/strict";
 
 import { createPageSnapshotSource } from "../../src/content/page-adapter/snapshot-source.js";
 import {
+  PAGE_MAP_VIEW_PROVENANCE_KIND,
   PAGE_SNAPSHOT_PROVENANCE_KIND,
+  createPageMapViewProvenance,
 } from "../../src/content/page-adapter/page-snapshot.js";
 
 test("page snapshot source returns stale provenance after a live snapshot when read fails", () => {
@@ -96,7 +98,10 @@ function createSnapshotSource({
     },
     mapViewResolver: {
       resolveMapView() {
-        return createMapView();
+        return {
+          mapView: createMapView(),
+          mapViewProvenance: createPageMapViewProvenance(PAGE_MAP_VIEW_PROVENANCE_KIND.PRECISE),
+        };
       },
       getFallbackMapView() {
         return createMapView({

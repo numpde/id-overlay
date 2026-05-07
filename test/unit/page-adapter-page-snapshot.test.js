@@ -2,9 +2,11 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  PAGE_MAP_VIEW_PROVENANCE_KIND,
   PAGE_SNAPSHOT_PROVENANCE_KIND,
   PAGE_VIEWPORT_PROVENANCE_KIND,
   createFallbackPageSnapshot,
+  createPageMapViewProvenance,
   createPageSnapshot,
   createStalePageSnapshot,
   createPageViewportProvenance,
@@ -39,6 +41,9 @@ test("page snapshot factory preserves the canonical snapshot shape", () => {
     kind: PAGE_SNAPSHOT_PROVENANCE_KIND.LIVE,
     viewport: {
       kind: PAGE_VIEWPORT_PROVENANCE_KIND.ELEMENT,
+    },
+    mapView: {
+      kind: PAGE_MAP_VIEW_PROVENANCE_KIND.PRECISE,
     },
   });
 });
@@ -82,6 +87,9 @@ test("fallback page snapshot uses the window viewport, fallback map view, inert 
         viewport: {
           kind: PAGE_VIEWPORT_PROVENANCE_KIND.FALLBACK,
         },
+        mapView: {
+          kind: PAGE_MAP_VIEW_PROVENANCE_KIND.DEFAULT,
+        },
       },
     },
   );
@@ -94,6 +102,9 @@ test("stale page snapshot preserves facts and marks stale provenance", () => {
       viewport: {
         kind: PAGE_VIEWPORT_PROVENANCE_KIND.FALLBACK,
       },
+      mapView: {
+        kind: PAGE_MAP_VIEW_PROVENANCE_KIND.HASH,
+      },
     },
   });
   const staleSnapshot = createStalePageSnapshot(liveSnapshot);
@@ -105,6 +116,9 @@ test("stale page snapshot preserves facts and marks stale provenance", () => {
       kind: PAGE_SNAPSHOT_PROVENANCE_KIND.STALE,
       viewport: {
         kind: PAGE_VIEWPORT_PROVENANCE_KIND.FALLBACK,
+      },
+      mapView: {
+        kind: PAGE_MAP_VIEW_PROVENANCE_KIND.HASH,
       },
     },
   });
@@ -154,6 +168,9 @@ test("page snapshot equality compares every semantic snapshot field", () => {
   })), false);
   assert.equal(pageSnapshotsEqual(base, createSnapshot({
     viewportProvenance: createPageViewportProvenance(PAGE_VIEWPORT_PROVENANCE_KIND.FALLBACK),
+  })), false);
+  assert.equal(pageSnapshotsEqual(base, createSnapshot({
+    mapViewProvenance: createPageMapViewProvenance(PAGE_MAP_VIEW_PROVENANCE_KIND.HASH),
   })), false);
 });
 

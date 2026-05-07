@@ -3,14 +3,13 @@ import assert from "node:assert/strict";
 import { JSDOM } from "jsdom";
 
 import {
-  DEFAULT_MAP_VIEW,
+  deriveHashMapView,
   deriveTileMapView,
-  parseHashMapView,
 } from "../../src/content/page-adapter/map-view-facts.js";
 import { unprojectWorldToLatLon } from "../../src/core/geometry.js";
 
-test("hash map view parsing returns a map view fact for valid map hashes", () => {
-  assert.deepEqual(parseHashMapView("#map=16.5/-1.22645/36.82597"), {
+test("hash map view derivation returns a map view fact for valid map hashes", () => {
+  assert.deepEqual(deriveHashMapView("#map=16.5/-1.22645/36.82597"), {
     center: {
       lat: -1.22645,
       lon: 36.82597,
@@ -19,9 +18,9 @@ test("hash map view parsing returns a map view fact for valid map hashes", () =>
   });
 });
 
-test("hash map view parsing returns the default map view for missing or invalid hashes", () => {
-  assert.equal(parseHashMapView("#background=Bing"), DEFAULT_MAP_VIEW);
-  assert.equal(parseHashMapView("#map=x/-1/36"), DEFAULT_MAP_VIEW);
+test("hash map view derivation rejects missing or invalid hashes without defaulting", () => {
+  assert.equal(deriveHashMapView("#background=Bing"), null);
+  assert.equal(deriveHashMapView("#map=x/-1/36"), null);
 });
 
 test("tile map view derivation reads XYZ tile URLs and tile transforms", () => {

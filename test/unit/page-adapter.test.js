@@ -6,7 +6,10 @@ import { createDomEnvironment } from "../helpers/dom-env.js";
 import {
   createPageAdapter,
 } from "../../src/content/page-adapter.js";
-import { PAGE_VIEWPORT_PROVENANCE_KIND } from "../../src/content/page-adapter/page-snapshot.js";
+import {
+  PAGE_MAP_VIEW_PROVENANCE_KIND,
+  PAGE_VIEWPORT_PROVENANCE_KIND,
+} from "../../src/content/page-adapter/page-snapshot.js";
 import { unprojectWorldToLatLon } from "../../src/core/transform.js";
 
 test("page adapter exposes explicit page capability ports", () => {
@@ -93,6 +96,9 @@ test("page adapter uses the viewport element and keeps map/screen projection con
       lat: -1.22645,
       lon: 36.82597,
     });
+    assert.deepEqual(snapshot.provenance.mapView, {
+      kind: PAGE_MAP_VIEW_PROVENANCE_KIND.HASH,
+    });
 
     const viewportCenter = { x: 570, y: 380 };
     assert.deepEqual(adapter.mapToScreen(snapshot.mapView.center), viewportCenter);
@@ -149,6 +155,9 @@ test("page adapter falls back to the window viewport when no map element is pres
     });
     assert.deepEqual(snapshot.provenance.viewport, {
       kind: PAGE_VIEWPORT_PROVENANCE_KIND.FALLBACK,
+    });
+    assert.deepEqual(snapshot.provenance.mapView, {
+      kind: PAGE_MAP_VIEW_PROVENANCE_KIND.DEFAULT,
     });
 
     adapter.destroy();
@@ -298,6 +307,9 @@ test("page adapter derives a more precise map view from rendered tiles when avai
     assert.equal(snapshot.mapView.zoom, 4);
     assert.ok(Math.abs(snapshot.mapView.center.lat - preciseCenter.lat) < 1e-9);
     assert.ok(Math.abs(snapshot.mapView.center.lon - preciseCenter.lon) < 1e-9);
+    assert.deepEqual(snapshot.provenance.mapView, {
+      kind: PAGE_MAP_VIEW_PROVENANCE_KIND.PRECISE,
+    });
 
     adapter.destroy();
   } finally {
@@ -334,14 +346,22 @@ test("page adapter retains the last coherent map view while live surface motion 
       viewportDocument: env.document,
     }));
 
-    const coherentMapView = adapter.getSnapshot().mapView;
+    const coherentSnapshot = adapter.getSnapshot();
+    const coherentMapView = coherentSnapshot.mapView;
     assert.equal(coherentMapView.zoom, 4);
+    assert.deepEqual(coherentSnapshot.provenance.mapView, {
+      kind: PAGE_MAP_VIEW_PROVENANCE_KIND.PRECISE,
+    });
 
     tile.remove();
     surface.style.transform = "matrix(1.2, 0, 0, 1.2, -40, -30)";
 
-    const retainedMapView = adapter.getSnapshot().mapView;
+    const retainedSnapshot = adapter.getSnapshot();
+    const retainedMapView = retainedSnapshot.mapView;
     assert.deepEqual(retainedMapView, coherentMapView);
+    assert.deepEqual(retainedSnapshot.provenance.mapView, {
+      kind: PAGE_MAP_VIEW_PROVENANCE_KIND.RETAINED,
+    });
 
     adapter.destroy();
   } finally {

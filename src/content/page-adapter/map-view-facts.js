@@ -58,13 +58,10 @@ export function deriveTileMapView({ viewportDocument, viewportRect }) {
   };
 }
 
-export function parseHashMapView(hash) {
-  // TODO(smell): Hash parsing is used as a map-view fallback, which can turn
-  // URL state into placement/projection policy. The final page adapter should
-  // expose whether map-view facts are precise, stale, or fallback-derived.
+export function deriveHashMapView(hash) {
   const match = /map=([0-9]+(?:\.[0-9]+)?)\/(-?[0-9]+(?:\.[0-9]+)?)\/(-?[0-9]+(?:\.[0-9]+)?)/.exec(hash);
   if (!match) {
-    return DEFAULT_MAP_VIEW;
+    return null;
   }
 
   const zoom = Number(match[1]);
@@ -72,7 +69,7 @@ export function parseHashMapView(hash) {
   const lon = Number(match[3]);
 
   if (!Number.isFinite(zoom) || !Number.isFinite(lat) || !Number.isFinite(lon)) {
-    return DEFAULT_MAP_VIEW;
+    return null;
   }
 
   return {

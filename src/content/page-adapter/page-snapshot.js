@@ -14,6 +14,13 @@ export const PAGE_VIEWPORT_PROVENANCE_KIND = Object.freeze({
   FALLBACK: "fallback",
 });
 
+export const PAGE_MAP_VIEW_PROVENANCE_KIND = Object.freeze({
+  PRECISE: "precise",
+  RETAINED: "retained",
+  HASH: "hash",
+  DEFAULT: "default",
+});
+
 export function createPageSnapshot({
   viewportElement = null,
   mountElement = null,
@@ -22,8 +29,10 @@ export function createPageSnapshot({
   mapView,
   surfaceMotion,
   viewportProvenance = createPageViewportProvenance(PAGE_VIEWPORT_PROVENANCE_KIND.ELEMENT),
+  mapViewProvenance = createPageMapViewProvenance(PAGE_MAP_VIEW_PROVENANCE_KIND.PRECISE),
   provenance = createPageSnapshotProvenance(PAGE_SNAPSHOT_PROVENANCE_KIND.LIVE, {
     viewportProvenance,
+    mapViewProvenance,
   }),
 }) {
   return {
@@ -48,6 +57,7 @@ export function createFallbackPageSnapshot({ hashTarget, mapView }) {
     surfaceMotion: createSurfaceMotion(),
     provenance: createPageSnapshotProvenance(PAGE_SNAPSHOT_PROVENANCE_KIND.SYNTHETIC, {
       viewportProvenance: createPageViewportProvenance(PAGE_VIEWPORT_PROVENANCE_KIND.FALLBACK),
+      mapViewProvenance: createPageMapViewProvenance(PAGE_MAP_VIEW_PROVENANCE_KIND.DEFAULT),
     }),
   });
 }
@@ -57,6 +67,7 @@ export function createStalePageSnapshot(snapshot) {
     ...snapshot,
     provenance: createPageSnapshotProvenance(PAGE_SNAPSHOT_PROVENANCE_KIND.STALE, {
       viewportProvenance: normalizeViewportProvenance(snapshot?.provenance?.viewport),
+      mapViewProvenance: normalizeMapViewProvenance(snapshot?.provenance?.mapView),
     }),
   };
 }
@@ -80,14 +91,20 @@ export function pageSnapshotsEqual(left, right) {
 
 function createPageSnapshotProvenance(kind, {
   viewportProvenance = createPageViewportProvenance(PAGE_VIEWPORT_PROVENANCE_KIND.ELEMENT),
+  mapViewProvenance = createPageMapViewProvenance(PAGE_MAP_VIEW_PROVENANCE_KIND.PRECISE),
 } = {}) {
   return {
     kind,
     viewport: normalizeViewportProvenance(viewportProvenance),
+    mapView: normalizeMapViewProvenance(mapViewProvenance),
   };
 }
 
 export function createPageViewportProvenance(kind) {
+  return { kind };
+}
+
+export function createPageMapViewProvenance(kind) {
   return { kind };
 }
 
@@ -117,12 +134,14 @@ function surfaceMotionsEqual(left, right) {
 
 function provenancesEqual(left, right) {
   return normalizeProvenanceKind(left) === normalizeProvenanceKind(right) &&
-    normalizeViewportProvenanceKind(left?.viewport) === normalizeViewportProvenanceKind(right?.viewport);
+    normalizeViewportProvenanceKind(left?.viewport) === normalizeViewportProvenanceKind(right?.viewport) &&
+    normalizeMapViewProvenanceKind(left?.mapView) === normalizeMapViewProvenanceKind(right?.mapView);
 }
 
 function normalizePageSnapshotProvenance(provenance) {
   return createPageSnapshotProvenance(normalizeProvenanceKind(provenance), {
     viewportProvenance: normalizeViewportProvenance(provenance?.viewport),
+    mapViewProvenance: normalizeMapViewProvenance(provenance?.mapView),
   });
 }
 
@@ -136,4 +155,12 @@ function normalizeViewportProvenance(provenance) {
 
 function normalizeViewportProvenanceKind(provenance) {
   return provenance?.kind ?? PAGE_VIEWPORT_PROVENANCE_KIND.ELEMENT;
+}
+
+function normalizeMapViewProvenance(provenance) {
+  return createPageMapViewProvenance(normalizeMapViewProvenanceKind(provenance));
+}
+
+function normalizeMapViewProvenanceKind(provenance) {
+  return provenance?.kind ?? PAGE_MAP_VIEW_PROVENANCE_KIND.PRECISE;
 }
