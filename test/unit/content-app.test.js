@@ -13,6 +13,7 @@ test("content app composes host, machine, UI, and session in dependency order", 
   const keyboardGateway = {};
   const pagePorts = createPagePorts();
   const machineHost = { label: "machineHost" };
+  const machineHostServices = { label: "machineHostServices" };
   const interactionPorts = {
     overlayInteractionPort: { label: "overlayInteractionPort" },
   };
@@ -37,6 +38,10 @@ test("content app composes host, machine, UI, and session in dependency order", 
         async createContentMachineHost(options) {
           calls.push(["create-machine-host", options]);
           return machineHost;
+        },
+        createContentMachineHostServices(options) {
+          calls.push(["create-machine-host-services", options]);
+          return machineHostServices;
         },
         createInteractionPorts(options) {
           calls.push(["create-interaction-ports", options]);
@@ -68,10 +73,14 @@ test("content app composes host, machine, UI, and session in dependency order", 
     assert.deepEqual(calls, [
       "ensure-host",
       ["destroy-active-session", host],
-      ["create-machine-host", {
+      ["create-machine-host-services", {
         ownerWindow,
         pageObservation: pagePorts.pageObservation,
         logger,
+      }],
+      ["create-machine-host", {
+        initialPageContext: pagePorts.pageObservation.snapshot,
+        services: machineHostServices,
       }],
       ["create-interaction-ports", {
         machineHost,
@@ -134,9 +143,14 @@ test("content app reuses an existing shadow root", async () => {
 });
 
 function createPagePorts() {
+  const snapshot = { label: "pageSnapshot" };
   return {
     pageSession: { label: "pageSession" },
-    pageObservation: { label: "pageObservation" },
+    pageObservation: {
+      label: "pageObservation",
+      snapshot,
+      getSnapshot: () => snapshot,
+    },
     pageProjection: { label: "pageProjection" },
     mapGesture: {
       label: "mapGesture",
@@ -149,6 +163,7 @@ function createMinimalDeps({ host, attachShadowStyles = () => {} }) {
   return {
     ensureExtensionHost: () => host,
     destroyActiveContentSession: () => {},
+    createContentMachineHostServices: () => ({}),
     createContentMachineHost: async () => ({}),
     createInteractionPorts: () => ({ overlayInteractionPort: {} }),
     attachShadowStyles,

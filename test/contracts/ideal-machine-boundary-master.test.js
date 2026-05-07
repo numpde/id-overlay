@@ -519,6 +519,24 @@ test("content machine host consumes persistence services instead of platform sto
   assert.deepEqual(violations, []);
 });
 
+test("content machine host consumes an explicit service bundle and initial page context", () => {
+  const source = readSource(repoPath("src/content/content-machine-host.js"));
+  const forbiddenPatterns = [
+    ["paste service construction", /\bcreateContentPasteEffectService\b/],
+    ["timer service construction", /\bcreateContentTimerEffectService\b/],
+    ["persistence service construction", /\bcreateContentPersistenceService\b/],
+    ["page observation dependency", /\bpageObservation\b/],
+    ["snapshot read ownership", /\bgetSnapshot\s*\(/],
+    ["owner window dependency", /\bownerWindow\b/],
+    ["logger dependency", /\blogger\b/],
+  ];
+  const violations = forbiddenPatterns
+    .filter(([, pattern]) => pattern.test(source))
+    .map(([name]) => name);
+
+  assert.deepEqual(violations, []);
+});
+
 test("page-placed paste outcome consumes canonical page snapshot liveness", () => {
   const source = readSource(repoPath("src/content/paste-read-outcome.js"));
   const violations = [];

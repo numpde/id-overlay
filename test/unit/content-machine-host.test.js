@@ -9,9 +9,7 @@ import { MACHINE_PANEL_INTENT } from "../../src/core/machine/events.js";
 import { createEmptyRegistration } from "../../src/core/session.js";
 import { createPlacementTransform } from "../../src/core/transform.js";
 import { createContentMachineHost } from "../../src/content/content-machine-host.js";
-import { createContentPasteEffectService } from "../../src/content/paste-effect-service.js";
-import { createContentPersistenceService } from "../../src/content/persistence-service.js";
-import { createContentTimerEffectService } from "../../src/content/timer-effect-service.js";
+import { createContentMachineHostServices } from "../../src/content/content-machine-host-services.js";
 import { createDomEnvironment } from "../helpers/dom-env.js";
 import {
   IMAGE,
@@ -43,15 +41,14 @@ test("content machine host loads storage and ingests current page context before
   const ownerWindow = createOwnerWindowHarness();
 
   const host = await createContentMachineHost({
-    ownerWindow,
-    pageObservation,
-    persistence: createContentPersistenceService({ storage }),
-    pasteEffects: createContentPasteEffectService({
+    initialPageContext: pageObservation.getSnapshot(),
+    services: createContentMachineHostServices({
       ownerWindow,
       pageObservation,
+      persistence: createPersistenceHarness({ storage }),
       clipboardReader: createClipboardReaderHarness(),
+      timerEffects: createTimerEffectsHarness(),
     }),
-    timerEffects: createTimerEffectsHarness(),
   });
 
   assert.equal(pageObservation.callCount, 1);
@@ -66,17 +63,16 @@ test("content machine host turns Clipboard API image facts into page-placed mach
   const pageObservation = createPageObservation();
   const ownerWindow = createOwnerWindowHarness();
   const host = await createContentMachineHost({
-    ownerWindow,
-    pageObservation,
-    persistence: createContentPersistenceService({ storage }),
-    pasteEffects: createContentPasteEffectService({
+    initialPageContext: pageObservation.getSnapshot(),
+    services: createContentMachineHostServices({
       ownerWindow,
       pageObservation,
+      persistence: createPersistenceHarness({ storage }),
       clipboardReader: createClipboardReaderHarness({
         apiFact: createDecodedClipboardImageFact({ image: IMAGE }),
       }),
+      timerEffects: createTimerEffectsHarness(),
     }),
-    timerEffects: createTimerEffectsHarness(),
   });
 
   host.requestPanelIntent(MACHINE_PANEL_INTENT.PASTE_ARMED);
@@ -99,19 +95,18 @@ test("content machine host owns manual paste capture and removes it on destroy",
   const pageObservation = createPageObservation();
   const readDataCalls = [];
   const host = await createContentMachineHost({
-    ownerWindow: env.window,
-    pageObservation,
-    persistence: createContentPersistenceService({ storage: createStorageHarness() }),
-    pasteEffects: createContentPasteEffectService({
+    initialPageContext: pageObservation.getSnapshot(),
+    services: createContentMachineHostServices({
       ownerWindow: env.window,
       pageObservation,
+      persistence: createPersistenceHarness({ storage: createStorageHarness() }),
       clipboardReader: createClipboardReaderHarness({
         apiFact: createClipboardUnavailableFact(),
         dataFact: createDecodedClipboardImageFact({ image: IMAGE }),
         onReadData: (clipboardData) => readDataCalls.push(clipboardData),
       }),
+      timerEffects: createTimerEffectsHarness(),
     }),
-    timerEffects: createTimerEffectsHarness(),
   });
 
   try {
@@ -139,18 +134,17 @@ test("content machine host completes manual paste captures with page-placed imag
   const env = createDomEnvironment();
   const pageObservation = createPageObservation();
   const host = await createContentMachineHost({
-    ownerWindow: env.window,
-    pageObservation,
-    persistence: createContentPersistenceService({ storage: createStorageHarness() }),
-    pasteEffects: createContentPasteEffectService({
+    initialPageContext: pageObservation.getSnapshot(),
+    services: createContentMachineHostServices({
       ownerWindow: env.window,
       pageObservation,
+      persistence: createPersistenceHarness({ storage: createStorageHarness() }),
       clipboardReader: createClipboardReaderHarness({
         apiFact: createClipboardUnavailableFact(),
         dataFact: createDecodedClipboardImageFact({ image: IMAGE }),
       }),
+      timerEffects: createTimerEffectsHarness(),
     }),
-    timerEffects: createTimerEffectsHarness(),
   });
 
   try {
@@ -225,15 +219,24 @@ function createOwnerWindowHarness() {
   };
 }
 
+function createPersistenceHarness({ storage }) {
+  return {
+    loadPersistedSession: () => storage.load(),
+    savePersistedSession: (session) => storage.save(session),
+  };
+}
+
 function createTimerEffectsHarness() {
-  return createContentTimerEffectService({
-    timers: {
-      setTimeout(callback, delayMs) {
-        return { callback, delayMs };
-      },
-      clearTimeout() {},
+  return {
+    setPanelTimeout(callback, { delayMs }) {
+      return { callback, delayMs };
     },
-  });
+    clearPanelTimeout() {},
+    setStatusTimeout(callback, { delayMs }) {
+      return { callback, delayMs };
+    },
+    clearStatusTimeout() {},
+  };
 }
 
 async function flushEffects() {

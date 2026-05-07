@@ -1,4 +1,5 @@
 import { createContentMachineHost } from "./content-machine-host.js";
+import { createContentMachineHostServices } from "./content-machine-host-services.js";
 import { createInteractionPorts } from "./interaction-ports.js";
 import { createPanel } from "./panel.js";
 import { createOverlay } from "./overlay.js";
@@ -16,6 +17,7 @@ const DEFAULT_APP_DEPS = Object.freeze({
   attachShadowStyles,
   clearOwnedShadowNodes,
   createContentMachineHost,
+  createContentMachineHostServices,
   createInteractionPorts,
   createOverlay,
   createPanel,
@@ -37,10 +39,14 @@ export async function createContentApp({
   // are visible without reading construction order.
   const host = deps.ensureExtensionHost();
   deps.destroyActiveContentSession(host);
-  const machineHost = await deps.createContentMachineHost({
+  const machineHostServices = deps.createContentMachineHostServices({
     ownerWindow,
     pageObservation: pagePorts.pageObservation,
     logger,
+  });
+  const machineHost = await deps.createContentMachineHost({
+    initialPageContext: pagePorts.pageObservation.getSnapshot(),
+    services: machineHostServices,
   });
   const interactionPorts = deps.createInteractionPorts({
     machineHost,
