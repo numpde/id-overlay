@@ -1,4 +1,5 @@
 import { createLogger } from "../core/logger.js";
+import { createBoundedPageProjection } from "./page-adapter/bounded-projection.js";
 import { createPageAdapterBoundary } from "./page-adapter/boundary.js";
 import {
   createMapGestureForwarder,
@@ -48,6 +49,11 @@ export function createPageAdapter({
     getActiveMapContext: pageContext.getActiveMapContext,
     getSnapshot: snapshotSource.getSnapshot,
   });
+  const pageProjection = createBoundedPageProjection({
+    projection,
+    getFallbackMapView: mapViewResolver.getFallbackMapView,
+    runBoundary,
+  });
   const gestureForwarder = createMapGestureForwarder({
     getActiveMapContext: pageContext.getActiveMapContext,
   });
@@ -59,42 +65,6 @@ export function createPageAdapter({
   const pageObservation = {
     getSnapshot: snapshotSource.getSnapshot,
     subscribe: snapshotSource.subscribe,
-  };
-  const pageProjection = {
-    // TODO(smell): Projection fallback values are local per method. As snapshot
-    // provenance becomes actionable, fallback policy should live in one
-    // page-port boundary rather than each wrapper.
-    clientPointToScreen(clientPoint) {
-      return runBoundary("client-point-to-screen", () => {
-        return projection.clientPointToScreen(clientPoint);
-      }, {
-        x: clientPoint?.x ?? 0,
-        y: clientPoint?.y ?? 0,
-      });
-    },
-    screenPointToClient(screenPoint) {
-      return runBoundary("screen-point-to-client", () => {
-        return projection.screenPointToClient(screenPoint);
-      }, {
-        x: screenPoint?.x ?? 0,
-        y: screenPoint?.y ?? 0,
-      });
-    },
-    mapToScreen(point) {
-      return runBoundary("map-to-screen", () => {
-        return projection.mapToScreen(point);
-      }, { x: 0, y: 0 });
-    },
-    mapToOverlayLayerScreen(point) {
-      return runBoundary("map-to-overlay-layer-screen", () => {
-        return projection.mapToOverlayLayerScreen(point);
-      }, { x: 0, y: 0 });
-    },
-    screenToMap(screenPoint) {
-      return runBoundary("screen-to-map", () => {
-        return projection.screenToMap(screenPoint);
-      }, mapViewResolver.getFallbackMapView().center);
-    },
   };
   const mapGesture = {
     // TODO(smell): Map gesture methods expose imperative begin/update/end ports.

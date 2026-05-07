@@ -586,6 +586,8 @@ test("page adapter centralizes fallback handling in a dedicated boundary", () =>
 
 test("page projection math uses explicit projection facts", () => {
   const source = readSource(repoPath("src/content/page-adapter/projection.js"));
+  const adapterSource = readSource(repoPath("src/content/page-adapter.js"));
+  const boundedSource = readSource(repoPath("src/content/page-adapter/bounded-projection.js"));
   const factsSource = readSource(repoPath("src/content/page-adapter/projection-facts.js"));
   const violations = [];
 
@@ -603,6 +605,15 @@ test("page projection math uses explicit projection facts", () => {
   }
   if (!/\bunprojectBaseScreenPointToMap\b/.test(factsSource)) {
     violations.push("missing: base-screen unprojection helper");
+  }
+  if (!/\bcreateBoundedPageProjection\b/.test(adapterSource)) {
+    violations.push("missing: bounded projection port");
+  }
+  if (/\bclient-point-to-screen\b|\bmap-to-screen\b|\bscreen-to-map\b/.test(adapterSource)) {
+    violations.push("forbidden: projection boundary policy in page adapter root");
+  }
+  if (!/\bclient-point-to-screen\b|\bmap-to-screen\b|\bscreen-to-map\b/.test(boundedSource)) {
+    violations.push("missing: centralized projection boundary policy");
   }
 
   assert.deepEqual(violations, []);
