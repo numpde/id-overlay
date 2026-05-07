@@ -6,6 +6,7 @@ import {
 } from "../../src/core/machine/effect-requests.js";
 import {
   MACHINE_HISTORY_KIND,
+  MACHINE_MODE,
 } from "../../src/core/machine/events.js";
 import {
   MACHINE_HISTORY_REPLAY_OPERATION,
@@ -24,6 +25,23 @@ import {
 import {
   createTransitionResult,
 } from "../../src/core/machine/transition-result.js";
+import {
+  IMAGE,
+  NORMALIZED_IMAGE,
+  PLACEMENT,
+} from "../helpers/session-fixtures.js";
+
+const REGISTRATION = Object.freeze({
+  pins: [
+    {
+      id: 1,
+      imagePx: { x: 400, y: 200 },
+      mapLatLon: { lat: -1.23, lon: 36.84 },
+    },
+  ],
+  solvedTransform: null,
+  dirty: true,
+});
 
 test("commitSemanticHistoryRecord commits only explicit history records", () => {
   const existingRecord = createTestHistoryRecord({
@@ -70,6 +88,78 @@ test("commitSemanticHistoryRecord drops non-semantic history records", () => {
 
   assert.equal(result.state, state);
   assert.equal(result.historyRecord, null);
+});
+
+test("createSemanticHistoryRecord normalizes replay payloads by operation", () => {
+  const record = createSemanticHistoryRecord({
+    kind: MACHINE_HISTORY_KIND.LOAD_IMAGE,
+    label: "Loaded image",
+    undoLabel: "Remove image",
+    redoLabel: "Reload image",
+    undo: {
+      operation: MACHINE_HISTORY_REPLAY_OPERATION.RESTORE_REGISTRATION,
+      registration: REGISTRATION,
+      mode: MACHINE_MODE.ALIGN,
+      unexpected: true,
+    },
+    redo: {
+      operation: MACHINE_HISTORY_REPLAY_OPERATION.RESTORE_IMAGE_SESSION,
+      session: {
+        mode: MACHINE_MODE.ALIGN,
+        opacity: 2,
+        image: IMAGE,
+        placement: PLACEMENT,
+        registration: REGISTRATION,
+        unexpected: true,
+      },
+    },
+  });
+
+  assert.deepEqual(record.undo, {
+    operation: MACHINE_HISTORY_REPLAY_OPERATION.RESTORE_REGISTRATION,
+    registration: REGISTRATION,
+    mode: MACHINE_MODE.ALIGN,
+  });
+  assert.deepEqual(record.redo, {
+    operation: MACHINE_HISTORY_REPLAY_OPERATION.RESTORE_IMAGE_SESSION,
+    session: {
+      mode: MACHINE_MODE.ALIGN,
+      opacity: 1,
+      image: NORMALIZED_IMAGE,
+      placement: PLACEMENT,
+      registration: REGISTRATION,
+    },
+  });
+});
+
+test("createSemanticHistoryRecord rejects malformed replay payloads", () => {
+  assert.throws(() => createSemanticHistoryRecord({
+    kind: MACHINE_HISTORY_KIND.LOAD_IMAGE,
+    label: "Loaded image",
+    undoLabel: "Remove image",
+    redoLabel: "Reload image",
+    undo: {
+      operation: MACHINE_HISTORY_REPLAY_OPERATION.RESTORE_IMAGE_SESSION,
+      session: { image: null },
+    },
+    redo: {
+      operation: MACHINE_HISTORY_REPLAY_OPERATION.CLEAR_IMAGE,
+    },
+  }), TypeError);
+
+  assert.throws(() => createSemanticHistoryRecord({
+    kind: MACHINE_HISTORY_KIND.MOVE_OVERLAY,
+    label: "Moved overlay",
+    undoLabel: "Undo move overlay",
+    redoLabel: "Redo move overlay",
+    undo: {
+      operation: MACHINE_HISTORY_REPLAY_OPERATION.RESTORE_PLACEMENT,
+      placement: PLACEMENT,
+    },
+    redo: {
+      operation: MACHINE_HISTORY_REPLAY_OPERATION.CLEAR_IMAGE,
+    },
+  }), TypeError);
 });
 
 test("applyMachineStatusNotice applies status timeout lifecycle explicitly", () => {

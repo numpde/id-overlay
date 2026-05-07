@@ -1,6 +1,12 @@
 import {
   MACHINE_HISTORY_KIND,
 } from "./events.js";
+import {
+  isKnownSessionMode,
+  normalizePlacement,
+  normalizeRegistration,
+  normalizeSession,
+} from "../session.js";
 
 export const MACHINE_HISTORY_REPLAY_OPERATION = Object.freeze({
   CLEAR_IMAGE: "clear-image",
@@ -10,7 +16,6 @@ export const MACHINE_HISTORY_REPLAY_OPERATION = Object.freeze({
 });
 
 const KNOWN_HISTORY_KINDS = new Set(Object.values(MACHINE_HISTORY_KIND));
-const KNOWN_REPLAY_OPERATIONS = new Set(Object.values(MACHINE_HISTORY_REPLAY_OPERATION));
 
 export function createSemanticHistoryRecord(record) {
   const normalized = normalizeSemanticHistoryRecord(record);
@@ -21,9 +26,6 @@ export function createSemanticHistoryRecord(record) {
 }
 
 export function normalizeSemanticHistoryRecord(record) {
-  // TODO(smell): History records validate replay operation names but leave
-  // replay payload shape to later replay code. Semantic history should carry
-  // typed before/after facts whose normalization is complete at record creation.
   if (!record || typeof record !== "object" || Array.isArray(record)) {
     return null;
   }
@@ -140,13 +142,20 @@ function normalizeReplay(replay) {
   if (!replay || typeof replay !== "object" || Array.isArray(replay)) {
     return null;
   }
-  if (!KNOWN_REPLAY_OPERATIONS.has(replay.operation)) {
-    return null;
+  switch (replay.operation) {
+    case MACHINE_HISTORY_REPLAY_OPERATION.CLEAR_IMAGE:
+      return {
+        operation: MACHINE_HISTORY_REPLAY_OPERATION.CLEAR_IMAGE,
+      };
+    case MACHINE_HISTORY_REPLAY_OPERATION.RESTORE_IMAGE_SESSION:
+      return normalizeRestoreImageSessionReplay(replay);
+    case MACHINE_HISTORY_REPLAY_OPERATION.RESTORE_REGISTRATION:
+      return normalizeRestoreRegistrationReplay(replay);
+    case MACHINE_HISTORY_REPLAY_OPERATION.RESTORE_PLACEMENT:
+      return normalizeRestorePlacementReplay(replay);
+    default:
+      return null;
   }
-  return {
-    ...replay,
-    operation: replay.operation,
-  };
 }
 
 function normalizeHistoryRecordList(records) {
@@ -156,4 +165,44 @@ function normalizeHistoryRecordList(records) {
   return records
     .map(normalizeSemanticHistoryRecord)
     .filter(Boolean);
+}
+
+function normalizeRestoreImageSessionReplay(replay) {
+  if (!Object.hasOwn(replay, "session")) {
+    return null;
+  }
+  const session = normalizeSession(replay.session);
+  if (!session.image) {
+    return null;
+  }
+  return {
+    operation: MACHINE_HISTORY_REPLAY_OPERATION.RESTORE_IMAGE_SESSION,
+    session,
+  };
+}
+
+function normalizeRestoreRegistrationReplay(replay) {
+  if (!Object.hasOwn(replay, "registration") || !isKnownSessionMode(replay.mode)) {
+    return null;
+  }
+  return {
+    operation: MACHINE_HISTORY_REPLAY_OPERATION.RESTORE_REGISTRATION,
+    registration: normalizeRegistration(replay.registration),
+    mode: replay.mode,
+  };
+}
+
+function normalizeRestorePlacementReplay(replay) {
+  if (!Object.hasOwn(replay, "placement") || !Object.hasOwn(replay, "registration")) {
+    return null;
+  }
+  const placement = normalizePlacement(replay.placement);
+  if (replay.placement !== null && !placement) {
+    return null;
+  }
+  return {
+    operation: MACHINE_HISTORY_REPLAY_OPERATION.RESTORE_PLACEMENT,
+    placement,
+    registration: normalizeRegistration(replay.registration),
+  };
 }
