@@ -1,6 +1,6 @@
 import {
   replacePlacementEdit,
-} from "./state.js";
+} from "./runtime-state.js";
 import {
   normalizePlacement,
 } from "../session.js";

@@ -206,6 +206,34 @@ test("machine paste read outcomes do not carry page snapshots", () => {
   assert.deepEqual(violations, []);
 });
 
+test("root machine state composes transient domain state helpers", () => {
+  const rootSource = fs.readFileSync(repoPath("src/core/machine/state.js"), "utf8");
+  const runtimeSource = fs.readFileSync(repoPath("src/core/machine/runtime-state.js"), "utf8");
+  const panelStatusSource = fs.readFileSync(repoPath("src/core/machine/panel-status-state.js"), "utf8");
+  const runtimeTransitionSource = fs.readFileSync(repoPath("src/core/machine/runtime-transition.js"), "utf8");
+  const panelTransitionSource = fs.readFileSync(repoPath("src/core/machine/panel-status-transition.js"), "utf8");
+  const forbiddenRootPatterns = [
+    ["runtime normalizer definition", /\bfunction\s+normalizeRuntime\b/],
+    ["panel normalizer definition", /\bfunction\s+normalizePanel\b/],
+    ["status normalizer definition", /\bfunction\s+normalizeStatus\b/],
+    ["placement edit normalizer definition", /\bfunction\s+normalizePlacementEdit\b/],
+    ["status notice kind dependency", /\bMACHINE_STATUS_NOTICE_KIND\b/],
+    ["input override dependency", /\bMACHINE_INPUT_OVERRIDE\b/],
+  ];
+  const violations = forbiddenRootPatterns
+    .filter(([, pattern]) => pattern.test(rootSource))
+    .map(([name]) => name);
+
+  assert.match(rootSource, /runtime-state\.js/);
+  assert.match(rootSource, /panel-status-state\.js/);
+  assert.match(runtimeSource, /\bexport\s+function\s+normalizeRuntime\b/);
+  assert.match(panelStatusSource, /\bexport\s+function\s+normalizePanel\b/);
+  assert.match(panelStatusSource, /\bexport\s+function\s+normalizeStatus\b/);
+  assert.match(runtimeTransitionSource, /runtime-state\.js/);
+  assert.match(panelTransitionSource, /panel-status-state\.js/);
+  assert.deepEqual(violations, []);
+});
+
 test("live interactions and overlay read canonical machine host, not the legacy session store", () => {
   const liveSources = new Map([
     ["src/content/interaction-ports.js", fs.readFileSync(repoPath("src/content/interaction-ports.js"), "utf8")],

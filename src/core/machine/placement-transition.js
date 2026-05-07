@@ -11,10 +11,12 @@ import {
   createSemanticHistoryRecord,
 } from "./history.js";
 import {
-  replacePlacementEdit,
   replaceRegistration,
   replaceSession,
 } from "./state.js";
+import {
+  replacePlacementEdit,
+} from "./runtime-state.js";
 import {
   normalizePlacement,
 } from "../session.js";

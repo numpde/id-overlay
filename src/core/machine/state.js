@@ -3,7 +3,6 @@ import {
   createEmptySession,
   isKnownSessionMode,
   normalizeRegistration,
-  normalizePlacement,
   normalizeSession,
   normalizeSessionMode,
   normalizeSessionOpacity,
@@ -14,19 +13,42 @@ import {
   createSessionSnapshotKey,
 } from "../session-keys.js";
 import {
-  MACHINE_INPUT_OVERRIDE,
-  MACHINE_PANEL_INTENT,
-  MACHINE_PLACEMENT_EDIT_KIND,
-  MACHINE_POINTER_GESTURE_KIND,
-} from "./events.js";
+  createInitialRuntime,
+  normalizeRuntime,
+  replaceInputRuntime,
+  replacePlacementEdit,
+} from "./runtime-state.js";
+import {
+  createIdlePanel,
+  createInitialStatus,
+  isKnownPanelIntent,
+  isValidPanelRequestId,
+  normalizePanel,
+  normalizePanelIntent,
+  normalizeStatus,
+  replacePanel,
+  replaceStatus,
+} from "./panel-status-state.js";
 import {
   normalizeMachineHistory,
 } from "./history.js";
-import { MACHINE_STATUS_NOTICE_KIND } from "./status-notices.js";
 
 export {
   createEmptyRegistration,
   normalizeRegistration,
+  createIdlePanel,
+  createInitialRuntime,
+  createInitialStatus,
+  isKnownPanelIntent,
+  isValidPanelRequestId,
+  normalizePanel,
+  normalizePanelIntent,
+  normalizeRuntime,
+  normalizeStatus,
+  replaceInputRuntime,
+  replacePanel,
+  replacePlacementEdit,
+  replaceStatus,
 };
 
 export const normalizeMode = normalizeSessionMode;
@@ -36,19 +58,9 @@ export const normalizeOpacity = normalizeSessionOpacity;
 export function createInitialMachineState(overrides = {}) {
   return normalizeMachineState({
     session: createEmptySession(),
-    runtime: {
-      pointer: {
-        screenPx: null,
-      },
-      activeGesture: null,
-      inputOverride: null,
-      placementEdit: null,
-    },
+    runtime: createInitialRuntime(),
     panel: createIdlePanel(),
-    status: {
-      notice: null,
-      lastRequestId: 0,
-    },
+    status: createInitialStatus(),
     history: {
       past: [],
       future: [],
@@ -57,18 +69,7 @@ export function createInitialMachineState(overrides = {}) {
   });
 }
 
-export function createIdlePanel() {
-  return {
-    intent: MACHINE_PANEL_INTENT.IDLE,
-    requestId: null,
-  };
-}
-
 export function normalizeMachineState(state = {}) {
-  // TODO(smell): Machine state normalization still centralizes session,
-  // runtime, panel, status, and history shape repair. Keep the root state
-  // constructor thin by moving each transient domain's normalization next to
-  // its transition owner.
   const session = state.session ?? {};
   const runtime = state.runtime ?? {};
   const panel = state.panel ?? {};
@@ -92,27 +93,6 @@ export function machineStatesEqual(left, right) {
   return createMachineStateKey(left) === createMachineStateKey(right);
 }
 
-export function normalizePanel(panel = {}) {
-  return {
-    intent: normalizePanelIntent(panel.intent),
-    requestId: normalizeRequestId(panel.requestId),
-  };
-}
-
-export function normalizePanelIntent(intent) {
-  return isKnownPanelIntent(intent)
-    ? intent
-    : MACHINE_PANEL_INTENT.IDLE;
-}
-
-export function isKnownPanelIntent(intent) {
-  return Object.values(MACHINE_PANEL_INTENT).includes(intent);
-}
-
-export function isValidPanelRequestId(requestId) {
-  return Number.isInteger(requestId) && requestId > 0;
-}
-
 export function replaceSession(state, session) {
   return {
     ...state,
@@ -127,152 +107,6 @@ export function replaceRegistration(state, registration) {
   return replaceSession(state, {
     registration: normalizeRegistration(registration),
   });
-}
-
-export function replacePanel(state, panel) {
-  return {
-    ...state,
-    panel: normalizePanel({
-      ...state.panel,
-      ...panel,
-    }),
-  };
-}
-
-export function replaceStatus(state, status) {
-  return {
-    ...state,
-    status: normalizeStatus({
-      ...state.status,
-      ...status,
-    }),
-  };
-}
-
-function replaceRuntime(state, runtime) {
-  return {
-    ...state,
-    runtime: normalizeRuntime({
-      ...state.runtime,
-      ...runtime,
-    }),
-  };
-}
-
-export function replacePlacementEdit(state, placementEdit) {
-  return replaceRuntime(state, { placementEdit });
-}
-
-export function replaceInputRuntime(state, {
-  pointerScreenPx = state.runtime.pointer.screenPx,
-  activeGesture = state.runtime.activeGesture,
-  inputOverride = state.runtime.inputOverride,
-} = {}) {
-  return replaceRuntime(state, {
-    pointer: {
-      screenPx: pointerScreenPx,
-    },
-    activeGesture,
-    inputOverride,
-  });
-}
-
-function normalizeRuntime(runtime = {}) {
-  return {
-    pointer: {
-      screenPx: normalizePoint(runtime.pointer?.screenPx),
-    },
-    activeGesture: normalizeActiveGesture(runtime.activeGesture),
-    inputOverride: normalizeInputOverride(runtime.inputOverride),
-    placementEdit: normalizePlacementEdit(runtime.placementEdit),
-  };
-}
-
-function normalizeActiveGesture(activeGesture) {
-  if (!activeGesture || typeof activeGesture !== "object") {
-    return null;
-  }
-  if (!Object.values(MACHINE_POINTER_GESTURE_KIND).includes(activeGesture.kind)) {
-    return null;
-  }
-  return {
-    kind: activeGesture.kind,
-  };
-}
-
-function normalizeInputOverride(inputOverride) {
-  return inputOverride === MACHINE_INPUT_OVERRIDE.PASS_THROUGH ? inputOverride : null;
-}
-
-function normalizeStatus(status = {}) {
-  const notice = normalizeStatusNotice(status.notice);
-  const lastRequestId = normalizeStatusRequestId(status.lastRequestId);
-  return {
-    notice,
-    lastRequestId: Math.max(lastRequestId, notice?.requestId ?? 0),
-  };
-}
-
-function normalizeStatusNotice(notice) {
-  if (!notice || typeof notice !== "object") {
-    return null;
-  }
-  if (!isKnownStatusNoticeKind(notice.kind)) {
-    return null;
-  }
-  const requestId = normalizeRequestId(notice.requestId);
-  if (requestId === null) {
-    return null;
-  }
-  return {
-    requestId,
-    kind: notice.kind,
-    payload: notice.payload ?? null,
-  };
-}
-
-function isKnownStatusNoticeKind(kind) {
-  return Object.values(MACHINE_STATUS_NOTICE_KIND).includes(kind);
-}
-
-function normalizeStatusRequestId(requestId) {
-  const value = Number(requestId);
-  return Number.isInteger(value) && value >= 0 ? value : 0;
-}
-
-function normalizePlacementEdit(edit) {
-  if (!edit || typeof edit !== "object" || !edit.beforeRegistration) {
-    return null;
-  }
-  if (!isKnownPlacementEditKind(edit?.kind)) {
-    return null;
-  }
-  const beforePlacement = normalizePlacement(edit.beforePlacement);
-  const previewPlacement = normalizePlacement(edit.previewPlacement);
-  if (!beforePlacement || !previewPlacement) {
-    return null;
-  }
-  return {
-    kind: edit.kind,
-    beforePlacement,
-    beforeRegistration: normalizeRegistration(edit.beforeRegistration),
-    previewPlacement,
-  };
-}
-
-function isKnownPlacementEditKind(kind) {
-  return Object.values(MACHINE_PLACEMENT_EDIT_KIND).includes(kind);
-}
-
-function normalizePoint(point) {
-  if (!Number.isFinite(point?.x) || !Number.isFinite(point?.y)) {
-    return null;
-  }
-  return { x: point.x, y: point.y };
-}
-
-function normalizeRequestId(requestId) {
-  return isValidPanelRequestId(requestId) ? requestId : null;
 }
 
 function serializeMachineState(state) {

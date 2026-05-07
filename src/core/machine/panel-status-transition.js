@@ -7,7 +7,7 @@ import {
   isValidPanelRequestId,
   replacePanel,
   replaceStatus,
-} from "./state.js";
+} from "./panel-status-state.js";
 import {
   createCancelManualPasteCaptureEffect,
   createCancelPanelTimeoutEffect,

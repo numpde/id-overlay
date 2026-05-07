@@ -7,7 +7,7 @@ import {
 } from "./runtime-facts.js";
 import {
   replaceInputRuntime,
-} from "./state.js";
+} from "./runtime-state.js";
 import { createTransitionResult } from "./transition-result.js";
 
 export function transitionRuntimeFact(state, fact) {
