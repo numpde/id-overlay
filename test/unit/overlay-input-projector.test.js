@@ -21,7 +21,7 @@ const TEST_SNAPSHOT = Object.freeze({
   surfaceMotion: { transformCss: "none", transformOriginCss: "0px 0px" },
 });
 
-test("overlay input projector converts DOM client points through the page adapter", () => {
+test("overlay input projector converts DOM client points through page projection", () => {
   const projector = createOverlayInputProjector({
     pageProjection: {
       clientPointToScreen(point) {

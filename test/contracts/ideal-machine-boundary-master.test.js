@@ -15,10 +15,8 @@ import { repoPath } from "../helpers/paths.js";
 // Effects return typed result facts, not public mutation/completion events.
 // Page integration exposes explicit snapshot, projection, and gesture ports.
 //
-// This file is the target-shape executable checklist. Tests marked TODO are
-// intentionally ahead of the implementation: they should be converted to normal
-// passing tests as each seam is cut over. Keep this file add-only until the
-// corresponding production slice is implemented.
+// This file is the target-shape executable checklist. Every test is an active
+// contract for the intended architecture, not a placeholder for later cleanup.
 
 const SOURCE_DIR = repoPath("src");
 const CONTENT_DIR = repoPath("src/content");
@@ -1026,6 +1024,55 @@ test("test harnesses exercise typed page ports instead of recreating a broad ada
     if (filePath === import.meta.filename) {
       continue;
     }
+    const source = readSource(filePath);
+    for (const [name, pattern] of forbiddenPatterns) {
+      if (pattern.test(source)) {
+        violations.push(formatViolation(filePath, name));
+      }
+    }
+  }
+
+  assert.deepEqual(violations, []);
+});
+
+test("test vocabulary names page dependencies by typed port outside page-adapter suites", () => {
+  const violations = [];
+  const excludedPathFragments = [
+    `${path.sep}contracts${path.sep}`,
+    `${path.sep}page-adapter`,
+  ];
+  const forbiddenPatterns = [
+    ["broad page adapter wording", /\bpage adapter\b/i],
+    ["adapter-sourced fact wording", /\badapter-(?:derived|sourced)\b/i],
+    ["adapter facts wording", /\badapter facts\b/i],
+  ];
+
+  for (const filePath of listJavaScriptFiles(TEST_DIR)) {
+    if (excludedPathFragments.some((fragment) => filePath.includes(fragment))) {
+      continue;
+    }
+    const source = readSource(filePath);
+    for (const [name, pattern] of forbiddenPatterns) {
+      if (pattern.test(source)) {
+        violations.push(formatViolation(filePath, name));
+      }
+    }
+  }
+
+  assert.deepEqual(violations, []);
+});
+
+test("test suite has no skipped, focused, or placeholder tests", () => {
+  const violations = [];
+  const forbiddenPatterns = [
+    ["skipped test", /\b(?:test|describe)\.skip\s*\(/],
+    ["focused test", /\b(?:test|describe)\.only\s*\(/],
+    ["placeholder test", /\b(?:test|describe)\.todo\s*\(/],
+    ["todo option", /\btodo\s*:\s*true\b/],
+    ["skip option", /\bskip\s*:\s*true\b/],
+  ];
+
+  for (const filePath of listJavaScriptFiles(TEST_DIR)) {
     const source = readSource(filePath);
     for (const [name, pattern] of forbiddenPatterns) {
       if (pattern.test(source)) {

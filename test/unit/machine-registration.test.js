@@ -16,7 +16,7 @@ import {
   state,
 } from "../helpers/machine-scenarios.js";
 
-test("pin toggle is a machine-owned semantic transition over adapter facts", () => {
+test("pin toggle is a machine-owned semantic transition over projected pin facts", () => {
   const host = createLoadedHost();
 
   const add = addPin(host);
@@ -45,7 +45,7 @@ test("pin toggle is invalid outside visible Align editing", () => {
   assert.equal(result.historyRecord, null);
 });
 
-test("registration edits can preserve adapter-derived visible placement", () => {
+test("registration edits can preserve projection-derived visible placement", () => {
   const host = createLoadedHost();
   addTwoPins(host);
   host.fitOverlay();
