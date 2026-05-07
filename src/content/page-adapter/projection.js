@@ -1,17 +1,14 @@
 import {
   applySurfaceMotionToScreenPoint,
-  getViewportCenter,
   removeSurfaceMotionFromScreenPoint,
 } from "../../core/transform.js";
 import {
-  projectLatLonToWorld,
-  unprojectWorldToLatLon,
-} from "../../core/geometry.js";
+  createSnapshotProjectionFacts,
+  projectMapPointToBaseScreenPoint,
+  unprojectBaseScreenPointToMap,
+} from "./projection-facts.js";
 
 export function createPageProjection({ getActiveMapContext, getSnapshot }) {
-  // TODO(smell): Projection reads the full page snapshot and active DOM context
-  // internally. The final port should accept explicit projection facts so core
-  // user-intent payloads can be tested without hidden page-adapter state.
   function clientPointToScreen(clientPoint) {
     return contextClientPointToScreenPoint(clientPoint, getActiveMapContext());
   }
@@ -23,30 +20,30 @@ export function createPageProjection({ getActiveMapContext, getSnapshot }) {
   function mapToScreen(point) {
     const snapshot = getSnapshot();
     return applySurfaceMotionToScreenPoint({
-      screenPoint: projectMapPointToBaseScreenPoint({ snapshot, point }),
+      screenPoint: projectMapPointToBaseScreenPoint({
+        projectionFacts: createSnapshotProjectionFacts(snapshot),
+        point,
+      }),
       snapshot,
     });
   }
 
   function mapToOverlayLayerScreen(point) {
     return projectMapPointToBaseScreenPoint({
-      snapshot: getSnapshot(),
+      projectionFacts: createSnapshotProjectionFacts(getSnapshot()),
       point,
     });
   }
 
   function screenToMap(screenPoint) {
     const snapshot = getSnapshot();
-    const projection = createProjectionContext(snapshot);
     const baseScreenPoint = removeSurfaceMotionFromScreenPoint({
       screenPoint,
       snapshot,
     });
-    const zoomScale = 2 ** projection.mapView.zoom;
-
-    return unprojectWorldToLatLon({
-      x: projection.centerWorld.x + (baseScreenPoint.x - projection.viewportCenter.x) / zoomScale,
-      y: projection.centerWorld.y + (baseScreenPoint.y - projection.viewportCenter.y) / zoomScale,
+    return unprojectBaseScreenPointToMap({
+      projectionFacts: createSnapshotProjectionFacts(snapshot),
+      screenPoint: baseScreenPoint,
     });
   }
 
@@ -85,27 +82,5 @@ function contextClientPointToScreenPoint(clientPoint, context) {
   return {
     x: frameRect.left + clientPoint.x,
     y: frameRect.top + clientPoint.y,
-  };
-}
-
-function projectMapPointToBaseScreenPoint({ snapshot, point }) {
-  const projection = createProjectionContext(snapshot);
-  const pointWorld = projectLatLonToWorld(point);
-  const zoomScale = 2 ** projection.mapView.zoom;
-  return {
-    x: projection.viewportCenter.x + (pointWorld.x - projection.centerWorld.x) * zoomScale,
-    y: projection.viewportCenter.y + (pointWorld.y - projection.centerWorld.y) * zoomScale,
-  };
-}
-
-function createProjectionContext(snapshot) {
-  // TODO(smell): Projection context is reconstructed from full snapshots at
-  // every call site. Split this into a stable map-projection fact so render,
-  // pin intent, and paste placement share one inspectable projection source.
-  return {
-    viewportRect: snapshot.viewportRect,
-    mapView: snapshot.mapView,
-    viewportCenter: getViewportCenter(snapshot.viewportRect),
-    centerWorld: projectLatLonToWorld(snapshot.mapView.center),
   };
 }

@@ -570,6 +570,30 @@ test("page adapter centralizes fallback handling in a dedicated boundary", () =>
   assert.deepEqual(violations, []);
 });
 
+test("page projection math uses explicit projection facts", () => {
+  const source = readSource(repoPath("src/content/page-adapter/projection.js"));
+  const factsSource = readSource(repoPath("src/content/page-adapter/projection-facts.js"));
+  const violations = [];
+
+  if (!/\bcreateSnapshotProjectionFacts\b/.test(source)) {
+    violations.push("missing: projection fact construction");
+  }
+  if (/\bfunction\s+createProjectionContext\b/.test(source)) {
+    violations.push("forbidden: local projection context reconstruction");
+  }
+  if (/\bprojectLatLonToWorld\b|\bunprojectWorldToLatLon\b/.test(source)) {
+    violations.push("forbidden: low-level map projection math in live port");
+  }
+  if (!/\bprojectMapPointToBaseScreenPoint\b/.test(factsSource)) {
+    violations.push("missing: base-screen projection helper");
+  }
+  if (!/\bunprojectBaseScreenPointToMap\b/.test(factsSource)) {
+    violations.push("missing: base-screen unprojection helper");
+  }
+
+  assert.deepEqual(violations, []);
+});
+
 test("content modules consume narrow page ports, not the monolithic adapter", () => {
   const violations = [];
   const allowedFiles = new Set([
