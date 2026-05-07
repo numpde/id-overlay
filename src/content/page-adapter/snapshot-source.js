@@ -2,6 +2,7 @@ import {
   createSurfaceMotion,
   createWindowViewportRect,
 } from "./dom.js";
+import { createPageSnapshotWatcher } from "./snapshot-watcher.js";
 
 export function createPageSnapshotSource({
   hashTarget,
@@ -10,13 +11,13 @@ export function createPageSnapshotSource({
   mapViewResolver,
   runBoundary,
 }) {
-  // TODO(smell): Snapshot observation combines event listeners, RAF polling,
-  // snapshot equality, and cache fallback. Keep page-context inference elsewhere;
-  // next cleanup should split scheduler ownership from snapshot cache ownership.
-  let snapshotLoopHandle = null;
-  let usingAnimationFrameLoop = false;
   let lastSnapshot = null;
   const listeners = new Set();
+  const watcher = createPageSnapshotWatcher({
+    hashTarget,
+    pageContext,
+    onChange: notifyIfChanged,
+  });
 
   function getSnapshot() {
     return readSnapshot();
@@ -56,29 +57,11 @@ export function createPageSnapshotSource({
   }
 
   function startWatching() {
-    if (snapshotLoopHandle) {
-      return;
-    }
-
-    hashTarget.addEventListener("resize", notifyIfChanged);
-    hashTarget.addEventListener("scroll", notifyIfChanged, { passive: true });
-    hashTarget.addEventListener("hashchange", notifyIfChanged);
-    hashTarget.addEventListener("popstate", notifyIfChanged);
-    pageContext.start();
-    startSnapshotLoop();
+    watcher.start();
   }
 
   function stopWatching() {
-    if (!snapshotLoopHandle) {
-      return;
-    }
-
-    stopSnapshotLoop();
-    hashTarget.removeEventListener("resize", notifyIfChanged);
-    hashTarget.removeEventListener("scroll", notifyIfChanged);
-    hashTarget.removeEventListener("hashchange", notifyIfChanged);
-    hashTarget.removeEventListener("popstate", notifyIfChanged);
-    pageContext.destroy();
+    watcher.stop();
     lastSnapshot = null;
     mapViewResolver.reset();
   }
@@ -125,34 +108,6 @@ export function createPageSnapshotSource({
       mapView: mapViewResolver.getFallbackMapView(),
       surfaceMotion: createSurfaceMotion(),
     });
-  }
-
-  function startSnapshotLoop() {
-    if (typeof hashTarget.requestAnimationFrame === "function") {
-      usingAnimationFrameLoop = true;
-      const tick = () => {
-        notifyIfChanged();
-        snapshotLoopHandle = hashTarget.requestAnimationFrame(tick);
-      };
-      snapshotLoopHandle = hashTarget.requestAnimationFrame(tick);
-      return;
-    }
-
-    usingAnimationFrameLoop = false;
-    snapshotLoopHandle = hashTarget.setInterval(notifyIfChanged, 150);
-  }
-
-  function stopSnapshotLoop() {
-    if (!snapshotLoopHandle) {
-      return;
-    }
-    if (usingAnimationFrameLoop && typeof hashTarget.cancelAnimationFrame === "function") {
-      hashTarget.cancelAnimationFrame(snapshotLoopHandle);
-    } else {
-      hashTarget.clearInterval(snapshotLoopHandle);
-    }
-    snapshotLoopHandle = null;
-    usingAnimationFrameLoop = false;
   }
 
   return {

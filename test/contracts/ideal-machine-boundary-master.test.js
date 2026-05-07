@@ -612,6 +612,27 @@ test("page context delegates history observation instead of monkey-patching inli
   assert.deepEqual(violations, []);
 });
 
+test("page snapshot source delegates observation scheduling to a watcher", () => {
+  const source = readSource(repoPath("src/content/page-adapter/snapshot-source.js"));
+  const watcherSource = readSource(repoPath("src/content/page-adapter/snapshot-watcher.js"));
+  const violations = [];
+
+  if (!/\bcreatePageSnapshotWatcher\b/.test(source)) {
+    violations.push("missing: snapshot watcher delegation");
+  }
+  if (/\brequestAnimationFrame\b|\bsetInterval\b|\baddEventListener\b/.test(source)) {
+    violations.push("forbidden: scheduling/listener policy in snapshot source");
+  }
+  if (!/\brequestAnimationFrame\b|\bsetInterval\b/.test(watcherSource)) {
+    violations.push("missing: watcher polling policy");
+  }
+  if (!/\baddEventListener\b/.test(watcherSource)) {
+    violations.push("missing: watcher event subscription policy");
+  }
+
+  assert.deepEqual(violations, []);
+});
+
 test("content modules consume narrow page ports, not the monolithic adapter", () => {
   const violations = [];
   const allowedFiles = new Set([
