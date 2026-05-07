@@ -14,6 +14,8 @@ export const VIEWPORT_SELECTORS = Object.freeze([
 ]);
 
 export function isOverlayOwnedElement(element) {
+  // TODO(smell): Ownership is encoded as a DOM data attribute. Keep the marker
+  // contract here so upstream hit-testing code never duplicates the selector.
   return Boolean(
     element &&
     typeof element.closest === "function" &&
@@ -22,6 +24,8 @@ export function isOverlayOwnedElement(element) {
 }
 
 export function findEmbeddedIdFrame(viewportDocument) {
+  // TODO(smell): Embedded iD detection is based on OSM frame id and URL shape.
+  // Replace with an explicit page capability if OSM exposes one.
   const frame = viewportDocument.querySelector(ID_EMBED_SELECTOR);
   if (!frame) {
     return null;
@@ -45,6 +49,9 @@ export function findEmbeddedIdFrame(viewportDocument) {
 }
 
 export function findViewportElement(viewportDocument) {
+  // TODO(smell): Viewport selection is an ordered heuristic. Keep the order here
+  // as the single source of truth; callers should consume the resolved element,
+  // never repeat selectors.
   for (const selector of VIEWPORT_SELECTORS) {
     const candidate = viewportDocument.querySelector(selector);
     if (candidate && isVisible(candidate)) {

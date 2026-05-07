@@ -22,6 +22,9 @@ export function createClipboardImageReader({
   });
 
   async function readClipboardApiImage() {
+    // TODO(smell): Clipboard API availability and permission fallback are
+    // source-selection concerns; blob decoding should not be nested inside this
+    // reader path.
     if (typeof ownerWindow.navigator?.clipboard?.read !== "function") {
       return createClipboardUnavailableFact();
     }
@@ -50,6 +53,9 @@ export function createClipboardImageReader({
   }
 
   async function readClipboardDataImage(clipboardData) {
+    // TODO(smell): Paste-event item extraction is a separate source adapter from
+    // Clipboard API reads. Keep only clipboardData-to-Blob selection here after
+    // splitting normalization.
     const item = [...(clipboardData?.items ?? [])].find((candidate) =>
       candidate.type.startsWith("image/"),
     );
@@ -72,6 +78,9 @@ export function createClipboardImageReader({
   }
 
   async function readImageBlob(blob, sourceLabel) {
+    // TODO(smell): This is the blob normalization boundary, but it also emits
+    // source-specific log copy. The final shape should return typed decode
+    // facts and let the caller decide user/status logging.
     try {
       const image = await normalizeOverlayImageBlob(blob, imageNormalizationDeps);
       if (!image) {

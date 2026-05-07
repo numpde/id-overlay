@@ -32,6 +32,9 @@ export function createAdapterDragController({
   });
 
   function begin({ button, screenPoint, dragMode }) {
+    // TODO(smell): Drag-mode routing is duplicated content-side orchestration
+    // around machine runtime state. The ideal machine gesture session should
+    // select the adapter port and expose one begin/move/end command surface.
     if (button !== 0 || !isKnownDragMode(dragMode)) {
       return false;
     }
@@ -76,6 +79,9 @@ export function createAdapterDragController({
   }
 
   function finish(endPointerScreenPx, { commitPlacement }) {
+    // TODO(smell): Commit/cancel semantics leak through a generic adapter-drag
+    // multiplexer. Final shape should make map-pan and overlay-placement
+    // sessions distinct machine-owned transitions.
     if (mapPanDrag.hasActive()) {
       mapPanDrag.finish(endPointerScreenPx);
       return;

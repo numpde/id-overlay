@@ -12,6 +12,9 @@ export function createViewportGeometryResolver({ hashTarget }) {
   let viewportElement = null;
 
   function resolveViewportGeometry(context) {
+    // TODO(smell): Missing viewport falls back to window/frame geometry. The
+    // final page snapshot should expose fallback provenance so callers can avoid
+    // treating approximate geometry as authoritative.
     const resolvedViewportElement = resolveViewportElement(context);
     if (!resolvedViewportElement) {
       return createFallbackViewportGeometry({ context, hashTarget });
@@ -32,6 +35,9 @@ export function createViewportGeometryResolver({ hashTarget }) {
   }
 
   function refreshViewportElement() {
+    // TODO(smell): Cache invalidation is driven by DOM visibility/connectivity,
+    // not a page-owned viewport identity. Keep invalidation here until upstream
+    // map viewport identity can be observed explicitly.
     if (viewportElement && (!viewportElement.isConnected || !isVisible(viewportElement))) {
       viewportElement = null;
     }
@@ -42,6 +48,9 @@ export function createViewportGeometryResolver({ hashTarget }) {
   }
 
   function resolveViewportElement(context) {
+    // TODO(smell): This cache assumes a connected same-document viewport remains
+    // valid through style churn. It is intentional but should not spread outside
+    // this resolver.
     if (
       viewportElement?.isConnected &&
       viewportElement.ownerDocument === context.viewportDocument

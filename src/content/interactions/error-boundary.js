@@ -23,6 +23,9 @@ export function createInteractionErrorBoundary({
     details = null,
     resetInteraction = true,
   } = {}) {
+    // TODO(smell): Reset policy is selected by this content boundary, not by
+    // the machine-owned gesture/session state. Keep this explicit until runtime
+    // error facts can drive reset as a normal transition.
     if (resetInteraction) {
       resetInteractionRuntime();
     }
@@ -34,6 +37,9 @@ export function createInteractionErrorBoundary({
       recoverable,
       details,
     });
+    // TODO(smell): Reporting to the machine and logging are two sinks for the
+    // same failure fact. A final boundary should fan out a typed result through
+    // one effect/logging service instead of formatting here.
     reportRuntimeError(runtimeError);
     logger.error("Runtime boundary failed", runtimeError, error);
     return runtimeError;
@@ -46,6 +52,9 @@ export function createInteractionErrorBoundary({
     details = null,
     resetInteraction = true,
   } = {}) {
+    // TODO(smell): Fallback values make this boundary partly policy-owned.
+    // Prefer callers returning typed recoverable outcomes once adapter failures
+    // are normalized at their source boundary.
     try {
       return fn();
     } catch (error) {

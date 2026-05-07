@@ -15,6 +15,9 @@ export function createPanel({
   // TODO(smell): Panel meaning is view-model-owned, but this DOM shell still
   // mixes element construction, event binding, and render patching. Extract
   // wiring/render mechanics before adding more panel controls.
+  // TODO(smell): The final panel boundary should be a static element factory
+  // plus a small render reconciler; adding controls inline here repeats the
+  // construction/binding/patching pattern.
   const root = document.createElement("section");
   root.className = "id-overlay-panel";
   root.dataset.idOverlayOwned = "true";
@@ -120,6 +123,9 @@ export function createPanel({
   });
 
   modeInput.addEventListener("change", () => {
+    // TODO(smell): Product activations are correctly host-owned, but DOM event
+    // normalization is still ad hoc per control. Move control event adapters
+    // behind named panel input bindings if this grows.
     if (modeInput.disabled) {
       return;
     }
@@ -178,6 +184,9 @@ export function createPanel({
   };
 
   function applyPanelView(panelView) {
+    // TODO(smell): This render patcher knows every DOM node and every view-model
+    // field. The ideal shape is declarative enough that control presentation can
+    // be reconciled by small per-control render helpers.
     opacityInput.value = panelView.opacityControl.value;
     opacityInput.disabled = panelView.opacityControl.disabled;
     modeInput.checked = panelView.modeSwitch.checked;
@@ -197,6 +206,9 @@ export function createPanel({
   }
 
   function applyHistoryButtonPresentation(button, presentation) {
+    // TODO(smell): History buttons are the first duplicated control presenter.
+    // If another button family appears, extract a generic button presenter
+    // instead of adding another local patch helper.
     button.disabled = presentation.disabled;
     button.title = presentation.title;
     button.setAttribute("aria-label", presentation.accessibleLabel);

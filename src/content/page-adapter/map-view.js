@@ -16,6 +16,9 @@ export function createMapViewResolver() {
   let lastCoherentMapView = null;
 
   function resolveMapView(context, { viewportRect, surfaceMotion }) {
+    // TODO(smell): This precedence order encodes confidence policy: rendered
+    // tile facts beat stale live-motion cache, which beats URL hash fallback.
+    // Final shape should return provenance/confidence with the map view.
     const preciseMapView = deriveTileMapView({
       viewportDocument: context.viewportDocument,
       viewportRect,

@@ -134,6 +134,10 @@ export function createOverlayHost({
     if (!nextMountElement) {
       return;
     }
+    // TODO(smell): Style injection and mount retargeting are coupled because
+    // the overlay can move between page and iframe documents. Split the
+    // document-scoped stylesheet injector from host mounting before adding more
+    // overlay assets.
     ensureOverlayStyles(nextMountElement.ownerDocument);
     if (mountElement === nextMountElement) {
       return;
@@ -152,6 +156,9 @@ export function createOverlayHost({
 }
 
 function ensureOverlayStyles(targetDocument) {
+  // TODO(smell): This imperative style tag is a runtime asset pipeline. The
+  // ideal shape should inject a generated stylesheet URL/text through one
+  // document-scoped style service.
   if (targetDocument.getElementById(OVERLAY_STYLE_ID)) {
     return;
   }

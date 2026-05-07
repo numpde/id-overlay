@@ -11,6 +11,9 @@ export const DEFAULT_MAP_VIEW = Object.freeze({
 });
 
 export function deriveTileMapView({ viewportDocument, viewportRect }) {
+  // TODO(smell): Tile-derived map view is an inference from rendered imagery,
+  // not a canonical map API. Keep every tile parsing assumption in this facts
+  // module so projection never depends on tile DOM directly.
   const tile = findReferenceTile(viewportDocument);
   if (!tile) {
     return null;
@@ -79,6 +82,9 @@ export function parseHashMapView(hash) {
 }
 
 function parseTileCoordinates(tileUrl) {
+  // TODO(smell): Supported tile URL formats are empirical adapter knowledge.
+  // Add formats only here with tests; do not let URL parsing leak to map-view
+  // resolution or projection code.
   if (typeof tileUrl !== "string" || !tileUrl) {
     return null;
   }
@@ -130,6 +136,9 @@ function quadkeyToTileCoordinates(quadkey) {
 }
 
 function parseMatrixTransform(element) {
+  // TODO(smell): Matrix parsing assumes 2D CSS transforms on tile elements.
+  // If iD switches transform style, this should fail closed here rather than
+  // corrupting placement/projection state.
   const view = element.ownerDocument?.defaultView ?? globalThis;
   const style = typeof view.getComputedStyle === "function"
     ? view.getComputedStyle(element)
