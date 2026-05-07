@@ -18,12 +18,9 @@ import {
 import {
   fromPersistedMachineSession,
 } from "./persistence.js";
+import { createMachineHostPageContextService } from "./host-page-context-service.js";
 import { createMachineHostPersistenceService } from "./host-persistence-service.js";
 import { createMachineHostSubscriptionService } from "./host-subscription-service.js";
-import {
-  needsPageContextReconciliation,
-  reconcilePageContext,
-} from "./page-context.js";
 import { createMachineRuntime } from "./runtime.js";
 import { transitionRuntimeFact } from "./runtime-transition.js";
 import {
@@ -59,14 +56,13 @@ export function createMachineHost({
   statusTimeoutMs = undefined,
   onError = null,
 } = {}) {
-  // TODO(smell): Host still creates the runtime and wires page-context
-  // reconciliation. The ideal host would compose ingress methods over an
-  // already-hosted machine runtime.
+  // TODO(smell): Host still creates the runtime. The ideal host would compose
+  // ingress methods over an already-hosted machine runtime.
   let destroyed = false;
   let runtime = null;
+  let pageContextService = null;
   let persistenceService = null;
   let subscriptionService = null;
-  let pendingPageContextPersistedSession = persistedSession;
 
   const effectServices = createMachineHostEffectServices({
     readPasteImage,
@@ -84,6 +80,11 @@ export function createMachineHost({
 
   runtime = createMachineRuntime({
     initialState: fromPersistedMachineSession(persistedSession),
+  });
+  pageContextService = createMachineHostPageContextService({
+    runtime,
+    persistedSession,
+    commitMachineResult,
   });
   persistenceService = createMachineHostPersistenceService({
     runtime,
@@ -123,20 +124,7 @@ export function createMachineHost({
     if (destroyed) {
       return createDestroyedDispatchResult(runtime.getState());
     }
-    const currentState = runtime.getState();
-    const result = commitMachineResult(reconcilePageContext(currentState, {
-      persistedSession: pendingPageContextPersistedSession,
-      pageContext,
-    }), {
-      pageContext,
-    });
-    if (
-      result.state !== currentState ||
-      !needsPageContextReconciliation(currentState, pendingPageContextPersistedSession)
-    ) {
-      pendingPageContextPersistedSession = null;
-    }
-    return result;
+    return pageContextService.ingestPageContext(pageContext);
   }
 
   function activatePanelPrimary() {
