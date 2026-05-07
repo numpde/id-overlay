@@ -654,6 +654,27 @@ test("page snapshot shape and equality are centralized outside the snapshot sour
   assert.deepEqual(violations, []);
 });
 
+test("map view resolver delegates tile and hash fact extraction", () => {
+  const source = readSource(repoPath("src/content/page-adapter/map-view.js"));
+  const factsSource = readSource(repoPath("src/content/page-adapter/map-view-facts.js"));
+  const violations = [];
+
+  if (!/\bderiveTileMapView\b/.test(source)) {
+    violations.push("missing: tile map-view fact delegation");
+  }
+  if (!/\bparseHashMapView\b/.test(source)) {
+    violations.push("missing: hash map-view fact delegation");
+  }
+  if (/\bunprojectWorldToLatLon\b|\bfindReferenceTile\b|\bparseTileCoordinates\b|\bquadkeyToTileCoordinates\b/.test(source)) {
+    violations.push("forbidden: low-level map-view fact extraction in resolver");
+  }
+  if (!/\bquadkeyToTileCoordinates\b/.test(factsSource)) {
+    violations.push("missing: Bing quadkey parsing in facts module");
+  }
+
+  assert.deepEqual(violations, []);
+});
+
 test("content modules consume narrow page ports, not the monolithic adapter", () => {
   const violations = [];
   const allowedFiles = new Set([
