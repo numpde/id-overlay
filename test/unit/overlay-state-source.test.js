@@ -40,7 +40,7 @@ test("overlay state source exposes one consistent view/input projection", () => 
   assert.equal(source.getMountElement(), SNAPSHOT.mountElement);
   assert.equal(inputContext.machineState, machineHost.getState());
   assert.equal(inputContext.runtime, source.getRuntimeState());
-  assert.deepEqual(inputContext.viewModel, viewModel);
+  assert.equal(inputContext.viewModel, viewModel);
 });
 
 test("overlay state source updates page/runtime facts and reports change hooks", () => {

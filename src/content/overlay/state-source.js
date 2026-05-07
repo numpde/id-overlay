@@ -8,23 +8,26 @@ export function createOverlayStateSource({
   onChange = null,
   onRuntimeChange = null,
 }) {
-  // TODO(smell): Overlay render/input context is assembled from three live
-  // subscriptions: machine state, page snapshot, and interaction runtime. The
-  // ideal shape should expose one canonical overlay presentation stream.
   let snapshot = pageObservation.getSnapshot();
   let runtime = overlayInteractions.getRuntimeState();
+  let presentation = buildCurrentOverlayPresentation();
   let isReady = false;
 
-  const unsubscribeMachine = machineHost.subscribe(notifyChange, { emitCurrent: false });
+  const unsubscribeMachine = machineHost.subscribe(() => {
+    recomputePresentation();
+    notifyChange();
+  }, { emitCurrent: false });
   const unsubscribeViewport = pageObservation.subscribe((nextSnapshot) => {
     // TODO(smell): Page snapshot changes and machine changes both schedule the
     // same render, but their provenance is lost. Keep this source as the only
     // aggregation point until overlay render invalidation is explicit.
     snapshot = nextSnapshot;
+    recomputePresentation();
     notifyChange();
   });
   const unsubscribeRuntime = overlayInteractions.subscribeRuntime((nextRuntime) => {
     runtime = nextRuntime;
+    recomputePresentation();
     if (isReady) {
       onRuntimeChange?.(runtime);
     }
@@ -49,30 +52,33 @@ export function createOverlayStateSource({
   }
 
   function getOverlayViewModel() {
-    return buildCurrentOverlayViewModel({
-      machineState: getMachineState(),
-      runtime,
-    });
+    return presentation.viewModel;
   }
 
   function getOverlayInputContext() {
-    // TODO(smell): Input routing rebuilds the overlay view model on demand,
-    // separately from rendering. Final shape should share one latest overlay
-    // presentation object for render and hit-testing.
-    const machineState = getMachineState();
     return {
-      machineState,
-      runtime,
-      viewModel: buildCurrentOverlayViewModel({ machineState, runtime }),
+      machineState: presentation.machineState,
+      runtime: presentation.runtime,
+      viewModel: presentation.viewModel,
     };
   }
 
-  function buildCurrentOverlayViewModel({ machineState, runtime }) {
-    return buildOverlayViewModel({
+  function recomputePresentation() {
+    presentation = buildCurrentOverlayPresentation();
+  }
+
+  function buildCurrentOverlayPresentation() {
+    const machineState = getMachineState();
+    return Object.freeze({
       machineState,
       runtime,
       snapshot,
-      projectMapPinScreenPoint: pageProjection.mapToOverlayLayerScreen,
+      viewModel: buildOverlayViewModel({
+        machineState,
+        runtime,
+        snapshot,
+        projectMapPinScreenPoint: pageProjection.mapToOverlayLayerScreen,
+      }),
     });
   }
 

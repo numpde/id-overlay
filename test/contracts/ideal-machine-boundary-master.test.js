@@ -988,6 +988,15 @@ test("overlay composition consumes one state source for render and input facts",
   if (!/\bbuildOverlayViewModel\b/.test(stateSource)) {
     violations.push("missing: centralized overlay view model construction");
   }
+  if ((stateSource.match(/\bbuildOverlayViewModel\s*\(/g) ?? []).length !== 1) {
+    violations.push("forbidden: multiple overlay view model construction sites");
+  }
+  if (!/\bpresentation\b/.test(stateSource)) {
+    violations.push("missing: canonical overlay presentation cache");
+  }
+  if (/\bfunction\s+getOverlayInputContext\s*\([^)]*\)\s*\{[^}]*\bbuildOverlayViewModel\s*\(/s.test(stateSource)) {
+    violations.push("forbidden: input context rebuilds overlay view model");
+  }
 
   assert.deepEqual(violations, []);
 });
