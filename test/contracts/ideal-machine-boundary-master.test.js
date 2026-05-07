@@ -476,7 +476,7 @@ test("page-placed paste outcome consumes canonical page snapshot liveness", () =
   if (!/\bisLivePageSnapshot\b/.test(source)) {
     violations.push("missing: canonical page snapshot liveness predicate");
   }
-  if (/\bPAGE_SNAPSHOT_PROVENANCE_KIND\b|\bprovenance\s*\.\s*kind\b/.test(source)) {
+  if (/\bPAGE_(?:SNAPSHOT|MAP_VIEW)_PROVENANCE_KIND\b|\bprovenance\s*\.\s*(?:kind|mapView)\b/.test(source)) {
     violations.push("forbidden: local page snapshot provenance interpretation");
   }
 
