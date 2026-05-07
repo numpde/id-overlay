@@ -612,6 +612,27 @@ test("page context delegates history observation instead of monkey-patching inli
   assert.deepEqual(violations, []);
 });
 
+test("page context delegates mutation observer ownership", () => {
+  const source = readSource(repoPath("src/content/page-adapter/page-context.js"));
+  const observationSource = readSource(repoPath("src/content/page-adapter/mutation-observation.js"));
+  const violations = [];
+
+  if (!/\bcreatePageMutationObservation\b/.test(source)) {
+    violations.push("missing: mutation observer delegation");
+  }
+  if (/\bnew\s+MutationObserver\b|\bmutationObserver\b|\bobservedMutationRoot\b|\.observe\s*\(/.test(source)) {
+    violations.push("forbidden: inline mutation observer ownership");
+  }
+  if (!/\bMutationObserverCtor\b/.test(observationSource)) {
+    violations.push("missing: quarantined MutationObserver adapter");
+  }
+  if (!/\battributeFilter:\s*Object\.freeze\(\["class", "style", "src"\]\)/.test(observationSource)) {
+    violations.push("missing: canonical page mutation filter");
+  }
+
+  assert.deepEqual(violations, []);
+});
+
 test("page snapshot source delegates observation scheduling to a watcher", () => {
   const source = readSource(repoPath("src/content/page-adapter/snapshot-source.js"));
   const watcherSource = readSource(repoPath("src/content/page-adapter/snapshot-watcher.js"));

@@ -3,6 +3,7 @@ import {
   resolveMutationRoot,
 } from "./dom.js";
 import { observeHistoryMutations } from "./history-observation.js";
+import { createPageMutationObservation } from "./mutation-observation.js";
 import { findEmbeddedIdFrame } from "./page-dom-queries.js";
 
 export function createPageContext({
@@ -13,12 +14,14 @@ export function createPageContext({
   onContextRetarget = () => {},
 }) {
   // TODO(smell): Page-context tracking owns iframe retargeting, mutation
-  // observation, and history patching. Those are all browser-integration seams;
-  // keep domain logic out of this layer.
-  let mutationObserver = null;
+  // observation coordination, and history patching. Those are all
+  // browser-integration seams; keep domain logic out of this layer.
+  const mutationObservation = createPageMutationObservation({
+    onMutation: onStructureMutation,
+    onObservedRootChanged: onContextRetarget,
+  });
   let restoreHistoryMethods = null;
   let observedMapWindow = null;
-  let observedMutationRoot = null;
 
   function isSupported() {
     const location = getSafeLocation(hashTarget);
@@ -43,27 +46,14 @@ export function createPageContext({
   }
 
   function start() {
-    if (mutationObserver) {
-      return;
-    }
-    mutationObserver = new MutationObserver(onStructureMutation);
+    mutationObservation.start();
     syncObservedContext();
   }
 
   function syncObservedContext() {
     const context = getActiveMapContext();
     const mutationRoot = resolveMutationRoot(context.viewportDocument);
-    if (observedMutationRoot !== mutationRoot) {
-      mutationObserver?.disconnect();
-      mutationObserver?.observe(mutationRoot, {
-        subtree: true,
-        childList: true,
-        attributes: true,
-        attributeFilter: ["class", "style", "src"],
-      });
-      observedMutationRoot = mutationRoot;
-      onContextRetarget();
-    }
+    mutationObservation.observeRoot(mutationRoot);
 
     if (observedMapWindow === context.mapWindow) {
       return;
@@ -83,9 +73,7 @@ export function createPageContext({
 
   function destroy() {
     detachObservedMapWindow();
-    observedMutationRoot = null;
-    mutationObserver?.disconnect();
-    mutationObserver = null;
+    mutationObservation.destroy();
   }
 
   function detachObservedMapWindow() {
