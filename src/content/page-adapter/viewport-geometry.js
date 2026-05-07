@@ -1,12 +1,12 @@
 import {
-  createSurfaceMotion,
-  createWindowViewportRect,
   findViewportElement,
   isVisible,
-  rectFromDomRect,
-  SURFACE_MOTION_SELECTOR,
-  translateRectByFrame,
 } from "./dom.js";
+import {
+  createElementViewportGeometry,
+  createFallbackViewportGeometry,
+  resolveSurfaceMotionFact,
+} from "./viewport-geometry-facts.js";
 
 export function createViewportGeometryResolver({ hashTarget }) {
   // TODO(smell): Viewport geometry depends on current iD/container DOM and CSS
@@ -16,52 +16,17 @@ export function createViewportGeometryResolver({ hashTarget }) {
   function resolveViewportGeometry(context) {
     const resolvedViewportElement = resolveViewportElement(context);
     if (!resolvedViewportElement) {
-      const fallbackViewportRect = context.frameElement
-        ? rectFromDomRect(context.frameElement.getBoundingClientRect())
-        : createWindowViewportRect(hashTarget);
-      return {
-        viewportElement: null,
-        mountElement: context.viewportDocument.body
-          ?? context.viewportDocument.documentElement
-          ?? null,
-        viewportRect: fallbackViewportRect,
-        localViewportRect: createWindowViewportRect(context.mapWindow),
-      };
+      return createFallbackViewportGeometry({ context, hashTarget });
     }
 
-    const rawViewportRect = rectFromDomRect(resolvedViewportElement.getBoundingClientRect());
-    const viewportRect = context.frameElement
-      ? translateRectByFrame(rawViewportRect, context.frameElement)
-      : rawViewportRect;
-
-    return {
+    return createElementViewportGeometry({
       viewportElement: resolvedViewportElement,
-      mountElement: resolvedViewportElement,
-      viewportRect,
-      localViewportRect: {
-        left: 0,
-        top: 0,
-        width: rawViewportRect.width,
-        height: rawViewportRect.height,
-      },
-    };
+      frameElement: context.frameElement,
+    });
   }
 
   function resolveSurfaceMotion(context) {
-    const surfaceElement = context.viewportDocument.querySelector(SURFACE_MOTION_SELECTOR);
-    if (!surfaceElement) {
-      return createSurfaceMotion();
-    }
-
-    const view = surfaceElement.ownerDocument?.defaultView ?? globalThis;
-    const style = typeof view.getComputedStyle === "function"
-      ? view.getComputedStyle(surfaceElement)
-      : null;
-
-    return createSurfaceMotion({
-      transformCss: style?.transform ?? surfaceElement.style.transform ?? "none",
-      transformOriginCss: style?.transformOrigin ?? surfaceElement.style.transformOrigin ?? "0px 0px",
-    });
+    return resolveSurfaceMotionFact(context.viewportDocument);
   }
 
   function clearViewportElement() {

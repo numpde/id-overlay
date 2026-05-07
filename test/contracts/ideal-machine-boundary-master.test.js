@@ -675,6 +675,30 @@ test("map view resolver delegates tile and hash fact extraction", () => {
   assert.deepEqual(violations, []);
 });
 
+test("viewport geometry resolver delegates geometry and surface-motion fact construction", () => {
+  const source = readSource(repoPath("src/content/page-adapter/viewport-geometry.js"));
+  const factsSource = readSource(repoPath("src/content/page-adapter/viewport-geometry-facts.js"));
+  const violations = [];
+
+  if (!/\bcreateElementViewportGeometry\b/.test(source)) {
+    violations.push("missing: element geometry fact delegation");
+  }
+  if (!/\bcreateFallbackViewportGeometry\b/.test(source)) {
+    violations.push("missing: fallback geometry fact delegation");
+  }
+  if (!/\bresolveSurfaceMotionFact\b/.test(source)) {
+    violations.push("missing: surface motion fact delegation");
+  }
+  if (/\bgetBoundingClientRect\b|\bcreateWindowViewportRect\b|\bSURFACE_MOTION_SELECTOR\b/.test(source)) {
+    violations.push("forbidden: low-level viewport fact extraction in resolver");
+  }
+  if (!/\btranslateRectByFrame\b/.test(factsSource)) {
+    violations.push("missing: framed viewport translation in facts module");
+  }
+
+  assert.deepEqual(violations, []);
+});
+
 test("content modules consume narrow page ports, not the monolithic adapter", () => {
   const violations = [];
   const allowedFiles = new Set([
