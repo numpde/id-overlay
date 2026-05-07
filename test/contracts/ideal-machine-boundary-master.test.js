@@ -97,7 +97,9 @@ test("panel view model exposes render data only", () => {
 });
 
 test("panel DOM reports product activations instead of resolving command meaning", () => {
-  const source = readSource(repoPath("src/content/panel.js"));
+  const panelSource = readSource(repoPath("src/content/panel.js"));
+  const bindingSource = readSource(repoPath("src/content/panel-bindings.js"));
+  const boundarySource = `${panelSource}\n${bindingSource}`;
   const forbiddenPatterns = [
     ["machine event vocabulary", /\bMACHINE_(?:PRIVATE_)?COMMAND_KIND\b/],
     ["mode enum import", /\bMACHINE_MODE\b/],
@@ -106,15 +108,16 @@ test("panel DOM reports product activations instead of resolving command meaning
     ["generic machine dispatch wrapper", /\bfunction\s+dispatchMachineEvent\s*\(/],
   ];
   const requiredPatterns = [
+    ["panel binding boundary", /\bbindPanelControls\b/],
     ["primary activation ingress", /\b(?:activatePanelPrimary|ingestPanelPrimary|reportPanelPrimaryActivated)\b/],
     ["history activation ingress", /\b(?:activateUndo|activateRedo|ingestHistoryActivation|reportHistoryActivated)\b/],
   ];
   const violations = [
     ...forbiddenPatterns
-      .filter(([, pattern]) => pattern.test(source))
+      .filter(([, pattern]) => pattern.test(boundarySource))
       .map(([name]) => `forbidden: ${name}`),
     ...requiredPatterns
-      .filter(([, pattern]) => !pattern.test(source))
+      .filter(([, pattern]) => !pattern.test(boundarySource))
       .map(([name]) => `missing: ${name}`),
   ];
 
