@@ -6,18 +6,21 @@ import { createPanel } from "./panel.js";
 import { createOverlay } from "./overlay.js";
 import { createClipboardImageReader } from "./paste-adapter.js";
 import { createPagePlacedPasteReadOutcome } from "./paste-read-outcome.js";
+import {
+  clearActiveSession,
+  clearOwnedShadowNodes,
+  destroyExistingSession,
+  ensureExtensionHost,
+  storeActiveSession,
+} from "./host-lifecycle.js";
+import { attachShadowStyles } from "./shadow-styles.js";
 import { BUILD_INFO } from "../core/build-info.js";
 import { createLogger } from "../core/logger.js";
 import { DEFAULT_STORAGE_KEY } from "../platform/storage-key.js";
 
-const HOST_ID = "id-overlay-root";
-const OWNED_NODE_SELECTOR = "[data-id-overlay-owned='true']";
-const SESSION_KEY = "__idOverlaySession__";
-
 export async function bootstrapIdOverlay({ keyboardGateway = null } = {}) {
-  // TODO(smell): Bootstrap still owns composition plus page cleanup, shadow
-  // stylesheet injection, paste capture, and lifecycle teardown. Extract host,
-  // style, and session-lifecycle helpers before adding more branches here.
+  // TODO(smell): Bootstrap still owns machine/paste composition and lifecycle
+  // teardown. Extract those before adding more branches here.
   const logger = createLogger("main");
   const pagePorts = createPageAdapter();
   if (!pagePorts.pageSession.isSupported()) {
@@ -32,7 +35,7 @@ export async function bootstrapIdOverlay({ keyboardGateway = null } = {}) {
     build: BUILD_INFO,
   });
 
-  const host = ensureHost();
+  const host = ensureExtensionHost();
   destroyExistingSession(host);
   const storage = createExtensionStorage({ storageKey: DEFAULT_STORAGE_KEY });
   const persistedState = await storage.load();
@@ -91,7 +94,7 @@ export async function bootstrapIdOverlay({ keyboardGateway = null } = {}) {
     interactionPorts,
     pageSession: pagePorts.pageSession,
   });
-  host[SESSION_KEY] = session;
+  storeActiveSession(host, session);
   window.addEventListener("beforeunload", session.handleBeforeUnload);
 
   logger.info("Bootstrap complete");
@@ -174,44 +177,6 @@ export function queueBootstrapIdOverlay({ keyboardGateway = null } = {}) {
   bootstrapIdOverlay({ keyboardGateway });
 }
 
-function ensureHost() {
-  let host = document.getElementById(HOST_ID);
-  if (host) {
-    return host;
-  }
-  host = document.createElement("div");
-  host.id = HOST_ID;
-  document.documentElement.append(host);
-  return host;
-}
-
-function destroyExistingSession(host) {
-  host[SESSION_KEY]?.destroy();
-}
-
-async function attachShadowStyles(shadow) {
-  if (shadow.querySelector('link[data-id-overlay-styles="true"]')) {
-    return;
-  }
-  const runtime = globalThis.chrome?.runtime ?? globalThis.browser?.runtime;
-  const stylesheetUrl = runtime.getURL("src/content/content.css");
-  const link = document.createElement("link");
-  link.dataset.idOverlayStyles = "true";
-  link.rel = "stylesheet";
-  link.href = stylesheetUrl;
-  shadow.append(link);
-  await new Promise((resolve) => {
-    link.addEventListener("load", resolve, { once: true });
-    link.addEventListener("error", resolve, { once: true });
-  });
-}
-
-function clearOwnedShadowNodes(shadow) {
-  for (const node of shadow.querySelectorAll(OWNED_NODE_SELECTOR)) {
-    node.remove();
-  }
-}
-
 function createSession({
   host,
   machineHost,
@@ -233,9 +198,7 @@ function createSession({
     overlay.destroy();
     interactionPorts.destroy();
     pageSession.destroy();
-    if (host[SESSION_KEY] === session) {
-      delete host[SESSION_KEY];
-    }
+    clearActiveSession(host, session);
   }
 
   function handleBeforeUnload() {
