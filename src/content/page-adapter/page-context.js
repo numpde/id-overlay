@@ -3,6 +3,7 @@ import {
   getSafeLocation,
   resolveMutationRoot,
 } from "./dom.js";
+import { observeHistoryMutations } from "./history-observation.js";
 
 export function createPageContext({
   hashTarget,
@@ -73,7 +74,7 @@ export function createPageContext({
     if (observedMapWindow) {
       observedMapWindow.addEventListener("hashchange", onChange);
       observedMapWindow.addEventListener("popstate", onChange);
-      restoreHistoryMethods = patchHistoryMethods({
+      restoreHistoryMethods = observeHistoryMutations({
         hashTarget: observedMapWindow,
         onHistoryMutation: onChange,
       });
@@ -103,50 +104,5 @@ export function createPageContext({
     start,
     syncObservedContext,
     destroy,
-  };
-}
-
-function patchHistoryMethods({ hashTarget, onHistoryMutation }) {
-  // TODO(smell): Monkey-patching history is intentionally quarantined here.
-  // Replace this with a stable page/map notification source when available.
-  const history = hashTarget.history;
-  if (!history) {
-    return null;
-  }
-
-  const originalReplaceState = typeof history.replaceState === "function"
-    ? history.replaceState.bind(history)
-    : null;
-  const originalPushState = typeof history.pushState === "function"
-    ? history.pushState.bind(history)
-    : null;
-
-  if (!originalReplaceState && !originalPushState) {
-    return null;
-  }
-
-  if (originalReplaceState) {
-    history.replaceState = function patchedReplaceState(...args) {
-      const result = originalReplaceState(...args);
-      onHistoryMutation();
-      return result;
-    };
-  }
-
-  if (originalPushState) {
-    history.pushState = function patchedPushState(...args) {
-      const result = originalPushState(...args);
-      onHistoryMutation();
-      return result;
-    };
-  }
-
-  return () => {
-    if (originalReplaceState) {
-      history.replaceState = originalReplaceState;
-    }
-    if (originalPushState) {
-      history.pushState = originalPushState;
-    }
   };
 }
