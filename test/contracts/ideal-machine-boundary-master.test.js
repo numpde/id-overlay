@@ -596,10 +596,20 @@ test("page projection math uses explicit projection facts", () => {
 
 test("page context delegates navigation observation instead of owning listeners inline", () => {
   const source = readSource(repoPath("src/content/page-adapter/page-context.js"));
+  const activeContextSource = readSource(repoPath("src/content/page-adapter/active-map-context.js"));
   const navigationSource = readSource(repoPath("src/content/page-adapter/navigation-observation.js"));
   const historySource = readSource(repoPath("src/content/page-adapter/history-observation.js"));
   const violations = [];
 
+  if (!/\bcreateActiveMapContextResolver\b/.test(source)) {
+    violations.push("missing: active map-context delegation");
+  }
+  if (/\bfindEmbeddedIdFrame\b|\bgetSafeLocation\b/.test(source)) {
+    violations.push("forbidden: active map-context selection in observer coordinator");
+  }
+  if (!/\bfindEmbeddedIdFrame\b/.test(activeContextSource)) {
+    violations.push("missing: active map-context iframe selection");
+  }
   if (!/\bcreatePageNavigationObservation\b/.test(source)) {
     violations.push("missing: navigation observation delegation");
   }
