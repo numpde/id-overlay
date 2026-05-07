@@ -45,7 +45,10 @@ import {
 import {
   selectPanelStatusText,
 } from "../../src/core/machine/selectors.js";
-import { selectOverlayPolicy } from "../../src/core/machine/policy.js";
+import {
+  selectOverlayInputPolicy,
+  selectOverlaySessionPolicy,
+} from "../../src/core/machine/policy.js";
 import { createInitialMachineState } from "../../src/core/machine/state.js";
 import {
   createPlacementScreenTransform,
@@ -858,30 +861,30 @@ test("align capability helpers are the single source of truth for editability", 
   });
 
   assert.equal(
-    selectOverlayPolicy(alignSession).canEditOverlay,
+    selectOverlaySessionPolicy(alignSession).canEditOverlay,
     true,
   );
   assert.equal(
-    selectOverlayPolicy(traceSession).canEditOverlay,
+    selectOverlaySessionPolicy(traceSession).canEditOverlay,
     false,
   );
   assert.equal(
-    selectOverlayPolicy(emptyAlignSession).canEditOverlay,
+    selectOverlaySessionPolicy(emptyAlignSession).canEditOverlay,
     false,
   );
   assert.equal(
-    selectOverlayPolicy(alignSession, createInputRuntime()).ownsPointerHitTesting,
+    selectOverlayInputPolicy(alignSession, createInputRuntime()).ownsPointerHitTesting,
     true,
   );
   assert.equal(
-    selectOverlayPolicy(
+    selectOverlayInputPolicy(
       alignSession,
       createInputRuntime({ passThrough: true }),
     ).ownsPointerHitTesting,
     false,
   );
   assert.equal(
-    selectOverlayPolicy(traceSession, createInputRuntime()).ownsPointerHitTesting,
+    selectOverlayInputPolicy(traceSession, createInputRuntime()).ownsPointerHitTesting,
     false,
   );
 });

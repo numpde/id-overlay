@@ -11,7 +11,8 @@ import {
   selectRuntimePointerScreenPx,
 } from "./machine/selectors.js";
 import {
-  selectOverlayPolicy,
+  selectOverlayInputPolicy,
+  selectOverlaySessionPolicy,
   shouldReleasePassThroughOverride,
 } from "./machine/policy.js";
 
@@ -87,16 +88,16 @@ export function resolveWheelProjection({
   wheel = null,
   wheelMode = null,
 } = {}) {
-  const overlayPolicy = resolveProjectionContext({
+  const policy = resolveProjectionContext({
     machineState,
     state,
     runtime,
-  }).policy;
+  });
   const resolvedWheel = wheel ?? {};
   const resolvedWheelMode = wheelMode ?? resolveWheelMode(resolvedWheel);
   const shouldHandle = (
     isPointerOverOverlay &&
-    isWheelGestureAllowed({ overlayPolicy, wheelMode: resolvedWheelMode })
+    isWheelGestureAllowed({ policy, wheelMode: resolvedWheelMode })
   );
   return {
     wheelMode: resolvedWheelMode,
@@ -104,25 +105,25 @@ export function resolveWheelProjection({
     shouldIntercept: shouldHandle && resolvedWheelMode !== WHEEL_MODE.MAP_ZOOM,
     shouldConsume: shouldHandle && (
       resolvedWheelMode !== WHEEL_MODE.MAP_ZOOM ||
-      overlayPolicy.ownsPointerHitTesting
+      policy.input.ownsPointerHitTesting
     ),
   };
 }
 
-function isWheelGestureAllowed({ overlayPolicy, wheelMode }) {
-  if (!overlayPolicy.hasImage) {
+function isWheelGestureAllowed({ policy, wheelMode }) {
+  if (!policy.session.hasImage) {
     return false;
   }
   if (wheelMode === WHEEL_MODE.ADJUST_OPACITY) {
     return true;
   }
-  if (overlayPolicy.isPassThrough) {
+  if (policy.input.isPassThrough) {
     return false;
   }
   if (wheelMode === WHEEL_MODE.MAP_ZOOM) {
-    return overlayPolicy.ownsPointerHitTesting;
+    return policy.input.ownsPointerHitTesting;
   }
-  return overlayPolicy.ownsPointerHitTesting;
+  return policy.input.ownsPointerHitTesting;
 }
 
 export function resolveKeyboardProjection({
@@ -131,13 +132,13 @@ export function resolveKeyboardProjection({
   runtime = null,
   keyboard = null,
 } = {}) {
-  const overlayPolicy = resolveProjectionContext({
+  const policy = resolveProjectionContext({
     machineState,
     state,
     runtime,
-  }).policy;
+  });
   const shouldIgnore = !keyboard || shouldIgnoreKeyboardShortcut(keyboard);
-  if (shouldIgnore || !overlayPolicy.canEditOverlay) {
+  if (shouldIgnore || !policy.session.canEditOverlay) {
     return {
       action: null,
       shouldIgnore,
@@ -189,15 +190,15 @@ function resolveCanOwnOverlayPointer({
   runtime = null,
   isPointerOverOverlay = false,
 }) {
-  const overlayPolicy = resolveProjectionContext({
+  const policy = resolveProjectionContext({
     machineState,
     state,
     runtime,
-  }).policy;
+  });
   return (
     isPointerOverOverlay &&
-    overlayPolicy.hasImage &&
-    overlayPolicy.ownsPointerHitTesting
+    policy.session.hasImage &&
+    policy.input.ownsPointerHitTesting
   );
 }
 
@@ -209,6 +210,7 @@ function resolveProjectionContext({
   const canonicalState = machineState ?? state ?? {};
   return {
     canonicalState,
-    policy: selectOverlayPolicy(canonicalState, runtime),
+    session: selectOverlaySessionPolicy(canonicalState),
+    input: selectOverlayInputPolicy(canonicalState, runtime),
   };
 }

@@ -74,23 +74,24 @@ export function selectPanelPrimaryAction(state) {
   });
 }
 
-export function selectOverlayPolicy(state, runtime = null) {
-  // TODO(smell): Overlay policy currently mixes durable mode, native-map input,
-  // and transient pass-through in one selector. Once user/fact ingress is split,
-  // keep durable editability and transient input ownership as distinct derived
-  // facts so content cannot infer transition semantics from presentation flags.
+export function selectOverlaySessionPolicy(state) {
   const base = selectBaseInteractionPolicy(state);
-  const runtimeState = runtime ?? state.runtime ?? null;
-  const hasInputPassThrough = runtimeState?.inputOverride === MACHINE_INPUT_OVERRIDE.PASS_THROUGH;
-  const isNativeMapInput = !base.canEditOverlay;
   return {
     hasImage: base.hasImage,
     mode: base.mode,
-    isNativeMapInput,
-    isPassThrough: isNativeMapInput || hasInputPassThrough,
+    isNativeMapInput: !base.canEditOverlay,
     canEditOverlay: base.canEditOverlay,
     arePinsVisible: base.canEditOverlay,
-    ownsPointerHitTesting: base.canEditOverlay && !hasInputPassThrough,
+  };
+}
+
+export function selectOverlayInputPolicy(state, runtime = null) {
+  const sessionPolicy = selectOverlaySessionPolicy(state);
+  const runtimeState = runtime ?? state.runtime ?? null;
+  const hasInputPassThrough = runtimeState?.inputOverride === MACHINE_INPUT_OVERRIDE.PASS_THROUGH;
+  return {
+    isPassThrough: sessionPolicy.isNativeMapInput || hasInputPassThrough,
+    ownsPointerHitTesting: sessionPolicy.canEditOverlay && !hasInputPassThrough,
   };
 }
 

@@ -7,7 +7,8 @@ import {
   MACHINE_PANEL_INTENT,
 } from "../../src/core/machine/events.js";
 import {
-  selectOverlayPolicy,
+  selectOverlayInputPolicy,
+  selectOverlaySessionPolicy,
 } from "../../src/core/machine/policy.js";
 import {
   selectPanelStatusText,
@@ -28,13 +29,15 @@ test("initial no-image state is native Trace with paste as the primary action", 
   assert.equal(currentState.session.mode, MACHINE_MODE.TRACE);
   assert.equal(currentState.session.image, null);
   assert.equal(selectPanelStatusText(currentState), "Paste a screenshot to begin.");
-  assert.deepEqual(selectOverlayPolicy(currentState), {
+  assert.deepEqual(selectOverlaySessionPolicy(currentState), {
     hasImage: false,
     mode: MACHINE_MODE.TRACE,
     isNativeMapInput: true,
-    isPassThrough: true,
     canEditOverlay: false,
     arePinsVisible: false,
+  });
+  assert.deepEqual(selectOverlayInputPolicy(currentState), {
+    isPassThrough: true,
     ownsPointerHitTesting: false,
   });
 });
@@ -71,20 +74,22 @@ test("selectors derive panel intent, status, controls, and pass-through", () => 
     selectPanelStatusText(currentState),
     "Click Clear image? again to remove the current screenshot, placement, and pins.",
   );
-  assert.deepEqual(selectOverlayPolicy(currentState), {
+  assert.deepEqual(selectOverlaySessionPolicy(currentState), {
     hasImage: true,
     mode: MACHINE_MODE.ALIGN,
     isNativeMapInput: false,
-    isPassThrough: false,
     canEditOverlay: true,
     arePinsVisible: true,
+  });
+  assert.deepEqual(selectOverlayInputPolicy(currentState), {
+    isPassThrough: false,
     ownsPointerHitTesting: true,
   });
 
   host.selectMode(MACHINE_MODE.TRACE);
   currentState = state(host);
   assert.equal(currentState.session.mode, MACHINE_MODE.TRACE);
-  assert.equal(selectOverlayPolicy(currentState).isPassThrough, true);
+  assert.equal(selectOverlayInputPolicy(currentState).isPassThrough, true);
 });
 
 test("machine rejects panel intents that are invalid for the current state", () => {

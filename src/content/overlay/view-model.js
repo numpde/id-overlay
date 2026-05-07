@@ -9,7 +9,10 @@ import {
 } from "../../core/overlay-render.js";
 import { buildPinRenderModels } from "../../core/pin-render.js";
 import { getOverlayImage, hasOverlayImageSession } from "../../core/session.js";
-import { selectOverlayPolicy } from "../../core/machine/policy.js";
+import {
+  selectOverlayInputPolicy,
+  selectOverlaySessionPolicy,
+} from "../../core/machine/policy.js";
 
 export function buildOverlayViewModel({
   machineState,
@@ -20,11 +23,12 @@ export function buildOverlayViewModel({
   const session = machineState.session;
   const viewportRect = snapshot.viewportRect;
   const localViewportRect = snapshot.localViewportRect ?? viewportRect;
-  const policy = selectOverlayPolicy(machineState, runtime);
+  const sessionPolicy = selectOverlaySessionPolicy(machineState);
+  const inputPolicy = selectOverlayInputPolicy(machineState, runtime);
   const base = {
     viewport: {
-      mode: policy.mode,
-      isPassThrough: policy.isPassThrough,
+      mode: sessionPolicy.mode,
+      isPassThrough: inputPolicy.isPassThrough,
       rect: localViewportRect,
     },
     mapLayer: {
@@ -72,7 +76,7 @@ export function buildOverlayViewModel({
     },
     frame: {
       ...imageBox,
-      ownsPointerHitTesting: policy.ownsPointerHitTesting,
+      ownsPointerHitTesting: inputPolicy.ownsPointerHitTesting,
     },
     hitTarget: {
       image: {
@@ -83,7 +87,7 @@ export function buildOverlayViewModel({
       viewportRect,
       surfaceMotion: snapshot.surfaceMotion,
     },
-    pins: policy.arePinsVisible
+    pins: sessionPolicy.arePinsVisible
       ? buildPinsViewModel({
         pins: session.registration.pins,
         transform,
