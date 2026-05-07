@@ -8,7 +8,6 @@ import { MACHINE_STATUS_NOTICE_KIND } from "./status-notices.js";
 import { getOverlayImageLoadStats } from "../image-normalization.js";
 import { RUNTIME_ERROR_SOURCE } from "../runtime-error.js";
 import { peekRedoRecord, peekUndoRecord } from "./history.js";
-import { selectOverlayPolicy } from "./policy.js";
 
 export const MACHINE_PANEL_STATUS_MESSAGE = Object.freeze({
   PASTE_ARMED: "Press Ctrl/Cmd+V to paste an image from your clipboard.",
@@ -52,20 +51,6 @@ export function selectBaselinePanelStatusText(state) {
     return MACHINE_PANEL_STATUS_MESSAGE.ALIGN;
   }
   return MACHINE_PANEL_STATUS_MESSAGE.TRACE;
-}
-
-export function selectOverlayPresentation(state, runtime = null) {
-  // TODO(smell): This selector returns presentation flags directly from machine
-  // policy. The final render boundary should expose an overlay view model that
-  // includes geometry/pin visibility/input ownership facts, leaving DOM code to
-  // reconcile nodes only.
-  const policy = selectOverlayPolicy(state, runtime);
-  return {
-    mode: policy.mode,
-    isPassThrough: policy.isPassThrough,
-    arePinsVisible: policy.arePinsVisible,
-    ownsPointerHitTesting: policy.ownsPointerHitTesting,
-  };
 }
 
 export function selectRuntimePointerScreenPx(stateOrRuntime) {
