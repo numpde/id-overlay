@@ -4,13 +4,8 @@ import {
   MACHINE_PLACEMENT_EDIT_KIND,
 } from "./events.js";
 import { MACHINE_STATUS_NOTICE_KIND } from "./status-notices.js";
-import { createMachineEffectRunner } from "./effect-runner.js";
-import {
-  createPanelTimeoutElapsedResult,
-  createStatusTimeoutElapsedResult,
-} from "./effect-results.js";
-import { createRequestTimerRegistry } from "./request-timers.js";
 import { transitionMachineEffectResult } from "./effect-result-transition.js";
+import { createMachineHostEffectServices } from "./host-effect-services.js";
 import {
   applyMachineStatusNotice,
   cancelPanelIntentWithStatusNotice,
@@ -49,9 +44,6 @@ import {
 } from "./transition.js";
 import { clampOpacity, opacityFromWheelDelta } from "../opacity.js";
 
-const DEFAULT_PANEL_TIMEOUT_MS = 1800;
-const DEFAULT_STATUS_TIMEOUT_MS = 1800;
-
 export function createMachineHost({
   persistedSession = null,
   savePersistedSession = null,
@@ -60,16 +52,15 @@ export function createMachineHost({
   cancelManualPasteCapture = null,
   setPanelTimeout = null,
   clearPanelTimeout = null,
-  panelTimeoutMs = DEFAULT_PANEL_TIMEOUT_MS,
+  panelTimeoutMs = undefined,
   setStatusTimeout = null,
   clearStatusTimeout = null,
-  statusTimeoutMs = DEFAULT_STATUS_TIMEOUT_MS,
+  statusTimeoutMs = undefined,
   onError = null,
 } = {}) {
-  // TODO(smell): Host owns runtime lifecycle, persistence, effect adapter
-  // wiring, and external subscribers. Split effect host services from durable
-  // persistence so machine hosting is not the catch-all boundary for every side
-  // effect.
+  // TODO(smell): Host still owns runtime lifecycle, durable persistence, and
+  // external subscribers. Split persistence/subscription adapters so this file
+  // only composes ingress methods over an already-hosted machine runtime.
   let destroyed = false;
   const subscriberUnsubscribes = new Set();
   let runtime = null;
@@ -77,35 +68,23 @@ export function createMachineHost({
   let lastPersistedKey = "";
   let pendingPageContextPersistedSession = persistedSession;
 
-  const runEffect = createMachineEffectRunner({
+  const effectServices = createMachineHostEffectServices({
     readPasteImage,
     startManualPasteCapture,
     cancelManualPasteCapture,
-    startPanelTimeout,
-    cancelPanelTimeout,
-    startStatusTimeout,
-    cancelStatusTimeout,
-    completeEffect: ingestEffectResult,
-    onError: reportError,
-  });
-  const panelTimers = createRequestTimerRegistry({
-    setTimer: setPanelTimeout,
-    clearTimer: clearPanelTimeout,
-    delayMs: panelTimeoutMs,
-    createElapsedResult: createPanelTimeoutElapsedResult,
-    completeElapsed: ingestEffectResult,
-  });
-  const statusTimers = createRequestTimerRegistry({
-    setTimer: setStatusTimeout,
-    clearTimer: clearStatusTimeout,
-    delayMs: statusTimeoutMs,
-    createElapsedResult: createStatusTimeoutElapsedResult,
-    completeElapsed: ingestEffectResult,
+    setPanelTimeout,
+    clearPanelTimeout,
+    panelTimeoutMs,
+    setStatusTimeout,
+    clearStatusTimeout,
+    statusTimeoutMs,
+    completeEffectResult: ingestEffectResult,
+    reportError,
   });
 
   runtime = createMachineRuntime({
     initialState: fromPersistedMachineSession(persistedSession),
-    executeEffect: runEffect,
+    executeEffect: effectServices.runEffect,
     onEffectError: reportError,
   });
   lastPersistedKey = toPersistedMachineSessionSnapshot(runtime.getState()).key;
@@ -388,9 +367,7 @@ export function createMachineHost({
     destroyed = true;
     unsubscribePersistence?.();
     clearSubscribers();
-    cancelAllManualPasteCaptures();
-    panelTimers.clearAll();
-    statusTimers.clearAll();
+    effectServices.destroy();
   }
 
   function persistState(state) {
@@ -409,38 +386,11 @@ export function createMachineHost({
     }
   }
 
-  function startPanelTimeout({ intent, requestId, context }) {
-    panelTimers.start({
-      intent,
-      requestId,
-      context,
-    });
-  }
-
-  function cancelPanelTimeout({ requestId }) {
-    panelTimers.cancel({ requestId });
-  }
-
-  function startStatusTimeout({ requestId, context }) {
-    statusTimers.start({
-      requestId,
-      context,
-    });
-  }
-
-  function cancelStatusTimeout({ requestId }) {
-    statusTimers.cancel({ requestId });
-  }
-
   function clearSubscribers() {
     for (const unsubscribe of subscriberUnsubscribes) {
       unsubscribe();
     }
     subscriberUnsubscribes.clear();
-  }
-
-  function cancelAllManualPasteCaptures() {
-    cancelManualPasteCapture?.({ requestId: null });
   }
 
   function reportError(error, context) {
