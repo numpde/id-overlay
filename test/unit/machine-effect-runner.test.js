@@ -15,7 +15,7 @@ import {
 } from "../../src/core/machine/effect-results.js";
 import {
   MACHINE_PASTE_SOURCE,
-  createClipboardFactPasteReadOutcome,
+  createPasteReadOutcomeFromClipboardFact,
 } from "../../src/core/machine/paste-read.js";
 import { createMachineEffectRunner } from "../../src/core/machine/effect-runner.js";
 import {
@@ -26,7 +26,10 @@ import {
   createClipboardImageFailureFact,
   createDecodedClipboardImageFact,
 } from "../../src/core/clipboard-facts.js";
-import { IMAGE } from "../helpers/session-fixtures.js";
+import {
+  IMAGE,
+  PLACEMENT,
+} from "../helpers/session-fixtures.js";
 
 test("constructors centralize effect-runner result shapes", () => {
   const outcome = createDecodedPasteOutcome();
@@ -424,28 +427,18 @@ function createContext() {
 }
 
 function createMissingImagePasteOutcome() {
-  return createClipboardFactPasteReadOutcome({
+  return createPasteReadOutcomeFromClipboardFact({
     fact: createClipboardImageFailureFact({
       kind: CLIPBOARD_IMAGE_READ_KIND.MISSING_IMAGE,
     }),
-    snapshot: createPageSnapshot(),
   });
 }
 
 function createDecodedPasteOutcome() {
-  return createClipboardFactPasteReadOutcome({
+  return createPasteReadOutcomeFromClipboardFact({
     fact: createDecodedClipboardImageFact({ image: IMAGE }),
-    snapshot: createPageSnapshot(),
+    placement: PLACEMENT,
   });
-}
-
-function createPageSnapshot() {
-  return {
-    mapView: {
-      center: { lat: -1.23, lon: 36.84 },
-      zoom: 16,
-    },
-  };
 }
 
 function createIdleState() {

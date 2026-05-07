@@ -4,6 +4,8 @@ import {
 import {
   MACHINE_PASTE_READ_OUTCOME_KIND,
   MACHINE_PASTE_SOURCE,
+  createClipboardFailurePasteReadOutcome,
+  createDecodedImagePasteReadOutcome,
   normalizeMachinePasteSource,
 } from "./paste-read.js";
 import { MACHINE_EFFECT_RESULT_KIND } from "./effect-results.js";
@@ -20,12 +22,6 @@ import { loadImageSession } from "./session-transition.js";
 import {
   createTransitionResult,
 } from "./transition-result.js";
-import { createPlacementTransform } from "../transform.js";
-
-export const MACHINE_PASTE_READ_INTERPRETATION_KIND = Object.freeze({
-  DECODED_IMAGE: "decoded-image",
-  CLIPBOARD_FAILURE: "clipboard-failure",
-});
 
 export const PASTE_EFFECT_RESULT_TRANSITIONS = Object.freeze({
   [MACHINE_EFFECT_RESULT_KIND.READ_PASTE_IMAGE]: completePasteRead,
@@ -40,14 +36,14 @@ export function completePasteRead(state, result) {
   if (!outcome) {
     return createTransitionResult({ state });
   }
-  if (outcome.kind === MACHINE_PASTE_READ_INTERPRETATION_KIND.DECODED_IMAGE) {
+  if (outcome.kind === MACHINE_PASTE_READ_OUTCOME_KIND.DECODED_IMAGE) {
     return loadImageSession(state, {
       image: outcome.image,
       placement: outcome.placement,
       requestId: result.requestId,
     });
   }
-  if (outcome.kind !== MACHINE_PASTE_READ_INTERPRETATION_KIND.CLIPBOARD_FAILURE) {
+  if (outcome.kind !== MACHINE_PASTE_READ_OUTCOME_KIND.CLIPBOARD_FAILURE) {
     return createTransitionResult({ state });
   }
   const noticeKind = resolveClipboardFailureNoticeKind(outcome.failureKind);
@@ -75,19 +71,13 @@ export function normalizePasteReadOutcome(outcome) {
   if (!outcome || typeof outcome !== "object") {
     return null;
   }
-  if (outcome.kind === MACHINE_PASTE_READ_OUTCOME_KIND.CLIPBOARD_FACT) {
-    return createPasteReadOutcomeFromClipboardFact({
-      fact: outcome.fact,
-      snapshot: outcome.snapshot,
-    });
-  }
-  if (outcome.kind === MACHINE_PASTE_READ_INTERPRETATION_KIND.DECODED_IMAGE) {
-    return createDecodedImagePasteOutcome({
+  if (outcome.kind === MACHINE_PASTE_READ_OUTCOME_KIND.DECODED_IMAGE) {
+    return createDecodedImagePasteReadOutcome({
       image: outcome.image,
       placement: outcome.placement ?? null,
     });
   }
-  if (outcome.kind === MACHINE_PASTE_READ_INTERPRETATION_KIND.CLIPBOARD_FAILURE) {
+  if (outcome.kind === MACHINE_PASTE_READ_OUTCOME_KIND.CLIPBOARD_FAILURE) {
     return createClipboardFailurePasteOutcome({
       failureKind: outcome.failureKind,
     });
@@ -95,58 +85,11 @@ export function normalizePasteReadOutcome(outcome) {
   return null;
 }
 
-export function createPasteReadOutcomeFromClipboardFact({ fact, snapshot }) {
-  if (!fact || fact.kind === CLIPBOARD_IMAGE_READ_KIND.UNAVAILABLE) {
-    return null;
-  }
-  if (fact.kind === CLIPBOARD_IMAGE_READ_KIND.DECODED_IMAGE) {
-    return createDecodedImagePasteOutcome({
-      image: fact.image,
-      snapshot,
-    });
-  }
-  if (fact.kind === CLIPBOARD_IMAGE_READ_KIND.MISSING_IMAGE) {
-    return createClipboardFailurePasteOutcome({
-      failureKind: fact.kind,
-    });
-  }
-  if (fact.kind === CLIPBOARD_IMAGE_READ_KIND.UNREADABLE_IMAGE) {
-    return createClipboardFailurePasteOutcome({
-      failureKind: fact.kind,
-    });
-  }
-  return null;
-}
-
-export function createDecodedImagePasteOutcome({ image, placement = null, snapshot = null }) {
-  // TODO(smell): Paste outcome interpretation can derive initial placement from
-  // a live page snapshot, so paste facts still know about map placement policy.
-  // The final machine boundary should receive either a decoded image fact plus a
-  // separate page-context fact, or an already-authored load-image intent.
-  if (!image) {
-    return null;
-  }
-  return {
-    kind: MACHINE_PASTE_READ_INTERPRETATION_KIND.DECODED_IMAGE,
-    image,
-    placement: placement ?? (snapshot ? createPlacementTransform({
-      image,
-      centerMapLatLon: snapshot.mapView.center,
-      scale: 1,
-      rotationRad: 0,
-      zoom: snapshot.mapView.zoom,
-    }) : null),
-  };
-}
-
-export function createClipboardFailurePasteOutcome({ failureKind }) {
+function createClipboardFailurePasteOutcome({ failureKind }) {
   if (!resolveClipboardFailureNoticeKind(failureKind)) {
     return null;
   }
-  return {
-    kind: MACHINE_PASTE_READ_INTERPRETATION_KIND.CLIPBOARD_FAILURE,
-    failureKind,
-  };
+  return createClipboardFailurePasteReadOutcome({ failureKind });
 }
 
 function resolveClipboardFailureNoticeKind(failureKind) {

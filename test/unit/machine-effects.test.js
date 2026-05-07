@@ -16,7 +16,7 @@ import {
 } from "../../src/core/machine/effect-results.js";
 import {
   MACHINE_PASTE_SOURCE,
-  createClipboardFactPasteReadOutcome,
+  createPasteReadOutcomeFromClipboardFact,
 } from "../../src/core/machine/paste-read.js";
 import { transitionMachineEffectResult } from "../../src/core/machine/effect-result-transition.js";
 import {
@@ -579,26 +579,16 @@ function loadImageForRequest(host, { requestId }) {
 }
 
 function createDecodedPasteOutcome() {
-  return createClipboardFactPasteReadOutcome({
+  return createPasteReadOutcomeFromClipboardFact({
     fact: createDecodedClipboardImageFact({ image: IMAGE }),
-    snapshot: createPageSnapshot(),
+    placement: PLACEMENT,
   });
 }
 
 function createMissingImagePasteOutcome() {
-  return createClipboardFactPasteReadOutcome({
+  return createPasteReadOutcomeFromClipboardFact({
     fact: createClipboardImageFailureFact({
       kind: CLIPBOARD_IMAGE_READ_KIND.MISSING_IMAGE,
     }),
-    snapshot: createPageSnapshot(),
   });
-}
-
-function createPageSnapshot() {
-  return {
-    mapView: {
-      center: { lat: -1.23, lon: 36.84 },
-      zoom: 16,
-    },
-  };
 }

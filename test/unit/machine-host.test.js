@@ -9,7 +9,7 @@ import {
   createDecodedClipboardImageFact,
 } from "../../src/core/clipboard-facts.js";
 import {
-  createClipboardFactPasteReadOutcome,
+  createPasteReadOutcomeFromClipboardFact,
 } from "../../src/core/machine/paste-read.js";
 import {
   selectPanelStatusText,
@@ -322,13 +322,8 @@ function createTimerHarness() {
 }
 
 function createDecodedPasteOutcome() {
-  return createClipboardFactPasteReadOutcome({
+  return createPasteReadOutcomeFromClipboardFact({
     fact: createDecodedClipboardImageFact({ image: IMAGE }),
-    snapshot: {
-      mapView: {
-        center: { lat: -1.23, lon: 36.84 },
-        zoom: 16,
-      },
-    },
+    placement: PLACEMENT,
   });
 }

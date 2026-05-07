@@ -5,7 +5,7 @@ import { createPageAdapter } from "./page-adapter.js";
 import { createPanel } from "./panel.js";
 import { createOverlay } from "./overlay.js";
 import { createClipboardImageReader } from "./paste-adapter.js";
-import { createClipboardFactPasteReadOutcome } from "../core/machine/paste-read.js";
+import { createPagePlacedPasteReadOutcome } from "./paste-read-outcome.js";
 import { BUILD_INFO } from "../core/build-info.js";
 import { createLogger } from "../core/logger.js";
 import { DEFAULT_STORAGE_KEY } from "../platform/storage-key.js";
@@ -158,9 +158,9 @@ async function readClipboardApiPasteOutcome({ clipboardReader, pageObservation }
 }
 
 function createPasteReadOutcome({ fact, pageObservation }) {
-  return createClipboardFactPasteReadOutcome({
+  return createPagePlacedPasteReadOutcome({
     fact,
-    snapshot: pageObservation.getSnapshot(),
+    pageObservation,
   });
 }
 

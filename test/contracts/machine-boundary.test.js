@@ -180,6 +180,32 @@ test("status notices are machine-owned, not content-controller feedback", () => 
   assert.deepEqual(violations, []);
 });
 
+test("machine paste read outcomes do not carry page snapshots", () => {
+  const pasteReadSource = fs.readFileSync(repoPath("src/core/machine/paste-read.js"), "utf8");
+  const pasteOutcomeSource = fs.readFileSync(repoPath("src/core/machine/paste-outcome.js"), "utf8");
+  const forbiddenPatterns = [
+    ["clipboard fact wrapper outcome", /\bCLIPBOARD_FACT\b/],
+    ["page snapshot vocabulary", /\bsnapshot\b/],
+    ["map-view placement policy", /\bmapView\b|\bcenterMapLatLon\b/],
+    ["placement construction", /\bcreatePlacementTransform\b/],
+  ];
+  const violations = [];
+  for (const [relativePath, source] of [
+    ["src/core/machine/paste-read.js", pasteReadSource],
+    ["src/core/machine/paste-outcome.js", pasteOutcomeSource],
+  ]) {
+    for (const [name, pattern] of forbiddenPatterns) {
+      if (pattern.test(source)) {
+        violations.push(`${relativePath}: ${name}`);
+      }
+    }
+  }
+
+  assert.match(pasteReadSource, /\bDECODED_IMAGE\b/);
+  assert.match(pasteReadSource, /\bCLIPBOARD_FAILURE\b/);
+  assert.deepEqual(violations, []);
+});
+
 test("live interactions and overlay read canonical machine host, not the legacy session store", () => {
   const liveSources = new Map([
     ["src/content/interaction-ports.js", fs.readFileSync(repoPath("src/content/interaction-ports.js"), "utf8")],
