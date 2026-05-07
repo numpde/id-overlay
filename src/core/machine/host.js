@@ -19,6 +19,7 @@ import {
   fromPersistedMachineSession,
 } from "./persistence.js";
 import { createMachineHostPersistenceService } from "./host-persistence-service.js";
+import { createMachineHostSubscriptionService } from "./host-subscription-service.js";
 import {
   needsPageContextReconciliation,
   reconcilePageContext,
@@ -58,13 +59,13 @@ export function createMachineHost({
   statusTimeoutMs = undefined,
   onError = null,
 } = {}) {
-  // TODO(smell): Host still owns runtime lifecycle and external subscribers.
-  // Split subscriber ownership so this file only composes ingress methods over
-  // an already-hosted machine runtime.
+  // TODO(smell): Host still creates the runtime and wires page-context
+  // reconciliation. The ideal host would compose ingress methods over an
+  // already-hosted machine runtime.
   let destroyed = false;
-  const subscriberUnsubscribes = new Set();
   let runtime = null;
   let persistenceService = null;
+  let subscriptionService = null;
   let pendingPageContextPersistedSession = persistedSession;
 
   const effectServices = createMachineHostEffectServices({
@@ -91,22 +92,17 @@ export function createMachineHost({
     savePersistedSession,
     reportError,
   });
+  subscriptionService = createMachineHostSubscriptionService({
+    runtime,
+    isDestroyed: () => destroyed,
+  });
 
   function getState() {
     return runtime.getState();
   }
 
   function subscribe(listener, options) {
-    if (destroyed) {
-      return () => {};
-    }
-    const unsubscribeRuntime = runtime.subscribe(listener, options);
-    function unsubscribe() {
-      subscriberUnsubscribes.delete(unsubscribe);
-      unsubscribeRuntime();
-    }
-    subscriberUnsubscribes.add(unsubscribe);
-    return unsubscribe;
+    return subscriptionService.subscribe(listener, options);
   }
 
   function commitMachineTransition(transition, context = {}) {
@@ -366,15 +362,8 @@ export function createMachineHost({
     }
     destroyed = true;
     persistenceService.destroy();
-    clearSubscribers();
+    subscriptionService.destroy();
     effectServices.destroy();
-  }
-
-  function clearSubscribers() {
-    for (const unsubscribe of subscriberUnsubscribes) {
-      unsubscribe();
-    }
-    subscriberUnsubscribes.clear();
   }
 
   function reportError(error, context) {
