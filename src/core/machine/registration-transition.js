@@ -34,10 +34,6 @@ import {
 } from "./transition-result.js";
 
 export function togglePin(state, event) {
-  // TODO(smell): Registration transitions still repeat mode forcing, placement
-  // preservation, panel cleanup, status notice, and history event construction.
-  // Extract registration edit outcomes so add/remove/clear/fit share one replay
-  // contract instead of hand-building restore events in each branch.
   // TODO(smell): Toggle-pin is a user-intent interpreter embedded beside
   // low-level add/remove mutations. Keep external toggle intent public, but make
   // add/remove/restore private machine operations in the final event split.
@@ -82,15 +78,8 @@ export function addPin(state, event) {
   const nextRegistration = createInvalidatedRegistration({
     pins: [...previousRegistration.pins, pin],
   });
-  const panelTransition = clearInvalidPanelIntent(
-    state,
-    clearPlacementEditRuntime(replaceSession(replaceRegistration(state, nextRegistration), {
-      mode: MACHINE_MODE.ALIGN,
-    })),
-  );
-  return createTransitionResult({
-    state: panelTransition.state,
-    effects: panelTransition.effects,
+  return commitRegistrationEdit(state, {
+    nextRegistration,
     statusNotice: createStatusNotice(MACHINE_STATUS_NOTICE_KIND.PIN_ADDED, {
       pinId: pin.id,
     }),
@@ -117,15 +106,8 @@ export function removePin(state, event) {
   const nextRegistration = createInvalidatedRegistration({
     pins: nextPins,
   });
-  const panelTransition = clearInvalidPanelIntent(
-    state,
-    clearPlacementEditRuntime(replaceSession(replaceRegistration(state, nextRegistration), {
-      mode: MACHINE_MODE.ALIGN,
-    })),
-  );
-  return createTransitionResult({
-    state: panelTransition.state,
-    effects: panelTransition.effects,
+  return commitRegistrationEdit(state, {
+    nextRegistration,
     statusNotice: createStatusNotice(MACHINE_STATUS_NOTICE_KIND.PIN_REMOVED, {
       pinId: removedPin.id,
     }),
@@ -149,13 +131,10 @@ export function clearPins(state, event = {}) {
   }
   const nextRegistration = createEmptyRegistration();
   const editState = prepareRegistrationEditState(state, event);
-  const nextState = clearPlacementEditRuntime(replaceSession(replaceRegistration(editState, nextRegistration), {
-    mode: MACHINE_MODE.ALIGN,
-  }));
-  const panelTransition = clearPanelIntent(state, nextState);
-  return createTransitionResult({
-    state: panelTransition.state,
-    effects: panelTransition.effects,
+  return commitRegistrationEdit(editState, {
+    sourceState: state,
+    settlePanel: clearPanelIntent,
+    nextRegistration,
     statusNotice: createStatusNotice(MACHINE_STATUS_NOTICE_KIND.PINS_CLEARED, {
       pinCount: previousRegistration.pins.length,
     }),
@@ -171,15 +150,9 @@ export function clearPins(state, event = {}) {
 }
 
 export function restoreRegistration(state, event) {
-  const panelTransition = clearInvalidPanelIntent(
-    state,
-    clearPlacementEditRuntime(replaceSession(replaceRegistration(state, event.registration), {
-      mode: event.mode ?? state.session.mode,
-    })),
-  );
-  return createTransitionResult({
-    state: panelTransition.state,
-    effects: panelTransition.effects,
+  return commitRegistrationPatch(state, {
+    registration: event.registration,
+    mode: event.mode ?? state.session.mode,
   });
 }
 
@@ -247,6 +220,43 @@ function prepareRegistrationEditState(state, event) {
   }
   return replaceSession(state, {
     placement: event.preservedPlacement,
+  });
+}
+
+function commitRegistrationEdit(state, {
+  sourceState = state,
+  settlePanel = clearInvalidPanelIntent,
+  nextRegistration,
+  statusNotice = null,
+  historyRecord = null,
+}) {
+  return commitRegistrationPatch(state, {
+    sourceState,
+    settlePanel,
+    registration: nextRegistration,
+    mode: MACHINE_MODE.ALIGN,
+    statusNotice,
+    historyRecord,
+  });
+}
+
+function commitRegistrationPatch(state, {
+  sourceState = state,
+  settlePanel = clearInvalidPanelIntent,
+  registration,
+  mode = state.session.mode,
+  statusNotice = null,
+  historyRecord = null,
+}) {
+  const nextState = clearPlacementEditRuntime(replaceSession(replaceRegistration(state, registration), {
+    mode,
+  }));
+  const panelTransition = settlePanel(sourceState, nextState);
+  return createTransitionResult({
+    state: panelTransition.state,
+    effects: panelTransition.effects,
+    statusNotice,
+    historyRecord,
   });
 }
 
