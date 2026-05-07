@@ -1,6 +1,6 @@
 import { createOverlayInputRouter } from "./overlay/input-router.js";
 import { createOverlayRenderer } from "./overlay/renderer.js";
-import { buildOverlayViewModel } from "./overlay/view-model.js";
+import { createOverlayStateSource } from "./overlay/state-source.js";
 
 export function createOverlay({
   pageObservation,
@@ -9,19 +9,24 @@ export function createOverlay({
   machineHost,
   overlayInteractions,
 }) {
-  // TODO(smell): Overlay composition still wires machine state, runtime state,
-  // page snapshots, renderer scheduling, and input listener retargeting by hand.
-  // The final overlay boundary should consume one typed render/input port so
-  // snapshot/runtime subscriptions cannot drift across renderer and router.
-  let latestSnapshot = pageObservation.getSnapshot();
-  let latestRuntime = overlayInteractions.getRuntimeState();
+  let overlayStateSource = null;
   let inputRouter = null;
 
   const renderer = createOverlayRenderer({
-    getOverlayViewModel,
-    getMountElement: () => getSnapshot().mountElement,
+    getOverlayViewModel: () => overlayStateSource.getOverlayViewModel(),
+    getMountElement: () => overlayStateSource.getMountElement(),
     onMountChange() {
       inputRouter?.syncMountedInputListeners();
+      inputRouter?.syncGlobalPointerListeners();
+    },
+  });
+  overlayStateSource = createOverlayStateSource({
+    pageObservation,
+    pageProjection,
+    machineHost,
+    overlayInteractions,
+    onChange: renderer.scheduleRender,
+    onRuntimeChange() {
       inputRouter?.syncGlobalPointerListeners();
     },
   });
@@ -29,69 +34,18 @@ export function createOverlay({
   inputRouter = createOverlayInputRouter({
     pageProjection,
     overlayInteractions,
-    getRuntimeState,
-    getOverlayInputContext,
+    getRuntimeState: overlayStateSource.getRuntimeState,
+    getOverlayInputContext: overlayStateSource.getOverlayInputContext,
     getMountElement: renderer.getMountElement,
     isForwardedMapGestureEvent,
-  });
-
-  const unsubscribeMachine = machineHost.subscribe(renderer.scheduleRender);
-  const unsubscribeViewport = pageObservation.subscribe((nextSnapshot) => {
-    latestSnapshot = nextSnapshot;
-    renderer.scheduleRender();
-  });
-  const unsubscribeRuntime = overlayInteractions.subscribeRuntime((runtime) => {
-    latestRuntime = runtime;
-    inputRouter.syncGlobalPointerListeners();
-    renderer.scheduleRender();
   });
   renderer.scheduleRender();
 
   return {
     destroy() {
       inputRouter.destroy();
-      unsubscribeMachine();
-      unsubscribeViewport();
-      unsubscribeRuntime();
+      overlayStateSource.destroy();
       renderer.destroy();
     },
   };
-
-  function getMachineState() {
-    return machineHost.getState();
-  }
-
-  function getRuntimeState() {
-    return latestRuntime;
-  }
-
-  function getSnapshot() {
-    return latestSnapshot;
-  }
-
-  function getOverlayViewModel() {
-    return buildCurrentOverlayViewModel({
-      machineState: getMachineState(),
-      runtime: getRuntimeState(),
-    });
-  }
-
-  function getOverlayInputContext() {
-    const machineState = getMachineState();
-    const runtime = getRuntimeState();
-    return {
-      machineState,
-      runtime,
-      viewModel: buildCurrentOverlayViewModel({ machineState, runtime }),
-    };
-  }
-
-  function buildCurrentOverlayViewModel({ machineState, runtime }) {
-    return buildOverlayViewModel({
-      machineState,
-      runtime,
-      snapshot: getSnapshot(),
-      projectMapPinScreenPoint: pageProjection.mapToOverlayLayerScreen,
-    });
-  }
 }

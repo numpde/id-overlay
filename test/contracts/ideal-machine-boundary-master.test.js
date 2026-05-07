@@ -594,6 +594,33 @@ test("overlay renderer is a pure render reconciler over an overlay view model", 
   assert.deepEqual(violations, []);
 });
 
+test("overlay composition consumes one state source for render and input facts", () => {
+  const source = readSource(repoPath("src/content/overlay.js"));
+  const stateSource = readSource(repoPath("src/content/overlay/state-source.js"));
+  const forbiddenPatterns = [
+    ["local snapshot cache", /\blatestSnapshot\b/],
+    ["local runtime cache", /\blatestRuntime\b/],
+    ["view model construction in overlay composition", /\bbuildOverlayViewModel\b/],
+    ["direct page observation subscription", /\bpageObservation\.subscribe\b/],
+    ["direct runtime subscription", /\boverlayInteractions\.subscribeRuntime\b/],
+    ["direct machine subscription", /\bmachineHost\.subscribe\b/],
+  ];
+  const violations = [
+    ...forbiddenPatterns
+      .filter(([, pattern]) => pattern.test(source))
+      .map(([name]) => `forbidden: ${name}`),
+  ];
+
+  if (!/\bcreateOverlayStateSource\b/.test(source)) {
+    violations.push("missing: overlay state source");
+  }
+  if (!/\bbuildOverlayViewModel\b/.test(stateSource)) {
+    violations.push("missing: centralized overlay view model construction");
+  }
+
+  assert.deepEqual(violations, []);
+});
+
 test("only machine internals import machine event vocabulary", () => {
   const violations = [];
   for (const filePath of listJavaScriptFiles(SOURCE_DIR)) {
