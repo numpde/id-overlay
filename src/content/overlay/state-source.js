@@ -2,7 +2,7 @@ import {
   OVERLAY_INVALIDATION_SOURCE,
   createOverlayInvalidation,
 } from "./invalidation.js";
-import { buildOverlayViewModel } from "./view-model.js";
+import { buildOverlayPresentation } from "./presentation.js";
 
 export function createOverlayStateSource({
   pageObservation,
@@ -69,17 +69,11 @@ export function createOverlayStateSource({
   }
 
   function buildCurrentOverlayPresentation() {
-    const machineState = getMachineState();
-    return Object.freeze({
-      machineState,
+    return buildOverlayPresentation({
+      machineState: getMachineState(),
       runtime,
       snapshot,
-      viewModel: buildOverlayViewModel({
-        machineState,
-        runtime,
-        snapshot,
-        projectMapPinScreenPoint: pageProjection.mapToOverlayLayerScreen,
-      }),
+      projectMapPinScreenPoint: pageProjection.mapToOverlayLayerScreen,
     });
   }
 
