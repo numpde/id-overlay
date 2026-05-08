@@ -1,5 +1,5 @@
-import { pageSnapshotsEqual } from "./page-snapshot.js";
 import { createPageSnapshotReader } from "./snapshot-reader.js";
+import { createPageSnapshotStream } from "./snapshot-stream.js";
 import { createPageSnapshotWatcher } from "./snapshot-watcher.js";
 
 export function createPageSnapshotSource({
@@ -15,36 +15,33 @@ export function createPageSnapshotSource({
     mapViewResolver,
     runBoundary,
   }),
+  snapshotStream = null,
 }) {
-  let lastSnapshot = null;
-  const listeners = new Set();
   const watcher = createPageSnapshotWatcher({
     hashTarget,
     pageContext,
     onChange: notifyIfChanged,
   });
+  const stream = snapshotStream ?? createPageSnapshotStream({
+    readSnapshot,
+    onFirstSubscriber: startWatching,
+    onNoSubscribers: stopWatching,
+    notifyListener(listener, snapshot) {
+      runBoundary("notify-listener", () => {
+        listener(snapshot);
+      });
+    },
+  });
 
   function getSnapshot() {
-    return readSnapshot();
+    return stream.getSnapshot();
   }
 
   function subscribe(listener) {
-    // TODO(smell): First subscriber starts page watching and last unsubscribe
-    // resets map-view cache. That coupling is subtle; prefer an explicit
-    // page-observation lifecycle service if observation modes grow.
-    listeners.add(listener);
-    startWatching();
-    runBoundary("subscribe-listener", () => {
-      const initialSnapshot = readSnapshot();
-      lastSnapshot = initialSnapshot;
-      listener(initialSnapshot);
+    const result = runBoundary("subscribe-listener", () => {
+      return stream.subscribe(listener);
     });
-    return () => {
-      listeners.delete(listener);
-      if (!listeners.size) {
-        stopWatching();
-      }
-    };
+    return result.ok ? result.value : () => {};
   }
 
   function notifyIfChanged() {
@@ -52,16 +49,7 @@ export function createPageSnapshotSource({
     // is correct but implicit. The final watcher should emit retarget facts that
     // snapshot construction consumes explicitly.
     pageContext.syncObservedContext();
-    const nextSnapshot = readSnapshot();
-    if (lastSnapshot && pageSnapshotsEqual(lastSnapshot, nextSnapshot)) {
-      return;
-    }
-    lastSnapshot = nextSnapshot;
-    for (const listener of listeners) {
-      runBoundary("notify-listener", () => {
-        listener(nextSnapshot);
-      });
-    }
+    stream.notifyIfChanged();
   }
 
   function handleStructureMutation() {
@@ -75,17 +63,16 @@ export function createPageSnapshotSource({
 
   function stopWatching() {
     watcher.stop();
-    lastSnapshot = null;
     mapViewResolver.reset();
   }
 
   function destroy() {
+    stream.destroy();
     stopWatching();
-    listeners.clear();
     viewportGeometry.destroy();
   }
 
-  function readSnapshot() {
+  function readSnapshot({ lastSnapshot }) {
     return snapshotReader.readSnapshot({
       lastSnapshot,
     });

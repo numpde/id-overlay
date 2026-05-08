@@ -936,11 +936,15 @@ test("page snapshot source delegates observation scheduling to a watcher", () =>
 test("page snapshot shape and equality are centralized outside the snapshot source", () => {
   const source = readSource(repoPath("src/content/page-adapter/snapshot-source.js"));
   const readerSource = readSource(repoPath("src/content/page-adapter/snapshot-reader.js"));
+  const streamSource = readSource(repoPath("src/content/page-adapter/snapshot-stream.js"));
   const snapshotSource = readSource(repoPath("src/content/page-adapter/page-snapshot.js"));
   const violations = [];
 
   if (!/\bcreatePageSnapshotReader\b/.test(source)) {
     violations.push("missing: delegated page snapshot reader");
+  }
+  if (!/\bcreatePageSnapshotStream\b/.test(source)) {
+    violations.push("missing: delegated page snapshot stream");
   }
   if (/\bcreatePageSnapshot\b|\bcreateStalePageSnapshot\b|\bcreateFallbackPageSnapshot\b/.test(source)) {
     violations.push("forbidden: snapshot construction in source lifecycle");
@@ -948,7 +952,10 @@ test("page snapshot shape and equality are centralized outside the snapshot sour
   if (!/\bcreatePageSnapshot\b/.test(readerSource)) {
     violations.push("missing: page snapshot factory");
   }
-  if (!/\bpageSnapshotsEqual\b/.test(source)) {
+  if (/\bpageSnapshotsEqual\b/.test(source)) {
+    violations.push("forbidden: snapshot equality in source lifecycle");
+  }
+  if (!/\bpageSnapshotsEqual\b/.test(streamSource)) {
     violations.push("missing: page snapshot equality helper");
   }
   if (/\bfunction\s+(?:createSnapshot|snapshotsEqual)\b/.test(source)) {
