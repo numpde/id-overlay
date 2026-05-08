@@ -3,23 +3,14 @@ import {
 } from "./persistence.js";
 
 export function createMachineHostPersistenceService({
-  runtime,
+  initialState = null,
   savePersistedSession = null,
   reportError = null,
 } = {}) {
-  if (!runtime) {
-    return {
-      destroy() {},
-    };
-  }
+  let lastPersistedKey = toPersistedMachineSessionSnapshot(initialState).key;
 
-  let lastPersistedKey = toPersistedMachineSessionSnapshot(runtime.getState()).key;
-  const unsubscribe = runtime.subscribe(persistState, {
-    emitCurrent: false,
-  });
-
-  function persistState(state) {
-    const snapshot = toPersistedMachineSessionSnapshot(state);
+  function persistCommittedResult(result) {
+    const snapshot = toPersistedMachineSessionSnapshot(result?.state);
     if (snapshot.key === lastPersistedKey) {
       return;
     }
@@ -34,12 +25,8 @@ export function createMachineHostPersistenceService({
     }
   }
 
-  function destroy() {
-    unsubscribe();
-  }
-
   return {
-    destroy,
+    persistCommittedResult,
   };
 }
 

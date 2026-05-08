@@ -2,6 +2,7 @@ import { transitionMachineEffectResult } from "./effect-result-transition.js";
 import { createMachineHostEffectServices } from "./host-effect-services.js";
 import { createMachineHostPageContextService } from "./host-page-context-service.js";
 import { createMachineHostPersistenceService } from "./host-persistence-service.js";
+import { createMachineHostResultLifecycle } from "./host-result-lifecycle.js";
 import { createMachineHostSubscriptionService } from "./host-subscription-service.js";
 import {
   fromPersistedMachineSession,
@@ -22,9 +23,6 @@ export function createHostedMachineRuntime({
   statusTimeoutMs = undefined,
   onError = null,
 } = {}) {
-  // TODO(smell): Hosted runtime composes persistence, effects, page-context
-  // reconciliation, subscriptions, and transition commits. It is split into
-  // services, but this root still owns their ordering and lifecycle manually.
   let destroyed = false;
 
   const runtime = createMachineRuntime({
@@ -49,9 +47,14 @@ export function createHostedMachineRuntime({
     commitMachineResult,
   });
   const persistenceService = createMachineHostPersistenceService({
-    runtime,
+    initialState: runtime.getState(),
     savePersistedSession,
     reportError,
+  });
+  const resultLifecycle = createMachineHostResultLifecycle({
+    runtime,
+    persistenceService,
+    effectServices,
   });
   const subscriptionService = createMachineHostSubscriptionService({
     runtime,
@@ -88,9 +91,8 @@ export function createHostedMachineRuntime({
       return;
     }
     destroyed = true;
-    persistenceService.destroy();
     subscriptionService.destroy();
-    effectServices.destroy();
+    resultLifecycle.destroy();
   }
 
   function commitLiveResult(createResult, context = {}) {
@@ -101,25 +103,7 @@ export function createHostedMachineRuntime({
   }
 
   function commitMachineResult(result, context = {}) {
-    // TODO(smell): Effect execution is hard-wired immediately after state commit.
-    // A final runtime could expose committed results to an effect scheduler port
-    // rather than invoking services inline.
-    const committedResult = runtime.commitMachineResult(result);
-    runEffects(committedResult.effects, {
-      ...context,
-      state: committedResult.state,
-      result: committedResult,
-    });
-    return committedResult;
-  }
-
-  function runEffects(effects, context) {
-    if (!Array.isArray(effects)) {
-      return;
-    }
-    for (const effect of effects) {
-      effectServices.runEffect(effect, context);
-    }
+    return resultLifecycle.commitMachineResult(result, context);
   }
 
   function reportError(error, context) {

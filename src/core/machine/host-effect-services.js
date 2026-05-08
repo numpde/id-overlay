@@ -47,6 +47,15 @@ export function createMachineHostEffectServices({
     onError: reportError,
   });
 
+  function runCommittedEffects(result, context = {}) {
+    if (!Array.isArray(result?.effects)) {
+      return;
+    }
+    for (const effect of result.effects) {
+      runEffect(effect, context);
+    }
+  }
+
   function startPanelTimeout({ intent, requestId, context }) {
     panelTimers.start({
       intent,
@@ -77,7 +86,7 @@ export function createMachineHostEffectServices({
   }
 
   return {
-    runEffect,
+    runCommittedEffects,
     destroy,
   };
 }

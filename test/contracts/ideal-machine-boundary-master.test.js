@@ -20,6 +20,7 @@ import "./machine-boundary-contracts.js";
 // View models expose render data only; they never return executable events.
 // History stores semantic before/after records, not executable undo/redo events.
 // Effects return typed result facts, not public mutation/completion events.
+// Host-side persistence and effects observe committed results through one lifecycle boundary.
 // Page integration exposes explicit snapshot, projection, and gesture ports.
 //
 // This file is the target-shape executable checklist. Every test is an active
@@ -36,6 +37,7 @@ const MASTER_SEAMS = Object.freeze([
   "render-only view models",
   "semantic history records",
   "typed effect results",
+  "committed result lifecycle",
   "explicit page ports",
   "canonical action selectors",
   "storage-shaped persistence",
@@ -52,6 +54,7 @@ test("master checklist names the target seams", () => {
     "render-only view models",
     "semantic history records",
     "typed effect results",
+    "committed result lifecycle",
     "explicit page ports",
     "canonical action selectors",
     "storage-shaped persistence",
@@ -235,6 +238,35 @@ test("machine runtime is private state/effect plumbing, not a public event dispa
       .map(([name]) => `forbidden: ${name}`),
     ...requiredPatterns
       .filter(([, pattern]) => !pattern.test(source))
+      .map(([name]) => `missing: ${name}`),
+  ];
+
+  assert.deepEqual(violations, []);
+});
+
+test("host runtime routes persistence and effects through one committed-result lifecycle", () => {
+  const hostRuntimeSource = readSource(repoPath("src/core/machine/host-runtime.js"));
+  const lifecycleSource = readSource(repoPath("src/core/machine/host-result-lifecycle.js"));
+  const persistenceSource = readSource(repoPath("src/core/machine/host-persistence-service.js"));
+  const forbiddenRuntimePatterns = [
+    ["inline effect loop", /\bfor\s*\(\s*const\s+effect\s+of\b/],
+    ["inline effect helper", /\bfunction\s+runEffects\s*\(/],
+    ["persistence subscription ownership", /\bruntime\.subscribe\s*\(\s*persist/],
+  ];
+  const requiredPatterns = [
+    ["host runtime lifecycle composition", hostRuntimeSource, /\bcreateMachineHostResultLifecycle\b/],
+    ["lifecycle persists committed result", lifecycleSource, /\bpersistCommittedResult\b/],
+    ["lifecycle schedules committed effects", lifecycleSource, /\brunCommittedEffects\b/],
+  ];
+  const violations = [
+    ...forbiddenRuntimePatterns
+      .filter(([, pattern]) => pattern.test(hostRuntimeSource))
+      .map(([name]) => `forbidden: ${name}`),
+    ...(persistenceSource.includes("runtime.subscribe")
+      ? ["forbidden: persistence service subscribes to runtime"]
+      : []),
+    ...requiredPatterns
+      .filter(([, source, pattern]) => !pattern.test(source))
       .map(([name]) => `missing: ${name}`),
   ];
 
