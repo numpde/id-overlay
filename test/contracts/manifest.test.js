@@ -4,6 +4,7 @@ import fs from "node:fs/promises";
 
 import { repoPath } from "../helpers/paths.js";
 import {
+  collectRelativeModuleSpecifiers,
   collectWebAccessibleResources,
   createChromeManifest,
 } from "../../scripts/chrome-manifest.mjs";
@@ -33,6 +34,34 @@ test("content script manifest entry is a classic loader, not an ES module", asyn
   assert.doesNotMatch(loaderSource, /^\s*import\s/m);
   assert.match(loaderSource, /import\s*\(\s*runtime\.getURL\("src\/content\/content\.js"\)\s*\)/);
   assert.match(moduleSource, /^\s*import\s/m);
+});
+
+test("chrome manifest module scanner follows every supported relative module edge", () => {
+  const source = `
+    import "./side-effect.js";
+    import defaultExport from "./default.js";
+    import { named } from "./named.js";
+    import {
+      multiline,
+    } from "./multiline.js";
+    import("./dynamic.js");
+    export { reexported } from "./re-export.js";
+    export * from "./star-re-export.js";
+    import packageName from "package-name";
+    export { external } from "external-package";
+    // import "./commented.js";
+    const stringLiteral = 'import "./string-literal.js"';
+  `;
+
+  assert.deepEqual(collectRelativeModuleSpecifiers(source), [
+    "./side-effect.js",
+    "./default.js",
+    "./named.js",
+    "./multiline.js",
+    "./dynamic.js",
+    "./re-export.js",
+    "./star-re-export.js",
+  ]);
 });
 
 test("generated web-accessible resources exist", async () => {
