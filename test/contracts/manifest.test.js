@@ -14,13 +14,25 @@ test("manifest keeps permissions narrow and points at the content entrypoint", a
   assert.equal(manifest.manifest_version, 3);
   assert.deepEqual(manifest.permissions, ["storage"]);
   assert.deepEqual(manifest.host_permissions, ["https://www.openstreetmap.org/*"]);
-  assert.deepEqual(manifest.content_scripts[0].js, ["src/content/content.js"]);
+  assert.deepEqual(manifest.content_scripts[0].js, ["src/content/content-loader.js"]);
   assert.equal(manifest.content_scripts[0].run_at, "document_start");
   assert.equal(
     Object.hasOwn(manifest, "web_accessible_resources"),
     false,
     "web-accessible resources are generated from the module graph",
   );
+});
+
+test("content script manifest entry is a classic loader, not an ES module", async () => {
+  const manifest = JSON.parse(await fs.readFile(repoPath("manifest.chrome.json"), "utf8"));
+  const contentScriptPath = manifest.content_scripts[0].js[0];
+  const loaderSource = await fs.readFile(repoPath(contentScriptPath), "utf8");
+  const moduleSource = await fs.readFile(repoPath("src/content/content.js"), "utf8");
+
+  assert.equal(contentScriptPath, "src/content/content-loader.js");
+  assert.doesNotMatch(loaderSource, /^\s*import\s/m);
+  assert.match(loaderSource, /import\s*\(\s*runtime\.getURL\("src\/content\/content\.js"\)\s*\)/);
+  assert.match(moduleSource, /^\s*import\s/m);
 });
 
 test("generated web-accessible resources exist", async () => {
@@ -47,6 +59,8 @@ test("generated chrome manifest exposes the content import graph exactly once", 
   }]);
   assert.equal(new Set(resources).size, resources.length);
   assert.equal(resources[0], "src/content/content.css");
+  assert.ok(resources.includes("src/content/content.js"));
+  assert.ok(resources.includes("src/content/keyboard-gateway.js"));
   assert.ok(resources.includes("src/content/main.js"));
 });
 

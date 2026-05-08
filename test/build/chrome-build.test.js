@@ -13,9 +13,12 @@ test("chrome build output includes the manifest and source tree", async () => {
     root: repoPath(),
     sourceManifest,
   }));
+  assert.deepEqual(distManifest.content_scripts[0].js, ["src/content/content-loader.js"]);
+  assert.ok(distManifest.web_accessible_resources[0].resources.includes("src/content/content.js"));
   assert.ok(distManifest.web_accessible_resources[0].resources.includes("src/content/main.js"));
 
   for (const requiredPath of [
+    "src/content/content-loader.js",
     "src/content/content.js",
     "src/content/main.js",
     "src/content/content.css",

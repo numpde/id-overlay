@@ -269,9 +269,9 @@ test("content entrypoint bootstraps only once", async () => {
   const env = createDomEnvironment();
 
   try {
-    await import(`${repoFileUrl("src/content/content.js")}?c=${Date.now()}`);
+    await import(`${repoFileUrl("src/content/content-loader.js")}?c=${Date.now()}`);
     await new Promise((resolve) => setTimeout(resolve, 0));
-    await import(`${repoFileUrl("src/content/content.js")}?c2=${Date.now()}`);
+    await import(`${repoFileUrl("src/content/content-loader.js")}?c2=${Date.now()}`);
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     const host = env.document.getElementById("id-overlay-root");
@@ -293,13 +293,13 @@ test("content entrypoint can retry bootstrap after an initial module load failur
   };
 
   try {
-    globalThis.chrome.runtime.getURL = () => "chrome-extension://invalid/src/content/main.js";
-    await import(`${repoFileUrl("src/content/content.js")}?cf=${Date.now()}`);
+    globalThis.chrome.runtime.getURL = () => "chrome-extension://invalid/src/content/content.js";
+    await import(`${repoFileUrl("src/content/content-loader.js")}?cf=${Date.now()}`);
     await new Promise((resolve) => setTimeout(resolve, 0));
     assert.equal(env.document.getElementById("id-overlay-root"), null);
 
     globalThis.chrome.runtime.getURL = originalGetURL;
-    await import(`${repoFileUrl("src/content/content.js")}?cf2=${Date.now()}`);
+    await import(`${repoFileUrl("src/content/content-loader.js")}?cf2=${Date.now()}`);
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     const host = env.document.getElementById("id-overlay-root");

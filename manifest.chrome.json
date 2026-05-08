@@ -15,7 +15,7 @@
         "https://www.openstreetmap.org/edit*"
       ],
       "js": [
-        "src/content/content.js"
+        "src/content/content-loader.js"
       ],
       "run_at": "document_start"
     }

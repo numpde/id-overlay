@@ -1,8 +1,8 @@
 import { createKeyboardGateway } from "./keyboard-gateway.js";
 
-(() => {
-  installContentEntrypoint(window).start();
-})();
+export function startContentEntrypoint(windowTarget = globalThis.window) {
+  return installContentEntrypoint(windowTarget).start();
+}
 
 function installContentEntrypoint(windowTarget) {
   const BOOTSTRAP_KEY = "__idOverlayBootstrap__";
@@ -27,13 +27,8 @@ function createBootstrapStarter({ keyboardGateway }) {
     if (bootstrapPromise) {
       return bootstrapPromise;
     }
-    const runtime = globalThis.chrome?.runtime ?? globalThis.browser?.runtime;
-    if (!runtime?.getURL) {
-      console.error("id-overlay: extension runtime unavailable");
-      return null;
-    }
 
-    bootstrapPromise = import(runtime.getURL("src/content/main.js")).then(
+    bootstrapPromise = import("./main.js").then(
       ({ queueBootstrapIdOverlay }) => queueBootstrapIdOverlay({ keyboardGateway }),
       (error) => {
         bootstrapPromise = null;

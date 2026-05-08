@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 
-export const WEB_ACCESSIBLE_CONTENT_ENTRYPOINT = "src/content/main.js";
+export const WEB_ACCESSIBLE_CONTENT_ENTRYPOINT = "src/content/content.js";
 export const WEB_ACCESSIBLE_STATIC_RESOURCES = Object.freeze([
   "src/content/content.css",
 ]);
