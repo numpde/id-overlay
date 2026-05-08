@@ -756,9 +756,14 @@ test("page integration exposes explicit ports instead of a broad adapter object"
   assert.deepEqual(violations, []);
 });
 
-test("page adapter centralizes fallback handling in a dedicated boundary", () => {
+test("page adapter centralizes failure capture in a dedicated boundary", () => {
   const source = readSource(repoPath("src/content/page-adapter.js"));
   const boundarySource = readSource(repoPath("src/content/page-adapter/boundary.js"));
+  const boundedSources = new Map([
+    ["src/content/page-adapter/bounded-projection.js", readSource(repoPath("src/content/page-adapter/bounded-projection.js"))],
+    ["src/content/page-adapter/bounded-map-gesture.js", readSource(repoPath("src/content/page-adapter/bounded-map-gesture.js"))],
+    ["src/content/page-adapter/snapshot-source.js", readSource(repoPath("src/content/page-adapter/snapshot-source.js"))],
+  ]);
   const violations = [];
 
   if (!/\bcreatePageAdapterBoundary\b/.test(source)) {
@@ -770,8 +775,16 @@ test("page adapter centralizes fallback handling in a dedicated boundary", () =>
   if (!/\bPage adapter boundary failed\b/.test(boundarySource)) {
     violations.push("missing: centralized adapter failure log");
   }
-  if (/\btypeof\s+fallbackValue\s*===\s*["']function["']/.test(boundarySource)) {
-    violations.push("forbidden: executable fallback policy");
+  if (/\bfallbackValue\b/.test(boundarySource)) {
+    violations.push("forbidden: page boundary fallback parameter");
+  }
+  if (!/\bok:\s*true\b/.test(boundarySource) || !/\bok:\s*false\b/.test(boundarySource)) {
+    violations.push("missing: typed page boundary outcome");
+  }
+  for (const [relativePath, boundedSource] of boundedSources) {
+    if (/\brunBoundary\s*\([^)]*,[^)]*,/.test(boundedSource)) {
+      violations.push(`${relativePath}: forbidden: caller-provided boundary fallback`);
+    }
   }
 
   assert.deepEqual(violations, []);

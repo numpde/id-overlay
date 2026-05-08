@@ -16,9 +16,12 @@ test("bounded map gesture port delegates gesture methods through named boundary 
   });
   const mapGesture = createBoundedMapGesturePort({
     gestureForwarder,
-    runBoundary(operation, fn, fallbackValue) {
-      calls.push({ operation, fallbackValue });
-      return fn();
+    runBoundary(operation, fn) {
+      calls.push(operation);
+      return {
+        ok: true,
+        value: fn(),
+      };
     },
   });
 
@@ -30,25 +33,19 @@ test("bounded map gesture port delegates gesture methods through named boundary 
     deltaY: -1,
   }), true);
   assert.equal(mapGesture.isForwardedMapGestureEvent(event), true);
-  assert.deepEqual(calls.map((call) => call.operation), [
+  assert.deepEqual(calls, [
     "begin-map-pan",
     "update-map-pan",
     "end-map-pan",
     "forward-map-zoom",
-  ]);
-  assert.deepEqual(calls.map((call) => call.fallbackValue), [
-    false,
-    false,
-    undefined,
-    false,
   ]);
 });
 
 test("bounded map gesture port centralizes failed gesture fallback values", () => {
   const mapGesture = createBoundedMapGesturePort({
     gestureForwarder: createGestureForwarderStub(),
-    runBoundary(_operation, _fn, fallbackValue) {
-      return fallbackValue;
+    runBoundary() {
+      return { ok: false };
     },
   });
 

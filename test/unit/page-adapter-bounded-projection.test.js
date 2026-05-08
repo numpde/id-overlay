@@ -17,9 +17,12 @@ test("bounded page projection delegates projection methods through named boundar
   const boundedProjection = createBoundedPageProjection({
     projection,
     getFallbackMapView: () => ({ center: { lat: 0, lon: 0 } }),
-    runBoundary(operation, fn, fallbackValue) {
-      calls.push({ operation, fallbackValue });
-      return fn();
+    runBoundary(operation, fn) {
+      calls.push(operation);
+      return {
+        ok: true,
+        value: fn(),
+      };
     },
   });
 
@@ -28,7 +31,7 @@ test("bounded page projection delegates projection methods through named boundar
   assert.deepEqual(boundedProjection.mapToScreen({ lat: 5, lon: 6 }), { x: 31, y: 32 });
   assert.deepEqual(boundedProjection.mapToOverlayLayerScreen({ lat: 7, lon: 8 }), { x: 41, y: 42 });
   assert.deepEqual(boundedProjection.screenToMap({ x: 9, y: 10 }), { lat: -1.2, lon: 36.8 });
-  assert.deepEqual(calls.map((call) => call.operation), [
+  assert.deepEqual(calls, [
     "client-point-to-screen",
     "screen-point-to-client",
     "map-to-screen",
@@ -42,8 +45,8 @@ test("bounded page projection centralizes projection fallback values", () => {
   const boundedProjection = createBoundedPageProjection({
     projection: createProjectionStub(),
     getFallbackMapView: () => ({ center: fallbackCenter }),
-    runBoundary(_operation, _fn, fallbackValue) {
-      return fallbackValue;
+    runBoundary() {
+      return { ok: false };
     },
   });
 

@@ -11,8 +11,13 @@ import {
 test("page snapshot source returns stale provenance after a live snapshot when read fails", () => {
   let failSnapshotRead = false;
   const source = createSnapshotSource({
-    runBoundary(_operation, fn, fallback) {
-      return failSnapshotRead ? fallback : fn();
+    runBoundary(_operation, fn) {
+      return failSnapshotRead
+        ? { ok: false }
+        : {
+            ok: true,
+            value: fn(),
+          };
     },
   });
 
@@ -35,8 +40,8 @@ test("page snapshot source returns stale provenance after a live snapshot when r
 
 test("page snapshot source returns synthetic provenance when initial read fails", () => {
   const source = createSnapshotSource({
-    runBoundary(_operation, _fn, fallback) {
-      return fallback;
+    runBoundary() {
+      return { ok: false };
     },
   });
 
@@ -52,7 +57,10 @@ test("page snapshot source returns synthetic provenance when initial read fails"
 });
 
 function createSnapshotSource({
-  runBoundary = (_operation, fn) => fn(),
+  runBoundary = (_operation, fn) => ({
+    ok: true,
+    value: fn(),
+  }),
 } = {}) {
   const context = {
     mapWindow: {},

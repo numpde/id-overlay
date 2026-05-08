@@ -85,9 +85,10 @@ export function createPageSnapshotSource({
   }
 
   function readSnapshot() {
-    return runBoundary("get-snapshot", () => {
+    const result = runBoundary("get-snapshot", () => {
       return createPageSnapshot(resolveSnapshotState(pageContext.getActiveMapContext()));
-    }, createFallbackSnapshot());
+    });
+    return result.ok ? result.value : createFallbackSnapshot();
   }
 
   function resolveSnapshotState(context) {

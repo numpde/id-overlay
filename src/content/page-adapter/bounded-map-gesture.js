@@ -7,14 +7,14 @@ export function createBoundedMapGesturePort({
   // objects once target resolution and event forwarding are split.
   return {
     beginMapPan(screenPoint) {
-      return runBoundary("begin-map-pan", () => {
+      return runGesture("begin-map-pan", () => {
         return gestureForwarder.beginMapPan(screenPoint);
-      }, false);
+      });
     },
     updateMapPan(screenPoint) {
-      return runBoundary("update-map-pan", () => {
+      return runGesture("update-map-pan", () => {
         return gestureForwarder.updateMapPan(screenPoint);
-      }, false);
+      });
     },
     endMapPan(screenPoint) {
       runBoundary("end-map-pan", () => {
@@ -22,17 +22,22 @@ export function createBoundedMapGesturePort({
       });
     },
     forwardMapZoom({ screenPoint, deltaX = 0, deltaY = 0, deltaMode = 0 }) {
-      return runBoundary("forward-map-zoom", () => {
+      return runGesture("forward-map-zoom", () => {
         return gestureForwarder.forwardMapZoom({
           screenPoint,
           deltaX,
           deltaY,
           deltaMode,
         });
-      }, false);
+      });
     },
     isForwardedMapGestureEvent(event) {
       return gestureForwarder.isForwardedMapGestureEvent(event);
     },
   };
+
+  function runGesture(operation, forward) {
+    const result = runBoundary(operation, forward);
+    return result.ok ? result.value : false;
+  }
 }
