@@ -790,6 +790,37 @@ test("page adapter centralizes failure capture in a dedicated boundary", () => {
   assert.deepEqual(violations, []);
 });
 
+test("page adapter observation graph owns page context to snapshot wiring", () => {
+  const adapterSource = readSource(repoPath("src/content/page-adapter.js"));
+  const graphSource = readSource(repoPath("src/content/page-adapter/observation-graph.js"));
+  const contextSource = readSource(repoPath("src/content/page-adapter/page-context.js"));
+  const violations = [];
+
+  if (!/\bcreatePageObservationGraph\b/.test(adapterSource)) {
+    violations.push("missing: page observation graph composition");
+  }
+  if (/\bnotifySnapshotChanged\b|\bhandleStructureMutation\s*=\s*\(\)/.test(adapterSource)) {
+    violations.push("forbidden: late-bound page observation callbacks");
+  }
+  if (!/\bPAGE_CONTEXT_EVENT\b/.test(contextSource)) {
+    violations.push("missing: typed page context events");
+  }
+  if (!/\bpageContext\.subscribe\b/.test(graphSource)) {
+    violations.push("missing: explicit page context event subscription");
+  }
+  if (!/\bsnapshotSource\.notifyIfChanged\b/.test(graphSource)) {
+    violations.push("missing: snapshot invalidation routing");
+  }
+  if (!/\bsnapshotSource\.handleStructureMutation\b/.test(graphSource)) {
+    violations.push("missing: structure mutation routing");
+  }
+  if (!/\bviewportGeometry\.clearViewportElement\b/.test(graphSource)) {
+    violations.push("missing: viewport retarget routing");
+  }
+
+  assert.deepEqual(violations, []);
+});
+
 test("page projection math uses explicit projection facts", () => {
   const source = readSource(repoPath("src/content/page-adapter/projection.js"));
   const adapterSource = readSource(repoPath("src/content/page-adapter.js"));

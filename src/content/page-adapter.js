@@ -6,9 +6,8 @@ import {
   createMapGestureForwarder,
 } from "./page-adapter/gesture-forwarding.js";
 import { createMapViewResolver } from "./page-adapter/map-view.js";
-import { createPageContext } from "./page-adapter/page-context.js";
+import { createPageObservationGraph } from "./page-adapter/observation-graph.js";
 import { createPageProjection } from "./page-adapter/projection.js";
-import { createPageSnapshotSource } from "./page-adapter/snapshot-source.js";
 import { createViewportGeometryResolver } from "./page-adapter/viewport-geometry.js";
 
 export function createPageAdapter({
@@ -22,29 +21,14 @@ export function createPageAdapter({
   const runBoundary = createPageAdapterBoundary({ logger });
   const viewportGeometry = createViewportGeometryResolver({ hashTarget });
   const mapViewResolver = createMapViewResolver();
-  let notifySnapshotChanged = () => {};
-  let handleStructureMutation = () => notifySnapshotChanged();
-
-  // TODO(smell): Page context and snapshot source are mutually wired through
-  // late-bound callbacks. Extract an observation graph factory so retargeting
-  // and snapshot notification dependencies are explicit.
-  const pageContext = createPageContext({
+  const observationGraph = createPageObservationGraph({
     hashTarget,
     viewportDocument,
-    onChange: () => notifySnapshotChanged(),
-    onStructureMutation: () => handleStructureMutation(),
-    onContextRetarget: viewportGeometry.clearViewportElement,
-  });
-
-  const snapshotSource = createPageSnapshotSource({
-    hashTarget,
-    pageContext,
     viewportGeometry,
     mapViewResolver,
     runBoundary,
   });
-  notifySnapshotChanged = snapshotSource.notifyIfChanged;
-  handleStructureMutation = snapshotSource.handleStructureMutation;
+  const { pageContext, snapshotSource } = observationGraph;
 
   const projection = createPageProjection({
     getActiveMapContext: pageContext.getActiveMapContext,
@@ -65,7 +49,7 @@ export function createPageAdapter({
 
   const pageSession = {
     isSupported: pageContext.isSupported,
-    destroy: snapshotSource.destroy,
+    destroy: observationGraph.destroy,
   };
   const pageObservation = {
     getSnapshot: snapshotSource.getSnapshot,
