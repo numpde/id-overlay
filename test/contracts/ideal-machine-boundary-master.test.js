@@ -591,6 +591,52 @@ test("content bootstrap does not mix persistence migration with live page snapsh
   assert.deepEqual(violations, []);
 });
 
+test("content app delegates to the explicit content composition root", () => {
+  const source = readSource(repoPath("src/content/content-app.js"));
+  const forbiddenPatterns = [
+    ["machine host construction", /\bcreateContentMachineHost\b/],
+    ["machine service construction", /\bcreateContentMachineHostServices\b/],
+    ["interaction construction", /\bcreateInteractionPorts\b/],
+    ["overlay construction", /\bcreateOverlay\b/],
+    ["panel construction", /\bcreatePanel\b/],
+    ["shadow setup", /\battachShadowStyles\b|\bclearOwnedShadowNodes\b/],
+    ["host lifecycle", /\bensureExtensionHost\b|\bdestroyActiveContentSession\b|\binstallContentSession\b/],
+  ];
+  const violations = forbiddenPatterns
+    .filter(([, pattern]) => pattern.test(source))
+    .map(([name]) => name);
+
+  if (!/\bimport\s+\{\s*createContentComposition\s*\}/.test(source)) {
+    violations.push("missing: content composition import");
+  }
+  if (!/\bcreateContentComposition\s*\(\s*options\s*\)\s*\.\s*start\s*\(\s*\)/.test(source)) {
+    violations.push("missing: content app composition start delegation");
+  }
+
+  assert.deepEqual(violations, []);
+});
+
+test("content composition names the product dependency graph", () => {
+  const source = readSource(repoPath("src/content/content-composition.js"));
+  const requiredNodes = [
+    "createHostNode",
+    "destroyActiveSessionNode",
+    "createMachineServicesNode",
+    "createMachineHostNode",
+    "createInteractionPortsNode",
+    "createShadowShellNode",
+    "createOverlayEnvironmentNode",
+    "createOverlayNode",
+    "createPanelNode",
+    "installContentSessionNode",
+  ];
+  const missingNodes = requiredNodes
+    .filter((nodeName) => !new RegExp(`\\bfunction\\s+${nodeName}\\b`).test(source))
+    .map((nodeName) => `missing: ${nodeName}`);
+
+  assert.deepEqual(missingNodes, []);
+});
+
 test("content entrypoint owns page-lifetime lazy bootstrap and keyboard gateway only", () => {
   const source = readSource(repoPath("src/content/content.js"));
   const keyboardGatewaySource = readSource(repoPath("src/content/keyboard-gateway.js"));
@@ -1010,7 +1056,7 @@ test("overlay composition consumes one state source for render and input facts",
 
 test("overlay composition receives one explicit environment object", () => {
   const source = readSource(repoPath("src/content/overlay.js"));
-  const appSource = readSource(repoPath("src/content/content-app.js"));
+  const compositionSource = readSource(repoPath("src/content/content-composition.js"));
   const violations = [];
 
   if (!/\bexport\s+function\s+createOverlay\s*\(\s*\{\s*environment\s*,?\s*\}/s.test(source)) {
@@ -1019,10 +1065,10 @@ test("overlay composition receives one explicit environment object", () => {
   if (/\bexport\s+function\s+createOverlay\s*\(\s*\{\s*(?:pageObservation|pageProjection|isForwardedMapGestureEvent|machineHost|overlayInteractions)\b/s.test(source)) {
     violations.push("forbidden: exploded overlay constructor parameters");
   }
-  if (!/\bcreateOverlayEnvironment\s*\(\s*\{[^}]*\bpagePorts\b[^}]*\bmachineHost\b[^}]*\boverlayInteractions\b/s.test(appSource)) {
-    violations.push("missing: app-owned overlay environment construction");
+  if (!/\bcreateOverlayEnvironment\s*\(\s*\{[^}]*\bpagePorts\b[^}]*\bmachineHost\b[^}]*\boverlayInteractions\b/s.test(compositionSource)) {
+    violations.push("missing: composition-owned overlay environment construction");
   }
-  if (!/\bcreateOverlay\s*\(\s*\{\s*environment:\s*overlayEnvironment\s*,?\s*\}/s.test(appSource)) {
+  if (!/\bcreateOverlay\s*\(\s*\{\s*environment:\s*overlayEnvironment\s*,?\s*\}/s.test(compositionSource)) {
     violations.push("missing: overlay receives environment only");
   }
 
