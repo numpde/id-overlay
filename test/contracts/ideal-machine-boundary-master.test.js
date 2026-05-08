@@ -1002,9 +1002,24 @@ test("page snapshot shape and equality are centralized outside the snapshot sour
   assert.deepEqual(violations, []);
 });
 
+test("obsolete page-adapter seam files stay deleted", () => {
+  const obsoleteFiles = [
+    "src/content/page-adapter/forwarded-map-events.js",
+    "src/content/page-adapter/map-gesture-targets.js",
+    "src/content/page-adapter/map-view-facts.js",
+    "src/content/page-adapter/page-dom-queries.js",
+    "src/content/page-adapter/viewport-element-resolver.js",
+  ];
+
+  assert.deepEqual(
+    obsoleteFiles.filter((filePath) => sourceFileExists(repoPath(filePath))),
+    [],
+  );
+});
+
 test("map view resolver delegates tile and hash fact extraction", () => {
   const source = readSource(repoPath("src/content/page-adapter/map-view.js"));
-  const factsSource = readSource(repoPath("src/content/page-adapter/map-view-facts.js"));
+  const upstreamMapViewSource = readSource(repoPath("src/content/page-adapter/upstream-map-view.js"));
   const hashSource = readSource(repoPath("src/content/page-adapter/map-hash-view.js"));
   const tileTransformSource = readSource(repoPath("src/content/page-adapter/map-tile-transform.js"));
   const tileUrlSource = readSource(repoPath("src/content/page-adapter/map-tile-url.js"));
@@ -1022,14 +1037,14 @@ test("map view resolver delegates tile and hash fact extraction", () => {
   if (/\bunprojectWorldToLatLon\b|\bfindReferenceTile\b|\bparseTileCoordinates\b|\bquadkeyToTileCoordinates\b/.test(source)) {
     violations.push("forbidden: low-level map-view fact extraction in resolver");
   }
-  if (!/\bderiveHashMapView\b/.test(factsSource)) {
+  if (!/\bderiveHashMapView\b/.test(upstreamMapViewSource)) {
     violations.push("missing: nullable hash map-view derivation");
   }
-  if (!/\bparseTileCoordinates\b/.test(factsSource) || !/\bparseTileMatrixTransform\b/.test(factsSource)) {
-    violations.push("missing: delegated tile parser use in facts facade");
+  if (!/\bparseTileCoordinates\b/.test(upstreamMapViewSource) || !/\bparseTileMatrixTransform\b/.test(upstreamMapViewSource)) {
+    violations.push("missing: delegated tile parser use in upstream map-view adapter");
   }
-  if (/\bquadkeyToTileCoordinates\b|\bmatrix\(|\bgetComputedStyle\b|\bmap=/.test(factsSource)) {
-    violations.push("forbidden: low-level tile/hash parsing in facts facade");
+  if (/\bquadkeyToTileCoordinates\b|\bmatrix\(|\bgetComputedStyle\b|\bmap=/.test(upstreamMapViewSource)) {
+    violations.push("forbidden: low-level tile/hash parsing in upstream map-view adapter");
   }
   if (!/\bmap=/.test(hashSource)) {
     violations.push("missing: hash parser owns map hash shape");
@@ -1046,7 +1061,7 @@ test("map view resolver delegates tile and hash fact extraction", () => {
 
 test("viewport geometry resolver delegates geometry and surface-motion fact construction", () => {
   const source = readSource(repoPath("src/content/page-adapter/viewport-geometry.js"));
-  const elementResolverSource = readSource(repoPath("src/content/page-adapter/viewport-element-resolver.js"));
+  const upstreamViewportSource = readSource(repoPath("src/content/page-adapter/upstream-viewport.js"));
   const factsSource = readSource(repoPath("src/content/page-adapter/viewport-geometry-facts.js"));
   const violations = [];
 
@@ -1071,8 +1086,14 @@ test("viewport geometry resolver delegates geometry and surface-motion fact cons
   if (!/\bPAGE_VIEWPORT_PROVENANCE_KIND\b/.test(factsSource)) {
     violations.push("missing: viewport fact provenance");
   }
-  if (!/\bfindViewportElement\b/.test(elementResolverSource) || !/\bisVisible\b/.test(elementResolverSource)) {
-    violations.push("missing: viewport element identity/cache policy");
+  if (/\bSURFACE_MOTION_SELECTOR\b|\bfindViewportElement\b|\bisVisible\b|\blet\s+viewportElement\b/.test(factsSource)) {
+    violations.push("forbidden: upstream viewport inference in geometry facts");
+  }
+  if (!/\bfindViewportElement\b/.test(upstreamViewportSource) || !/\bisVisible\b/.test(upstreamViewportSource)) {
+    violations.push("missing: upstream viewport element identity/cache policy");
+  }
+  if (!/\bSURFACE_MOTION_SELECTOR\b/.test(upstreamViewportSource)) {
+    violations.push("missing: upstream surface-motion selector inference");
   }
 
   assert.deepEqual(violations, []);
@@ -1080,20 +1101,20 @@ test("viewport geometry resolver delegates geometry and surface-motion fact cons
 
 test("generic page adapter DOM helpers do not own upstream page selectors", () => {
   const domSource = readSource(repoPath("src/content/page-adapter/dom.js"));
-  const querySource = readSource(repoPath("src/content/page-adapter/page-dom-queries.js"));
+  const upstreamDomSource = readSource(repoPath("src/content/page-adapter/upstream-dom.js"));
   const violations = [];
 
   if (/\bquerySelector\b|\bquerySelectorAll\b|\bVIEWPORT_SELECTORS\b|\bID_EMBED_SELECTOR\b/.test(domSource)) {
     violations.push("forbidden: upstream page selector queries in generic DOM helpers");
   }
-  if (!/\bVIEWPORT_SELECTORS\b/.test(querySource)) {
-    violations.push("missing: viewport selector quarantine");
+  if (!/\bVIEWPORT_SELECTORS\b/.test(upstreamDomSource)) {
+    violations.push("missing: upstream viewport selector quarantine");
   }
-  if (!/\bfindEmbeddedIdFrame\b/.test(querySource)) {
-    violations.push("missing: embedded iD frame query");
+  if (!/\bfindEmbeddedIdFrame\b/.test(upstreamDomSource)) {
+    violations.push("missing: upstream embedded iD frame query");
   }
-  if (!/\bfindReferenceTile\b/.test(querySource)) {
-    violations.push("missing: reference tile query");
+  if (!/\bfindReferenceTile\b/.test(upstreamDomSource)) {
+    violations.push("missing: upstream reference tile query");
   }
 
   assert.deepEqual(violations, []);
@@ -1104,9 +1125,9 @@ test("gesture forwarding delegates synthetic event construction and identity", (
   const boundedSource = readSource(repoPath("src/content/page-adapter/bounded-map-gesture.js"));
   const source = readSource(repoPath("src/content/page-adapter/gesture-forwarding.js"));
   const mapPanDragSource = readSource(repoPath("src/content/interactions/map-pan-drag.js"));
-  const eventSource = readSource(repoPath("src/content/page-adapter/forwarded-map-events.js"));
+  const transportSource = readSource(repoPath("src/content/page-adapter/upstream-gesture-transport.js"));
   const factSource = readSource(repoPath("src/content/page-adapter/map-gesture-facts.js"));
-  const targetSource = readSource(repoPath("src/content/page-adapter/map-gesture-targets.js"));
+  const targetSource = readSource(repoPath("src/content/page-adapter/upstream-gesture-targets.js"));
   const violations = [];
 
   if (!/\bdispatchForwardedMapPointerPhase\b/.test(source)) {
@@ -1118,8 +1139,11 @@ test("gesture forwarding delegates synthetic event construction and identity", (
   if (/\bnew\s+context\.mapWindow\.(?:PointerEvent|MouseEvent|WheelEvent)\b|\bObject\.defineProperty\s*\(/.test(source)) {
     violations.push("forbidden: synthetic event construction in gesture coordinator");
   }
-  if (!/\bFORWARDED_MAP_GESTURE_EVENT_FLAG\b/.test(eventSource)) {
+  if (!/\bFORWARDED_MAP_GESTURE_EVENT_FLAG\b/.test(transportSource)) {
     violations.push("missing: forwarded event identity owner");
+  }
+  if (!/\bnew\s+context\.mapWindow\.(?:PointerEvent|MouseEvent|WheelEvent)\b/.test(transportSource)) {
+    violations.push("missing: upstream synthetic gesture event transport");
   }
   if (!/\bresolveMapZoomGestureFacts\b/.test(source) || !/\bresolveMapPanGestureFacts\b/.test(source)) {
     violations.push("missing: gesture fact resolution delegation");

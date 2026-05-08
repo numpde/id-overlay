@@ -5,9 +5,9 @@ import { JSDOM } from "jsdom";
 import {
   resolveMapPanTarget,
   resolveMapZoomTarget,
-} from "../../src/content/page-adapter/map-gesture-targets.js";
+} from "../../src/content/page-adapter/upstream-gesture-targets.js";
 
-test("map gesture targets use the visible viewport as the pan target", () => {
+test("upstream gesture targets use the visible viewport as the pan target", () => {
   const dom = new JSDOM('<!doctype html><html><body><div class="main-map"></div></body></html>');
   const viewport = dom.window.document.querySelector(".main-map");
   setRect(viewport, { width: 900, height: 600 });
@@ -19,7 +19,7 @@ test("map gesture targets use the visible viewport as the pan target", () => {
   }
 });
 
-test("map gesture targets fall back to body or document element for pan target", () => {
+test("upstream gesture targets fall back to body or document element for pan target", () => {
   const dom = new JSDOM("<!doctype html><html><body></body></html>");
 
   try {
@@ -33,7 +33,7 @@ test("map gesture targets fall back to body or document element for pan target",
   }
 });
 
-test("map gesture targets choose the first non-overlay element under zoom point", () => {
+test("upstream gesture targets choose the first non-overlay element under zoom point", () => {
   const dom = new JSDOM(
     '<!doctype html><html><body><div data-id-overlay-owned="true"></div><canvas id="map"></canvas></body></html>',
   );
@@ -52,7 +52,7 @@ test("map gesture targets choose the first non-overlay element under zoom point"
   }
 });
 
-test("map gesture targets use elementFromPoint when elementsFromPoint is unavailable", () => {
+test("upstream gesture targets use elementFromPoint when elementsFromPoint is unavailable", () => {
   const dom = new JSDOM('<!doctype html><html><body><canvas id="map"></canvas></body></html>');
   const mapElement = dom.window.document.getElementById("map");
   dom.window.document.elementFromPoint = (x, y) => {
@@ -68,7 +68,7 @@ test("map gesture targets use elementFromPoint when elementsFromPoint is unavail
   }
 });
 
-test("map gesture targets fall back to viewport or body for zoom target", () => {
+test("upstream gesture targets fall back to viewport or body for zoom target", () => {
   const dom = new JSDOM('<!doctype html><html><body><div class="main-map"></div></body></html>');
   const viewport = dom.window.document.querySelector(".main-map");
   setRect(viewport, { width: 800, height: 500 });

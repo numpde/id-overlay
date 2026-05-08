@@ -6,9 +6,9 @@ import {
   dispatchForwardedMapPointerPhase,
   dispatchForwardedMapWheel,
   isForwardedMapGestureEvent,
-} from "../../src/content/page-adapter/forwarded-map-events.js";
+} from "../../src/content/page-adapter/upstream-gesture-transport.js";
 
-test("forwarded map pointer phases dispatch pointer and mouse events with canonical identity", () => {
+test("upstream gesture transport dispatches pointer and mouse events with canonical identity", () => {
   const target = createDispatchTarget();
   const context = createForwardedEventContext({
     PointerEvent: FakeEvent,
@@ -36,7 +36,7 @@ test("forwarded map pointer phases dispatch pointer and mouse events with canoni
   assert.equal(target.events[0].isPrimary, true);
 });
 
-test("forwarded map pointer phases fall back to mouse events without PointerEvent support", () => {
+test("upstream gesture transport falls back to mouse events without PointerEvent support", () => {
   const target = createDispatchTarget();
   const context = createForwardedEventContext({
     MouseEvent: FakeEvent,
@@ -54,7 +54,7 @@ test("forwarded map pointer phases fall back to mouse events without PointerEven
   assert.equal(target.events[0].buttons, 0);
 });
 
-test("forwarded map wheel dispatches one flagged wheel event with deltas", () => {
+test("upstream gesture transport dispatches one flagged wheel event with deltas", () => {
   const target = createDispatchTarget();
   const context = createForwardedEventContext({
     WheelEvent: FakeEvent,

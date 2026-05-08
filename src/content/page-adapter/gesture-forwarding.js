@@ -2,7 +2,7 @@ import {
   dispatchForwardedMapPointerPhase,
   dispatchForwardedMapWheel,
   isForwardedMapGestureEvent,
-} from "./forwarded-map-events.js";
+} from "./upstream-gesture-transport.js";
 import {
   resolveMapPanContinuationGestureFacts,
   resolveMapPanGestureFacts,

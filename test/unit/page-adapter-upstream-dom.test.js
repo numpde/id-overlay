@@ -7,9 +7,9 @@ import {
   findReferenceTile,
   findViewportElement,
   isOverlayOwnedElement,
-} from "../../src/content/page-adapter/page-dom-queries.js";
+} from "../../src/content/page-adapter/upstream-dom.js";
 
-test("page DOM queries find the first visible known map viewport", () => {
+test("upstream DOM adapter finds the first visible known map viewport", () => {
   const dom = new JSDOM(
     '<!doctype html><html><body><div class="main-map"></div><div id="map"></div></body></html>',
   );
@@ -25,7 +25,7 @@ test("page DOM queries find the first visible known map viewport", () => {
   }
 });
 
-test("page DOM queries detect extension-owned elements by ancestor marker", () => {
+test("upstream DOM adapter detects extension-owned elements by ancestor marker", () => {
   const dom = new JSDOM(
     '<!doctype html><html><body><div data-id-overlay-owned="true"><button id="button"></button></div><div id="map"></div></body></html>',
   );
@@ -39,7 +39,7 @@ test("page DOM queries detect extension-owned elements by ancestor marker", () =
   }
 });
 
-test("page DOM queries prefer the center tile as the map-view reference tile", () => {
+test("upstream DOM adapter prefers the center tile as the map-view reference tile", () => {
   const dom = new JSDOM(
     '<!doctype html><html><body><img id="large" class="tile"><img id="center" class="tile tile-center"></body></html>',
   );
@@ -55,7 +55,7 @@ test("page DOM queries prefer the center tile as the map-view reference tile", (
   }
 });
 
-test("page DOM queries choose the largest visible tile when there is no center tile", () => {
+test("upstream DOM adapter chooses the largest visible tile when there is no center tile", () => {
   const dom = new JSDOM(
     '<!doctype html><html><body><img id="small" class="tile"><img id="large" class="tile"></body></html>',
   );
@@ -71,7 +71,7 @@ test("page DOM queries choose the largest visible tile when there is no center t
   }
 });
 
-test("page DOM queries accept only same-origin OpenStreetMap iD embed frames", () => {
+test("upstream DOM adapter accepts only same-origin OpenStreetMap iD embed frames", () => {
   const dom = new JSDOM('<!doctype html><html><body><iframe id="id-embed"></iframe></body></html>');
   const frame = dom.window.document.getElementById("id-embed");
   const contentDocument = new JSDOM("<!doctype html><html><body></body></html>").window.document;

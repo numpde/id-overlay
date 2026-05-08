@@ -4,10 +4,10 @@ import { JSDOM } from "jsdom";
 
 import {
   deriveTileMapView,
-} from "../../src/content/page-adapter/map-view-facts.js";
+} from "../../src/content/page-adapter/upstream-map-view.js";
 import { unprojectWorldToLatLon } from "../../src/core/geometry.js";
 
-test("tile map view derivation reads XYZ tile URLs and tile transforms", () => {
+test("upstream map view derives view from XYZ tile URLs and tile transforms", () => {
   const dom = createTileDom({
     src: "https://tile.openstreetmap.org/3/4/5.png",
     transformCss: "matrix(2, 0, 0, 2, 120, 140)",
@@ -36,7 +36,7 @@ test("tile map view derivation reads XYZ tile URLs and tile transforms", () => {
   }
 });
 
-test("tile map view derivation supports Bing quadkey tile URLs", () => {
+test("upstream map view supports Bing quadkey tile URLs", () => {
   const dom = createTileDom({
     src: "https://ecn.t0.tiles.virtualearth.net/tiles/a213.jpeg?g=1",
     transformCss: "matrix(1, 0, 0, 1, 0, 0)",
@@ -65,7 +65,7 @@ test("tile map view derivation supports Bing quadkey tile URLs", () => {
   }
 });
 
-test("tile map view derivation rejects missing tiles or invalid transforms", () => {
+test("upstream map view rejects missing tiles or invalid transforms", () => {
   const emptyDom = new JSDOM("<!doctype html><html><body></body></html>");
   const invalidTransformDom = createTileDom({
     src: "https://tile.openstreetmap.org/3/4/5.png",

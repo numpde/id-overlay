@@ -1,9 +1,11 @@
-import { createViewportElementResolver } from "./viewport-element-resolver.js";
 import {
   createElementViewportGeometry,
   createFallbackViewportGeometry,
-  resolveSurfaceMotionFact,
 } from "./viewport-geometry-facts.js";
+import {
+  createViewportElementResolver,
+  resolveSurfaceMotionFact,
+} from "./upstream-viewport.js";
 
 export function createViewportGeometryResolver({
   hashTarget,

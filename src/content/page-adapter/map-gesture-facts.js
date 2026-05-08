@@ -1,7 +1,7 @@
 import {
   resolveMapPanTarget,
   resolveMapZoomTarget,
-} from "./map-gesture-targets.js";
+} from "./upstream-gesture-targets.js";
 import {
   screenPointToContextClientPoint,
 } from "./projection.js";

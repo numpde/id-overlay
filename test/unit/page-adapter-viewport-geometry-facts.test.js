@@ -5,7 +5,6 @@ import { JSDOM } from "jsdom";
 import {
   createElementViewportGeometry,
   createFallbackViewportGeometry,
-  resolveSurfaceMotionFact,
 } from "../../src/content/page-adapter/viewport-geometry-facts.js";
 import { PAGE_VIEWPORT_PROVENANCE_KIND } from "../../src/content/page-adapter/page-snapshot.js";
 
@@ -138,34 +137,6 @@ test("fallback viewport geometry uses the iframe rect for screen space when fram
       kind: PAGE_VIEWPORT_PROVENANCE_KIND.FALLBACK,
     },
   });
-});
-
-test("surface motion facts default to inert motion when the map surface is absent", () => {
-  const document = createDocument();
-
-  assert.deepEqual(resolveSurfaceMotionFact(document), {
-    transformCss: "none",
-    transformOriginCss: "0px 0px",
-  });
-});
-
-test("surface motion facts read the active map surface CSS transform", () => {
-  const dom = new JSDOM(
-    '<!doctype html><html><body><div class="supersurface"></div></body></html>',
-    { pretendToBeVisual: true },
-  );
-  const surface = dom.window.document.querySelector(".supersurface");
-  surface.style.transform = "matrix(1, 0, 0, 1, 18, -12)";
-  surface.style.transformOrigin = "0px 0px";
-
-  try {
-    assert.deepEqual(resolveSurfaceMotionFact(dom.window.document), {
-      transformCss: "matrix(1, 0, 0, 1, 18, -12)",
-      transformOriginCss: "0px 0px",
-    });
-  } finally {
-    dom.window.close();
-  }
 });
 
 function createContext({

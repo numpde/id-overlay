@@ -1,5 +1,5 @@
 import { getSafeLocation } from "./dom.js";
-import { findEmbeddedIdFrame } from "./page-dom-queries.js";
+import { findEmbeddedIdFrame } from "./upstream-dom.js";
 
 export function createActiveMapContextResolver({
   hashTarget,

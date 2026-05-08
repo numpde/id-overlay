@@ -1,7 +1,7 @@
 import {
   findViewportElement,
   isOverlayOwnedElement,
-} from "./page-dom-queries.js";
+} from "./upstream-dom.js";
 
 export function resolveMapZoomTarget(context, clientPoint) {
   // TODO(smell): Zoom targeting falls through three DOM heuristics. Keep this

@@ -6,13 +6,13 @@ import {
   DEFAULT_MAP_VIEW,
   deriveHashMapView,
   deriveTileMapView,
-} from "./map-view-facts.js";
+} from "./upstream-map-view.js";
 import {
   PAGE_MAP_VIEW_PROVENANCE_KIND,
   createPageMapViewProvenance,
 } from "./page-snapshot.js";
 
-export { DEFAULT_MAP_VIEW } from "./map-view-facts.js";
+export { DEFAULT_MAP_VIEW } from "./upstream-map-view.js";
 
 export function createMapViewResolver() {
   // TODO(smell): Map-view inference is currently tile/hash derived, not sourced

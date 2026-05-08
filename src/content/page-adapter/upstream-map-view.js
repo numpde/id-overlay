@@ -3,7 +3,7 @@ import {
 } from "../../core/geometry.js";
 import { parseTileMatrixTransform } from "./map-tile-transform.js";
 import { parseTileCoordinates } from "./map-tile-url.js";
-import { findReferenceTile } from "./page-dom-queries.js";
+import { findReferenceTile } from "./upstream-dom.js";
 
 const TILE_SIZE = 256;
 
@@ -16,8 +16,8 @@ export { deriveHashMapView } from "./map-hash-view.js";
 
 export function deriveTileMapView({ viewportDocument, viewportRect }) {
   // TODO(smell): Tile-derived map view is an inference from rendered imagery,
-  // not a canonical map API. Keep every tile parsing assumption in this facts
-  // module so projection never depends on tile DOM directly.
+  // not a canonical map API. Keep every tile parsing assumption in this upstream
+  // adapter module so projection never depends on tile DOM directly.
   const tile = findReferenceTile(viewportDocument);
   if (!tile) {
     return null;

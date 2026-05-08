@@ -4,9 +4,10 @@ import { JSDOM } from "jsdom";
 
 import {
   createViewportElementResolver,
-} from "../../src/content/page-adapter/viewport-element-resolver.js";
+  resolveSurfaceMotionFact,
+} from "../../src/content/page-adapter/upstream-viewport.js";
 
-test("viewport element resolver reuses a connected same-document viewport", () => {
+test("upstream viewport resolver reuses a connected same-document viewport", () => {
   const resolver = createViewportElementResolver();
   const dom = createViewportDom();
   const viewport = dom.window.document.querySelector(".main-map");
@@ -21,7 +22,7 @@ test("viewport element resolver reuses a connected same-document viewport", () =
   }
 });
 
-test("viewport element resolver retargets when the viewport document changes", () => {
+test("upstream viewport resolver retargets when the viewport document changes", () => {
   const resolver = createViewportElementResolver();
   const firstDom = createViewportDom();
   const secondDom = createViewportDom();
@@ -37,7 +38,7 @@ test("viewport element resolver retargets when the viewport document changes", (
   }
 });
 
-test("viewport element resolver refresh invalidates hidden or disconnected cached viewports", () => {
+test("upstream viewport resolver refresh invalidates hidden or disconnected cached viewports", () => {
   const hiddenDom = createViewportDom();
   const disconnectedDom = createViewportDom();
   const hiddenResolver = createViewportElementResolver();
@@ -67,7 +68,7 @@ test("viewport element resolver refresh invalidates hidden or disconnected cache
   }
 });
 
-test("viewport element resolver clear and destroy drop cached viewport identity", () => {
+test("upstream viewport resolver clear and destroy drop cached viewport identity", () => {
   const clearResolver = createViewportElementResolver();
   const destroyResolver = createViewportElementResolver();
   const clearDom = createViewportDom();
@@ -93,10 +94,43 @@ test("viewport element resolver clear and destroy drop cached viewport identity"
   }
 });
 
+test("upstream viewport surface motion defaults to inert motion when the map surface is absent", () => {
+  const document = createDocument();
+
+  assert.deepEqual(resolveSurfaceMotionFact(document), {
+    transformCss: "none",
+    transformOriginCss: "0px 0px",
+  });
+});
+
+test("upstream viewport surface motion reads the active map surface CSS transform", () => {
+  const dom = new JSDOM(
+    '<!doctype html><html><body><div class="supersurface"></div></body></html>',
+    { pretendToBeVisual: true },
+  );
+  const surface = dom.window.document.querySelector(".supersurface");
+  surface.style.transform = "matrix(1, 0, 0, 1, 18, -12)";
+  surface.style.transformOrigin = "0px 0px";
+
+  try {
+    assert.deepEqual(resolveSurfaceMotionFact(dom.window.document), {
+      transformCss: "matrix(1, 0, 0, 1, 18, -12)",
+      transformOriginCss: "0px 0px",
+    });
+  } finally {
+    dom.window.close();
+  }
+});
+
 function createContext(viewportDocument) {
   return {
     viewportDocument,
   };
+}
+
+function createDocument() {
+  const dom = new JSDOM("<!doctype html><html><body></body></html>");
+  return dom.window.document;
 }
 
 function createViewportDom() {
