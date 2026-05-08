@@ -1,21 +1,21 @@
-import { createRuntimeError, RUNTIME_ERROR_SOURCE } from "../../core/runtime-error.js";
+import { createInteractionRuntimeErrorReporter } from "./runtime-error-reporter.js";
 
 export function createInteractionErrorBoundary({
   reportRuntimeError,
   resetInteraction: resetInteractionRuntime,
   logger,
+  runtimeErrorReporter = createInteractionRuntimeErrorReporter({
+    reportRuntimeError,
+    logger,
+  }),
 }) {
-  // TODO(smell): Interaction error handling couples local gesture reset,
-  // machine runtime-error reporting, logger formatting, and fallback values.
-  // The ideal boundary should convert thrown adapter failures into one typed
-  // external fact, with reset policy selected by the machine/gesture session.
   return {
     report,
     run,
   };
 
   function report({
-    source = RUNTIME_ERROR_SOURCE.INTERACTIONS,
+    source,
     operation,
     error,
     message = null,
@@ -29,7 +29,7 @@ export function createInteractionErrorBoundary({
     if (resetInteraction) {
       resetInteractionRuntime();
     }
-    const runtimeError = createRuntimeError({
+    return runtimeErrorReporter.report({
       source,
       operation,
       error,
@@ -37,12 +37,6 @@ export function createInteractionErrorBoundary({
       recoverable,
       details,
     });
-    // TODO(smell): Reporting to the machine and logging are two sinks for the
-    // same failure fact. A final boundary should fan out a typed result through
-    // one effect/logging service instead of formatting here.
-    reportRuntimeError(runtimeError);
-    logger.error("Runtime boundary failed", runtimeError, error);
-    return runtimeError;
   }
 
   function run(operation, fn, {
@@ -59,7 +53,6 @@ export function createInteractionErrorBoundary({
       return fn();
     } catch (error) {
       report({
-        source: RUNTIME_ERROR_SOURCE.INTERACTIONS,
         operation,
         error,
         message,
