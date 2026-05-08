@@ -4,12 +4,10 @@ import {
   isForwardedMapGestureEvent,
 } from "./forwarded-map-events.js";
 import {
-  resolveMapPanTarget,
-  resolveMapZoomTarget,
-} from "./map-gesture-targets.js";
-import {
-  screenPointToContextClientPoint,
-} from "./projection.js";
+  resolveMapPanContinuationGestureFacts,
+  resolveMapPanGestureFacts,
+  resolveMapZoomGestureFacts,
+} from "./map-gesture-facts.js";
 
 export function createMapGestureForwarder({ getActiveMapContext }) {
   let activeMapPan = null;
@@ -63,9 +61,9 @@ export function createMapGestureForwarder({ getActiveMapContext }) {
   }
 
   function forwardMapZoom({ screenPoint, deltaX = 0, deltaY = 0, deltaMode = 0 }) {
-    const gestureContext = resolveForwardedMapGestureContext({
+    const gestureContext = resolveMapZoomGestureFacts({
       screenPoint,
-      targetResolver: resolveMapZoomTarget,
+      context: getActiveMapContext(),
     });
     if (!gestureContext || typeof gestureContext.context.mapWindow.WheelEvent !== "function") {
       return false;
@@ -83,9 +81,9 @@ export function createMapGestureForwarder({ getActiveMapContext }) {
   }
 
   function resolveMapPanSession(screenPoint) {
-    return resolveForwardedMapGestureContext({
+    return resolveMapPanGestureFacts({
       screenPoint,
-      targetResolver: resolveMapPanTarget,
+      context: getActiveMapContext(),
     });
   }
 
@@ -93,32 +91,10 @@ export function createMapGestureForwarder({ getActiveMapContext }) {
     if (!activeMapPan) {
       return null;
     }
-    return resolveForwardedMapGestureContext({
+    return resolveMapPanContinuationGestureFacts({
       screenPoint,
       context: activeMapPan.context,
-      target: activeMapPan.context.viewportDocument,
     });
-  }
-
-  function resolveForwardedMapGestureContext({
-    screenPoint,
-    context = getActiveMapContext(),
-    target = null,
-    targetResolver = null,
-  }) {
-    // TODO(smell): Projection and hit-target resolution are bundled into one
-    // gesture context. The final adapter should pass explicit client-point and
-    // target facts into the event dispatcher.
-    const clientPoint = screenPointToContextClientPoint(screenPoint, context);
-    const resolvedTarget = target ?? targetResolver?.(context, clientPoint) ?? null;
-    if (!resolvedTarget) {
-      return null;
-    }
-    return {
-      context,
-      clientPoint,
-      target: resolvedTarget,
-    };
   }
 
   return {

@@ -1082,6 +1082,7 @@ test("gesture forwarding delegates synthetic event construction and identity", (
   const boundedSource = readSource(repoPath("src/content/page-adapter/bounded-map-gesture.js"));
   const source = readSource(repoPath("src/content/page-adapter/gesture-forwarding.js"));
   const eventSource = readSource(repoPath("src/content/page-adapter/forwarded-map-events.js"));
+  const factSource = readSource(repoPath("src/content/page-adapter/map-gesture-facts.js"));
   const targetSource = readSource(repoPath("src/content/page-adapter/map-gesture-targets.js"));
   const violations = [];
 
@@ -1097,11 +1098,20 @@ test("gesture forwarding delegates synthetic event construction and identity", (
   if (!/\bFORWARDED_MAP_GESTURE_EVENT_FLAG\b/.test(eventSource)) {
     violations.push("missing: forwarded event identity owner");
   }
-  if (!/\bresolveMapZoomTarget\b/.test(source) || !/\bresolveMapPanTarget\b/.test(source)) {
-    violations.push("missing: target resolution delegation");
+  if (!/\bresolveMapZoomGestureFacts\b/.test(source) || !/\bresolveMapPanGestureFacts\b/.test(source)) {
+    violations.push("missing: gesture fact resolution delegation");
   }
-  if (/\bfindViewportElement\b|\bisOverlayOwnedElement\b|\belementsFromPoint\b|\belementFromPoint\b/.test(source)) {
-    violations.push("forbidden: DOM target resolution in gesture coordinator");
+  if (/\bresolveMapZoomTarget\b|\bresolveMapPanTarget\b|\bscreenPointToContextClientPoint\b|\bfindViewportElement\b|\bisOverlayOwnedElement\b|\belementsFromPoint\b|\belementFromPoint\b/.test(source)) {
+    violations.push("forbidden: projection or DOM target resolution in gesture coordinator");
+  }
+  if (!/\bscreenPointToContextClientPoint\b/.test(factSource)) {
+    violations.push("missing: gesture facts own screen-to-client projection");
+  }
+  if (!/\bresolveMapZoomTarget\b/.test(factSource) || !/\bresolveMapPanTarget\b/.test(factSource)) {
+    violations.push("missing: gesture facts own target policy delegation");
+  }
+  if (/\bfindViewportElement\b|\bisOverlayOwnedElement\b|\belementsFromPoint\b|\belementFromPoint\b/.test(factSource)) {
+    violations.push("forbidden: DOM target resolution in gesture facts");
   }
   if (!/\belementsFromPoint\b/.test(targetSource) || !/\bisOverlayOwnedElement\b/.test(targetSource)) {
     violations.push("missing: quarantined map target hit-testing");
