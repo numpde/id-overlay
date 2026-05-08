@@ -2,7 +2,7 @@ export function createMapPanDragController({
   mapGesture,
   logger,
 }) {
-  let active = false;
+  let activePanSession = null;
 
   return {
     begin,
@@ -13,35 +13,35 @@ export function createMapPanDragController({
   };
 
   function begin(screenPoint) {
-    const beganMapPan = mapGesture.beginMapPan?.(screenPoint) === true;
-    if (!beganMapPan) {
+    const panSession = mapGesture.beginMapPan?.(screenPoint) ?? null;
+    if (!panSession) {
       logger.warn("Map pan requested, but the map gesture port could not start it");
       return false;
     }
-    active = true;
+    activePanSession = panSession;
     return true;
   }
 
   function move(screenPoint) {
-    if (!active) {
+    if (!activePanSession) {
       return;
     }
-    mapGesture.updateMapPan(screenPoint);
+    activePanSession.move(screenPoint);
   }
 
   function finish(screenPoint) {
-    if (!active) {
+    if (!activePanSession) {
       return;
     }
-    mapGesture.endMapPan?.(screenPoint);
+    activePanSession.finish(screenPoint);
     clear();
   }
 
   function hasActive() {
-    return active;
+    return Boolean(activePanSession);
   }
 
   function clear() {
-    active = false;
+    activePanSession = null;
   }
 }

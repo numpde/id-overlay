@@ -1422,13 +1422,17 @@ function createPagePorts({
     mapGesture: {
       beginMapPan(screenPoint) {
         pageGestureCalls.mapPan.starts.push(screenPoint);
-        return beginMapPanReturns;
-      },
-      updateMapPan(screenPoint) {
-        pageGestureCalls.mapPan.moves.push({ screenPoint });
-      },
-      endMapPan(screenPoint) {
-        pageGestureCalls.mapPan.ends.push(screenPoint);
+        if (!beginMapPanReturns) {
+          return null;
+        }
+        return {
+          move(nextScreenPoint) {
+            pageGestureCalls.mapPan.moves.push({ screenPoint: nextScreenPoint });
+          },
+          finish(endScreenPoint) {
+            pageGestureCalls.mapPan.ends.push(endScreenPoint);
+          },
+        };
       },
       forwardMapZoom(payload) {
         pageGestureCalls.mapZoomCalls.push(payload);

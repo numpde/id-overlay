@@ -9,8 +9,7 @@ test("bounded map gesture port delegates gesture methods through named boundary 
   const calls = [];
   const event = {};
   const gestureForwarder = createGestureForwarderStub({
-    beginMapPan: true,
-    updateMapPan: true,
+    beginMapPan: createMapPanSessionStub({ move: true }),
     forwardMapZoom: true,
     isForwardedMapGestureEvent: true,
   });
@@ -25,9 +24,9 @@ test("bounded map gesture port delegates gesture methods through named boundary 
     },
   });
 
-  assert.equal(mapGesture.beginMapPan({ x: 1, y: 2 }), true);
-  assert.equal(mapGesture.updateMapPan({ x: 3, y: 4 }), true);
-  assert.equal(mapGesture.endMapPan({ x: 5, y: 6 }), undefined);
+  const panSession = mapGesture.beginMapPan({ x: 1, y: 2 });
+  assert.equal(panSession.move({ x: 3, y: 4 }), true);
+  assert.equal(panSession.finish({ x: 5, y: 6 }), undefined);
   assert.equal(mapGesture.forwardMapZoom({
     screenPoint: { x: 7, y: 8 },
     deltaY: -1,
@@ -49,12 +48,32 @@ test("bounded map gesture port centralizes failed gesture fallback values", () =
     },
   });
 
-  assert.equal(mapGesture.beginMapPan({ x: 1, y: 2 }), false);
-  assert.equal(mapGesture.updateMapPan({ x: 3, y: 4 }), false);
-  assert.equal(mapGesture.endMapPan({ x: 5, y: 6 }), undefined);
+  assert.equal(mapGesture.beginMapPan({ x: 1, y: 2 }), null);
   assert.equal(mapGesture.forwardMapZoom({
     screenPoint: { x: 7, y: 8 },
   }), false);
+});
+
+test("bounded map pan sessions centralize failed move and finish fallbacks", () => {
+  const mapGesture = createBoundedMapGesturePort({
+    gestureForwarder: createGestureForwarderStub({
+      beginMapPan: createMapPanSessionStub(),
+    }),
+    runBoundary(operation, fn) {
+      if (operation === "begin-map-pan") {
+        return {
+          ok: true,
+          value: fn(),
+        };
+      }
+      return { ok: false };
+    },
+  });
+
+  const panSession = mapGesture.beginMapPan({ x: 1, y: 2 });
+
+  assert.equal(panSession.move({ x: 3, y: 4 }), false);
+  assert.equal(panSession.finish({ x: 5, y: 6 }), undefined);
 });
 
 function createGestureForwarderStub(results = {}) {
@@ -62,17 +81,22 @@ function createGestureForwarderStub(results = {}) {
     beginMapPan() {
       return results.beginMapPan;
     },
-    updateMapPan() {
-      return results.updateMapPan;
-    },
-    endMapPan() {
-      return results.endMapPan;
-    },
     forwardMapZoom() {
       return results.forwardMapZoom;
     },
     isForwardedMapGestureEvent() {
       return results.isForwardedMapGestureEvent;
+    },
+  };
+}
+
+function createMapPanSessionStub(results = {}) {
+  return {
+    move() {
+      return results.move;
+    },
+    finish() {
+      return results.finish;
     },
   };
 }

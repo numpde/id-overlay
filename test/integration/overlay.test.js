@@ -782,12 +782,8 @@ function createStaticOverlayPagePorts({
     },
     mapGesture: {
       beginMapPan() {
-        return false;
+        return null;
       },
-      updateMapPan() {
-        return false;
-      },
-      endMapPan() {},
       forwardMapZoom() {
         return false;
       },

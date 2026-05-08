@@ -1081,6 +1081,7 @@ test("gesture forwarding delegates synthetic event construction and identity", (
   const adapterSource = readSource(repoPath("src/content/page-adapter.js"));
   const boundedSource = readSource(repoPath("src/content/page-adapter/bounded-map-gesture.js"));
   const source = readSource(repoPath("src/content/page-adapter/gesture-forwarding.js"));
+  const mapPanDragSource = readSource(repoPath("src/content/interactions/map-pan-drag.js"));
   const eventSource = readSource(repoPath("src/content/page-adapter/forwarded-map-events.js"));
   const factSource = readSource(repoPath("src/content/page-adapter/map-gesture-facts.js"));
   const targetSource = readSource(repoPath("src/content/page-adapter/map-gesture-targets.js"));
@@ -1124,6 +1125,18 @@ test("gesture forwarding delegates synthetic event construction and identity", (
   }
   if (!/\bbegin-map-pan\b|\bforward-map-zoom\b/.test(boundedSource)) {
     violations.push("missing: centralized map gesture boundary policy");
+  }
+  if (/\bupdateMapPan\b|\bendMapPan\b/.test(boundedSource)) {
+    violations.push("forbidden: split map-pan lifecycle methods on page port");
+  }
+  if (!/\bmove\s*\(\s*screenPoint\s*\)/.test(boundedSource) || !/\bfinish\s*\(\s*screenPoint\s*\)/.test(boundedSource)) {
+    violations.push("missing: bounded map-pan session methods");
+  }
+  if (/\bactiveMapPan\b/.test(source)) {
+    violations.push("forbidden: page adapter owns hidden map-pan session state");
+  }
+  if (/\bactive\s*=\s*(?:true|false)\b/.test(mapPanDragSource)) {
+    violations.push("forbidden: interaction map-pan controller duplicates session state as a boolean");
   }
 
   assert.deepEqual(violations, []);

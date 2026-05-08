@@ -29,12 +29,15 @@ test("page adapter exposes explicit page capability ports", () => {
     ]);
     assert.equal(typeof pagePorts.pageObservation.getSnapshot, "function");
     assert.equal(typeof pagePorts.pageProjection.screenToMap, "function");
+    assert.equal(typeof pagePorts.mapGesture.beginMapPan, "function");
     assert.equal(typeof pagePorts.mapGesture.forwardMapZoom, "function");
     assert.equal(typeof pagePorts.mapGesture.isForwardedMapGestureEvent, "function");
     assert.equal(typeof pagePorts.pageSession.destroy, "function");
     assert.equal(Object.hasOwn(pagePorts, "getSnapshot"), false);
     assert.equal(Object.hasOwn(pagePorts, "screenToMap"), false);
     assert.equal(Object.hasOwn(pagePorts, "forwardMapZoom"), false);
+    assert.equal(Object.hasOwn(pagePorts.mapGesture, "updateMapPan"), false);
+    assert.equal(Object.hasOwn(pagePorts.mapGesture, "endMapPan"), false);
   } finally {
     env.cleanup();
   }
@@ -554,7 +557,7 @@ test("page adapter emits subscriber updates immediately when history.replaceStat
   }
 });
 
-test("page adapter can begin/update/end a map pan in the active map document", () => {
+test("page adapter exposes map pan as a bounded session in the active map document", () => {
   const env = createDomEnvironment({
     url: "https://www.openstreetmap.org/edit?editor=id#map=16/-1.22645/36.82597",
     viewportHtml: '<div id="map"></div>',
@@ -593,9 +596,9 @@ test("page adapter can begin/update/end a map pan in the active map document", (
       received.push({ type: event.type, x: event.clientX, y: event.clientY });
     });
 
-    pagePorts.mapGesture.beginMapPan({ x: 200, y: 180 });
-    pagePorts.mapGesture.updateMapPan({ x: 240, y: 210 });
-    pagePorts.mapGesture.endMapPan({ x: 240, y: 210 });
+    const panSession = pagePorts.mapGesture.beginMapPan({ x: 200, y: 180 });
+    panSession.move({ x: 240, y: 210 });
+    panSession.finish({ x: 240, y: 210 });
 
     assert.deepEqual(received, [
       { type: "mousedown", x: 200, y: 180, forwarded: true },
@@ -667,9 +670,9 @@ test("page adapter keeps one iframe-local pan context through begin, move, and e
       received.push({ type: event.type, x: event.clientX, y: event.clientY });
     });
 
-    pagePorts.mapGesture.beginMapPan({ x: 800, y: 240 });
-    pagePorts.mapGesture.updateMapPan({ x: 820, y: 260 });
-    pagePorts.mapGesture.endMapPan({ x: 820, y: 260 });
+    const panSession = pagePorts.mapGesture.beginMapPan({ x: 800, y: 240 });
+    panSession.move({ x: 820, y: 260 });
+    panSession.finish({ x: 820, y: 260 });
 
     assert.deepEqual(received, [
       { type: "mousedown", x: 500, y: 200 },
@@ -729,9 +732,9 @@ test("page adapter map pan skips overlay hit-testing and always targets the map 
       });
     });
 
-    const started = pagePorts.mapGesture.beginMapPan({ x: 200, y: 180 });
+    const panSession = pagePorts.mapGesture.beginMapPan({ x: 200, y: 180 });
 
-    assert.equal(started, true);
+    assert.notEqual(panSession, null);
     assert.deepEqual(received, [
       { type: "mousedown", x: 200, y: 180, forwarded: true },
     ]);

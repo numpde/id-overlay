@@ -2,27 +2,15 @@ export function createBoundedMapGesturePort({
   gestureForwarder,
   runBoundary,
 }) {
-  // TODO(smell): Map gesture methods still expose imperative begin/update/end
-  // ports. The ideal page adapter would accept typed gesture command/fact
-  // objects once target resolution and event forwarding are split.
   return {
     beginMapPan(screenPoint) {
-      return runGesture("begin-map-pan", () => {
+      const session = runGesture("begin-map-pan", () => {
         return gestureForwarder.beginMapPan(screenPoint);
       });
-    },
-    updateMapPan(screenPoint) {
-      return runGesture("update-map-pan", () => {
-        return gestureForwarder.updateMapPan(screenPoint);
-      });
-    },
-    endMapPan(screenPoint) {
-      runBoundary("end-map-pan", () => {
-        gestureForwarder.endMapPan(screenPoint);
-      });
+      return session ? createBoundedMapPanSession(session) : null;
     },
     forwardMapZoom({ screenPoint, deltaX = 0, deltaY = 0, deltaMode = 0 }) {
-      return runGesture("forward-map-zoom", () => {
+      return runBooleanGesture("forward-map-zoom", () => {
         return gestureForwarder.forwardMapZoom({
           screenPoint,
           deltaX,
@@ -38,6 +26,26 @@ export function createBoundedMapGesturePort({
 
   function runGesture(operation, forward) {
     const result = runBoundary(operation, forward);
+    return result.ok ? result.value : null;
+  }
+
+  function runBooleanGesture(operation, forward) {
+    const result = runBoundary(operation, forward);
     return result.ok ? result.value : false;
+  }
+
+  function createBoundedMapPanSession(session) {
+    return Object.freeze({
+      move(screenPoint) {
+        return runGesture("update-map-pan", () => {
+          return session.move(screenPoint);
+        }) === true;
+      },
+      finish(screenPoint) {
+        runBoundary("end-map-pan", () => {
+          session.finish(screenPoint);
+        });
+      },
+    });
   }
 }

@@ -10,27 +10,26 @@ import {
 } from "./map-gesture-facts.js";
 
 export function createMapGestureForwarder({ getActiveMapContext }) {
-  let activeMapPan = null;
-
   function beginMapPan(screenPoint) {
     const mapPanSession = resolveMapPanSession(screenPoint);
     if (!mapPanSession) {
-      activeMapPan = null;
-      return false;
+      return null;
     }
 
-    activeMapPan = mapPanSession;
     dispatchForwardedMapPointerPhase({
       context: mapPanSession.context,
       target: mapPanSession.target,
       type: "down",
       clientPoint: mapPanSession.clientPoint,
     });
-    return true;
+    return createMapPanSession(mapPanSession.context);
   }
 
-  function updateMapPan(screenPoint) {
-    const gestureContext = resolveActiveMapPanGesture(screenPoint);
+  function moveMapPan(context, screenPoint) {
+    const gestureContext = resolveMapPanContinuationGestureFacts({
+      screenPoint,
+      context,
+    });
     if (!gestureContext) {
       return false;
     }
@@ -44,10 +43,12 @@ export function createMapGestureForwarder({ getActiveMapContext }) {
     return true;
   }
 
-  function endMapPan(screenPoint) {
-    const gestureContext = resolveActiveMapPanGesture(screenPoint);
+  function finishMapPan(context, screenPoint) {
+    const gestureContext = resolveMapPanContinuationGestureFacts({
+      screenPoint,
+      context,
+    });
     if (!gestureContext) {
-      activeMapPan = null;
       return;
     }
 
@@ -57,7 +58,6 @@ export function createMapGestureForwarder({ getActiveMapContext }) {
       type: "up",
       clientPoint: gestureContext.clientPoint,
     });
-    activeMapPan = null;
   }
 
   function forwardMapZoom({ screenPoint, deltaX = 0, deltaY = 0, deltaMode = 0 }) {
@@ -87,20 +87,19 @@ export function createMapGestureForwarder({ getActiveMapContext }) {
     });
   }
 
-  function resolveActiveMapPanGesture(screenPoint) {
-    if (!activeMapPan) {
-      return null;
-    }
-    return resolveMapPanContinuationGestureFacts({
-      screenPoint,
-      context: activeMapPan.context,
+  function createMapPanSession(context) {
+    return Object.freeze({
+      move(screenPoint) {
+        return moveMapPan(context, screenPoint);
+      },
+      finish(screenPoint) {
+        finishMapPan(context, screenPoint);
+      },
     });
   }
 
   return {
     beginMapPan,
-    updateMapPan,
-    endMapPan,
     forwardMapZoom,
     isForwardedMapGestureEvent,
   };
