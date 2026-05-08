@@ -4,56 +4,51 @@ import assert from "node:assert/strict";
 import { createPageSnapshotSource } from "../../src/content/page-adapter/snapshot-source.js";
 import {
   PAGE_MAP_VIEW_PROVENANCE_KIND,
-  PAGE_SNAPSHOT_PROVENANCE_KIND,
+  createPageSnapshot,
   createPageMapViewProvenance,
 } from "../../src/content/page-adapter/page-snapshot.js";
 
-test("page snapshot source returns stale provenance after a live snapshot when read fails", () => {
-  let failSnapshotRead = false;
+test("page snapshot source reads snapshots with the last notified snapshot", () => {
+  const calls = [];
+  const liveSnapshot = createLiveSnapshot();
+  const nextSnapshot = createLiveSnapshot({
+    mapView: createMapView({ zoom: 17 }),
+  });
   const source = createSnapshotSource({
-    runBoundary(_operation, fn) {
-      return failSnapshotRead
-        ? { ok: false }
-        : {
-            ok: true,
-            value: fn(),
-          };
+    snapshotReader: {
+      readSnapshot({ lastSnapshot }) {
+        calls.push(lastSnapshot);
+        return calls.length === 1 ? liveSnapshot : nextSnapshot;
+      },
     },
   });
 
   source.notifyIfChanged();
-  const liveSnapshot = source.getSnapshot();
-  failSnapshotRead = true;
+  const readSnapshot = source.getSnapshot();
 
-  const fallbackSnapshot = source.getSnapshot();
-
-  assert.equal(liveSnapshot.provenance.kind, PAGE_SNAPSHOT_PROVENANCE_KIND.LIVE);
-  assert.equal(fallbackSnapshot.provenance.kind, PAGE_SNAPSHOT_PROVENANCE_KIND.STALE);
-  assert.deepEqual(
-    {
-      ...fallbackSnapshot,
-      provenance: liveSnapshot.provenance,
-    },
-    liveSnapshot,
-  );
+  assert.deepEqual(calls, [null, liveSnapshot]);
+  assert.deepEqual(readSnapshot, nextSnapshot);
 });
 
-test("page snapshot source returns synthetic provenance when initial read fails", () => {
+test("page snapshot source emits only changed snapshots", () => {
+  const receivedSnapshots = [];
+  const liveSnapshot = createLiveSnapshot();
   const source = createSnapshotSource({
-    runBoundary() {
-      return { ok: false };
+    snapshotReader: {
+      readSnapshot() {
+        return liveSnapshot;
+      },
     },
   });
 
-  const fallbackSnapshot = source.getSnapshot();
-
-  assert.equal(fallbackSnapshot.provenance.kind, PAGE_SNAPSHOT_PROVENANCE_KIND.SYNTHETIC);
-  assert.deepEqual(fallbackSnapshot.viewportRect, {
-    left: 0,
-    top: 0,
-    width: 1440,
-    height: 900,
+  const unsubscribe = source.subscribe((snapshot) => {
+    receivedSnapshots.push(snapshot);
   });
+  source.notifyIfChanged();
+  source.notifyIfChanged();
+  unsubscribe();
+
+  assert.deepEqual(receivedSnapshots, [liveSnapshot]);
 });
 
 function createSnapshotSource({
@@ -61,6 +56,7 @@ function createSnapshotSource({
     ok: true,
     value: fn(),
   }),
+  snapshotReader,
 } = {}) {
   const context = {
     mapWindow: {},
@@ -120,6 +116,7 @@ function createSnapshotSource({
       reset() {},
     },
     runBoundary,
+    snapshotReader,
   });
 }
 
@@ -142,4 +139,20 @@ function createMapView(overrides = {}) {
     zoom: 16,
     ...overrides,
   };
+}
+
+function createLiveSnapshot(overrides = {}) {
+  return createPageSnapshot({
+    viewportElement: null,
+    mountElement: null,
+    viewportRect: createRect(),
+    localViewportRect: createRect(),
+    mapView: createMapView(),
+    mapViewProvenance: createPageMapViewProvenance(PAGE_MAP_VIEW_PROVENANCE_KIND.PRECISE),
+    surfaceMotion: {
+      transformCss: "none",
+      transformOriginCss: "0px 0px",
+    },
+    ...overrides,
+  });
 }

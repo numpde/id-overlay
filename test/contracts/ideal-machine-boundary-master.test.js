@@ -935,10 +935,17 @@ test("page snapshot source delegates observation scheduling to a watcher", () =>
 
 test("page snapshot shape and equality are centralized outside the snapshot source", () => {
   const source = readSource(repoPath("src/content/page-adapter/snapshot-source.js"));
+  const readerSource = readSource(repoPath("src/content/page-adapter/snapshot-reader.js"));
   const snapshotSource = readSource(repoPath("src/content/page-adapter/page-snapshot.js"));
   const violations = [];
 
-  if (!/\bcreatePageSnapshot\b/.test(source)) {
+  if (!/\bcreatePageSnapshotReader\b/.test(source)) {
+    violations.push("missing: delegated page snapshot reader");
+  }
+  if (/\bcreatePageSnapshot\b|\bcreateStalePageSnapshot\b|\bcreateFallbackPageSnapshot\b/.test(source)) {
+    violations.push("forbidden: snapshot construction in source lifecycle");
+  }
+  if (!/\bcreatePageSnapshot\b/.test(readerSource)) {
     violations.push("missing: page snapshot factory");
   }
   if (!/\bpageSnapshotsEqual\b/.test(source)) {
@@ -959,13 +966,13 @@ test("page snapshot shape and equality are centralized outside the snapshot sour
   if (!/\bPAGE_MAP_VIEW_PROVENANCE_KIND\b/.test(snapshotSource)) {
     violations.push("missing: map-view provenance vocabulary");
   }
-  if (!/\bviewportProvenance\b/.test(source)) {
+  if (!/\bviewportProvenance\b/.test(readerSource)) {
     violations.push("missing: viewport provenance propagation");
   }
-  if (!/\bmapViewProvenance\b/.test(source)) {
+  if (!/\bmapViewProvenance\b/.test(readerSource)) {
     violations.push("missing: map-view provenance propagation");
   }
-  if (!/\bcreateStalePageSnapshot\b/.test(source)) {
+  if (!/\bcreateStalePageSnapshot\b/.test(readerSource)) {
     violations.push("missing: stale fallback provenance");
   }
 

@@ -1,9 +1,5 @@
-import {
-  createFallbackPageSnapshot,
-  createPageSnapshot,
-  createStalePageSnapshot,
-  pageSnapshotsEqual,
-} from "./page-snapshot.js";
+import { pageSnapshotsEqual } from "./page-snapshot.js";
+import { createPageSnapshotReader } from "./snapshot-reader.js";
 import { createPageSnapshotWatcher } from "./snapshot-watcher.js";
 
 export function createPageSnapshotSource({
@@ -12,10 +8,14 @@ export function createPageSnapshotSource({
   viewportGeometry,
   mapViewResolver,
   runBoundary,
+  snapshotReader = createPageSnapshotReader({
+    hashTarget,
+    pageContext,
+    viewportGeometry,
+    mapViewResolver,
+    runBoundary,
+  }),
 }) {
-  // TODO(smell): Snapshot source owns subscription lifecycle, snapshot equality,
-  // fallback recovery, and resolver orchestration. It is contained, but final
-  // shape should split live observation from snapshot construction.
   let lastSnapshot = null;
   const listeners = new Set();
   const watcher = createPageSnapshotWatcher({
@@ -35,7 +35,9 @@ export function createPageSnapshotSource({
     listeners.add(listener);
     startWatching();
     runBoundary("subscribe-listener", () => {
-      listener(getSnapshot());
+      const initialSnapshot = readSnapshot();
+      lastSnapshot = initialSnapshot;
+      listener(initialSnapshot);
     });
     return () => {
       listeners.delete(listener);
@@ -85,41 +87,8 @@ export function createPageSnapshotSource({
   }
 
   function readSnapshot() {
-    const result = runBoundary("get-snapshot", () => {
-      return createPageSnapshot(resolveSnapshotState(pageContext.getActiveMapContext()));
-    });
-    return result.ok ? result.value : createFallbackSnapshot();
-  }
-
-  function resolveSnapshotState(context) {
-    const viewport = viewportGeometry.resolveViewportGeometry(context);
-    const surfaceMotion = viewportGeometry.resolveSurfaceMotion(context);
-    const mapView = mapViewResolver.resolveMapView(context, {
-      viewportRect: viewport.viewportRect,
-      surfaceMotion,
-    });
-    return {
-      viewportElement: viewport.viewportElement,
-      mountElement: viewport.mountElement,
-      viewportRect: viewport.viewportRect,
-      localViewportRect: viewport.localViewportRect,
-      viewportProvenance: viewport.viewportProvenance,
-      mapView: mapView.mapView,
-      mapViewProvenance: mapView.mapViewProvenance,
-      surfaceMotion,
-    };
-  }
-
-  function createFallbackSnapshot() {
-    // TODO(smell): Boundary fallback now marks stale vs synthetic page facts,
-    // but callers still mostly ignore provenance. Keep fallback construction
-    // centralized here until degraded rendering/paste policy consumes it.
-    if (lastSnapshot) {
-      return createStalePageSnapshot(lastSnapshot);
-    }
-    return createFallbackPageSnapshot({
-      hashTarget,
-      mapView: mapViewResolver.getFallbackMapView(),
+    return snapshotReader.readSnapshot({
+      lastSnapshot,
     });
   }
 
