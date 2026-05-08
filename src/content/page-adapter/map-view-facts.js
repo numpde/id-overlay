@@ -1,6 +1,8 @@
 import {
   unprojectWorldToLatLon,
 } from "../../core/geometry.js";
+import { parseTileMatrixTransform } from "./map-tile-transform.js";
+import { parseTileCoordinates } from "./map-tile-url.js";
 import { findReferenceTile } from "./page-dom-queries.js";
 
 const TILE_SIZE = 256;
@@ -9,6 +11,8 @@ export const DEFAULT_MAP_VIEW = Object.freeze({
   center: { lat: 0, lon: 0 },
   zoom: 2,
 });
+
+export { deriveHashMapView } from "./map-hash-view.js";
 
 export function deriveTileMapView({ viewportDocument, viewportRect }) {
   // TODO(smell): Tile-derived map view is an inference from rendered imagery,
@@ -24,7 +28,7 @@ export function deriveTileMapView({ viewportDocument, viewportRect }) {
     return null;
   }
 
-  const tileMatrix = parseMatrixTransform(tile);
+  const tileMatrix = parseTileMatrixTransform(tile);
   if (!tileMatrix) {
     return null;
   }
@@ -56,103 +60,4 @@ export function deriveTileMapView({ viewportDocument, viewportRect }) {
     center: unprojectWorldToLatLon(centerWorld),
     zoom: effectiveZoom,
   };
-}
-
-export function deriveHashMapView(hash) {
-  const match = /map=([0-9]+(?:\.[0-9]+)?)\/(-?[0-9]+(?:\.[0-9]+)?)\/(-?[0-9]+(?:\.[0-9]+)?)/.exec(hash);
-  if (!match) {
-    return null;
-  }
-
-  const zoom = Number(match[1]);
-  const lat = Number(match[2]);
-  const lon = Number(match[3]);
-
-  if (!Number.isFinite(zoom) || !Number.isFinite(lat) || !Number.isFinite(lon)) {
-    return null;
-  }
-
-  return {
-    center: { lat, lon },
-    zoom,
-  };
-}
-
-function parseTileCoordinates(tileUrl) {
-  // TODO(smell): Supported tile URL formats are empirical adapter knowledge.
-  // Add formats only here with tests; do not let URL parsing leak to map-view
-  // resolution or projection code.
-  if (typeof tileUrl !== "string" || !tileUrl) {
-    return null;
-  }
-
-  const bingMatch = /\/tiles\/[a-z](\d+)\./i.exec(tileUrl);
-  if (bingMatch) {
-    return quadkeyToTileCoordinates(bingMatch[1]);
-  }
-
-  const xyzPathMatch = /\/(\d+)\/(\d+)\/(\d+)(?:\.[a-z0-9]+)(?:[?#]|$)/i.exec(tileUrl);
-  if (xyzPathMatch) {
-    return {
-      zoom: Number(xyzPathMatch[1]),
-      x: Number(xyzPathMatch[2]),
-      y: Number(xyzPathMatch[3]),
-    };
-  }
-
-  const xyzQueryMatch = /[?&](?:z|zoom)=(\d+).*?[?&](?:x|tilex)=(\d+).*?[?&](?:y|tiley)=(\d+)/i.exec(tileUrl);
-  if (xyzQueryMatch) {
-    return {
-      zoom: Number(xyzQueryMatch[1]),
-      x: Number(xyzQueryMatch[2]),
-      y: Number(xyzQueryMatch[3]),
-    };
-  }
-
-  return null;
-}
-
-function quadkeyToTileCoordinates(quadkey) {
-  let x = 0;
-  let y = 0;
-  const zoom = quadkey.length;
-
-  for (let index = 0; index < zoom; index += 1) {
-    const bit = zoom - index - 1;
-    const mask = 1 << bit;
-    const digit = Number(quadkey[index]);
-    if (digit & 1) {
-      x |= mask;
-    }
-    if (digit & 2) {
-      y |= mask;
-    }
-  }
-
-  return { zoom, x, y };
-}
-
-function parseMatrixTransform(element) {
-  // TODO(smell): Matrix parsing assumes 2D CSS transforms on tile elements.
-  // If iD switches transform style, this should fail closed here rather than
-  // corrupting placement/projection state.
-  const view = element.ownerDocument?.defaultView ?? globalThis;
-  const style = typeof view.getComputedStyle === "function"
-    ? view.getComputedStyle(element)
-    : null;
-  const transformCss = style?.transform ?? element.style.transform ?? "";
-  const matrixMatch = /matrix\(([^)]+)\)/.exec(transformCss);
-  if (matrixMatch) {
-    const values = matrixMatch[1].split(",").map((value) => Number(value.trim()));
-    if (values.length === 6 && values.every(Number.isFinite)) {
-      const [a, b, _c, _d, tx, ty] = values;
-      return {
-        scale: Math.hypot(a, b),
-        tx,
-        ty,
-      };
-    }
-  }
-
-  return null;
 }

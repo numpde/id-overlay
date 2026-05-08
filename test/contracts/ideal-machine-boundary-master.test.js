@@ -1005,6 +1005,9 @@ test("page snapshot shape and equality are centralized outside the snapshot sour
 test("map view resolver delegates tile and hash fact extraction", () => {
   const source = readSource(repoPath("src/content/page-adapter/map-view.js"));
   const factsSource = readSource(repoPath("src/content/page-adapter/map-view-facts.js"));
+  const hashSource = readSource(repoPath("src/content/page-adapter/map-hash-view.js"));
+  const tileTransformSource = readSource(repoPath("src/content/page-adapter/map-tile-transform.js"));
+  const tileUrlSource = readSource(repoPath("src/content/page-adapter/map-tile-url.js"));
   const violations = [];
 
   if (!/\bderiveTileMapView\b/.test(source)) {
@@ -1022,8 +1025,20 @@ test("map view resolver delegates tile and hash fact extraction", () => {
   if (!/\bderiveHashMapView\b/.test(factsSource)) {
     violations.push("missing: nullable hash map-view derivation");
   }
-  if (!/\bquadkeyToTileCoordinates\b/.test(factsSource)) {
-    violations.push("missing: Bing quadkey parsing in facts module");
+  if (!/\bparseTileCoordinates\b/.test(factsSource) || !/\bparseTileMatrixTransform\b/.test(factsSource)) {
+    violations.push("missing: delegated tile parser use in facts facade");
+  }
+  if (/\bquadkeyToTileCoordinates\b|\bmatrix\(|\bgetComputedStyle\b|\bmap=/.test(factsSource)) {
+    violations.push("forbidden: low-level tile/hash parsing in facts facade");
+  }
+  if (!/\bmap=/.test(hashSource)) {
+    violations.push("missing: hash parser owns map hash shape");
+  }
+  if (!/matrix\\\(/.test(tileTransformSource) || !/\bgetComputedStyle\b/.test(tileTransformSource)) {
+    violations.push("missing: tile transform parser owns CSS matrix parsing");
+  }
+  if (!/\bquadkeyToTileCoordinates\b/.test(tileUrlSource)) {
+    violations.push("missing: Bing quadkey parsing in tile URL parser");
   }
 
   assert.deepEqual(violations, []);
