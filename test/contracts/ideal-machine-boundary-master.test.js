@@ -1046,6 +1046,7 @@ test("map view resolver delegates tile and hash fact extraction", () => {
 
 test("viewport geometry resolver delegates geometry and surface-motion fact construction", () => {
   const source = readSource(repoPath("src/content/page-adapter/viewport-geometry.js"));
+  const elementResolverSource = readSource(repoPath("src/content/page-adapter/viewport-element-resolver.js"));
   const factsSource = readSource(repoPath("src/content/page-adapter/viewport-geometry-facts.js"));
   const violations = [];
 
@@ -1058,14 +1059,20 @@ test("viewport geometry resolver delegates geometry and surface-motion fact cons
   if (!/\bresolveSurfaceMotionFact\b/.test(source)) {
     violations.push("missing: surface motion fact delegation");
   }
-  if (/\bgetBoundingClientRect\b|\bcreateWindowViewportRect\b|\bSURFACE_MOTION_SELECTOR\b/.test(source)) {
-    violations.push("forbidden: low-level viewport fact extraction in resolver");
+  if (!/\bcreateViewportElementResolver\b/.test(source)) {
+    violations.push("missing: viewport element identity delegation");
+  }
+  if (/\bgetBoundingClientRect\b|\bcreateWindowViewportRect\b|\bSURFACE_MOTION_SELECTOR\b|\bfindViewportElement\b|\bisVisible\b|\blet\s+viewportElement\b/.test(source)) {
+    violations.push("forbidden: low-level viewport fact or identity extraction in resolver");
   }
   if (!/\btranslateRectByFrame\b/.test(factsSource)) {
     violations.push("missing: framed viewport translation in facts module");
   }
   if (!/\bPAGE_VIEWPORT_PROVENANCE_KIND\b/.test(factsSource)) {
     violations.push("missing: viewport fact provenance");
+  }
+  if (!/\bfindViewportElement\b/.test(elementResolverSource) || !/\bisVisible\b/.test(elementResolverSource)) {
+    violations.push("missing: viewport element identity/cache policy");
   }
 
   assert.deepEqual(violations, []);
