@@ -14,9 +14,6 @@ export function createPageAdapter({
   hashTarget = globalThis.window,
   viewportDocument = globalThis.document,
 } = {}) {
-  // TODO(smell): This is now the page-port composition root, but it still
-  // manually wraps every exposed method in the error boundary. A final port
-  // factory should apply boundary policy declaratively per port.
   const logger = createLogger("page-adapter");
   const runBoundary = createPageAdapterBoundary({ logger });
   const viewportGeometry = createViewportGeometryResolver({ hashTarget });
