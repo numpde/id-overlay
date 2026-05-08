@@ -2,17 +2,16 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  PAGE_SNAPSHOT_OBSERVATION_CAUSE,
   createPageSnapshotWatcher,
 } from "../../src/content/page-adapter/snapshot-watcher.js";
 
 test("snapshot watcher starts page observation, window events, and a RAF polling loop once", () => {
   const hashTarget = createRafTarget();
-  const observations = [];
+  const invalidations = [];
   const watcher = createPageSnapshotWatcher({
     hashTarget,
-    onChange(observation) {
-      observations.push(observation);
+    onInvalidate() {
+      invalidations.push("invalidate");
     },
   });
 
@@ -29,9 +28,7 @@ test("snapshot watcher starts page observation, window events, and a RAF polling
 
   hashTarget.runFrame(1);
 
-  assert.deepEqual(observations, [
-    { cause: PAGE_SNAPSHOT_OBSERVATION_CAUSE.POLL },
-  ]);
+  assert.deepEqual(invalidations, ["invalidate"]);
   assert.deepEqual(hashTarget.requestedFrames, [1, 2]);
 
   watcher.stop();
@@ -45,13 +42,13 @@ test("snapshot watcher starts page observation, window events, and a RAF polling
   ]);
 });
 
-test("snapshot watcher emits typed causes for window observation events", () => {
+test("snapshot watcher invalidates for every window observation event", () => {
   const hashTarget = createRafTarget();
-  const observations = [];
+  const invalidations = [];
   const watcher = createPageSnapshotWatcher({
     hashTarget,
-    onChange(observation) {
-      observations.push(observation);
+    onInvalidate() {
+      invalidations.push("invalidate");
     },
   });
 
@@ -61,21 +58,21 @@ test("snapshot watcher emits typed causes for window observation events", () => 
   hashTarget.dispatch("hashchange");
   hashTarget.dispatch("popstate");
 
-  assert.deepEqual(observations, [
-    { cause: PAGE_SNAPSHOT_OBSERVATION_CAUSE.RESIZE },
-    { cause: PAGE_SNAPSHOT_OBSERVATION_CAUSE.SCROLL },
-    { cause: PAGE_SNAPSHOT_OBSERVATION_CAUSE.HASH_CHANGE },
-    { cause: PAGE_SNAPSHOT_OBSERVATION_CAUSE.POPSTATE },
+  assert.deepEqual(invalidations, [
+    "invalidate",
+    "invalidate",
+    "invalidate",
+    "invalidate",
   ]);
 });
 
-test("snapshot watcher removes the same typed event listeners it installed", () => {
+test("snapshot watcher removes the same event listeners it installed", () => {
   const hashTarget = createRafTarget();
-  const observations = [];
+  const invalidations = [];
   const watcher = createPageSnapshotWatcher({
     hashTarget,
-    onChange(observation) {
-      observations.push(observation);
+    onInvalidate() {
+      invalidations.push("invalidate");
     },
   });
 
@@ -86,16 +83,16 @@ test("snapshot watcher removes the same typed event listeners it installed", () 
   hashTarget.dispatch("hashchange");
   hashTarget.dispatch("popstate");
 
-  assert.deepEqual(observations, []);
+  assert.deepEqual(invalidations, []);
 });
 
 test("snapshot watcher falls back to interval polling when RAF is unavailable", () => {
   const hashTarget = createIntervalTarget();
-  const observations = [];
+  const invalidations = [];
   const watcher = createPageSnapshotWatcher({
     hashTarget,
-    onChange(observation) {
-      observations.push(observation);
+    onInvalidate() {
+      invalidations.push("invalidate");
     },
   });
 
@@ -105,9 +102,7 @@ test("snapshot watcher falls back to interval polling when RAF is unavailable", 
 
   hashTarget.runInterval(1);
 
-  assert.deepEqual(observations, [
-    { cause: PAGE_SNAPSHOT_OBSERVATION_CAUSE.POLL },
-  ]);
+  assert.deepEqual(invalidations, ["invalidate"]);
 
   watcher.stop();
 
@@ -118,7 +113,7 @@ test("snapshot watcher stop is inert before start and after stop", () => {
   const hashTarget = createRafTarget();
   const watcher = createPageSnapshotWatcher({
     hashTarget,
-    onChange() {},
+    onInvalidate() {},
   });
 
   watcher.stop();
@@ -134,7 +129,7 @@ test("snapshot watcher cancels RAF polling even when the browser returns frame i
   const hashTarget = createRafTarget({ startFrameId: 0 });
   const watcher = createPageSnapshotWatcher({
     hashTarget,
-    onChange() {},
+    onInvalidate() {},
   });
 
   watcher.start();
@@ -149,7 +144,7 @@ test("snapshot watcher does not reschedule RAF polling when stopped during a tic
   let watcher = null;
   watcher = createPageSnapshotWatcher({
     hashTarget,
-    onChange() {
+    onInvalidate() {
       watcher.stop();
     },
   });

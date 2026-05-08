@@ -21,7 +21,7 @@ export function createPageObservationGraph({
   });
   const watcher = createSnapshotWatcher({
     hashTarget,
-    onChange: handleSnapshotObservation,
+    onInvalidate: handleSnapshotInvalidation,
   });
   const snapshotSource = createSnapshotSource({
     hashTarget,
@@ -47,7 +47,7 @@ export function createPageObservationGraph({
     syncContextAndNotify();
   }
 
-  function handleSnapshotObservation() {
+  function handleSnapshotInvalidation() {
     syncContextAndNotify();
   }
 

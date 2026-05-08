@@ -1,43 +1,31 @@
 const SNAPSHOT_POLL_INTERVAL_MS = 150;
 
-export const PAGE_SNAPSHOT_OBSERVATION_CAUSE = Object.freeze({
-  RESIZE: "resize",
-  SCROLL: "scroll",
-  HASH_CHANGE: "hash-change",
-  POPSTATE: "popstate",
-  POLL: "poll",
-});
-
 const WINDOW_OBSERVATION_EVENTS = Object.freeze([
   Object.freeze({
     type: "resize",
-    cause: PAGE_SNAPSHOT_OBSERVATION_CAUSE.RESIZE,
   }),
   Object.freeze({
     type: "scroll",
-    cause: PAGE_SNAPSHOT_OBSERVATION_CAUSE.SCROLL,
     options: Object.freeze({ passive: true }),
   }),
   Object.freeze({
     type: "hashchange",
-    cause: PAGE_SNAPSHOT_OBSERVATION_CAUSE.HASH_CHANGE,
   }),
   Object.freeze({
     type: "popstate",
-    cause: PAGE_SNAPSHOT_OBSERVATION_CAUSE.POPSTATE,
   }),
 ]);
 
 export function createPageSnapshotWatcher({
   hashTarget,
-  onChange,
+  onInvalidate,
 }) {
   let isWatching = false;
   let snapshotLoopHandle = null;
   let usingAnimationFrameLoop = false;
   const windowObservationListeners = WINDOW_OBSERVATION_EVENTS.map((event) => ({
     ...event,
-    listener: () => emit(event.cause),
+    listener: onInvalidate,
   }));
 
   function start() {
@@ -74,7 +62,7 @@ export function createPageSnapshotWatcher({
         if (!isWatching) {
           return;
         }
-        emit(PAGE_SNAPSHOT_OBSERVATION_CAUSE.POLL);
+        onInvalidate();
         if (!isWatching) {
           return;
         }
@@ -86,7 +74,7 @@ export function createPageSnapshotWatcher({
 
     usingAnimationFrameLoop = false;
     snapshotLoopHandle = hashTarget.setInterval(
-      () => emit(PAGE_SNAPSHOT_OBSERVATION_CAUSE.POLL),
+      onInvalidate,
       SNAPSHOT_POLL_INTERVAL_MS,
     );
   }
@@ -102,10 +90,6 @@ export function createPageSnapshotWatcher({
     }
     snapshotLoopHandle = null;
     usingAnimationFrameLoop = false;
-  }
-
-  function emit(cause) {
-    onChange({ cause });
   }
 
   return {

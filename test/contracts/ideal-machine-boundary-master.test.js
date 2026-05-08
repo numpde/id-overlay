@@ -936,8 +936,8 @@ test("page observation graph owns snapshot scheduling and source lifecycle hooks
   if (/\brequestAnimationFrame\b|\bsetInterval\b|\baddEventListener\b/.test(source)) {
     violations.push("forbidden: scheduling/listener policy in snapshot source");
   }
-  if (!/\bPAGE_SNAPSHOT_OBSERVATION_CAUSE\b/.test(watcherSource)) {
-    violations.push("missing: typed snapshot observation causes");
+  if (!/\bonInvalidate\b/.test(watcherSource) || /\bPAGE_SNAPSHOT_OBSERVATION_CAUSE\b|\bonChange\b/.test(watcherSource)) {
+    violations.push("forbidden: snapshot watcher exposes semantic causes instead of invalidation");
   }
   if (!/\brequestAnimationFrame\b|\bsetInterval\b/.test(watcherSource)) {
     violations.push("missing: watcher polling policy");

@@ -122,8 +122,8 @@ function createObservationGraphHarness(calls) {
         },
       };
     },
-    createSnapshotWatcher({ onChange }) {
-      watcherListener = onChange;
+    createSnapshotWatcher({ onInvalidate }) {
+      watcherListener = onInvalidate;
       return {
         start() {
           calls.push("start-watcher");
