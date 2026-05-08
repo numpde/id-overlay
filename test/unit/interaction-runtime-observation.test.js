@@ -2,7 +2,6 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { createMachineHost } from "../../src/core/machine/host.js";
-import { createPointerObservedFact } from "../../src/core/machine/runtime-facts.js";
 import { createInteractionRuntimeObservation } from "../../src/content/interactions/runtime-observation.js";
 
 test("interaction runtime observation exposes read-only runtime state and pointer projection", () => {
@@ -12,7 +11,7 @@ test("interaction runtime observation exposes read-only runtime state and pointe
   assert.equal(runtimeObservation.getRuntimeState(), machineHost.getState().runtime);
   assert.equal(runtimeObservation.getPointerScreenPx(), null);
 
-  machineHost.observeRuntimeFact(createPointerObservedFact({ x: 10, y: 20 }));
+  machineHost.observePointer({ x: 10, y: 20 });
 
   assert.equal(runtimeObservation.getRuntimeState(), machineHost.getState().runtime);
   assert.deepEqual(runtimeObservation.getPointerScreenPx(), { x: 10, y: 20 });
@@ -29,7 +28,7 @@ test("interaction runtime observation emits only input-runtime changes", () => {
   });
 
   machineHost.reportRuntimeError({ message: "ignored for runtime projection" });
-  machineHost.observeRuntimeFact(createPointerObservedFact({ x: 1, y: 2 }));
+  machineHost.observePointer({ x: 1, y: 2 });
 
   assert.equal(observedChanges.length, 2);
   assert.equal(observedChanges[0].runtime.pointer.screenPx, null);
@@ -38,7 +37,7 @@ test("interaction runtime observation emits only input-runtime changes", () => {
   assert.equal(observedChanges[1].previousRuntime.pointer.screenPx, null);
 
   unsubscribe();
-  machineHost.observeRuntimeFact(createPointerObservedFact({ x: 3, y: 4 }));
+  machineHost.observePointer({ x: 3, y: 4 });
   assert.equal(observedChanges.length, 2);
 
   runtimeObservation.destroy();
@@ -53,7 +52,7 @@ test("interaction runtime observation destroy removes subscriptions and makes la
     observedRuntime.push(runtime);
   }, { emitCurrent: false });
   runtimeObservation.destroy();
-  machineHost.observeRuntimeFact(createPointerObservedFact({ x: 10, y: 20 }));
+  machineHost.observePointer({ x: 10, y: 20 });
 
   const unsubscribe = runtimeObservation.subscribe((runtime) => {
     observedRuntime.push(runtime);

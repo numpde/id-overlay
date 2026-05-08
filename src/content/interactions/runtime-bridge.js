@@ -1,16 +1,11 @@
-import { createInteractionRuntimeFactPort } from "./runtime-fact-port.js";
 import { createInteractionRuntimeObservation } from "./runtime-observation.js";
 
 export function createInteractionRuntimeBridge({
   machineHost,
-  machineActions,
+  runtimeActions,
 }) {
   const runtimeObservation = createInteractionRuntimeObservation({
     machineHost,
-  });
-  const runtimeFactPort = createInteractionRuntimeFactPort({
-    machineActions,
-    getPointerScreenPx: runtimeObservation.getPointerScreenPx,
   });
 
   return {
@@ -18,6 +13,19 @@ export function createInteractionRuntimeBridge({
     getRuntimeState: runtimeObservation.getRuntimeState,
     getPointerScreenPx: runtimeObservation.getPointerScreenPx,
     subscribe: runtimeObservation.subscribe,
-    ...runtimeFactPort,
+    observePointer: runtimeActions.observePointer,
+    clearPointer: runtimeActions.clearPointer,
+    observeGestureStart: runtimeActions.observeGestureStart,
+    observeGestureMove: runtimeActions.observeGestureMove,
+    observeGestureFinish: runtimeActions.observeGestureFinish,
+    observeInputInterrupted,
+    observePassThroughPress: runtimeActions.observePassThroughPress,
+    observePassThroughRelease: runtimeActions.observePassThroughRelease,
   };
+
+  function observeInputInterrupted({
+    pointerScreenPx = runtimeObservation.getPointerScreenPx(),
+  } = {}) {
+    return runtimeActions.observeInputInterrupted({ pointerScreenPx });
+  }
 }

@@ -1,6 +1,16 @@
 import {
   MACHINE_PLACEMENT_EDIT_KIND,
 } from "./events.js";
+import {
+  createGestureBeganFact,
+  createGestureEndedFact,
+  createGestureMovedFact,
+  createInputInterruptedFact,
+  createInputPassThroughPressedFact,
+  createInputPassThroughReleasedFact,
+  createPointerClearedFact,
+  createPointerObservedFact,
+} from "./runtime-facts.js";
 import { MACHINE_STATUS_NOTICE_KIND } from "./status-notices.js";
 import {
   createHostedMachineRuntime,
@@ -97,13 +107,42 @@ export function createMachineHost({
     );
   }
 
-  function observeRuntimeFact(fact) {
-    // TODO(smell): Runtime facts enter through a generic fact ingress while
-    // other user actions have named host methods. This is acceptable for now,
-    // but the boundary should stay intentionally private to interaction ports.
+  function commitRuntimeFact(fact) {
     return commitMachineTransition((state) => transitionRuntimeFact(state, fact), {
       runtimeFact: fact,
     });
+  }
+
+  function observePointer(screenPx) {
+    return commitRuntimeFact(createPointerObservedFact(screenPx));
+  }
+
+  function clearPointer() {
+    return commitRuntimeFact(createPointerClearedFact());
+  }
+
+  function observeGestureStart(screenPx, { gestureKind } = {}) {
+    return commitRuntimeFact(createGestureBeganFact({ screenPx, gestureKind }));
+  }
+
+  function observeGestureMove(screenPx, { gestureKind } = {}) {
+    return commitRuntimeFact(createGestureMovedFact({ screenPx, gestureKind }));
+  }
+
+  function observeGestureFinish(screenPx) {
+    return commitRuntimeFact(createGestureEndedFact({ screenPx }));
+  }
+
+  function observeInputInterrupted({ pointerScreenPx = null } = {}) {
+    return commitRuntimeFact(createInputInterruptedFact({ pointerScreenPx }));
+  }
+
+  function observePassThroughPress() {
+    return commitRuntimeFact(createInputPassThroughPressedFact());
+  }
+
+  function observePassThroughRelease() {
+    return commitRuntimeFact(createInputPassThroughReleasedFact());
   }
 
   function reportRuntimeError(runtimeError) {
@@ -249,7 +288,14 @@ export function createMachineHost({
     subscribe,
     interactionActions: Object.freeze({
       selectMode,
-      observeRuntimeFact,
+      observePointer,
+      clearPointer,
+      observeGestureStart,
+      observeGestureMove,
+      observeGestureFinish,
+      observeInputInterrupted,
+      observePassThroughPress,
+      observePassThroughRelease,
       reportRuntimeError,
       togglePin,
       beginOverlayMove,
@@ -270,7 +316,14 @@ export function createMachineHost({
     requestPanelIntent,
     cancelPanelIntent,
     cancelPanelIntentWithStatusNotice,
-    observeRuntimeFact,
+    observePointer,
+    clearPointer,
+    observeGestureStart,
+    observeGestureMove,
+    observeGestureFinish,
+    observeInputInterrupted,
+    observePassThroughPress,
+    observePassThroughRelease,
     reportRuntimeError,
     togglePin,
     beginOverlayMove,

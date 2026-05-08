@@ -66,27 +66,26 @@ test("runtime fact builders normalize observed input lifecycle facts", () => {
   });
 });
 
-test("machine host ingests runtime facts instead of exposing lifecycle mutation semantics", () => {
+test("machine host exposes explicit input runtime observation ingress", () => {
   const machineHost = createMachineHost();
 
-  machineHost.observeRuntimeFact(createPointerObservedFact({ x: 500, y: 300 }));
+  machineHost.observePointer({ x: 500, y: 300 });
   assert.deepEqual(machineHost.getState().runtime.pointer.screenPx, { x: 500, y: 300 });
 
-  machineHost.observeRuntimeFact(createGestureBeganFact({
-    screenPx: { x: 510, y: 305 },
+  machineHost.observeGestureStart({ x: 510, y: 305 }, {
     gestureKind: DRAG_MODE.MAP_PAN,
-  }));
+  });
   assert.deepEqual(machineHost.getState().runtime.pointer.screenPx, { x: 510, y: 305 });
   assert.deepEqual(machineHost.getState().runtime.activeGesture, { kind: DRAG_MODE.MAP_PAN });
 
-  machineHost.observeRuntimeFact(createInputPassThroughPressedFact());
+  machineHost.observePassThroughPress();
   assert.equal(machineHost.getState().runtime.inputOverride, MACHINE_INPUT_OVERRIDE.PASS_THROUGH);
 
-  machineHost.observeRuntimeFact(createGestureEndedFact({ screenPx: { x: 520, y: 310 } }));
+  machineHost.observeGestureFinish({ x: 520, y: 310 });
   assert.equal(machineHost.getState().runtime.activeGesture, null);
   assert.deepEqual(machineHost.getState().runtime.pointer.screenPx, { x: 520, y: 310 });
 
-  machineHost.observeRuntimeFact(createInputInterruptedFact({ pointerScreenPx: null }));
+  machineHost.observeInputInterrupted({ pointerScreenPx: null });
   assert.deepEqual(machineHost.getState().runtime, createInitialMachineState().runtime);
 });
 
@@ -97,17 +96,16 @@ test("input runtime observation key changes only for observable input runtime fa
   machineHost.reportRuntimeError({ message: "not input runtime" });
   assert.equal(selectInputRuntimeObservationKey(machineHost.getState()), initialKey);
 
-  machineHost.observeRuntimeFact(createPointerObservedFact({ x: 500, y: 300 }));
+  machineHost.observePointer({ x: 500, y: 300 });
   const pointerKey = selectInputRuntimeObservationKey(machineHost.getState());
   assert.notEqual(pointerKey, initialKey);
 
-  machineHost.observeRuntimeFact(createGestureBeganFact({
-    screenPx: { x: 500, y: 300 },
+  machineHost.observeGestureStart({ x: 500, y: 300 }, {
     gestureKind: DRAG_MODE.MOVE_OVERLAY,
-  }));
+  });
   const gestureKey = selectInputRuntimeObservationKey(machineHost.getState());
   assert.notEqual(gestureKey, pointerKey);
 
-  machineHost.observeRuntimeFact(createInputPassThroughPressedFact());
+  machineHost.observePassThroughPress();
   assert.notEqual(selectInputRuntimeObservationKey(machineHost.getState()), gestureKey);
 });

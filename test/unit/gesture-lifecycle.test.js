@@ -3,9 +3,6 @@ import assert from "node:assert/strict";
 
 import { DRAG_MODE } from "../../src/core/interaction-policy.js";
 import { createMachineHost } from "../../src/core/machine/host.js";
-import {
-  createInputInterruptedFact,
-} from "../../src/core/machine/runtime-facts.js";
 import { createGestureLifecycle } from "../../src/content/interactions/gesture-lifecycle.js";
 import { createInteractionRuntimeBridge } from "../../src/content/interactions/runtime-bridge.js";
 
@@ -44,7 +41,7 @@ test("gesture lifecycle leaves runtime untouched when adapter drag rejects", () 
   assert.equal(machineHost.getState().runtime.pointer.screenPx, null);
 });
 
-test("gesture lifecycle moves and finishes the active adapter drag with matching runtime facts", () => {
+test("gesture lifecycle moves and finishes the active adapter drag with matching runtime observations", () => {
   const { lifecycle, adapterDrag, machineHost } = createLifecycleHarness();
 
   lifecycle.begin({
@@ -134,9 +131,9 @@ test("gesture lifecycle releases adapter drag from an explicit runtime interrupt
     dragMode: DRAG_MODE.MAP_PAN,
   });
   const previousRuntime = machineHost.getState().runtime;
-  machineHost.observeRuntimeFact(createInputInterruptedFact({
+  machineHost.observeInputInterrupted({
     pointerScreenPx: { x: 70, y: 80 },
-  }));
+  });
   lifecycle.handleRuntimeChange({
     previousRuntime,
     nextRuntime: machineHost.getState().runtime,
@@ -158,7 +155,7 @@ test("gesture lifecycle ignores runtime interruption after adapter drag has alre
   });
   adapterDrag.end({ x: 50, y: 60 });
   const previousRuntime = machineHost.getState().runtime;
-  machineHost.observeRuntimeFact(createInputInterruptedFact({ pointerScreenPx: null }));
+  machineHost.observeInputInterrupted({ pointerScreenPx: null });
   lifecycle.handleRuntimeChange({
     previousRuntime,
     nextRuntime: machineHost.getState().runtime,
@@ -173,7 +170,7 @@ function createLifecycleHarness({
   const machineHost = createMachineHost();
   const runtimeBridge = createInteractionRuntimeBridge({
     machineHost,
-    machineActions: createRuntimeMachineActions(machineHost),
+    runtimeActions: machineHost.interactionActions,
   });
   let adapterDragActive = false;
   const adapterDrag = {
@@ -214,11 +211,5 @@ function createLifecycleHarness({
     lifecycle,
     machineHost,
     runtimeBridge,
-  };
-}
-
-function createRuntimeMachineActions(machineHost) {
-  return {
-    observeRuntimeFact: machineHost.observeRuntimeFact,
   };
 }

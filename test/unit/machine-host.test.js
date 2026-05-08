@@ -145,7 +145,14 @@ test("machine host exposes a frozen interaction action capability port", () => {
   assert.equal(Object.isFrozen(host.interactionActions), true);
   assert.deepEqual(Object.keys(host.interactionActions), [
     "selectMode",
-    "observeRuntimeFact",
+    "observePointer",
+    "clearPointer",
+    "observeGestureStart",
+    "observeGestureMove",
+    "observeGestureFinish",
+    "observeInputInterrupted",
+    "observePassThroughPress",
+    "observePassThroughRelease",
     "reportRuntimeError",
     "togglePin",
     "beginOverlayMove",
@@ -156,7 +163,7 @@ test("machine host exposes a frozen interaction action capability port", () => {
     "changeOpacityByWheel",
   ]);
   assert.equal(host.interactionActions.togglePin, host.togglePin);
-  assert.equal(host.interactionActions.observeRuntimeFact, host.observeRuntimeFact);
+  assert.equal(host.interactionActions.observePointer, host.observePointer);
 });
 
 test("machine host starts, replaces, expires, and cancels request-bound panel timers", () => {

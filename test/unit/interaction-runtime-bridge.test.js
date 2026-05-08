@@ -8,7 +8,7 @@ import {
 import { createMachineHost } from "../../src/core/machine/host.js";
 import { createInteractionRuntimeBridge } from "../../src/content/interactions/runtime-bridge.js";
 
-test("interaction runtime bridge reports runtime facts through the action port", () => {
+test("interaction runtime bridge reports input observations through explicit action methods", () => {
   const { bridge, machineHost } = createRuntimeBridgeHarness();
 
   bridge.observePointer({ x: 10, y: 20 });
@@ -99,16 +99,10 @@ function createRuntimeBridgeHarness() {
   const machineHost = createMachineHost();
   const bridge = createInteractionRuntimeBridge({
     machineHost,
-    machineActions: createRuntimeMachineActions(machineHost),
+    runtimeActions: machineHost.interactionActions,
   });
   return {
     bridge,
     machineHost,
-  };
-}
-
-function createRuntimeMachineActions(machineHost) {
-  return {
-    observeRuntimeFact: machineHost.observeRuntimeFact,
   };
 }

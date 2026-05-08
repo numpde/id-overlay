@@ -1162,19 +1162,22 @@ test("only machine internals import machine event vocabulary", () => {
   assert.deepEqual(violations, []);
 });
 
-test("runtime observation facts are ingested once, not mirrored by content callbacks", () => {
+test("runtime observations enter through explicit host methods, not content-authored machine facts", () => {
   const sources = new Map([
     ["src/content/interactions/runtime-bridge.js", readSource(repoPath("src/content/interactions/runtime-bridge.js"))],
-    ["src/content/interactions/runtime-fact-port.js", readSource(repoPath("src/content/interactions/runtime-fact-port.js"))],
     ["src/content/interactions/runtime-observation.js", readSource(repoPath("src/content/interactions/runtime-observation.js"))],
     ["src/content/interactions/pointer-interaction.js", readSource(repoPath("src/content/interactions/pointer-interaction.js"))],
     ["src/content/interactions/keyboard-router.js", readSource(repoPath("src/content/interactions/keyboard-router.js"))],
+    ["src/core/machine/host.js", readSource(repoPath("src/core/machine/host.js"))],
   ]);
+  const bridgeSource = sources.get("src/content/interactions/runtime-bridge.js");
+  const hostSource = sources.get("src/core/machine/host.js");
   const forbiddenPatterns = [
     ["runtime update command", /\bupdatePointer\b|\bUPDATE_POINTER_RUNTIME\b/],
     ["gesture mutation command", /\bbeginGesture\b|\bendGesture\b|\bBEGIN_POINTER_GESTURE\b|\bEND_POINTER_GESTURE\b/],
     ["pass-through mutation command", /\bsetPassThrough\b|\bSET_INPUT_OVERRIDE\b/],
     ["reset mutation command", /\bresetInteractionState\b|\bRESET_INPUT_RUNTIME\b/],
+    ["generic runtime fact ingress", /\bobserveRuntimeFact\b/],
   ];
   const violations = [];
 
@@ -1183,6 +1186,32 @@ test("runtime observation facts are ingested once, not mirrored by content callb
       if (pattern.test(source)) {
         violations.push(`${relativePath}: ${name}`);
       }
+    }
+  }
+  for (const filePath of listJavaScriptFiles(CONTENT_DIR)) {
+    const source = readSource(filePath);
+    if (source.includes("/machine/runtime-facts.js") || source.includes("../../core/machine/runtime-facts.js")) {
+      violations.push(`${path.relative(repoPath(), filePath)}: machine runtime fact import`);
+    }
+  }
+  if (sourceFileExists(repoPath("src/content/interactions/runtime-fact-port.js"))) {
+    violations.push("forbidden: content runtime fact port");
+  }
+  for (const methodName of [
+    "observePointer",
+    "clearPointer",
+    "observeGestureStart",
+    "observeGestureMove",
+    "observeGestureFinish",
+    "observeInputInterrupted",
+    "observePassThroughPress",
+    "observePassThroughRelease",
+  ]) {
+    if (!new RegExp(`\\b${methodName}\\b`).test(hostSource)) {
+      violations.push(`missing host input-runtime ingress: ${methodName}`);
+    }
+    if (!new RegExp(`\\bruntimeActions\\.${methodName}\\b`).test(bridgeSource)) {
+      violations.push(`missing bridge runtime action: ${methodName}`);
     }
   }
 

@@ -27,7 +27,7 @@ export function createInteractionPorts({
   });
   const runtimeBridge = createInteractionRuntimeBridge({
     machineHost,
-    machineActions,
+    runtimeActions: machineActions,
   });
   const gestureLifecycle = createGestureLifecycle({
     adapterDrag,
