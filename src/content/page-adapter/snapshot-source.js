@@ -83,7 +83,6 @@ export function createPageSnapshotSource({
     stopWatching();
     listeners.clear();
     viewportGeometry.destroy();
-    mapViewResolver.reset();
   }
 
   function readSnapshot() {

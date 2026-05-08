@@ -51,12 +51,92 @@ test("page snapshot source emits only changed snapshots", () => {
   assert.deepEqual(receivedSnapshots, [liveSnapshot]);
 });
 
+test("page snapshot source destroys viewport geometry and resets map view once", () => {
+  const calls = [];
+  const source = createSnapshotSource({
+    viewportGeometry: {
+      resolveViewportGeometry() {
+        return {
+          viewportElement: null,
+          mountElement: null,
+          viewportRect: createRect(),
+          localViewportRect: createRect(),
+        };
+      },
+      resolveSurfaceMotion() {
+        return {
+          transformCss: "none",
+          transformOriginCss: "0px 0px",
+        };
+      },
+      refreshViewportElement() {},
+      destroy() {
+        calls.push("destroy-viewport-geometry");
+      },
+    },
+    mapViewResolver: {
+      resolveMapView() {
+        return {
+          mapView: createMapView(),
+          mapViewProvenance: createPageMapViewProvenance(PAGE_MAP_VIEW_PROVENANCE_KIND.PRECISE),
+        };
+      },
+      getFallbackMapView() {
+        return createMapView();
+      },
+      reset() {
+        calls.push("reset-map-view");
+      },
+    },
+  });
+
+  source.destroy();
+
+  assert.deepEqual(calls, [
+    "reset-map-view",
+    "destroy-viewport-geometry",
+  ]);
+});
+
 function createSnapshotSource({
   runBoundary = (_operation, fn) => ({
     ok: true,
     value: fn(),
   }),
   snapshotReader,
+  viewportGeometry = {
+    resolveViewportGeometry() {
+      return {
+        viewportElement: null,
+        mountElement: null,
+        viewportRect: createRect(),
+        localViewportRect: createRect(),
+      };
+    },
+    resolveSurfaceMotion() {
+      return {
+        transformCss: "none",
+        transformOriginCss: "0px 0px",
+      };
+    },
+    refreshViewportElement() {},
+    destroy() {},
+  },
+  mapViewResolver = {
+    resolveMapView() {
+      return {
+        mapView: createMapView(),
+        mapViewProvenance: createPageMapViewProvenance(PAGE_MAP_VIEW_PROVENANCE_KIND.PRECISE),
+      };
+    },
+    getFallbackMapView() {
+      return createMapView({
+        center: { lat: 0, lon: 0 },
+        zoom: 2,
+      });
+    },
+    reset() {},
+  },
 } = {}) {
   const context = {
     mapWindow: {},
@@ -82,39 +162,8 @@ function createSnapshotSource({
       start() {},
       destroy() {},
     },
-    viewportGeometry: {
-      resolveViewportGeometry() {
-        return {
-          viewportElement: null,
-          mountElement: null,
-          viewportRect: createRect(),
-          localViewportRect: createRect(),
-        };
-      },
-      resolveSurfaceMotion() {
-        return {
-          transformCss: "none",
-          transformOriginCss: "0px 0px",
-        };
-      },
-      refreshViewportElement() {},
-      destroy() {},
-    },
-    mapViewResolver: {
-      resolveMapView() {
-        return {
-          mapView: createMapView(),
-          mapViewProvenance: createPageMapViewProvenance(PAGE_MAP_VIEW_PROVENANCE_KIND.PRECISE),
-        };
-      },
-      getFallbackMapView() {
-        return createMapView({
-          center: { lat: 0, lon: 0 },
-          zoom: 2,
-        });
-      },
-      reset() {},
-    },
+    viewportGeometry,
+    mapViewResolver,
     runBoundary,
     snapshotReader,
   });
