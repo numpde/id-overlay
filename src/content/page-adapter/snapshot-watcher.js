@@ -1,16 +1,44 @@
 const SNAPSHOT_POLL_INTERVAL_MS = 150;
 
+export const PAGE_SNAPSHOT_OBSERVATION_CAUSE = Object.freeze({
+  RESIZE: "resize",
+  SCROLL: "scroll",
+  HASH_CHANGE: "hash-change",
+  POPSTATE: "popstate",
+  POLL: "poll",
+});
+
+const WINDOW_OBSERVATION_EVENTS = Object.freeze([
+  Object.freeze({
+    type: "resize",
+    cause: PAGE_SNAPSHOT_OBSERVATION_CAUSE.RESIZE,
+  }),
+  Object.freeze({
+    type: "scroll",
+    cause: PAGE_SNAPSHOT_OBSERVATION_CAUSE.SCROLL,
+    options: Object.freeze({ passive: true }),
+  }),
+  Object.freeze({
+    type: "hashchange",
+    cause: PAGE_SNAPSHOT_OBSERVATION_CAUSE.HASH_CHANGE,
+  }),
+  Object.freeze({
+    type: "popstate",
+    cause: PAGE_SNAPSHOT_OBSERVATION_CAUSE.POPSTATE,
+  }),
+]);
+
 export function createPageSnapshotWatcher({
   hashTarget,
-  pageContext,
   onChange,
 }) {
-  // TODO(smell): Watcher combines event listeners with RAF/interval polling.
-  // Keep scheduling quarantined here; a final page-observation service should
-  // expose the reason a snapshot was requested.
   let isWatching = false;
   let snapshotLoopHandle = null;
   let usingAnimationFrameLoop = false;
+  const windowObservationListeners = WINDOW_OBSERVATION_EVENTS.map((event) => ({
+    ...event,
+    listener: () => emit(event.cause),
+  }));
 
   function start() {
     if (isWatching) {
@@ -18,11 +46,9 @@ export function createPageSnapshotWatcher({
     }
 
     isWatching = true;
-    hashTarget.addEventListener("resize", onChange);
-    hashTarget.addEventListener("scroll", onChange, { passive: true });
-    hashTarget.addEventListener("hashchange", onChange);
-    hashTarget.addEventListener("popstate", onChange);
-    pageContext.start();
+    for (const event of windowObservationListeners) {
+      hashTarget.addEventListener(event.type, event.listener, event.options);
+    }
     startSnapshotLoop();
   }
 
@@ -33,11 +59,9 @@ export function createPageSnapshotWatcher({
 
     isWatching = false;
     stopSnapshotLoop();
-    hashTarget.removeEventListener("resize", onChange);
-    hashTarget.removeEventListener("scroll", onChange);
-    hashTarget.removeEventListener("hashchange", onChange);
-    hashTarget.removeEventListener("popstate", onChange);
-    pageContext.destroy();
+    for (const event of windowObservationListeners) {
+      hashTarget.removeEventListener(event.type, event.listener);
+    }
   }
 
   function startSnapshotLoop() {
@@ -50,7 +74,7 @@ export function createPageSnapshotWatcher({
         if (!isWatching) {
           return;
         }
-        onChange();
+        emit(PAGE_SNAPSHOT_OBSERVATION_CAUSE.POLL);
         if (!isWatching) {
           return;
         }
@@ -61,7 +85,10 @@ export function createPageSnapshotWatcher({
     }
 
     usingAnimationFrameLoop = false;
-    snapshotLoopHandle = hashTarget.setInterval(onChange, SNAPSHOT_POLL_INTERVAL_MS);
+    snapshotLoopHandle = hashTarget.setInterval(
+      () => emit(PAGE_SNAPSHOT_OBSERVATION_CAUSE.POLL),
+      SNAPSHOT_POLL_INTERVAL_MS,
+    );
   }
 
   function stopSnapshotLoop() {
@@ -75,6 +102,10 @@ export function createPageSnapshotWatcher({
     }
     snapshotLoopHandle = null;
     usingAnimationFrameLoop = false;
+  }
+
+  function emit(cause) {
+    onChange({ cause });
   }
 
   return {

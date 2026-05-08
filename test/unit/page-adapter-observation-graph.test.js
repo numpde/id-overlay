@@ -17,9 +17,33 @@ test("page observation graph routes page context events to snapshot and viewport
   harness.emit({ type: PAGE_CONTEXT_EVENT.CONTEXT_RETARGET });
 
   assert.deepEqual(calls, [
+    "sync-page-context",
     "notify-if-changed",
+    "sync-page-context",
     "handle-structure-mutation",
+    "notify-if-changed",
     "clear-viewport-element",
+  ]);
+});
+
+test("page observation graph owns snapshot watcher and context lifecycle", () => {
+  const calls = [];
+  const harness = createObservationGraphHarness(calls);
+
+  const unsubscribe = harness.graph.snapshotSource.subscribe(() => {});
+  harness.watcher.emitObservation();
+  unsubscribe();
+
+  assert.deepEqual(calls, [
+    "start-page-context",
+    "sync-page-context",
+    "start-watcher",
+    "notify-subscriber",
+    "sync-page-context",
+    "notify-if-changed",
+    "stop-watcher",
+    "destroy-page-context",
+    "reset-map-view",
   ]);
 });
 
@@ -33,11 +57,31 @@ test("page observation graph owns context subscription teardown before snapshot 
   assert.deepEqual(calls, [
     "unsubscribe-page-context",
     "destroy-snapshot-source",
+    "destroy-viewport-geometry",
+  ]);
+});
+
+test("page observation graph stops active observation before destroying source", () => {
+  const calls = [];
+  const harness = createObservationGraphHarness(calls);
+
+  harness.graph.snapshotSource.subscribe(() => {});
+  calls.length = 0;
+  harness.graph.destroy();
+
+  assert.deepEqual(calls, [
+    "unsubscribe-page-context",
+    "stop-watcher",
+    "destroy-page-context",
+    "reset-map-view",
+    "destroy-snapshot-source",
+    "destroy-viewport-geometry",
   ]);
 });
 
 function createObservationGraphHarness(calls) {
   let pageContextListener = null;
+  let watcherListener = null;
   const graph = createPageObservationGraph({
     hashTarget: {},
     viewportDocument: {},
@@ -45,8 +89,18 @@ function createObservationGraphHarness(calls) {
       clearViewportElement() {
         calls.push("clear-viewport-element");
       },
+      refreshViewportElement() {
+        calls.push("handle-structure-mutation");
+      },
+      destroy() {
+        calls.push("destroy-viewport-geometry");
+      },
     },
-    mapViewResolver: {},
+    mapViewResolver: {
+      reset() {
+        calls.push("reset-map-view");
+      },
+    },
     runBoundary: () => ({ ok: true }),
     createContext() {
       return {
@@ -57,15 +111,38 @@ function createObservationGraphHarness(calls) {
             pageContextListener = null;
           };
         },
+        start() {
+          calls.push("start-page-context");
+        },
+        syncObservedContext() {
+          calls.push("sync-page-context");
+        },
+        destroy() {
+          calls.push("destroy-page-context");
+        },
       };
     },
-    createSnapshotSource() {
+    createSnapshotWatcher({ onChange }) {
+      watcherListener = onChange;
       return {
+        start() {
+          calls.push("start-watcher");
+        },
+        stop() {
+          calls.push("stop-watcher");
+        },
+      };
+    },
+    createSnapshotSource({ onFirstSubscriber, onNoSubscribers }) {
+      return {
+        subscribe(listener) {
+          onFirstSubscriber();
+          calls.push("notify-subscriber");
+          listener({});
+          return onNoSubscribers;
+        },
         notifyIfChanged() {
           calls.push("notify-if-changed");
-        },
-        handleStructureMutation() {
-          calls.push("handle-structure-mutation");
         },
         destroy() {
           calls.push("destroy-snapshot-source");
@@ -77,6 +154,11 @@ function createObservationGraphHarness(calls) {
     graph,
     emit(event) {
       pageContextListener?.(event);
+    },
+    watcher: {
+      emitObservation() {
+        watcherListener?.({});
+      },
     },
   };
 }

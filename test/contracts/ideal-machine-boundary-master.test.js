@@ -811,11 +811,14 @@ test("page adapter observation graph owns page context to snapshot wiring", () =
   if (!/\bsnapshotSource\.notifyIfChanged\b/.test(graphSource)) {
     violations.push("missing: snapshot invalidation routing");
   }
-  if (!/\bsnapshotSource\.handleStructureMutation\b/.test(graphSource)) {
+  if (!/\bviewportGeometry\.refreshViewportElement\b/.test(graphSource)) {
     violations.push("missing: structure mutation routing");
   }
   if (!/\bviewportGeometry\.clearViewportElement\b/.test(graphSource)) {
     violations.push("missing: viewport retarget routing");
+  }
+  if (!/\bpageContext\.syncObservedContext\b/.test(graphSource)) {
+    violations.push("missing: graph-owned context retarget sync");
   }
 
   assert.deepEqual(violations, []);
@@ -912,16 +915,29 @@ test("page context delegates mutation observer ownership", () => {
   assert.deepEqual(violations, []);
 });
 
-test("page snapshot source delegates observation scheduling to a watcher", () => {
+test("page observation graph owns snapshot scheduling and source lifecycle hooks", () => {
+  const graphSource = readSource(repoPath("src/content/page-adapter/observation-graph.js"));
   const source = readSource(repoPath("src/content/page-adapter/snapshot-source.js"));
   const watcherSource = readSource(repoPath("src/content/page-adapter/snapshot-watcher.js"));
   const violations = [];
 
-  if (!/\bcreatePageSnapshotWatcher\b/.test(source)) {
-    violations.push("missing: snapshot watcher delegation");
+  if (!/\bcreatePageSnapshotWatcher\b/.test(graphSource)) {
+    violations.push("missing: graph-owned snapshot watcher");
+  }
+  if (!/\bonFirstSubscriber:\s*startObserving\b/.test(graphSource)) {
+    violations.push("missing: graph-owned observation start hook");
+  }
+  if (!/\bonNoSubscribers:\s*stopObserving\b/.test(graphSource)) {
+    violations.push("missing: graph-owned observation stop hook");
+  }
+  if (/\bcreatePageSnapshotWatcher\b|\bsyncObservedContext\b/.test(source)) {
+    violations.push("forbidden: snapshot source owns observation or retarget policy");
   }
   if (/\brequestAnimationFrame\b|\bsetInterval\b|\baddEventListener\b/.test(source)) {
     violations.push("forbidden: scheduling/listener policy in snapshot source");
+  }
+  if (!/\bPAGE_SNAPSHOT_OBSERVATION_CAUSE\b/.test(watcherSource)) {
+    violations.push("missing: typed snapshot observation causes");
   }
   if (!/\brequestAnimationFrame\b|\bsetInterval\b/.test(watcherSource)) {
     violations.push("missing: watcher polling policy");

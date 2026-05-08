@@ -38,7 +38,6 @@ export function createPageContext({
 
   function start() {
     mutationObservation.start();
-    syncObservedContext();
   }
 
   function syncObservedContext() {

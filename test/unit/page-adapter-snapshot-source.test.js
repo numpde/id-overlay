@@ -51,50 +51,28 @@ test("page snapshot source emits only changed snapshots", () => {
   assert.deepEqual(receivedSnapshots, [liveSnapshot]);
 });
 
-test("page snapshot source destroys viewport geometry and resets map view once", () => {
+test("page snapshot source delegates subscriber lifecycle to injected observation hooks", () => {
   const calls = [];
   const source = createSnapshotSource({
-    viewportGeometry: {
-      resolveViewportGeometry() {
-        return {
-          viewportElement: null,
-          mountElement: null,
-          viewportRect: createRect(),
-          localViewportRect: createRect(),
-        };
-      },
-      resolveSurfaceMotion() {
-        return {
-          transformCss: "none",
-          transformOriginCss: "0px 0px",
-        };
-      },
-      refreshViewportElement() {},
-      destroy() {
-        calls.push("destroy-viewport-geometry");
+    snapshotReader: {
+      readSnapshot() {
+        return createLiveSnapshot();
       },
     },
-    mapViewResolver: {
-      resolveMapView() {
-        return {
-          mapView: createMapView(),
-          mapViewProvenance: createPageMapViewProvenance(PAGE_MAP_VIEW_PROVENANCE_KIND.PRECISE),
-        };
-      },
-      getFallbackMapView() {
-        return createMapView();
-      },
-      reset() {
-        calls.push("reset-map-view");
-      },
+    onFirstSubscriber() {
+      calls.push("first-subscriber");
+    },
+    onNoSubscribers() {
+      calls.push("no-subscribers");
     },
   });
 
-  source.destroy();
+  const unsubscribe = source.subscribe(() => {});
+  unsubscribe();
 
   assert.deepEqual(calls, [
-    "reset-map-view",
-    "destroy-viewport-geometry",
+    "first-subscriber",
+    "no-subscribers",
   ]);
 });
 
@@ -137,6 +115,8 @@ function createSnapshotSource({
     },
     reset() {},
   },
+  onFirstSubscriber,
+  onNoSubscribers,
 } = {}) {
   const context = {
     mapWindow: {},
@@ -158,7 +138,6 @@ function createSnapshotSource({
       getActiveMapContext() {
         return context;
       },
-      syncObservedContext() {},
       start() {},
       destroy() {},
     },
@@ -166,6 +145,8 @@ function createSnapshotSource({
     mapViewResolver,
     runBoundary,
     snapshotReader,
+    onFirstSubscriber,
+    onNoSubscribers,
   });
 }
 

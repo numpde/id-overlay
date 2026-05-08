@@ -2,25 +2,23 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  PAGE_SNAPSHOT_OBSERVATION_CAUSE,
   createPageSnapshotWatcher,
 } from "../../src/content/page-adapter/snapshot-watcher.js";
 
 test("snapshot watcher starts page observation, window events, and a RAF polling loop once", () => {
   const hashTarget = createRafTarget();
-  const pageContext = createPageContextHarness();
-  let changeCount = 0;
+  const observations = [];
   const watcher = createPageSnapshotWatcher({
     hashTarget,
-    pageContext,
-    onChange() {
-      changeCount += 1;
+    onChange(observation) {
+      observations.push(observation);
     },
   });
 
   watcher.start();
   watcher.start();
 
-  assert.equal(pageContext.startCount, 1);
   assert.deepEqual(hashTarget.addedEvents, [
     ["resize", undefined],
     ["scroll", { passive: true }],
@@ -31,12 +29,13 @@ test("snapshot watcher starts page observation, window events, and a RAF polling
 
   hashTarget.runFrame(1);
 
-  assert.equal(changeCount, 1);
+  assert.deepEqual(observations, [
+    { cause: PAGE_SNAPSHOT_OBSERVATION_CAUSE.POLL },
+  ]);
   assert.deepEqual(hashTarget.requestedFrames, [1, 2]);
 
   watcher.stop();
 
-  assert.equal(pageContext.destroyCount, 1);
   assert.deepEqual(hashTarget.cancelledFrames, [2]);
   assert.deepEqual(hashTarget.removedEvents, [
     "resize",
@@ -46,15 +45,57 @@ test("snapshot watcher starts page observation, window events, and a RAF polling
   ]);
 });
 
-test("snapshot watcher falls back to interval polling when RAF is unavailable", () => {
-  const hashTarget = createIntervalTarget();
-  const pageContext = createPageContextHarness();
-  let changeCount = 0;
+test("snapshot watcher emits typed causes for window observation events", () => {
+  const hashTarget = createRafTarget();
+  const observations = [];
   const watcher = createPageSnapshotWatcher({
     hashTarget,
-    pageContext,
-    onChange() {
-      changeCount += 1;
+    onChange(observation) {
+      observations.push(observation);
+    },
+  });
+
+  watcher.start();
+  hashTarget.dispatch("resize");
+  hashTarget.dispatch("scroll");
+  hashTarget.dispatch("hashchange");
+  hashTarget.dispatch("popstate");
+
+  assert.deepEqual(observations, [
+    { cause: PAGE_SNAPSHOT_OBSERVATION_CAUSE.RESIZE },
+    { cause: PAGE_SNAPSHOT_OBSERVATION_CAUSE.SCROLL },
+    { cause: PAGE_SNAPSHOT_OBSERVATION_CAUSE.HASH_CHANGE },
+    { cause: PAGE_SNAPSHOT_OBSERVATION_CAUSE.POPSTATE },
+  ]);
+});
+
+test("snapshot watcher removes the same typed event listeners it installed", () => {
+  const hashTarget = createRafTarget();
+  const observations = [];
+  const watcher = createPageSnapshotWatcher({
+    hashTarget,
+    onChange(observation) {
+      observations.push(observation);
+    },
+  });
+
+  watcher.start();
+  watcher.stop();
+  hashTarget.dispatch("resize");
+  hashTarget.dispatch("scroll");
+  hashTarget.dispatch("hashchange");
+  hashTarget.dispatch("popstate");
+
+  assert.deepEqual(observations, []);
+});
+
+test("snapshot watcher falls back to interval polling when RAF is unavailable", () => {
+  const hashTarget = createIntervalTarget();
+  const observations = [];
+  const watcher = createPageSnapshotWatcher({
+    hashTarget,
+    onChange(observation) {
+      observations.push(observation);
     },
   });
 
@@ -64,7 +105,9 @@ test("snapshot watcher falls back to interval polling when RAF is unavailable", 
 
   hashTarget.runInterval(1);
 
-  assert.equal(changeCount, 1);
+  assert.deepEqual(observations, [
+    { cause: PAGE_SNAPSHOT_OBSERVATION_CAUSE.POLL },
+  ]);
 
   watcher.stop();
 
@@ -73,10 +116,8 @@ test("snapshot watcher falls back to interval polling when RAF is unavailable", 
 
 test("snapshot watcher stop is inert before start and after stop", () => {
   const hashTarget = createRafTarget();
-  const pageContext = createPageContextHarness();
   const watcher = createPageSnapshotWatcher({
     hashTarget,
-    pageContext,
     onChange() {},
   });
 
@@ -85,16 +126,14 @@ test("snapshot watcher stop is inert before start and after stop", () => {
   watcher.stop();
   watcher.stop();
 
-  assert.equal(pageContext.startCount, 1);
-  assert.equal(pageContext.destroyCount, 1);
+  assert.deepEqual(hashTarget.requestedFrames, [1]);
+  assert.deepEqual(hashTarget.cancelledFrames, [1]);
 });
 
 test("snapshot watcher cancels RAF polling even when the browser returns frame id zero", () => {
   const hashTarget = createRafTarget({ startFrameId: 0 });
-  const pageContext = createPageContextHarness();
   const watcher = createPageSnapshotWatcher({
     hashTarget,
-    pageContext,
     onChange() {},
   });
 
@@ -107,11 +146,9 @@ test("snapshot watcher cancels RAF polling even when the browser returns frame i
 
 test("snapshot watcher does not reschedule RAF polling when stopped during a tick", () => {
   const hashTarget = createRafTarget();
-  const pageContext = createPageContextHarness();
   let watcher = null;
   watcher = createPageSnapshotWatcher({
     hashTarget,
-    pageContext,
     onChange() {
       watcher.stop();
     },
@@ -122,31 +159,25 @@ test("snapshot watcher does not reschedule RAF polling when stopped during a tic
 
   assert.deepEqual(hashTarget.requestedFrames, [1]);
   assert.deepEqual(hashTarget.cancelledFrames, [1]);
-  assert.equal(pageContext.destroyCount, 1);
 });
 
-function createPageContextHarness() {
-  return {
-    startCount: 0,
-    destroyCount: 0,
-    start() {
-      this.startCount += 1;
-    },
-    destroy() {
-      this.destroyCount += 1;
-    },
-  };
-}
-
 function createBaseTarget() {
+  const listeners = new Map();
   return {
     addedEvents: [],
     removedEvents: [],
-    addEventListener(type, _listener, options) {
+    addEventListener(type, listener, options) {
       this.addedEvents.push([type, options]);
+      listeners.set(type, listener);
     },
-    removeEventListener(type) {
+    removeEventListener(type, listener) {
       this.removedEvents.push(type);
+      if (listeners.get(type) === listener) {
+        listeners.delete(type);
+      }
+    },
+    dispatch(type) {
+      listeners.get(type)?.();
     },
   };
 }

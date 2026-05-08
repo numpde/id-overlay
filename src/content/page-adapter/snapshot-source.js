@@ -1,6 +1,5 @@
 import { createPageSnapshotReader } from "./snapshot-reader.js";
 import { createPageSnapshotStream } from "./snapshot-stream.js";
-import { createPageSnapshotWatcher } from "./snapshot-watcher.js";
 
 export function createPageSnapshotSource({
   hashTarget,
@@ -16,16 +15,13 @@ export function createPageSnapshotSource({
     runBoundary,
   }),
   snapshotStream = null,
+  onFirstSubscriber = () => {},
+  onNoSubscribers = () => {},
 }) {
-  const watcher = createPageSnapshotWatcher({
-    hashTarget,
-    pageContext,
-    onChange: notifyIfChanged,
-  });
   const stream = snapshotStream ?? createPageSnapshotStream({
     readSnapshot,
-    onFirstSubscriber: startWatching,
-    onNoSubscribers: stopWatching,
+    onFirstSubscriber,
+    onNoSubscribers,
     notifyListener(listener, snapshot) {
       runBoundary("notify-listener", () => {
         listener(snapshot);
@@ -45,31 +41,11 @@ export function createPageSnapshotSource({
   }
 
   function notifyIfChanged() {
-    // TODO(smell): Retargeting page context before every snapshot notification
-    // is correct but implicit. The final watcher should emit retarget facts that
-    // snapshot construction consumes explicitly.
-    pageContext.syncObservedContext();
     stream.notifyIfChanged();
-  }
-
-  function handleStructureMutation() {
-    viewportGeometry.refreshViewportElement();
-    notifyIfChanged();
-  }
-
-  function startWatching() {
-    watcher.start();
-  }
-
-  function stopWatching() {
-    watcher.stop();
-    mapViewResolver.reset();
   }
 
   function destroy() {
     stream.destroy();
-    stopWatching();
-    viewportGeometry.destroy();
   }
 
   function readSnapshot({ lastSnapshot }) {
@@ -83,6 +59,5 @@ export function createPageSnapshotSource({
     subscribe,
     destroy,
     notifyIfChanged,
-    handleStructureMutation,
   };
 }
