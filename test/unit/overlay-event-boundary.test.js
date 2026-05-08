@@ -38,7 +38,6 @@ test("overlay event boundary reports overlay runtime errors and resets transient
       source: RUNTIME_ERROR_SOURCE.OVERLAY,
       operation: "mounted-pointer-move",
       error,
-      resetInteraction: true,
     }],
   ]);
 });

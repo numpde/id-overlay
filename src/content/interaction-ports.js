@@ -38,7 +38,7 @@ export function createInteractionPorts({
   }, { emitCurrent: false });
   const errorBoundary = createInteractionErrorBoundary({
     reportRuntimeError: machineActions.reportRuntimeError,
-    resetInteraction: resetRuntimeAfterError,
+    recoverInteraction: recoverInteractionAfterError,
     logger,
   });
   const pinToggleInteraction = createPinToggleInteraction({
@@ -121,7 +121,7 @@ export function createInteractionPorts({
     return runtimeBridge.getPointerScreenPx();
   }
 
-  function resetRuntimeAfterError() {
+  function recoverInteractionAfterError() {
     gestureLifecycle.reset({
       pointerScreenPx: getPointerScreenPx(),
     });
@@ -134,16 +134,14 @@ export function createInteractionPorts({
     message = null,
     recoverable = true,
     details = null,
-    resetInteraction = true,
   } = {}) {
-    return errorBoundary.report({
+    return errorBoundary.recoverFromFailure({
       source,
       operation,
       error,
       message,
       recoverable,
       details,
-      resetInteraction,
     });
   }
 }

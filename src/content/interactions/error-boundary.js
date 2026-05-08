@@ -2,7 +2,7 @@ import { createInteractionRuntimeErrorReporter } from "./runtime-error-reporter.
 
 export function createInteractionErrorBoundary({
   reportRuntimeError,
-  resetInteraction: resetInteractionRuntime,
+  recoverInteraction,
   logger,
   runtimeErrorReporter = createInteractionRuntimeErrorReporter({
     reportRuntimeError,
@@ -10,25 +10,19 @@ export function createInteractionErrorBoundary({
   }),
 }) {
   return {
-    report,
-    run,
+    reportFailure,
+    recoverFromFailure,
+    runHandledInteraction,
   };
 
-  function report({
+  function reportFailure({
     source,
     operation,
     error,
     message = null,
     recoverable = true,
     details = null,
-    resetInteraction = true,
   } = {}) {
-    // TODO(smell): Reset policy is selected by this content boundary, not by
-    // the machine-owned gesture/session state. Keep this explicit until runtime
-    // error facts can drive reset as a normal transition.
-    if (resetInteraction) {
-      resetInteractionRuntime();
-    }
     return runtimeErrorReporter.report({
       source,
       operation,
@@ -39,28 +33,27 @@ export function createInteractionErrorBoundary({
     });
   }
 
-  function run(operation, fn, {
-    fallbackValue = null,
+  function recoverFromFailure(payload = {}) {
+    recoverInteraction();
+    return reportFailure(payload);
+  }
+
+  function runHandledInteraction(operation, fn, {
     message = null,
     recoverable = true,
     details = null,
-    resetInteraction = true,
   } = {}) {
-    // TODO(smell): Fallback values make this boundary partly policy-owned.
-    // Prefer callers returning typed recoverable outcomes once adapter failures
-    // are normalized at their source boundary.
     try {
       return fn();
     } catch (error) {
-      report({
+      recoverFromFailure({
         operation,
         error,
         message,
         recoverable,
         details,
-        resetInteraction,
       });
-      return fallbackValue;
+      return false;
     }
   }
 }

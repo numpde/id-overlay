@@ -16,10 +16,10 @@ export function createPinToggleInteraction({
   };
 
   function toggleAtScreenPoint(screenPoint) {
-    return errorBoundary.run("handle-toggle-pin", () => {
+    return errorBoundary.runHandledInteraction("handle-toggle-pin", () => {
       runtimeBridge.observePointer(screenPoint);
       return commitPinToggleAtScreenPoint(screenPoint);
-    }, { fallbackValue: false });
+    });
   }
 
   function commitPinToggleAtScreenPoint(screenPoint) {

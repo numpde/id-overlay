@@ -22,12 +22,12 @@ export function createWheelInteraction({
   };
 
   function handleWheel({ deltaY, wheelMode, screenPoint }) {
-    return errorBoundary.run("handle-wheel", () => {
+    return errorBoundary.runHandledInteraction("handle-wheel", () => {
       const handled = wheelCommand.handleWheel({ deltaY, wheelMode, screenPoint });
       if (handled) {
         runtimeBridge.observePointer(screenPoint);
       }
       return handled;
-    }, { fallbackValue: false });
+    });
   }
 }

@@ -1218,6 +1218,51 @@ test("runtime observations enter through explicit host methods, not content-auth
   assert.deepEqual(violations, []);
 });
 
+test("interaction and overlay failure recovery use typed boundary methods", () => {
+  const interactionBoundarySource = readSource(repoPath("src/content/interactions/error-boundary.js"));
+  const interactionSources = new Map([
+    ["src/content/interactions/pointer-interaction.js", readSource(repoPath("src/content/interactions/pointer-interaction.js"))],
+    ["src/content/interactions/pin-toggle-interaction.js", readSource(repoPath("src/content/interactions/pin-toggle-interaction.js"))],
+    ["src/content/interactions/wheel-interaction.js", readSource(repoPath("src/content/interactions/wheel-interaction.js"))],
+    ["src/content/interaction-ports.js", readSource(repoPath("src/content/interaction-ports.js"))],
+    ["src/content/overlay/event-boundary.js", readSource(repoPath("src/content/overlay/event-boundary.js"))],
+  ]);
+  const violations = [];
+
+  if (!/\brunHandledInteraction\b/.test(interactionBoundarySource)) {
+    violations.push("missing: handled interaction recovery helper");
+  }
+  if (!/\brecoverFromFailure\b/.test(interactionBoundarySource)) {
+    violations.push("missing: explicit recovery helper");
+  }
+  if (!/\breportFailure\b/.test(interactionBoundarySource)) {
+    violations.push("missing: report-only failure helper");
+  }
+  if (/\bfallbackValue\b/.test(interactionBoundarySource)) {
+    violations.push("forbidden: interaction fallback value parameter");
+  }
+  if (/\bresetInteraction\s*=/.test(interactionBoundarySource)) {
+    violations.push("forbidden: caller-selected interaction reset default");
+  }
+
+  for (const [relativePath, source] of interactionSources) {
+    if (/\berrorBoundary\.run\s*\(/.test(source)) {
+      violations.push(`${relativePath}: forbidden: generic interaction boundary run`);
+    }
+    if (/\berrorBoundary\.report\s*\(/.test(source)) {
+      violations.push(`${relativePath}: forbidden: generic interaction boundary report`);
+    }
+    if (/\bfallbackValue\b/.test(source)) {
+      violations.push(`${relativePath}: forbidden: caller fallback value`);
+    }
+    if (/\bresetInteraction\b/.test(source)) {
+      violations.push(`${relativePath}: forbidden: caller reset flag`);
+    }
+  }
+
+  assert.deepEqual(violations, []);
+});
+
 test("core input policy consumes normalized facts, never DOM event shape", () => {
   const sources = new Map([
     ["src/core/machine/policy.js", readSource(repoPath("src/core/machine/policy.js"))],

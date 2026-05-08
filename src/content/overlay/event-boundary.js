@@ -23,7 +23,6 @@ export function createOverlayEventBoundary({
         source: RUNTIME_ERROR_SOURCE.OVERLAY,
         operation,
         error,
-        resetInteraction: true,
       });
       return undefined;
     }
