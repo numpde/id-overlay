@@ -3,7 +3,6 @@ export function bindPanelControls({
   panelCommands,
 }) {
   const {
-    repoLink,
     opacityInput,
     modeInput,
     modeSwitch,
@@ -12,10 +11,6 @@ export function bindPanelControls({
     redoButton,
   } = elements;
   const subscriptions = [];
-
-  bind(repoLink, "mousedown", (event) => {
-    event.stopPropagation();
-  });
 
   bind(modeInput, "change", () => {
     if (modeInput.disabled) {

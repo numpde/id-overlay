@@ -132,7 +132,7 @@ test("panel bindings preserve disabled guards and wheel event ownership", () => 
   }
 });
 
-test("panel bindings stop repo-link drag bubbling and remove listeners on destroy", () => {
+test("panel bindings remove control listeners on destroy", () => {
   const env = createDomEnvironment();
   try {
     const elements = createPanelElements({
@@ -145,25 +145,10 @@ test("panel bindings stop repo-link drag bubbling and remove listeners on destro
       panelCommands: createPanelCommandRecorder(calls),
     });
 
-    let rootMouseDownCount = 0;
-    elements.root.addEventListener("mousedown", () => {
-      rootMouseDownCount += 1;
-    });
-    elements.repoLink.dispatchEvent(new env.window.MouseEvent("mousedown", {
-      bubbles: true,
-      cancelable: true,
-    }));
-    assert.equal(rootMouseDownCount, 0);
-
     bindings.destroy();
     elements.mainActionButton.click();
-    elements.repoLink.dispatchEvent(new env.window.MouseEvent("mousedown", {
-      bubbles: true,
-      cancelable: true,
-    }));
 
     assert.deepEqual(calls, []);
-    assert.equal(rootMouseDownCount, 1);
   } finally {
     env.cleanup();
   }

@@ -3,6 +3,10 @@ import assert from "node:assert/strict";
 
 import { createDomEnvironment } from "../helpers/dom-env.js";
 import { repoFileUrl } from "../helpers/paths.js";
+import {
+  createPointerEvent,
+  installPointerEvents,
+} from "../helpers/pointer-events.js";
 import { createImageFixture } from "../helpers/session-fixtures.js";
 import { createEmptyRegistration } from "../../src/core/session.js";
 import { createPlacementTransform } from "../../src/core/transform.js";
@@ -167,6 +171,7 @@ test("panel header can drag the panel out of the way", async () => {
   const env = createDomEnvironment();
 
   try {
+    installPointerEvents(env.window);
     const { bootstrapIdOverlay } = await import(`${repoFileUrl("src/content/main.js")}?drag=${Date.now()}`);
     await bootstrapIdOverlay();
 
@@ -187,16 +192,12 @@ test("panel header can drag the panel out of the way", async () => {
       },
     });
 
-    header.dispatchEvent(new env.window.MouseEvent("mousedown", {
-      bubbles: true,
-      cancelable: true,
+    header.dispatchEvent(createPointerEvent(env.window, "pointerdown", {
       button: 0,
       clientX: 760,
       clientY: 40,
     }));
-    env.window.dispatchEvent(new env.window.MouseEvent("mousemove", {
-      bubbles: true,
-      cancelable: true,
+    env.window.dispatchEvent(createPointerEvent(env.window, "pointermove", {
       clientX: 620,
       clientY: 110,
     }));
@@ -205,9 +206,7 @@ test("panel header can drag the panel out of the way", async () => {
     assert.equal(panel.style.top, "86px");
     assert.equal(panel.classList.contains("id-overlay-panel--dragging"), true);
 
-    env.window.dispatchEvent(new env.window.MouseEvent("mouseup", {
-      bubbles: true,
-      cancelable: true,
+    env.window.dispatchEvent(createPointerEvent(env.window, "pointerup", {
       clientX: 620,
       clientY: 110,
     }));
