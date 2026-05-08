@@ -2,29 +2,18 @@ import {
   CLIPBOARD_IMAGE_READ_KIND,
   createClipboardImageFailureFact,
   createClipboardUnavailableFact,
-  createDecodedClipboardImageFact,
 } from "../core/clipboard-facts.js";
-import { normalizeOverlayImageBlob } from "../core/image-normalization.js";
-import { MAX_WORKING_IMAGE_DIMENSION } from "../core/image-policy.js";
-import { createBrowserImageNormalizationDeps } from "../platform/browser-image-normalization.js";
+import { createClipboardImageDecoder } from "./clipboard-image-decoder.js";
 
 export function createClipboardImageReader({
   ownerWindow = globalThis.window,
   logger = null,
+  imageDecoder = createClipboardImageDecoder({ ownerWindow, logger }),
 } = {}) {
-  // TODO(smell): Clipboard availability probing, Clipboard API reads, paste
-  // event reads, image normalization, and user-facing logging are all bundled
-  // in one adapter. Split source-specific readers from blob normalization so
-  // paste outcomes stay facts instead of adapter-authored policy.
-  const imageNormalizationDeps = createBrowserImageNormalizationDeps({
-    ownerWindow,
-    maxWorkingDimension: MAX_WORKING_IMAGE_DIMENSION,
-  });
-
   async function readClipboardApiImage() {
-    // TODO(smell): Clipboard API availability and permission fallback are
-    // source-selection concerns; blob decoding should not be nested inside this
-    // reader path.
+    // TODO(smell): Clipboard API availability and permission fallback are still
+    // bundled with Clipboard API item extraction. Split capability probing from
+    // source reads if more clipboard sources are added.
     if (typeof ownerWindow.navigator?.clipboard?.read !== "function") {
       return createClipboardUnavailableFact();
     }
@@ -43,7 +32,9 @@ export function createClipboardImageReader({
       }
 
       const clipboardItem = clipboardItems.find((item) => item.types.includes(imageType));
-      return readImageBlob(await clipboardItem.getType(imageType), "Clipboard API");
+      return imageDecoder.decodeImageBlob(await clipboardItem.getType(imageType), {
+        sourceLabel: "Clipboard API",
+      });
     } catch (error) {
       logger?.warn?.("Clipboard API read failed; falling back to manual paste", {
         message: error?.message ?? String(error),
@@ -53,9 +44,8 @@ export function createClipboardImageReader({
   }
 
   async function readClipboardDataImage(clipboardData) {
-    // TODO(smell): Paste-event item extraction is a separate source adapter from
-    // Clipboard API reads. Keep only clipboardData-to-Blob selection here after
-    // splitting normalization.
+    // TODO(smell): Paste-event item extraction is a distinct source adapter from
+    // Clipboard API reads. Keep this isolated to clipboardData-to-Blob selection.
     const item = [...(clipboardData?.items ?? [])].find((candidate) =>
       candidate.type.startsWith("image/"),
     );
@@ -74,33 +64,9 @@ export function createClipboardImageReader({
       });
     }
 
-    return readImageBlob(file, "window paste event");
-  }
-
-  async function readImageBlob(blob, sourceLabel) {
-    // TODO(smell): This is the blob normalization boundary, but it also emits
-    // source-specific log copy. The final shape should return typed decode
-    // facts and let the caller decide user/status logging.
-    try {
-      const image = await normalizeOverlayImageBlob(blob, imageNormalizationDeps);
-      if (!image) {
-        return createClipboardImageFailureFact({
-          kind: CLIPBOARD_IMAGE_READ_KIND.UNREADABLE_IMAGE,
-        });
-      }
-      logger?.info?.("Loaded clipboard image", {
-        source: sourceLabel,
-      });
-      return createDecodedClipboardImageFact({ image });
-    } catch (error) {
-      logger?.warn?.("Clipboard image could not be read", {
-        source: sourceLabel,
-        message: error?.message ?? String(error),
-      });
-      return createClipboardImageFailureFact({
-        kind: CLIPBOARD_IMAGE_READ_KIND.UNREADABLE_IMAGE,
-      });
-    }
+    return imageDecoder.decodeImageBlob(file, {
+      sourceLabel: "window paste event",
+    });
   }
 
   return {
