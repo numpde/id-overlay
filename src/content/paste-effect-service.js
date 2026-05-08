@@ -1,5 +1,7 @@
 import { createClipboardImageReader } from "./paste-adapter.js";
-import { createPagePlacedPasteReadOutcome } from "./paste-read-outcome.js";
+import { CLIPBOARD_IMAGE_READ_KIND } from "../core/clipboard-facts.js";
+import { createPasteReadOutcomeFromClipboardFact } from "../core/machine/paste-read.js";
+import { createInitialPastePlacement } from "./initial-paste-placement.js";
 
 export function createContentPasteEffectService({
   ownerWindow = globalThis.window,
@@ -65,8 +67,18 @@ export function createContentPasteEffectService({
   }
 
   function createPasteReadOutcome({ fact }) {
-    return createPagePlacedPasteReadOutcome({
+    return createPasteReadOutcomeFromClipboardFact({
       fact,
+      placement: createPastePlacement({ fact }),
+    });
+  }
+
+  function createPastePlacement({ fact }) {
+    if (fact?.kind !== CLIPBOARD_IMAGE_READ_KIND.DECODED_IMAGE) {
+      return null;
+    }
+    return createInitialPastePlacement({
+      image: fact.image,
       pageObservation,
     });
   }

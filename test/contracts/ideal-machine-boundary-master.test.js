@@ -477,11 +477,15 @@ test("paste adapter reports clipboard facts, not machine-shaped outcomes", () =>
   assert.deepEqual(violations, []);
 });
 
+test("paste read placement bridge stays deleted", () => {
+  assert.equal(sourceFileExists(repoPath("src/content/paste-read-outcome.js")), false);
+});
+
 test("content machine host consumes paste effect services instead of clipboard adapters", () => {
   const source = readSource(repoPath("src/content/content-machine-host.js"));
   const forbiddenPatterns = [
     ["clipboard reader construction", /\bcreateClipboardImageReader\b/],
-    ["page-placed paste outcome construction", /\bcreatePagePlacedPasteReadOutcome\b/],
+    ["deleted paste placement bridge", /\bcreatePagePlacedPasteReadOutcome\b/],
     ["clipboard API read", /\breadClipboardApiImage\b/],
     ["manual clipboard data read", /\breadClipboardDataImage\b/],
     ["manual paste listener ownership", /\baddEventListener\(\s*["']paste["']/],
@@ -540,8 +544,8 @@ test("content machine host consumes an explicit service bundle and initial page 
   assert.deepEqual(violations, []);
 });
 
-test("page-placed paste outcome consumes canonical page snapshot liveness", () => {
-  const source = readSource(repoPath("src/content/paste-read-outcome.js"));
+test("initial paste placement consumes canonical page snapshot liveness", () => {
+  const source = readSource(repoPath("src/content/initial-paste-placement.js"));
   const violations = [];
 
   if (!/\bisLivePageSnapshot\b/.test(source)) {

@@ -18,7 +18,7 @@ const PAGE_CONTEXT = Object.freeze({
   }),
 });
 
-test("content paste effect service reads Clipboard API facts into page-placed paste outcomes", async () => {
+test("content paste effect service reads Clipboard API facts into initially placed paste outcomes", async () => {
   const pageObservation = createPageObservation();
   const service = createContentPasteEffectService({
     ownerWindow: createOwnerWindowHarness(),
@@ -58,7 +58,7 @@ test("content paste effect service leaves unavailable Clipboard API reads as man
   assert.equal(pageObservation.callCount, 0);
 });
 
-test("content paste effect service completes manual paste capture with a page-placed paste outcome", async () => {
+test("content paste effect service completes manual paste capture with an initially placed paste outcome", async () => {
   const env = createDomEnvironment();
   const clipboardData = { items: [] };
   const pageObservation = createPageObservation();
