@@ -1151,6 +1151,7 @@ test("overlay renderer is a pure render reconciler over an overlay view model", 
 test("overlay composition consumes one state source for render and input facts", () => {
   const source = readSource(repoPath("src/content/overlay.js"));
   const stateSource = readSource(repoPath("src/content/overlay/state-source.js"));
+  const invalidationSource = readSource(repoPath("src/content/overlay/invalidation.js"));
   const forbiddenPatterns = [
     ["local snapshot cache", /\blatestSnapshot\b/],
     ["local runtime cache", /\blatestRuntime\b/],
@@ -1158,6 +1159,7 @@ test("overlay composition consumes one state source for render and input facts",
     ["direct page observation subscription", /\bpageObservation\.subscribe\b/],
     ["direct runtime subscription", /\boverlayInteractions\.subscribeRuntime\b/],
     ["direct machine subscription", /\bmachineHost\.subscribe\b/],
+    ["split runtime change callback", /\bonRuntimeChange\b/],
   ];
   const violations = [
     ...forbiddenPatterns
@@ -1167,6 +1169,12 @@ test("overlay composition consumes one state source for render and input facts",
 
   if (!/\bcreateOverlayStateSource\b/.test(source)) {
     violations.push("missing: overlay state source");
+  }
+  if (!/\bOVERLAY_INVALIDATION_SOURCE\b/.test(source) || !/\bOVERLAY_INVALIDATION_SOURCE\b/.test(stateSource)) {
+    violations.push("missing: typed overlay invalidation source");
+  }
+  if (!/\bMACHINE\b/.test(invalidationSource) || !/\bPAGE\b/.test(invalidationSource) || !/\bRUNTIME\b/.test(invalidationSource)) {
+    violations.push("missing: canonical overlay invalidation vocabulary");
   }
   if (!/\bbuildOverlayViewModel\b/.test(stateSource)) {
     violations.push("missing: centralized overlay view model construction");

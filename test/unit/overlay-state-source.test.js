@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
+import { OVERLAY_INVALIDATION_SOURCE } from "../../src/content/overlay/invalidation.js";
 import { createOverlayStateSource } from "../../src/content/overlay/state-source.js";
 import { createInitialMachineState } from "../../src/core/machine/state.js";
 import {
@@ -43,9 +44,8 @@ test("overlay state source exposes one consistent view/input projection", () => 
   assert.equal(inputContext.viewModel, viewModel);
 });
 
-test("overlay state source updates page/runtime facts and reports change hooks", () => {
-  const changes = [];
-  const runtimeChanges = [];
+test("overlay state source updates page/runtime facts and reports typed invalidations", () => {
+  const invalidations = [];
   const machineHost = createMachineHostHarness({
     state: createOverlayMachineState(),
   });
@@ -58,8 +58,7 @@ test("overlay state source updates page/runtime facts and reports change hooks",
     pageProjection: createPageProjectionHarness(),
     machineHost,
     overlayInteractions,
-    onChange: () => changes.push("change"),
-    onRuntimeChange: (runtime) => runtimeChanges.push(runtime),
+    onChange: (invalidation) => invalidations.push(invalidation),
   });
 
   const nextSnapshot = {
@@ -78,8 +77,19 @@ test("overlay state source updates page/runtime facts and reports change hooks",
   assert.equal(source.getSnapshot(), nextSnapshot);
   assert.equal(source.getMountElement(), nextSnapshot.mountElement);
   assert.equal(source.getRuntimeState(), nextRuntime);
-  assert.deepEqual(changes, ["change", "change", "change"]);
-  assert.deepEqual(runtimeChanges, [nextRuntime]);
+  assert.deepEqual(invalidations, [
+    {
+      source: OVERLAY_INVALIDATION_SOURCE.PAGE,
+      snapshot: nextSnapshot,
+    },
+    {
+      source: OVERLAY_INVALIDATION_SOURCE.RUNTIME,
+      runtime: nextRuntime,
+    },
+    {
+      source: OVERLAY_INVALIDATION_SOURCE.MACHINE,
+    },
+  ]);
 });
 
 test("overlay state source suppresses eager subscription notifications during construction", () => {
@@ -92,7 +102,6 @@ test("overlay state source suppresses eager subscription notifications during co
     emitOnSubscribe: true,
   });
   const changes = [];
-  const runtimeChanges = [];
 
   createOverlayStateSource({
     pageObservation: createPageObservationHarness({ snapshot: SNAPSHOT }),
@@ -100,11 +109,9 @@ test("overlay state source suppresses eager subscription notifications during co
     machineHost,
     overlayInteractions,
     onChange: () => changes.push("change"),
-    onRuntimeChange: (runtime) => runtimeChanges.push(runtime),
   });
 
   assert.deepEqual(changes, []);
-  assert.deepEqual(runtimeChanges, []);
 });
 
 test("overlay state source destroys all subscriptions", () => {

@@ -1,4 +1,5 @@
 import { createOverlayInputRouter } from "./overlay/input-router.js";
+import { OVERLAY_INVALIDATION_SOURCE } from "./overlay/invalidation.js";
 import { createOverlayRenderer } from "./overlay/renderer.js";
 import { createOverlayStateSource } from "./overlay/state-source.js";
 
@@ -28,9 +29,11 @@ export function createOverlay({
     pageProjection,
     machineHost,
     overlayInteractions,
-    onChange: renderer.scheduleRender,
-    onRuntimeChange() {
-      inputRouter?.syncGlobalPointerListeners();
+    onChange(invalidation) {
+      if (invalidation.source === OVERLAY_INVALIDATION_SOURCE.RUNTIME) {
+        inputRouter?.syncGlobalPointerListeners();
+      }
+      renderer.scheduleRender();
     },
   });
 

@@ -1,3 +1,7 @@
+import {
+  OVERLAY_INVALIDATION_SOURCE,
+  createOverlayInvalidation,
+} from "./invalidation.js";
 import { buildOverlayViewModel } from "./view-model.js";
 
 export function createOverlayStateSource({
@@ -6,7 +10,6 @@ export function createOverlayStateSource({
   machineHost,
   overlayInteractions,
   onChange = null,
-  onRuntimeChange = null,
 }) {
   let snapshot = pageObservation.getSnapshot();
   let runtime = overlayInteractions.getRuntimeState();
@@ -15,23 +18,21 @@ export function createOverlayStateSource({
 
   const unsubscribeMachine = machineHost.subscribe(() => {
     recomputePresentation();
-    notifyChange();
+    notifyChange(createOverlayInvalidation(OVERLAY_INVALIDATION_SOURCE.MACHINE));
   }, { emitCurrent: false });
   const unsubscribeViewport = pageObservation.subscribe((nextSnapshot) => {
-    // TODO(smell): Page snapshot changes and machine changes both schedule the
-    // same render, but their provenance is lost. Keep this source as the only
-    // aggregation point until overlay render invalidation is explicit.
     snapshot = nextSnapshot;
     recomputePresentation();
-    notifyChange();
+    notifyChange(createOverlayInvalidation(OVERLAY_INVALIDATION_SOURCE.PAGE, {
+      snapshot,
+    }));
   });
   const unsubscribeRuntime = overlayInteractions.subscribeRuntime((nextRuntime) => {
     runtime = nextRuntime;
     recomputePresentation();
-    if (isReady) {
-      onRuntimeChange?.(runtime);
-    }
-    notifyChange();
+    notifyChange(createOverlayInvalidation(OVERLAY_INVALIDATION_SOURCE.RUNTIME, {
+      runtime,
+    }));
   }, { emitCurrent: false });
   isReady = true;
 
@@ -88,11 +89,11 @@ export function createOverlayStateSource({
     unsubscribeRuntime();
   }
 
-  function notifyChange() {
+  function notifyChange(invalidation) {
     if (!isReady) {
       return;
     }
-    onChange?.();
+    onChange?.(invalidation);
   }
 
   return Object.freeze({
