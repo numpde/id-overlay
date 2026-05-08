@@ -22,11 +22,11 @@ import {
   createTransitionResult,
 } from "./transition-result.js";
 import {
-  applyMachineStatusNotice,
   clearInvalidPanelIntent,
   clearPanelIntent,
 } from "./panel-status-transition.js";
 import { resetInputRuntimeState } from "./runtime-transition.js";
+import { commitMachineTransitionResult } from "./transition-finalization.js";
 
 export function transitionUndo(state) {
   return replayHistoryTransition(state, {
@@ -57,13 +57,13 @@ function replayHistoryTransition(state, {
 }) {
   const moved = moveRecord(state);
   if (!moved.record) {
-    return applyMachineStatusNotice(createTransitionResult({
+    return commitMachineTransitionResult(createTransitionResult({
       state,
       statusNotice: createStatusNotice(emptyNoticeKind),
     }));
   }
   const replay = replayHistoryRecord(moved.state, selectReplay(moved.record));
-  return applyMachineStatusNotice(createTransitionResult({
+  return commitMachineTransitionResult(createTransitionResult({
     state: replay.state,
     effects: replay.effects,
     statusNotice: createStatusNotice(replayNoticeKind, {

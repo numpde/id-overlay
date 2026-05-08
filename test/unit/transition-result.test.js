@@ -26,6 +26,9 @@ import {
   createTransitionResult,
 } from "../../src/core/machine/transition-result.js";
 import {
+  commitMachineTransitionResult,
+} from "../../src/core/machine/transition-finalization.js";
+import {
   IMAGE,
   NORMALIZED_IMAGE,
   PLACEMENT,
@@ -202,20 +205,18 @@ test("applyMachineStatusNotice applies status timeout lifecycle explicitly", () 
   ]);
 });
 
-test("history and status finalizers compose in machine commit order", () => {
+test("commitMachineTransitionResult applies history before status in one canonical pipeline", () => {
   const state = createInitialMachineState();
   const historyRecord = createTestHistoryRecord({
     kind: MACHINE_HISTORY_KIND.CLEAR_IMAGE,
     label: "Visible edit",
   });
 
-  const result = applyMachineStatusNotice(
-    commitSemanticHistoryRecord(createTransitionResult({
-      state,
-      historyRecord,
-      statusNotice: createStatusNotice("image-loaded"),
-    })),
-  );
+  const result = commitMachineTransitionResult(createTransitionResult({
+    state,
+    historyRecord,
+    statusNotice: createStatusNotice("image-loaded"),
+  }));
 
   assert.deepEqual(result.state.history.past, [historyRecord]);
   assert.equal(result.state.status.notice.requestId, 1);

@@ -6,7 +6,6 @@ import {
   transitionRedo,
   transitionUndo,
 } from "./history-replay-transition.js";
-import { commitSemanticHistoryRecord } from "./history.js";
 import {
   clearPins,
   fitOverlay,
@@ -29,9 +28,9 @@ import {
 import {
   canCancelPanelIntent,
   cancelPanelIntent,
-  applyMachineStatusNotice,
   requestPanelIntent,
 } from "./panel-status-transition.js";
+import { commitMachineTransitionResult } from "./transition-finalization.js";
 import {
   createTransitionResult,
 } from "./transition-result.js";
@@ -97,13 +96,8 @@ export function transitionCancelPanelIntent(state = createInitialMachineState(),
 }
 
 function commitMachineTransition(state, transition, payload = {}) {
-  // TODO(smell): This finalization order is canonical but implicit in this
-  // helper. Keep all public transitions here until finalizers are represented as
-  // an explicit transition pipeline.
   const currentState = normalizeMachineState(state);
-  return applyMachineStatusNotice(
-    commitSemanticHistoryRecord(transition(currentState, payload)),
-  );
+  return commitMachineTransitionResult(transition(currentState, payload));
 }
 
 function cancelPanelIntentIfCurrent(state, payload) {

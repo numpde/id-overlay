@@ -6,11 +6,11 @@ import {
   createHostedMachineRuntime,
 } from "./host-runtime.js";
 import {
-  applyMachineStatusNotice,
   cancelPanelIntentWithStatusNotice as createCancelPanelIntentWithStatusNoticeResult,
   createStatusNoticeResult,
 } from "./panel-status-transition.js";
 import { transitionRuntimeFact } from "./runtime-transition.js";
+import { commitMachineTransitionResult } from "./transition-finalization.js";
 import {
   transitionActivateRedo,
   transitionActivateUndo,
@@ -156,7 +156,7 @@ export function createMachineHost({
     noticeKind,
     noticePayload = null,
   } = {}) {
-    return commitMachineTransition((state) => applyMachineStatusNotice(createCancelPanelIntentWithStatusNoticeResult(state, {
+    return commitMachineTransition((state) => commitMachineTransitionResult(createCancelPanelIntentWithStatusNoticeResult(state, {
       requestId,
       noticeKind,
       noticePayload,
@@ -166,7 +166,7 @@ export function createMachineHost({
   }
 
   function ingestStatusNotice({ noticeKind, noticePayload = null } = {}) {
-    return commitMachineTransition((state) => applyMachineStatusNotice(createStatusNoticeResult(state, {
+    return commitMachineTransition((state) => commitMachineTransitionResult(createStatusNoticeResult(state, {
       noticeKind,
       noticePayload,
     })), {

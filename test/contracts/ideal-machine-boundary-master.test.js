@@ -285,7 +285,7 @@ test("transition entrypoint exposes explicit committed domain transitions", () =
   const requiredPatterns = [
     ["explicit load transition", /\bexport\s+function\s+transitionLoadImage\b/],
     ["explicit pin transition", /\bexport\s+function\s+transitionTogglePin\b/],
-    ["single finalizer", /\bfunction\s+commitMachineTransition\b/],
+    ["transition result finalization call", /\bcommitMachineTransitionResult\b/],
   ];
 
   const violations = [
@@ -303,6 +303,14 @@ test("transition entrypoint exposes explicit committed domain transitions", () =
 test("transition result finalization is explicit and domain-local, not hidden behind commit booleans", () => {
   const sources = new Map([
     ["src/core/machine/transition.js", readSource(repoPath("src/core/machine/transition.js"))],
+    [
+      "src/core/machine/effect-result-transition.js",
+      readSource(repoPath("src/core/machine/effect-result-transition.js")),
+    ],
+    [
+      "src/core/machine/transition-finalization.js",
+      readSource(repoPath("src/core/machine/transition-finalization.js")),
+    ],
     ["src/core/machine/transition-result.js", readSource(repoPath("src/core/machine/transition-result.js"))],
     ["src/core/machine/history-replay-transition.js", readSource(repoPath("src/core/machine/history-replay-transition.js"))],
   ]);
@@ -312,11 +320,18 @@ test("transition result finalization is explicit and domain-local, not hidden be
     ["generic finalizer", /\bfinalizeTransitionResult\b/],
   ];
   const requiredPatterns = [
+    ["canonical transition result finalizer", /\bexport\s+function\s+commitMachineTransitionResult\b/],
     ["history result combinator", /\b(?:withHistoryRecord|commitSemanticHistoryRecord)\b/],
     ["status result combinator", /\b(?:withStatusNotice|applyMachineStatusNotice)\b/],
   ];
   const violations = [];
   const combinedSource = [...sources.values()].join("\n");
+  const finalizationSource = sources.get("src/core/machine/transition-finalization.js");
+  const finalizerOwnerFiles = new Set([
+    repoPath("src/core/machine/history.js"),
+    repoPath("src/core/machine/panel-status-transition.js"),
+    repoPath("src/core/machine/transition-finalization.js"),
+  ]);
 
   for (const [relativePath, source] of sources) {
     for (const [name, pattern] of forbiddenPatterns) {
@@ -324,10 +339,28 @@ test("transition result finalization is explicit and domain-local, not hidden be
         violations.push(`${relativePath}: forbidden: ${name}`);
       }
     }
+    if (
+      relativePath !== "src/core/machine/transition-finalization.js" &&
+      /\bapplyMachineStatusNotice\s*\(\s*commitSemanticHistoryRecord\b/s.test(source)
+    ) {
+      violations.push(`${relativePath}: forbidden: inline finalization composition`);
+    }
   }
   for (const [name, pattern] of requiredPatterns) {
     if (!pattern.test(combinedSource)) {
       violations.push(`missing: ${name}`);
+    }
+  }
+  if (!/\bapplyMachineStatusNotice\s*\(\s*commitSemanticHistoryRecord\b/s.test(finalizationSource)) {
+    violations.push("missing: finalizer owns history-before-status order");
+  }
+  for (const filePath of listJavaScriptFiles(MACHINE_DIR)) {
+    if (finalizerOwnerFiles.has(filePath)) {
+      continue;
+    }
+    const source = readSource(filePath);
+    if (/\b(?:applyMachineStatusNotice|commitSemanticHistoryRecord)\b/.test(source)) {
+      violations.push(`${path.relative(repoPath(), filePath)}: forbidden: direct finalizer ownership`);
     }
   }
 
