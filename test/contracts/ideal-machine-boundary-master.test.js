@@ -1043,6 +1043,8 @@ test("only machine internals import machine event vocabulary", () => {
 test("runtime observation facts are ingested once, not mirrored by content callbacks", () => {
   const sources = new Map([
     ["src/content/interactions/runtime-bridge.js", readSource(repoPath("src/content/interactions/runtime-bridge.js"))],
+    ["src/content/interactions/runtime-fact-port.js", readSource(repoPath("src/content/interactions/runtime-fact-port.js"))],
+    ["src/content/interactions/runtime-observation.js", readSource(repoPath("src/content/interactions/runtime-observation.js"))],
     ["src/content/interactions/pointer-interaction.js", readSource(repoPath("src/content/interactions/pointer-interaction.js"))],
     ["src/content/interactions/keyboard-router.js", readSource(repoPath("src/content/interactions/keyboard-router.js"))],
   ]);

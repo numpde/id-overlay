@@ -330,7 +330,8 @@ test("input runtime is machine-owned, not an interaction-side reducer", () => {
 });
 
 test("runtime observation equality is machine-owned", () => {
-  const source = readSource(repoPath("src/content/interactions/runtime-bridge.js"));
+  const source = readSource(repoPath("src/content/interactions/runtime-observation.js"));
+  const bridgeSource = readSource(repoPath("src/content/interactions/runtime-bridge.js"));
   const forbiddenPatterns = [
     ["content-local runtime equality", /\bfunction\s+areInputRuntimesEqual\b/],
     ["content-local runtime projection", /\bfunction\s+selectInputRuntimeProjection\b/],
@@ -340,9 +341,10 @@ test("runtime observation equality is machine-owned", () => {
   ];
   const violations = forbiddenPatterns
     .filter(([, pattern]) => pattern.test(source))
-    .map(([name]) => name);
+      .map(([name]) => name);
 
   assert.match(source, /selectInputRuntimeObservationKey/);
+  assert.doesNotMatch(bridgeSource, /selectInputRuntimeObservationKey/);
   assert.deepEqual(violations, []);
 });
 
