@@ -6,7 +6,7 @@ export const WEB_ACCESSIBLE_STATIC_RESOURCES = Object.freeze([
   "src/content/content.css",
 ]);
 
-const RELATIVE_IMPORT_PATTERN = /(?:import\s+(?:[^"'()]+?\s+from\s+)?|import\s*\()\s*["'](\.[^"']+)["']/g;
+const RELATIVE_MODULE_SPECIFIER_PATTERN = /(?:import\s+(?:[^"'()]+?\s+from\s+)?|import\s*\(|export\s+[^"']+?\s+from\s*)["'](\.[^"']+)["']/g;
 
 export async function createChromeManifest({ root, sourceManifest }) {
   return {
@@ -38,7 +38,7 @@ export async function collectModuleGraph({ root, entryPath, seen = new Set() }) 
   seen.add(entryPath);
 
   const source = await fs.readFile(path.join(root, entryPath), "utf8");
-  for (const match of source.matchAll(RELATIVE_IMPORT_PATTERN)) {
+  for (const match of source.matchAll(RELATIVE_MODULE_SPECIFIER_PATTERN)) {
     const resolved = normalizeSourcePath(path.join(path.dirname(entryPath), match[1]));
     if (!resolved.startsWith("src/")) {
       continue;

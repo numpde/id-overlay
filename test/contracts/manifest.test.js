@@ -62,6 +62,9 @@ test("generated chrome manifest exposes the content import graph exactly once", 
   assert.ok(resources.includes("src/content/content.js"));
   assert.ok(resources.includes("src/content/keyboard-gateway.js"));
   assert.ok(resources.includes("src/content/main.js"));
+  assert.ok(resources.includes("src/content/page-adapter/map-view.js"));
+  assert.ok(resources.includes("src/content/page-adapter/upstream-map-view.js"));
+  assert.ok(resources.includes("src/content/page-adapter/map-hash-view.js"));
 });
 
 test("content stylesheet only styles the panel shell", async () => {
