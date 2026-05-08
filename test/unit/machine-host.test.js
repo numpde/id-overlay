@@ -12,9 +12,6 @@ import {
   createPasteReadOutcomeFromClipboardFact,
 } from "../../src/core/machine/paste-read.js";
 import {
-  selectPanelStatusText,
-} from "../../src/core/machine/selectors.js";
-import {
   createIdlePanel,
   createInitialMachineState,
 } from "../../src/core/machine/state.js";
@@ -123,51 +120,17 @@ test("machine host ignores stale missing-paste results", async () => {
   assert.equal(host.getState().panel.requestId, 2);
 });
 
-test("machine host interprets primary panel activation from canonical state", () => {
-  const host = createHost();
-
-  host.activatePanelPrimary();
-  assert.equal(host.getState().panel.intent, MACHINE_PANEL_INTENT.PASTE_ARMED);
-
-  host.activatePanelPrimary();
-  assert.deepEqual(host.getState().panel, createIdlePanel());
-  assert.equal(selectPanelStatusText(host.getState()), "Paste cancelled.");
-
-  loadImage(host);
-  addPin(host, {
-    imagePx: { x: 10, y: 20 },
-    mapLatLon: { lat: 1, lon: 2 },
-  });
-
-  host.activatePanelPrimary();
-  assert.equal(host.getState().panel.intent, MACHINE_PANEL_INTENT.CLEAR_PINS_CONFIRM);
-
-  host.activatePanelPrimary();
-  assert.equal(host.getState().session.registration.pins.length, 0);
-  assert.deepEqual(host.getState().panel, createIdlePanel());
-
-  host.activatePanelPrimary();
-  assert.equal(host.getState().panel.intent, MACHINE_PANEL_INTENT.CLEAR_IMAGE_CONFIRM);
-
-  host.activatePanelPrimary();
-  assert.equal(host.getState().session.image, null);
-  assert.deepEqual(host.getState().panel, createIdlePanel());
-});
-
-test("machine host exposes semantic panel mode opacity and history activations", () => {
+test("machine host exposes semantic mode opacity and history activations", () => {
   const host = createLoadedHost();
 
-  host.activatePanelMode({ checked: true });
+  host.selectMode(MACHINE_MODE.TRACE);
   assert.equal(host.getState().session.mode, MACHINE_MODE.TRACE);
 
-  host.activatePanelModeStep({ deltaY: -100 });
+  host.selectMode(MACHINE_MODE.ALIGN);
   assert.equal(host.getState().session.mode, MACHINE_MODE.ALIGN);
 
-  host.changePanelOpacity("0.45");
+  host.setOpacity(0.45);
   assert.equal(host.getState().session.opacity, 0.45);
-
-  host.changePanelOpacityByWheel({ value: "0.45", deltaY: -100 });
-  assert.equal(host.getState().session.opacity, 0.55);
 
   host.activateUndo();
   assert.equal(host.getState().session.image, null);

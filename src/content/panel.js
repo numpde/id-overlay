@@ -5,6 +5,7 @@ import { bindPanelControls } from "./panel-bindings.js";
 import { createPanelElements } from "./panel-elements.js";
 import { createPanelViewReconciler } from "./panel-render.js";
 import { createPanelDragController } from "./panel-drag.js";
+import { createPanelCommandAdapter } from "./panel-command-adapter.js";
 
 export function createPanel({
   shadow,
@@ -26,7 +27,7 @@ export function createPanel({
   });
   const panelBindings = bindPanelControls({
     elements,
-    machineHost,
+    panelCommands: createPanelCommandAdapter({ machineHost }),
   });
 
   const unsubscribeMachine = machineHost.subscribe((state) => {

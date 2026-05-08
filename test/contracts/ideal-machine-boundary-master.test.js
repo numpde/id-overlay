@@ -126,11 +126,15 @@ test("panel DOM reports product activations instead of resolving command meaning
 
 test("primary panel action has one canonical machine-owned selector", () => {
   const policySource = readSource(repoPath("src/core/machine/policy.js"));
+  const panelPrimaryActionSource = readSource(repoPath("src/core/machine/panel-primary-action.js"));
   const panelViewSource = readSource(repoPath("src/content/panel-view-model.js"));
   const violations = [];
 
   if (!/\bselectPanelPrimaryAction\b/.test(policySource)) {
     violations.push("missing: selectPanelPrimaryAction");
+  }
+  if (!/\bselectPanelPrimaryAction\b/.test(panelPrimaryActionSource)) {
+    violations.push("missing: primary action executor uses canonical selector");
   }
   if (/\bfunction\s+resolveMainAction\s*\(/.test(panelViewSource)) {
     violations.push("forbidden: content-local primary action resolver");
@@ -188,9 +192,12 @@ test("machine host exposes explicit ingress, not generic dispatch", () => {
     ["public dispatch function", /\bfunction\s+dispatch\s*\(/],
     ["dispatch returned from host", /\breturn\s*\{[^}]*\bdispatch\b/s],
     ["runtime raw dispatch", /\bruntime\.dispatch\s*\(/],
+    ["panel checked adapter", /\bactivatePanelMode\b/],
+    ["panel primary adapter", /\bactivatePanelPrimary\b/],
+    ["panel opacity adapter", /\bchangePanelOpacity\b/],
   ];
   const hostRequiredPatterns = [
-    ["explicit user ingress verb", /\bfunction\s+(?:loadImage|selectMode|togglePin|activateUndo)\b/],
+    ["explicit user ingress verb", /\bfunction\s+(?:loadImage|selectMode|setOpacity|togglePin|activateUndo)\b/],
   ];
   const hostedRuntimeRequiredPatterns = [
     ["effect-result ingress", /\bfunction\s+completeEffectResult\b/],

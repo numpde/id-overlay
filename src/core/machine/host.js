@@ -1,22 +1,15 @@
 import {
-  MACHINE_MODE,
-  MACHINE_PANEL_INTENT,
   MACHINE_PLACEMENT_EDIT_KIND,
 } from "./events.js";
 import { MACHINE_STATUS_NOTICE_KIND } from "./status-notices.js";
 import {
   createHostedMachineRuntime,
-  createNoopMachineResult,
 } from "./host-runtime.js";
 import {
   applyMachineStatusNotice,
-  cancelPanelIntentWithStatusNotice,
+  cancelPanelIntentWithStatusNotice as createCancelPanelIntentWithStatusNoticeResult,
   createStatusNoticeResult,
 } from "./panel-status-transition.js";
-import {
-  MACHINE_PANEL_PRIMARY_ACTION_KIND,
-  selectPanelPrimaryAction,
-} from "./policy.js";
 import { transitionRuntimeFact } from "./runtime-transition.js";
 import {
   transitionActivateRedo,
@@ -35,7 +28,7 @@ import {
   transitionSetOpacity,
   transitionTogglePin,
 } from "./transition.js";
-import { clampOpacity, opacityFromWheelDelta } from "../opacity.js";
+import { opacityFromWheelDelta } from "../opacity.js";
 
 export function createMachineHost({
   persistedSession = null,
@@ -51,9 +44,6 @@ export function createMachineHost({
   statusTimeoutMs = undefined,
   onError = null,
 } = {}) {
-  // TODO(smell): Machine host is the public product API and still contains UI
-  // convenience verbs plus low-level semantic verbs. The ideal surface should
-  // separate user-facing activations from internal/test semantic transitions.
   const hostedRuntime = createHostedMachineRuntime({
     persistedSession,
     savePersistedSession,
@@ -83,55 +73,6 @@ export function createMachineHost({
 
   function ingestPageContext(pageContext) {
     return hostedRuntime.ingestPageContext(pageContext);
-  }
-
-  function activatePanelPrimary() {
-    // TODO(smell): Primary action selection is canonical, but execution is a
-    // switch here. If panel actions grow, move action-kind handlers into a
-    // table owned next to selectPanelPrimaryAction.
-    const state = hostedRuntime.getState();
-    const action = selectPanelPrimaryAction(state);
-    if (action.disabled) {
-      return createNoopMachineResult(state);
-    }
-    switch (action.kind) {
-      case MACHINE_PANEL_PRIMARY_ACTION_KIND.PASTE:
-        return requestPanelIntent(MACHINE_PANEL_INTENT.PASTE_ARMED);
-      case MACHINE_PANEL_PRIMARY_ACTION_KIND.PASTE_ARMED:
-        return cancelCurrentPanelIntentWithStatusNotice({
-          requestId: state.panel.requestId,
-          noticeKind: MACHINE_STATUS_NOTICE_KIND.PASTE_CANCELLED,
-        });
-      case MACHINE_PANEL_PRIMARY_ACTION_KIND.CLEAR_PINS:
-        return requestPanelIntent(MACHINE_PANEL_INTENT.CLEAR_PINS_CONFIRM);
-      case MACHINE_PANEL_PRIMARY_ACTION_KIND.CONFIRM_CLEAR_PINS:
-        return clearPins();
-      case MACHINE_PANEL_PRIMARY_ACTION_KIND.CLEAR_IMAGE:
-        return requestPanelIntent(MACHINE_PANEL_INTENT.CLEAR_IMAGE_CONFIRM);
-      case MACHINE_PANEL_PRIMARY_ACTION_KIND.CONFIRM_CLEAR_IMAGE:
-        return clearImage();
-      default:
-        return createNoopMachineResult(state);
-    }
-  }
-
-  function activatePanelMode({ checked }) {
-    // TODO(smell): Checkbox checked semantics leak into the host API. Prefer a
-    // panel-control adapter translating DOM checked state into explicit mode
-    // selection before it reaches the machine host.
-    return selectMode(checked ? MACHINE_MODE.TRACE : MACHINE_MODE.ALIGN);
-  }
-
-  function activatePanelModeStep({ deltaY }) {
-    return selectMode(deltaY < 0 ? MACHINE_MODE.ALIGN : MACHINE_MODE.TRACE);
-  }
-
-  function changePanelOpacity(value) {
-    return setOpacity(clampOpacity(Number(value)));
-  }
-
-  function changePanelOpacityByWheel({ value, deltaY }) {
-    return setOpacity(opacityFromWheelDelta(Number(value), deltaY));
   }
 
   function activateUndo() {
@@ -210,12 +151,12 @@ export function createMachineHost({
     );
   }
 
-  function cancelCurrentPanelIntentWithStatusNotice({
+  function cancelPanelIntentWithStatusNotice({
     requestId = null,
     noticeKind,
     noticePayload = null,
   } = {}) {
-    return commitMachineTransition((state) => applyMachineStatusNotice(cancelPanelIntentWithStatusNotice(state, {
+    return commitMachineTransition((state) => applyMachineStatusNotice(createCancelPanelIntentWithStatusNoticeResult(state, {
       requestId,
       noticeKind,
       noticePayload,
@@ -318,11 +259,6 @@ export function createMachineHost({
       scaleOverlayPlacement,
       changeOpacityByWheel,
     }),
-    activatePanelPrimary,
-    activatePanelMode,
-    activatePanelModeStep,
-    changePanelOpacity,
-    changePanelOpacityByWheel,
     activateUndo,
     activateRedo,
     ingestPageContext,
@@ -333,6 +269,7 @@ export function createMachineHost({
     fitOverlay,
     requestPanelIntent,
     cancelPanelIntent,
+    cancelPanelIntentWithStatusNotice,
     observeRuntimeFact,
     reportRuntimeError,
     togglePin,
@@ -341,6 +278,7 @@ export function createMachineHost({
     commitOverlayMove,
     rotateOverlayPlacement,
     scaleOverlayPlacement,
+    setOpacity,
     changeOpacityByWheel,
     destroy,
   };

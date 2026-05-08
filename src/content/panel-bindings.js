@@ -1,6 +1,6 @@
 export function bindPanelControls({
   elements,
-  machineHost,
+  panelCommands,
 }) {
   const {
     repoLink,
@@ -21,7 +21,7 @@ export function bindPanelControls({
     if (modeInput.disabled) {
       return;
     }
-    machineHost.activatePanelMode({ checked: modeInput.checked });
+    panelCommands.activatePanelMode({ checked: modeInput.checked });
   });
   bind(modeSwitch, "wheel", (event) => {
     if (modeInput.disabled) {
@@ -29,11 +29,11 @@ export function bindPanelControls({
     }
     event.preventDefault();
     event.stopPropagation();
-    machineHost.activatePanelModeStep({ deltaY: event.deltaY });
+    panelCommands.activatePanelModeStep({ deltaY: event.deltaY });
   }, { passive: false });
 
   bind(opacityInput, "input", () => {
-    machineHost.changePanelOpacity(opacityInput.value);
+    panelCommands.changePanelOpacity(opacityInput.value);
   });
   bind(opacityInput, "wheel", (event) => {
     if (opacityInput.disabled) {
@@ -41,26 +41,26 @@ export function bindPanelControls({
     }
     event.preventDefault();
     event.stopPropagation();
-    machineHost.changePanelOpacityByWheel({
+    panelCommands.changePanelOpacityByWheel({
       value: opacityInput.value,
       deltaY: event.deltaY,
     });
   }, { passive: false });
 
   bind(mainActionButton, "click", () => {
-    machineHost.activatePanelPrimary();
+    panelCommands.activatePanelPrimary();
   });
   bind(undoButton, "click", () => {
     if (undoButton.disabled) {
       return;
     }
-    machineHost.activateUndo();
+    panelCommands.activateUndo();
   });
   bind(redoButton, "click", () => {
     if (redoButton.disabled) {
       return;
     }
-    machineHost.activateRedo();
+    panelCommands.activateRedo();
   });
 
   return {

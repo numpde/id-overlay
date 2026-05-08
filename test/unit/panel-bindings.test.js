@@ -5,7 +5,7 @@ import { bindPanelControls } from "../../src/content/panel-bindings.js";
 import { createPanelElements } from "../../src/content/panel-elements.js";
 import { createDomEnvironment } from "../helpers/dom-env.js";
 
-test("panel bindings report control activations through the machine host", () => {
+test("panel bindings report control activations through panel commands", () => {
   const env = createDomEnvironment();
   try {
     const elements = createPanelElements({
@@ -15,7 +15,7 @@ test("panel bindings report control activations through the machine host", () =>
     const calls = [];
     const bindings = bindPanelControls({
       elements,
-      machineHost: createMachineHostRecorder(calls),
+      panelCommands: createPanelCommandRecorder(calls),
     });
 
     elements.modeInput.checked = true;
@@ -67,7 +67,7 @@ test("panel bindings preserve disabled guards and wheel event ownership", () => 
     const calls = [];
     const bindings = bindPanelControls({
       elements,
-      machineHost: createMachineHostRecorder(calls),
+      panelCommands: createPanelCommandRecorder(calls),
     });
 
     let bubbledModeWheel = false;
@@ -142,7 +142,7 @@ test("panel bindings stop repo-link drag bubbling and remove listeners on destro
     const calls = [];
     const bindings = bindPanelControls({
       elements,
-      machineHost: createMachineHostRecorder(calls),
+      panelCommands: createPanelCommandRecorder(calls),
     });
 
     let rootMouseDownCount = 0;
@@ -169,7 +169,7 @@ test("panel bindings stop repo-link drag bubbling and remove listeners on destro
   }
 });
 
-function createMachineHostRecorder(calls) {
+function createPanelCommandRecorder(calls) {
   return {
     activatePanelMode(payload) {
       calls.push(["mode", payload]);
