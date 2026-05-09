@@ -67,6 +67,11 @@ test("hydrating empty durable state returns empty application state", () => {
 // whether the durable shape is supported. Rich values here mean the caller
 // leaked runtime data inward.
 test("hydration rejects non-data durable state", () => {
+  assert.equal(
+    APPLICATION_BOUNDARY_ERROR_CODE.INVALID_DURABLE_STATE,
+    "invalid-durable-state",
+  );
+
   assertApplicationBoundaryError(
     () => createApplicationCommand(APPLICATION_COMMAND_KIND.HYDRATE, {
       durableState: new Map(),

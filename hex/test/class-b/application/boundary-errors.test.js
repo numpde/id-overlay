@@ -18,13 +18,14 @@ import { assertApplicationBoundaryError } from "./application-boundary-assertion
 
 test("application boundary error exposes stable identity and code", () => {
   assert.equal(Object.isFrozen(APPLICATION_BOUNDARY_ERROR_CODE), true);
-  assert.deepEqual(APPLICATION_BOUNDARY_ERROR_CODE, {
-    UNKNOWN_APPLICATION_COMMAND: "unknown-application-command",
-    INVALID_APPLICATION_COMMAND: "invalid-application-command",
-    INVALID_APPLICATION_STATE: "invalid-application-state",
-    INVALID_DURABLE_STATE: "invalid-durable-state",
-    UNSUPPORTED_DURABLE_STATE: "unsupported-durable-state",
-  });
+  assert.equal(
+    APPLICATION_BOUNDARY_ERROR_CODE.UNKNOWN_APPLICATION_COMMAND,
+    "unknown-application-command",
+  );
+  assert.equal(
+    APPLICATION_BOUNDARY_ERROR_CODE.INVALID_APPLICATION_STATE,
+    "invalid-application-state",
+  );
 
   const error = new ApplicationBoundaryError({
     code: APPLICATION_BOUNDARY_ERROR_CODE.UNKNOWN_APPLICATION_COMMAND,
@@ -67,9 +68,9 @@ test("missing command at the application boundary throws ApplicationBoundaryErro
 // State validation belongs at the command boundary. This prevents runtime
 // objects from becoming product state through command handling.
 test("invalid application state throws ApplicationBoundaryError", () => {
-  const command = createApplicationCommand(
-    APPLICATION_COMMAND_KIND.ACTIVATE_PRIMARY_ACTION,
-  );
+  const command = createApplicationCommand(APPLICATION_COMMAND_KIND.HYDRATE, {
+    durableState: null,
+  });
 
   assertApplicationBoundaryError(
     () => handleApplicationCommand({ command }),

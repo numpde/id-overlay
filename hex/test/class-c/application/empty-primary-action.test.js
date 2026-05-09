@@ -7,9 +7,13 @@ import {
 } from "../../../application/command.js";
 import { handleApplicationCommand } from "../../../application/handle-command.js";
 import { createInitialApplicationState } from "../../../application/state.js";
-import { assertApplicationResult } from "./application-result-assertions.js";
-import { assertPlainData } from "./plain-data-assertions.js";
+import {
+  assertApplicationResult,
+} from "../../class-b/application/application-result-assertions.js";
+import { assertPlainData } from "../../class-b/application/plain-data-assertions.js";
 
+// Class-c: the primary action itself is likely real, but this exact no-session
+// interpretation as "awaiting pasted reference image" is product-flow detail.
 // First real use case: with no session, the primary action starts the smallest
 // observable product flow. The caller reports "primary action activated"; the
 // application decides that this means waiting for a pasted reference image.
