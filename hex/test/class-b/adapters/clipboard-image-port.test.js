@@ -4,6 +4,9 @@ import assert from "node:assert/strict";
 import {
   createClipboardImagePortAdapter,
 } from "../../../adapters/web/clipboard-image-port.js";
+import {
+  normalizeClipboardImage,
+} from "../../../adapters/web/image-normalization.js";
 
 // Class-b: the clipboard adapter translates browser-world outcomes into the
 // small plain-data paste vocabulary consumed by the application.
@@ -86,6 +89,36 @@ test("clipboard image port reports normalized paste outcomes", async () => {
     assert.deepEqual(result, expected);
     assertPlainData(result);
   }
+});
+
+// Class-b: image decoding may use browser handles internally, but normalized
+// output must contain only browser-neutral product facts.
+test("image normalization returns only browser-neutral image facts", async () => {
+  const result = await normalizeClipboardImage({
+    imageHandle: {
+      runtimeBlob: new Map([["opaque", true]]),
+    },
+    decodeImage: async () => ({
+      imageDataRef: "reference-image-data-1",
+      intrinsicSizePx: {
+        width: 640,
+        height: 480,
+      },
+      decodedImageHandle: new Map([["opaque", true]]),
+    }),
+  });
+
+  assert.deepEqual(result, {
+    kind: "accepted",
+    referenceImage: {
+      imageDataRef: "reference-image-data-1",
+      intrinsicSizePx: {
+        width: 640,
+        height: 480,
+      },
+    },
+  });
+  assertPlainData(result);
 });
 
 function assertPlainData(value) {
