@@ -13,7 +13,9 @@ const SELECTOR = {
   panel: "[data-id-overlay-panel]",
   pin: "[data-id-overlay-pin]",
   primaryAction: "[data-id-overlay-primary-action]",
+  redo: "[data-id-overlay-history='redo']",
   status: "[data-id-overlay-status]",
+  undo: "[data-id-overlay-history='undo']",
 };
 
 // Class-b, not class-a: mounting a visible panel is the first end-to-end page
@@ -164,6 +166,29 @@ test("pins render only in Align", async () => {
 
   assert.equal(count(page.document, SELECTOR.pin), 0);
   assert.equal(count(page.document, SELECTOR.overlay), 1);
+});
+
+// Class-b, not class-a: history controls must tell the user what will happen,
+// not merely say Undo/Redo. The exact copy here is useful product pressure but
+// still reviewable UI text.
+test("undo and redo controls render semantic labels", async () => {
+  const page = await startSupportedExtension({
+    durableState: durableReferenceImageSession({
+      mode: "align",
+    }),
+  });
+
+  await page.user.click(SELECTOR.primaryAction);
+  await page.user.click(SELECTOR.primaryAction);
+
+  assert.equal(assertOne(page.document, SELECTOR.undo).title, "Reload image");
+  assert.notEqual(assertOne(page.document, SELECTOR.undo).title, "Undo");
+  assert.equal(assertOne(page.document, SELECTOR.redo).disabled, true);
+
+  await page.user.click(SELECTOR.undo);
+
+  assert.equal(assertOne(page.document, SELECTOR.redo).title, "Remove image");
+  assert.notEqual(assertOne(page.document, SELECTOR.redo).title, "Redo");
 });
 
 async function startSupportedExtension(options = {}) {

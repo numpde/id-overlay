@@ -26,29 +26,6 @@ const SELECTOR = {
   panelDragHandle: "[data-id-overlay-panel-drag-handle]",
 };
 
-// Unclassified candidate: history controls should expose what will happen, not
-// generic Undo/Redo labels. Exact wording is product copy and should be reviewed
-// before promotion.
-test("undo and redo controls render semantic labels", async () => {
-  const page = await startSupportedExtension({
-    durableState: durableReferenceImageSession({
-      mode: "align",
-    }),
-  });
-
-  await page.user.click(SELECTOR.primaryAction);
-  await page.user.click(SELECTOR.primaryAction);
-
-  assert.equal(assertOne(page.document, SELECTOR.undo).title, "Reload image");
-  assert.notEqual(assertOne(page.document, SELECTOR.undo).title, "Undo");
-  assert.equal(assertOne(page.document, SELECTOR.redo).disabled, true);
-
-  await page.user.click(SELECTOR.undo);
-
-  assert.equal(assertOne(page.document, SELECTOR.redo).title, "Remove image");
-  assert.notEqual(assertOne(page.document, SELECTOR.redo).title, "Redo");
-});
-
 // Unclassified candidate: panel dragging is visible shell behavior. It may move
 // the panel, but it must not emit product commands or change session state.
 test("panel drag is visible but app-inert", async () => {
