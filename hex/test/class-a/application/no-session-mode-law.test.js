@@ -46,3 +46,26 @@ test("pin toggle is inert with no reference image", () => {
     effects: [],
   });
 });
+
+// Class-a: placement belongs to an overlay. With no reference image there is no
+// overlay to move, so placement commands must not create hidden placement state.
+test("placement edit is inert with no reference image", () => {
+  const state = createInitialApplicationState();
+  const command = createApplicationCommand(
+    APPLICATION_COMMAND_KIND.COMMIT_PLACEMENT_EDIT,
+    {
+      kind: "move",
+      placement: {
+        x: 80,
+        y: 40,
+        scale: 1,
+        rotationRad: 0,
+      },
+    },
+  );
+
+  assert.deepEqual(handleApplicationCommand({ state, command }), {
+    state,
+    effects: [],
+  });
+});
