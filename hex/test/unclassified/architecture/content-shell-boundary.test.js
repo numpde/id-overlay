@@ -45,30 +45,6 @@ test("content module imports only the bootstrap ring from hex", () => {
   assert.deepEqual(violations, []);
 });
 
-// Unclassified: these APIs are legitimate in adapters, but if they appear in
-// src/content then the shell is decoding images, rendering DOM, or persisting
-// state instead of delegating those responsibilities to adapter ports.
-test("content source does not own adapter mechanics", () => {
-  assert.deepEqual(collectContentPatternViolations([
-    {
-      label: "DOM construction",
-      pattern: /\bcreateElement\b|\battachShadow\b|\breplaceChildren\b/,
-    },
-    {
-      label: "DOM event ownership",
-      pattern: /\baddEventListener\b|\bremoveEventListener\b/,
-    },
-    {
-      label: "browser image decoding",
-      pattern: /\bFileReader\b|\bnew\s+Image\b|\bcreateImageBitmap\b|\bcanvas\b/i,
-    },
-    {
-      label: "extension storage execution",
-      pattern: /\bchrome\s*\?\.\s*storage\b|\bchrome\.storage\b|\bstorage\.local\b/,
-    },
-  ]), []);
-});
-
 // Unclassified: the loader may dynamically import the module entrypoint and
 // pass ambient handles. It should not inspect page state, product state, DOM,
 // storage, clipboard, or image data.

@@ -22,6 +22,31 @@ test("content source does not own product stepping", () => {
   ]), []);
 });
 
+// Class-b: adapter mechanics belong in adapters, not in the browser content
+// composition edge. This is not class-a yet because the exact browser-shell
+// folder is still provisional, but leaking DOM, image decoding, or storage
+// execution into src/content would recreate the rushed shell design.
+test("content source does not own adapter mechanics", () => {
+  assert.deepEqual(collectContentPatternViolations([
+    {
+      label: "DOM construction",
+      pattern: /\bcreateElement\b|\battachShadow\b|\breplaceChildren\b/,
+    },
+    {
+      label: "DOM event ownership",
+      pattern: /\baddEventListener\b|\bremoveEventListener\b/,
+    },
+    {
+      label: "browser image decoding",
+      pattern: /\bFileReader\b|\bnew\s+Image\b|\bcreateImageBitmap\b|\bcanvas\b/i,
+    },
+    {
+      label: "extension storage execution",
+      pattern: /\bchrome\s*\?\.\s*storage\b|\bchrome\.storage\b|\bstorage\.local\b/,
+    },
+  ]), []);
+});
+
 function collectContentVocabularyViolations(words) {
   return collectContentPatternViolations(words.map((word) => ({
     label: word,
