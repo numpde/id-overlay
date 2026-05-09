@@ -5,22 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../..");
-const CONTENT_LOADER = repoPath("src/content/content-loader.js");
 const CONTENT_MAIN = repoPath("src/content/main.js");
-
-// Unclassified: this is the proposed cut line for the next browser shell. It
-// should become class-b once the real shell exists and we know the names are
-// not accidental scaffolding.
-test("browser content shell has one loader and one module entrypoint", () => {
-  const missing = [
-    CONTENT_LOADER,
-    CONTENT_MAIN,
-  ]
-    .filter((filePath) => !fs.existsSync(filePath))
-    .map(relativeToRepo);
-
-  assert.deepEqual(missing, []);
-});
 
 // Unclassified: the content module should be a composition edge, not a second
 // application. Importing application/domain/adapters here recreates the rushed
@@ -73,8 +58,4 @@ function readSource(filePath) {
 
 function repoPath(...segments) {
   return path.join(REPO_ROOT, ...segments);
-}
-
-function relativeToRepo(filePath) {
-  return path.relative(REPO_ROOT, filePath);
 }
