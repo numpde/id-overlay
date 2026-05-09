@@ -11,53 +11,6 @@ import {
 // pure application steps meet async host work. They are intentionally not yet
 // class-b: the driver names may change, but the boundary pressure is real.
 
-test("runtime preserves correlation ids and leaves staleness decisions to the application", async () => {
-  const applicationCommands = [];
-  const runtime = createRuntimeDriver({
-    initialState: {
-      notice: {
-        kind: "newer-notice",
-        requestId: 2,
-      },
-    },
-    effectHandlers: {
-      "clear-status-after-delay": async () => ({
-        kind: "clear-status-notice",
-        requestId: 1,
-      }),
-    },
-    stepApplication({ state, command }) {
-      applicationCommands.push(command);
-      if (command.kind === "start") {
-        return {
-          state,
-          effects: [{
-            kind: "clear-status-after-delay",
-            requestId: 1,
-          }],
-        };
-      }
-      assert.deepEqual(command, {
-        kind: "clear-status-notice",
-        requestId: 1,
-      });
-      return {
-        state,
-        effects: [],
-      };
-    },
-  });
-
-  await runtime.dispatch({
-    kind: "start",
-  });
-
-  assert.deepEqual(applicationCommands.map((command) => command.requestId ?? null), [
-    null,
-    1,
-  ]);
-});
-
 test("runtime rejects non-plain handler results before app re-entry", async () => {
   const runtime = createRuntimeDriver({
     initialState: {},

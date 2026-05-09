@@ -296,6 +296,55 @@ test("runtime converts handler failures into plain application facts", async () 
   assert.equal(applicationCommands.length, 2);
 });
 
+// Class-b: runtime preserves correlation identity but does not interpret it.
+// Request staleness is application policy, not driver policy.
+test("runtime preserves correlation ids and leaves staleness decisions to the application", async () => {
+  const applicationCommands = [];
+  const runtime = createRuntimeDriver({
+    initialState: {
+      notice: {
+        kind: "newer-notice",
+        requestId: 2,
+      },
+    },
+    effectHandlers: {
+      "clear-status-after-delay": async () => ({
+        kind: "clear-status-notice",
+        requestId: 1,
+      }),
+    },
+    stepApplication({ state, command }) {
+      applicationCommands.push(command);
+      if (command.kind === "start") {
+        return {
+          state,
+          effects: [{
+            kind: "clear-status-after-delay",
+            requestId: 1,
+          }],
+        };
+      }
+      assert.deepEqual(command, {
+        kind: "clear-status-notice",
+        requestId: 1,
+      });
+      return {
+        state,
+        effects: [],
+      };
+    },
+  });
+
+  await runtime.dispatch({
+    kind: "start",
+  });
+
+  assert.deepEqual(applicationCommands.map((command) => command.requestId ?? null), [
+    null,
+    1,
+  ]);
+});
+
 function createOpaqueProductState(value) {
   const forbiddenProductFields = new Set([
     "mode",
