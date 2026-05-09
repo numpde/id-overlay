@@ -5,7 +5,6 @@ import {
   createApplicationCommand,
 } from "../../../application/command.js";
 import { handleApplicationCommand } from "../../../application/handle-command.js";
-import { createInitialApplicationState } from "../../../application/state.js";
 import {
   assertApplicationResult,
 } from "../../class-b/application/application-result-assertions.js";
@@ -15,28 +14,6 @@ import {
   referenceImageDurableState,
   referenceImageLoadedState,
 } from "./user-behavior-fixtures.js";
-
-// Unclassified: confirming image removal should collapse the whole session back
-// to startup posture. Pins, placement, mode, and image data leave together.
-test("primary action confirms clear-image when clear-image confirmation is active", () => {
-  const result = handleApplicationCommand({
-    state: referenceImageLoadedState({
-      panelIntent: {
-        kind: "confirm-clear-reference-image",
-      },
-    }),
-    command: createApplicationCommand(
-      APPLICATION_COMMAND_KIND.ACTIVATE_PRIMARY_ACTION,
-    ),
-  });
-
-  assertApplicationResult(result, {
-    state: createInitialApplicationState(),
-    effects: [
-      durableStateChangedEffect(null),
-    ],
-  });
-});
 
 // Unclassified: confirmations are tied to the current visible intention. A
 // different semantic action should clear the confirmation instead of leaving a

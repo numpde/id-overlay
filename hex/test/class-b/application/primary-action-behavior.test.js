@@ -9,6 +9,7 @@ import { createInitialApplicationState } from "../../../application/state.js";
 import { assertApplicationResult } from "./application-result-assertions.js";
 import {
   awaitingReferenceImagePasteState,
+  durableStateChangedEffect,
   referenceImageLoadedState,
 } from "./reference-image-fixtures.js";
 
@@ -69,5 +70,29 @@ test("primary action without pins requests clear-image confirmation", () => {
       },
     },
     effects: [],
+  });
+});
+
+// Class-b: confirming image removal collapses the whole session back to startup
+// posture and requests durable clearing. Exact confirmation/effect vocabulary is
+// still application API shape.
+test("primary action confirms clear-image when clear-image confirmation is active", () => {
+  const result = handleApplicationCommand({
+    state: {
+      ...referenceImageLoadedState(),
+      panelIntent: {
+        kind: "confirm-clear-reference-image",
+      },
+    },
+    command: createApplicationCommand(
+      APPLICATION_COMMAND_KIND.ACTIVATE_PRIMARY_ACTION,
+    ),
+  });
+
+  assertApplicationResult(result, {
+    state: createInitialApplicationState(),
+    effects: [
+      durableStateChangedEffect(null),
+    ],
   });
 });
