@@ -12,8 +12,10 @@ import {
 import { handleApplicationCommand } from "../../../application/handle-command.js";
 import { createInitialApplicationState } from "../../../application/state.js";
 
-// Class-a: application boundary data stays plain. The only non-plain value here
-// is the thrown Error object; its exposed diagnostics still stay stable strings.
+// Class-a: application boundary data stays plain. Commands are inert envelopes,
+// not callbacks, host handles, or execution policy; results likewise stay data.
+// The only non-plain value here is the thrown Error object, and its exposed
+// diagnostics still stay stable strings.
 
 test("application state commands and results are plain data", () => {
   const state = createInitialApplicationState();
