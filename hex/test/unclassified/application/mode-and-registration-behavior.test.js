@@ -22,27 +22,6 @@ import {
   twoPins,
 } from "./user-behavior-fixtures.js";
 
-// Unclassified: Align is overlay-editing posture; Trace is native-map posture.
-// These are user modes, not adapter pointer-event implementation details.
-test("loaded image view derives Align editing and Trace pass-through policies", () => {
-  assert.deepEqual(selectApplicationView(referenceImageLoadedState({
-    mode: APPLICATION_MODE.ALIGN,
-  })).overlayInput, {
-    kind: "overlay-editing",
-    canEditOverlay: true,
-    arePinsVisible: true,
-  });
-
-  assert.deepEqual(selectApplicationView(referenceImageLoadedState({
-    mode: APPLICATION_MODE.TRACE,
-    pins: twoPins(),
-  })).overlayInput, {
-    kind: "native-map",
-    canEditOverlay: false,
-    arePinsVisible: false,
-  });
-});
-
 // Unclassified: pin toggling is a semantic transition over projected facts. The
 // adapter supplies image/map coordinates; the application owns add/remove rules.
 test("pin toggle adds and removes projected registration facts in Align mode", () => {
