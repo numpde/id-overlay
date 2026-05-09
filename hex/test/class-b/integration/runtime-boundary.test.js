@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import {
   RuntimeBoundaryError,
   createRuntimeDriver,
+  wireRuntime,
 } from "../../../bootstrap/runtime.js";
 
 // Class-b: the runtime is a driver, not a product-policy layer. Product facts
@@ -522,6 +523,45 @@ test("runtime disposal calls registered disposers exactly once", () => {
     "first",
     "second",
   ]);
+});
+
+// Class-b: bootstrap composes dependencies. It must not run application logic,
+// execute effects, or inspect product state while wiring the runtime.
+test("bootstrap wiring does not inspect product state or execute app behavior", () => {
+  const initialState = createOpaqueProductState({
+    session: {
+      mode: "align",
+      pins: [],
+    },
+  });
+  const stepApplication = () => {
+    assert.fail("bootstrap must not run the app step while wiring");
+  };
+  const effectHandlers = {
+    "persist-durable-state": () => {
+      assert.fail("bootstrap must not run effect handlers while wiring");
+    },
+  };
+  const fakeRuntime = {
+    dispose() {},
+    dispatch() {},
+  };
+  let captured = null;
+
+  const runtime = wireRuntime({
+    initialState,
+    stepApplication,
+    effectHandlers,
+    createRuntimeDriver(dependencies) {
+      captured = dependencies;
+      return fakeRuntime;
+    },
+  });
+
+  assert.equal(runtime, fakeRuntime);
+  assert.equal(captured.initialState, initialState);
+  assert.equal(captured.stepApplication, stepApplication);
+  assert.equal(captured.effectHandlers, effectHandlers);
 });
 
 function createOpaqueProductState(value) {
