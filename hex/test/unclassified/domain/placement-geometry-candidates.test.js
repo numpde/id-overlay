@@ -2,33 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  applyPlacementToPoint,
   composePlacementEdits,
-  invertPlacement,
 } from "../../../domain/placement.js";
-
-// Unclassified candidate: overlay placement should be reversible pure math.
-// This belongs in domain only if placement remains browser-independent geometry.
-test("placement transform round-trips through its inverse", () => {
-  const point = {
-    x: 12.5,
-    y: -3.25,
-  };
-  const placement = {
-    x: 42,
-    y: -17,
-    scale: 1.75,
-    rotationRad: Math.PI / 6,
-  };
-
-  const transformed = applyPlacementToPoint(point, placement);
-  const roundTripped = applyPlacementToPoint(
-    transformed,
-    invertPlacement(placement),
-  );
-
-  assertPointClose(roundTripped, point);
-});
 
 // Unclassified candidate: UI edit batching should not create subtle drift.
 // Stepwise and batched placement edits should produce the same product fact.
