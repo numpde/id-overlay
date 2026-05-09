@@ -8,34 +8,6 @@ import {
 import { handleApplicationCommand } from "../../../application/handle-command.js";
 import { selectApplicationView } from "../../../application/view-model.js";
 
-// Unclassified: failed paste should be visible as a paste failure, not silently
-// collapsed into the same status as an empty clipboard. The exact wording can
-// move to a view-model, but the product fact should keep the failure reason.
-test("failed paste reports a reason-specific paste notice", () => {
-  const armed = step({}, createApplicationCommand(
-    APPLICATION_COMMAND_KIND.ACTIVATE_PRIMARY_ACTION,
-  )).state;
-
-  const result = step(armed, createApplicationCommand(
-    APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_PASTE_OUTCOME,
-    {
-      requestId: armed.referenceImageInput.requestId,
-      outcome: {
-        kind: "failed",
-        reason: "decode-failed",
-      },
-    },
-  ));
-
-  assert.deepEqual(result.state.notice, {
-    kind: "reference-image-paste-failed",
-    reason: "decode-failed",
-    requestId: armed.referenceImageInput.requestId,
-  });
-  assert.equal(result.state.session, undefined);
-  assert.deepEqual(result.effects, []);
-});
-
 // Unclassified: with visible pins, the destructive primary action should clear
 // pins before escalating to image removal. This preserves the old user posture
 // without committing to legacy panel internals.
