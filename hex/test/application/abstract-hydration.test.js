@@ -62,9 +62,10 @@ test("hydrating empty persisted state returns empty application state", () => {
   });
 });
 
-// Unknown persisted fields are external input, not application vocabulary. While
-// no durable product facts exist, the only safe canonicalization is to drop them.
-test("hydrating unknown persisted fields drops them while no durable facts exist", () => {
+// Unknown persisted fields are not a migration problem yet; there is no durable
+// vocabulary to migrate. Rejecting them avoids silently choosing a data-loss or
+// forward-compatibility policy before a real product field forces that decision.
+test("hydrating unknown persisted fields rejects non-empty persisted data", () => {
   const state = createInitialApplicationState();
   const command = createApplicationCommand(APPLICATION_COMMAND_KIND.HYDRATE, {
     persistedState: {
@@ -75,17 +76,15 @@ test("hydrating unknown persisted fields drops them while no durable facts exist
     },
   });
 
-  const result = handleApplicationCommand({ state, command });
-
-  assertPlainData(result);
-  assert.deepEqual(result, {
-    state: {},
-    effects: [],
-  });
+  assert.throws(
+    () => handleApplicationCommand({ state, command }),
+    /unsupported persisted state/i,
+  );
 });
 
-// Hydration is tolerant of unknown JSON fields, not of runtime objects. Rich
-// values at this boundary would mean an adapter leaked platform data inward.
+// Hydration input must still be plain data before the application can decide
+// whether the persisted shape is supported. Rich values here mean an adapter
+// leaked platform data inward.
 test("hydration rejects non-data persisted state", () => {
   assert.throws(
     () => createApplicationCommand(APPLICATION_COMMAND_KIND.HYDRATE, {
