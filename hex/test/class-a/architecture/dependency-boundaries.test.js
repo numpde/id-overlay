@@ -29,6 +29,7 @@ const TEST_CLASS_NAMES = [
   "class-a",
   "class-b",
   "class-c",
+  "unclassified",
 ];
 
 const TEST_RING_NAMES = [
