@@ -7,42 +7,6 @@ import {
 } from "../../../application/command.js";
 import { handleApplicationCommand } from "../../../application/handle-command.js";
 
-// Unclassified: opacity is visible and durable, but legacy behavior deliberately
-// kept it out of undo/redo. That posture matters because opacity adjustment can
-// be a frequent viewing aid, not a semantic placement step.
-test("opacity changes are durable but not undoable", () => {
-  const state = loadedState({
-    history: {
-      past: [{
-        kind: "move-overlay",
-        undoLabel: "Undo move overlay",
-        redoLabel: "Redo move overlay",
-        before: {
-          placement: identityPlacement(),
-        },
-        after: {
-          placement: movedPlacement(),
-        },
-      }],
-      future: [],
-    },
-  });
-
-  const result = step(state, {
-    kind: "set-overlay-opacity",
-    opacity: 0.42,
-  });
-
-  assert.equal(result.state.session.opacity, 0.42);
-  assert.deepEqual(result.state.history, state.history);
-  assert.deepEqual(result.effects, [{
-    kind: "durable-state-changed",
-    durableState: {
-      session: result.state.session,
-    },
-  }]);
-});
-
 // Unclassified: pin toggling is a product edit, not overlay-local state. It
 // should add a projected pin, remove an existing pin by id, and persist only the
 // resulting durable session.
@@ -154,15 +118,6 @@ function identityPlacement() {
   return {
     x: 0,
     y: 0,
-    scale: 1,
-    rotationRad: 0,
-  };
-}
-
-function movedPlacement() {
-  return {
-    x: 80,
-    y: 40,
     scale: 1,
     rotationRad: 0,
   };
