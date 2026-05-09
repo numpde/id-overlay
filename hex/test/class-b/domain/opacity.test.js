@@ -5,8 +5,8 @@ import {
   normalizeOpacity,
 } from "../../../domain/opacity.js";
 
-// Unclassified candidate: opacity is a product value, not an arbitrary slider
-// number. The exact clamp/reject policy should be settled before promotion.
+// Class-b: opacity is a bounded product value. The domain accepts finite
+// numeric input and returns a value inside the product interval.
 test("opacity normalizes to the declared product range", () => {
   assert.equal(normalizeOpacity(0), 0);
   assert.equal(normalizeOpacity(0.5), 0.5);
