@@ -6,7 +6,6 @@ import {
   createApplicationCommand,
 } from "../../../application/command.js";
 import { handleApplicationCommand } from "../../../application/handle-command.js";
-import { createInitialApplicationState } from "../../../application/state.js";
 import {
   selectDurableApplicationState,
 } from "../../../application/view-model.js";
@@ -21,12 +20,6 @@ import {
 import {
   movedPlacement,
 } from "../../class-b/application/placement-fixtures.js";
-
-// Unclassified candidate: no image means there is no durable session to save.
-// This is likely class-a, but keep it here until durable selection is built.
-test("no image has no durable state", () => {
-  assert.equal(selectDurableApplicationState(createInitialApplicationState()), null);
-});
 
 // Unclassified candidate: durable state should be the session-shaped product
 // snapshot only. Runtime input, notices, panel intent, and history should not
