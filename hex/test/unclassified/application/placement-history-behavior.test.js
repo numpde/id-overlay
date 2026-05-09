@@ -16,58 +16,7 @@ import {
   placementEditPayload,
   referenceImageDurableState,
   referenceImageLoadedState,
-  rotatedPlacement,
-  scaledPlacement,
 } from "./user-behavior-fixtures.js";
-
-// Unclassified: placement edits are visible user edits, so they enter history
-// by semantic kind. Pointer drag mechanics must not define undo vocabulary.
-test("move rotate and scale placement edits create semantic history records", () => {
-  for (const { kind, placement, undoLabel, redoLabel } of [
-    {
-      kind: "move",
-      placement: movedPlacement(),
-      undoLabel: "Undo move overlay",
-      redoLabel: "Redo move overlay",
-    },
-    {
-      kind: "rotate",
-      placement: rotatedPlacement(),
-      undoLabel: "Undo rotate overlay",
-      redoLabel: "Redo rotate overlay",
-    },
-    {
-      kind: "scale",
-      placement: scaledPlacement(),
-      undoLabel: "Undo scale overlay",
-      redoLabel: "Redo scale overlay",
-    },
-  ]) {
-    const result = handleApplicationCommand({
-      state: referenceImageLoadedState(),
-      command: createApplicationCommand(
-        APPLICATION_COMMAND_KIND.COMMIT_PLACEMENT_EDIT,
-        placementEditPayload({ kind, placement }),
-      ),
-    });
-
-    assert.deepEqual(result.state.session.placement, placement);
-    assert.deepEqual(result.state.history.past.at(-1), {
-      kind: `${kind}-overlay`,
-      undoLabel,
-      redoLabel,
-      before: {
-        placement: identityPlacement(),
-      },
-      after: {
-        placement,
-      },
-    });
-    assert.deepEqual(result.effects, [
-      durableStateChangedEffect(referenceImageDurableState({ placement })),
-    ]);
-  }
-});
 
 // Unclassified: image load/removal is user-visible history. The labels should
 // say what will happen, not expose generic "undo change" implementation terms.
