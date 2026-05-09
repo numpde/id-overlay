@@ -3,9 +3,9 @@ import assert from "node:assert/strict";
 
 import { createInitialApplicationState } from "../../../application/state.js";
 
-// Class-b: the no-session baseline is canonical. Product fields appear through
-// use cases, but the exact empty-state shape is still application vocabulary.
-
+// Class-a: no-session startup is absence of product state, not a bag of
+// default inactive flags. Fields enter the state only when a use case creates
+// them, which keeps selectors and persistence from guessing at placeholders.
 test("initial application state is canonical empty plain data", () => {
   const state = createInitialApplicationState();
 
