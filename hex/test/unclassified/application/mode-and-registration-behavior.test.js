@@ -13,36 +13,11 @@ import {
 import {
   APPLICATION_MODE,
   durableStateChangedEffect,
-  firstPin,
-  pinTogglePayload,
   referenceImageDurableState,
   referenceImageLoadedState,
-  secondPin,
   solvedPlacement,
   twoPins,
 } from "./user-behavior-fixtures.js";
-
-// Unclassified: pins are invisible in Trace, so pin-destructive controls and
-// pin mutation commands are invalid there from the user's perspective.
-test("pin edits and clear-pins are no-ops in Trace mode", () => {
-  const state = referenceImageLoadedState({
-    mode: APPLICATION_MODE.TRACE,
-    pins: [firstPin()],
-  });
-
-  for (const command of [
-    createApplicationCommand(
-      APPLICATION_COMMAND_KIND.TOGGLE_REGISTRATION_PIN,
-      pinTogglePayload({ imagePx: secondPin().imagePx, mapLatLon: secondPin().mapLatLon }),
-    ),
-    createApplicationCommand(APPLICATION_COMMAND_KIND.CLEAR_REGISTRATION_PINS),
-  ]) {
-    assertApplicationResult(handleApplicationCommand({ state, command }), {
-      state,
-      effects: [],
-    });
-  }
-});
 
 // Unclassified: selecting Trace with enough pins causes a visible fit. This is
 // not "mode restored by snapshot"; the semantic action changes the viewed map.

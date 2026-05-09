@@ -21,18 +21,64 @@ export function awaitingReferenceImagePasteState({ requestId = 1 } = {}) {
   };
 }
 
-export function referenceImageLoadedState({ mode = "align" } = {}) {
+export function referenceImageLoadedState({ mode = "align", pins } = {}) {
+  const session = {
+    mode,
+    referenceImage: normalizedReferenceImage(),
+  };
+  if (pins !== undefined) {
+    session.registration = {
+      pins,
+    };
+  }
   return {
-    session: {
-      mode,
-      referenceImage: normalizedReferenceImage(),
+    session,
+  };
+}
+
+export function referenceImageDurableState({ mode = "align", pins } = {}) {
+  return {
+    session: referenceImageLoadedState({ mode, pins }).session,
+  };
+}
+
+export function firstPin() {
+  return {
+    id: 1,
+    imagePx: {
+      x: 320,
+      y: 240,
+    },
+    mapLatLon: {
+      lat: -1.23,
+      lon: 36.84,
     },
   };
 }
 
-export function referenceImageDurableState({ mode = "align" } = {}) {
+export function secondPin() {
   return {
-    session: referenceImageLoadedState({ mode }).session,
+    id: 2,
+    imagePx: {
+      x: 520,
+      y: 240,
+    },
+    mapLatLon: {
+      lat: -1.23,
+      lon: 38.84,
+    },
+  };
+}
+
+export function pinTogglePayload({
+  existingPinId = null,
+  imagePx = firstPin().imagePx,
+  mapLatLon = firstPin().mapLatLon,
+} = {}) {
+  return {
+    existingPinId,
+    imagePx,
+    mapLatLon,
   };
 }
 
