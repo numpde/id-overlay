@@ -34,10 +34,3 @@ export function referenceImageDurableState() {
     session: referenceImageSessionState().session,
   };
 }
-
-export function referenceImageDurableStateChangedEffect() {
-  return {
-    kind: "durable-state-changed",
-    durableState: referenceImageDurableState(),
-  };
-}
