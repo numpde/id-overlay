@@ -12,9 +12,9 @@ import {
 import { handleApplicationCommand } from "../../application/handle-command.js";
 import { createApplicationResult } from "../../application/result.js";
 
-// Boundary errors are first-class programmer/configuration failures. They are
-// stable enough for diagnostics, but they are not product facts and must never
-// be converted into application state.
+// Boundary errors are first-class application contract failures. They are stable
+// enough for diagnostics, but they are not product facts and must never be
+// converted into application state.
 
 test("application boundary error exposes stable identity and code", () => {
   assert.equal(Object.isFrozen(APPLICATION_BOUNDARY_ERROR_CODE), true);
@@ -29,6 +29,14 @@ test("application boundary error exposes stable identity and code", () => {
   assert.equal(
     APPLICATION_BOUNDARY_ERROR_CODE.INVALID_EFFECT_REQUEST,
     "invalid-effect-request",
+  );
+  assert.equal(
+    APPLICATION_BOUNDARY_ERROR_CODE.INVALID_PERSISTED_STATE,
+    "invalid-persisted-state",
+  );
+  assert.equal(
+    APPLICATION_BOUNDARY_ERROR_CODE.UNSUPPORTED_PERSISTED_STATE,
+    "unsupported-persisted-state",
   );
 
   const error = new ApplicationBoundaryError({
@@ -78,6 +86,12 @@ test("invalid effect requests throw ApplicationBoundaryError", () => {
   assertApplicationBoundaryError(
     () => createApplicationResult({
       state: {},
+    }),
+    APPLICATION_BOUNDARY_ERROR_CODE.INVALID_EFFECT_REQUEST,
+  );
+  assertApplicationBoundaryError(
+    () => createApplicationResult({
+      state: {},
       effects: [new Map()],
     }),
     APPLICATION_BOUNDARY_ERROR_CODE.INVALID_EFFECT_REQUEST,
@@ -88,6 +102,28 @@ test("invalid effect requests throw ApplicationBoundaryError", () => {
       effects: [{ kind: "unknown-effect" }],
     }),
     APPLICATION_BOUNDARY_ERROR_CODE.INVALID_EFFECT_REQUEST,
+  );
+});
+
+test("invalid persisted state throws ApplicationBoundaryError", () => {
+  assertApplicationBoundaryError(
+    () => createApplicationCommand(APPLICATION_COMMAND_KIND.HYDRATE, {
+      persistedState: new Map(),
+    }),
+    APPLICATION_BOUNDARY_ERROR_CODE.INVALID_PERSISTED_STATE,
+  );
+});
+
+test("unsupported persisted state throws ApplicationBoundaryError", () => {
+  const command = createApplicationCommand(APPLICATION_COMMAND_KIND.HYDRATE, {
+    persistedState: {
+      futureField: true,
+    },
+  });
+
+  assertApplicationBoundaryError(
+    () => handleApplicationCommand({ state: {}, command }),
+    APPLICATION_BOUNDARY_ERROR_CODE.UNSUPPORTED_PERSISTED_STATE,
   );
 });
 
