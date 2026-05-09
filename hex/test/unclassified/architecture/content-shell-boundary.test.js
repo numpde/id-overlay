@@ -5,7 +5,6 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../..");
-const CONTENT_DIR = repoPath("src/content");
 const CONTENT_LOADER = repoPath("src/content/content-loader.js");
 const CONTENT_MAIN = repoPath("src/content/main.js");
 
@@ -44,55 +43,6 @@ test("content module imports only the bootstrap ring from hex", () => {
 
   assert.deepEqual(violations, []);
 });
-
-// Unclassified: storage key placement is still unsettled, but the rushed shell
-// hard-coded it next to DOM and paste code. This test keeps that smell visible
-// until we decide whether it belongs in an extension adapter or bootstrap config.
-test("content source does not define durable storage identity", () => {
-  assert.deepEqual(collectContentPatternViolations([
-    {
-      label: "durable storage key",
-      pattern: /STORAGE_KEY|id-overlay\.durable-state|id-overlay\/state/,
-    },
-  ]), []);
-});
-
-function collectContentPatternViolations(forbiddenPatterns) {
-  const violations = [];
-  for (const filePath of listJavaScriptFiles(CONTENT_DIR)) {
-    violations.push(...collectPatternViolations(filePath, forbiddenPatterns));
-  }
-  return violations;
-}
-
-function collectPatternViolations(filePath, forbiddenPatterns) {
-  const source = readSource(filePath);
-  const violations = [];
-  for (const { label, pattern } of forbiddenPatterns) {
-    if (pattern.test(source)) {
-      violations.push(`${relativeToRepo(filePath)} uses ${label}`);
-    }
-  }
-  return violations;
-}
-
-function listJavaScriptFiles(rootDir) {
-  if (!fs.existsSync(rootDir)) {
-    return [];
-  }
-  const files = [];
-  for (const entry of fs.readdirSync(rootDir, { withFileTypes: true })) {
-    const filePath = path.join(rootDir, entry.name);
-    if (entry.isDirectory()) {
-      files.push(...listJavaScriptFiles(filePath));
-      continue;
-    }
-    if (entry.isFile() && filePath.endsWith(".js")) {
-      files.push(filePath);
-    }
-  }
-  return files.sort();
-}
 
 function extractImportSpecifiers(source) {
   const imports = [];

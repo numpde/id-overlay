@@ -60,6 +60,18 @@ test("content source does not own product copy", () => {
   ]), []);
 });
 
+// Class-b: the durable storage key may ultimately be extension configuration,
+// adapter-local identity, or bootstrap input. It should not be hard-coded in
+// src/content, because that turns the shell into a persistence owner.
+test("content source does not define durable storage identity", () => {
+  assert.deepEqual(collectContentPatternViolations([
+    {
+      label: "durable storage key",
+      pattern: /STORAGE_KEY|id-overlay\.durable-state|id-overlay\/state/,
+    },
+  ]), []);
+});
+
 function collectContentVocabularyViolations(words) {
   return collectContentPatternViolations(words.map((word) => ({
     label: word,
