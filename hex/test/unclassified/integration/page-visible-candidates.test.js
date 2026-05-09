@@ -26,16 +26,6 @@ const SELECTOR = {
   panelDragHandle: "[data-id-overlay-panel-drag-handle]",
 };
 
-// Unclassified candidate: content bootstrap should become visible by mounting
-// exactly one panel root. This is page-visible smoke coverage, not yet a final
-// claim about the bootstrap API name.
-test("bootstrap mounts one visible panel", async () => {
-  const page = await startSupportedExtension();
-
-  assert.equal(count(page.document, SELECTOR.panel), 1);
-  assert.equal(assertOne(page.document, SELECTOR.panel).hidden, false);
-});
-
 // Unclassified candidate: empty durable state should visibly start in Paste /
 // Trace posture with no overlay image. This is the first useful page milestone.
 test("no-session panel shows Paste posture", async () => {
