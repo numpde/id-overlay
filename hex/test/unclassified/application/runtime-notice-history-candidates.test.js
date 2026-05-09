@@ -1,5 +1,4 @@
 import test from "node:test";
-import assert from "node:assert/strict";
 
 import {
   APPLICATION_COMMAND_KIND,
@@ -24,24 +23,6 @@ import {
 import {
   durableStateChangedEffect,
 } from "../../class-c/application/durable-state-fixtures.js";
-
-// Unclassified candidate: a new user intent should clear stale notice state so
-// status copy cannot be composed from an old outcome and a new prompt.
-test("new user intent clears stale notice", () => {
-  const result = handleApplicationCommand({
-    state: {
-      ...referenceImageLoadedState(),
-      notice: {
-        kind: "reference-image-paste-empty",
-      },
-    },
-    command: createApplicationCommand(
-      APPLICATION_COMMAND_KIND.ACTIVATE_PRIMARY_ACTION,
-    ),
-  });
-
-  assert.equal(result.state.notice, null);
-});
 
 // Unclassified candidate: request-bound status clearing prevents older timeout
 // results from erasing newer notices.

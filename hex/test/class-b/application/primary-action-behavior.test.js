@@ -74,6 +74,32 @@ test("primary action without pins requests clear-image confirmation", () => {
   });
 });
 
+// Class-b: a new visible user intent replaces stale status. Confirmation copy
+// must not be composed with an old notice from an earlier action.
+test("primary action clear-image confirmation clears stale notice", () => {
+  const result = handleApplicationCommand({
+    state: {
+      ...referenceImageLoadedState(),
+      notice: {
+        kind: "reference-image-paste-empty",
+      },
+    },
+    command: createApplicationCommand(
+      APPLICATION_COMMAND_KIND.ACTIVATE_PRIMARY_ACTION,
+    ),
+  });
+
+  assertApplicationResult(result, {
+    state: {
+      ...referenceImageLoadedState(),
+      panelIntent: {
+        kind: "confirm-clear-reference-image",
+      },
+    },
+    effects: [],
+  });
+});
+
 // Class-b: confirming image removal collapses the whole session back to startup
 // posture and requests durable clearing. Exact confirmation/effect vocabulary is
 // still application API shape.
