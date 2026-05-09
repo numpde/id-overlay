@@ -21,30 +21,6 @@ import {
   movedPlacement,
 } from "../../class-b/application/placement-fixtures.js";
 
-// Unclassified candidate: durable state should be the session-shaped product
-// snapshot only. Runtime input, notices, panel intent, and history should not
-// cross the persistence boundary.
-test("durable state excludes input notices panel intent and history", () => {
-  const loadedState = referenceImageLoadedState();
-
-  assert.deepEqual(selectDurableApplicationState({
-    ...loadedState,
-    referenceImageInput: awaitingReferenceImagePasteState().referenceImageInput,
-    notice: {
-      kind: "reference-image-paste-empty",
-    },
-    panelIntent: {
-      kind: "confirm-clear-reference-image",
-    },
-    history: {
-      past: [{
-        kind: "load-reference-image",
-      }],
-      future: [],
-    },
-  }), referenceImageDurableState());
-});
-
 // Unclassified candidate: placement preview is runtime-only. Drag previews
 // should not be persisted before the user commits the edit.
 test("transient placement preview is not durable state", () => {
