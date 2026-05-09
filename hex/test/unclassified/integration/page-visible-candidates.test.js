@@ -26,23 +26,6 @@ const SELECTOR = {
   panelDragHandle: "[data-id-overlay-panel-drag-handle]",
 };
 
-// Unclassified candidate: after image acceptance, the visible mode should move
-// to Align/editing posture. This duplicates a class-a product law at the page
-// boundary so adapter/bootstrap drift is caught later.
-test("accepted image switches to visible Align posture", async () => {
-  const page = await startSupportedExtension();
-
-  await page.user.click(SELECTOR.primaryAction);
-  await page.user.pasteImage(normalizedReferenceImage());
-
-  assert.equal(selectedMode(page.document), "align");
-  assert.equal(
-    assertOne(page.document, SELECTOR.overlaySurface).dataset.interactionOwner,
-    "overlay",
-  );
-  assert.equal(assertOne(page.document, SELECTOR.alignControl).disabled, false);
-});
-
 // Unclassified candidate: Trace should visibly return interaction ownership to
 // the map while leaving the reference image present for tracing.
 test("Trace mode makes page pass-through visible", async () => {

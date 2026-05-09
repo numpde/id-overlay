@@ -9,6 +9,7 @@ const SELECTOR = {
   alignControl: "[data-id-overlay-mode='align']",
   modeSwitch: "[data-id-overlay-mode-switch]",
   overlay: "[data-id-overlay-reference-image]",
+  overlaySurface: "[data-id-overlay-surface]",
   panel: "[data-id-overlay-panel]",
   primaryAction: "[data-id-overlay-primary-action]",
   status: "[data-id-overlay-status]",
@@ -64,6 +65,23 @@ test("accepted image shows overlay", async () => {
   const overlay = assertOne(page.document, SELECTOR.overlay);
   assert.equal(overlay.dataset.imageDataRef, "reference-image-data-1");
   assert.equal(overlay.hidden, false);
+});
+
+// Class-b, not class-a: accepted image should expose the loaded Align posture
+// on the page. The interaction-owner marker is a page-adapter test handle, not
+// a product-domain concept.
+test("accepted image switches to visible Align posture", async () => {
+  const page = await startSupportedExtension();
+
+  await page.user.click(SELECTOR.primaryAction);
+  await page.user.pasteImage(normalizedReferenceImage());
+
+  assert.equal(selectedMode(page.document), "align");
+  assert.equal(
+    assertOne(page.document, SELECTOR.overlaySurface).dataset.interactionOwner,
+    "overlay",
+  );
+  assert.equal(assertOne(page.document, SELECTOR.alignControl).disabled, false);
 });
 
 async function startSupportedExtension(options = {}) {
