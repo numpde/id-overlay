@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 
 const CURRENT_DIR = path.dirname(fileURLToPath(import.meta.url));
 
-export const REPO_ROOT = path.resolve(CURRENT_DIR, "../../..");
+export const REPO_ROOT = path.resolve(CURRENT_DIR, "../../../..");
 export const HEX_ROOT = path.join(REPO_ROOT, "hex");
 
 export function repoPath(...segments) {

@@ -39,8 +39,10 @@ const FORBIDDEN_BROWSER_VOCABULARY = [
 ];
 
 const PLAIN_DATA_TEST_DIRECTORIES = [
-  hexPath("test/domain"),
-  hexPath("test/application"),
+  hexPath("test/class-a/domain"),
+  hexPath("test/class-a/application"),
+  hexPath("test/class-b/domain"),
+  hexPath("test/class-b/application"),
 ];
 
 test("domain, application, and ports do not mention browser or platform objects", () => {
@@ -53,6 +55,8 @@ test("domain, application, and ports do not mention browser or platform objects"
   assert.deepEqual(violations, []);
 });
 
+// Class-c is quarantine. Its files must still be visibly classified, but they
+// are not design evidence for the pure-core test posture until promoted.
 test("domain and application tests stay plain-data tests", () => {
   const violations = collectForbiddenVocabularyViolations(PLAIN_DATA_TEST_DIRECTORIES);
   for (const directoryPath of PLAIN_DATA_TEST_DIRECTORIES) {

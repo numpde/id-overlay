@@ -3,11 +3,11 @@ import test from "node:test";
 import {
   APPLICATION_COMMAND_KIND,
   createApplicationCommand,
-} from "../../application/command.js";
+} from "../../../application/command.js";
 import {
   APPLICATION_BOUNDARY_ERROR_CODE,
-} from "../../application/errors.js";
-import { handleApplicationCommand } from "../../application/handle-command.js";
+} from "../../../application/errors.js";
+import { handleApplicationCommand } from "../../../application/handle-command.js";
 import { assertApplicationBoundaryError } from "./application-boundary-assertions.js";
 import { assertApplicationResult } from "./application-result-assertions.js";
 import { awaitingReferenceImagePasteState } from "./reference-image-fixtures.js";

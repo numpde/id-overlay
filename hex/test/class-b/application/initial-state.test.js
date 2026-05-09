@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { createInitialApplicationState } from "../../application/state.js";
+import { createInitialApplicationState } from "../../../application/state.js";
 import { assertPlainData } from "./plain-data-assertions.js";
 
 // The initial state is the no-session baseline. Product fields should appear

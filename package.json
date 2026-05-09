@@ -4,9 +4,12 @@
   "type": "module",
   "scripts": {
     "build:chrome": "node ./scripts/build-chrome.mjs",
-    "test:hex:architecture": "node --test hex/test/architecture/*.test.js",
-    "test:hex:application": "node --test hex/test/application/*.test.js",
-    "test:hex": "npm run test:hex:architecture && npm run test:hex:application",
+    "test:hex:class-a": "node --test hex/test/class-a/**/*.test.js",
+    "test:hex:class-b": "node --test hex/test/class-b/**/*.test.js",
+    "test:hex:class-c": "files=$(find hex/test/class-c -type f -name '*.test.js' | sort); if [ -n \"$files\" ]; then node --test $files; else echo \"No class-c tests\"; fi",
+    "test:hex:architecture": "npm run test:hex:class-a",
+    "test:hex:application": "npm run test:hex:class-b",
+    "test:hex": "npm run test:hex:class-a && npm run test:hex:class-b",
     "test": "npm run test:hex"
   },
   "devDependencies": {

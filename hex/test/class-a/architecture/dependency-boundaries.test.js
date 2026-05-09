@@ -25,18 +25,51 @@ const LAYERS = {
   bootstrap: hexPath("bootstrap"),
 };
 
-const TEST_AREAS = {
-  architecture: hexPath("test/architecture"),
-  domain: hexPath("test/domain"),
-  application: hexPath("test/application"),
-  adapters: hexPath("test/adapters"),
-  integration: hexPath("test/integration"),
-};
+const TEST_CLASS_NAMES = [
+  "class-a",
+  "class-b",
+  "class-c",
+];
+
+const TEST_RING_NAMES = [
+  "architecture",
+  "domain",
+  "application",
+  "adapters",
+  "integration",
+];
+
+const TEST_CLASSES = Object.fromEntries(
+  TEST_CLASS_NAMES.map((className) => [className, hexPath("test", className)]),
+);
+
+const TEST_RINGS = new Set(TEST_RING_NAMES);
+
+const TEST_AREAS = Object.fromEntries(
+  TEST_CLASS_NAMES.flatMap((className) => (
+    TEST_RING_NAMES.map((ringName) => [
+      `${className}/${ringName}`,
+      hexPath("test", className, ringName),
+    ])
+  )),
+);
 
 const PURE_CORE_TEST_EXTERNAL_IMPORTS = new Set([
   "node:assert/strict",
   "node:test",
 ]);
+
+const PURE_CORE_TEST_CLASS_NAMES = new Set([
+  "class-a",
+  "class-b",
+]);
+
+const PURE_CORE_TEST_AREA_DIRECTORIES = Object.entries(TEST_AREAS)
+  .filter(([testArea]) => (
+    PURE_CORE_TEST_CLASS_NAMES.has(testClassOf(testArea))
+      && ["domain", "application"].includes(testRingOf(testArea))
+  ))
+  .map(([, directoryPath]) => directoryPath);
 
 test("hex source directories exist as explicit architecture rings", () => {
   const missing = Object.entries(LAYERS)
@@ -48,14 +81,22 @@ test("hex source directories exist as explicit architecture rings", () => {
   assert.deepEqual(missing, []);
 });
 
-test("hex test directories make the intended test boundary explicit", () => {
-  const missing = Object.entries(TEST_AREAS)
+test("hex test authority classes are explicit", () => {
+  const missing = Object.entries(TEST_CLASSES)
     .filter(([, directoryPath]) => (
       !isInsidePath(directoryPath, hexPath("test")) || !fs.existsSync(directoryPath)
     ))
-    .map(([areaName]) => areaName);
+    .map(([className]) => className);
 
   assert.deepEqual(missing, []);
+});
+
+test("hex tests declare authority class and test ring in their path", () => {
+  const unclassified = listJavaScriptFiles(hexPath("test"), { includeTests: true })
+    .filter((filePath) => !getTestArea(filePath))
+    .map(relativeToRepo);
+
+  assert.deepEqual(unclassified, []);
 });
 
 test("hex production imports point inward only", () => {
@@ -91,53 +132,52 @@ test("hex production imports point inward only", () => {
   assert.deepEqual(violations, []);
 });
 
-// Test code can leak architecture just as easily as production code. A domain
-// or application test that imports an outward ring or another test area has
-// already encoded the wrong shape, even if production code still looks clean.
+// Test code can leak architecture just as easily as production code. Class-a
+// and class-b pure-core tests are design evidence; if they import outward, they
+// have already encoded the wrong shape.
 test("domain and application tests do not import outward code", () => {
   const violations = [];
-  for (const filePath of [
-    ...listJavaScriptFiles(TEST_AREAS.domain, { includeTests: true }),
-    ...listJavaScriptFiles(TEST_AREAS.application, { includeTests: true }),
-  ]) {
-    const sourceTestArea = getTestArea(filePath);
-    if (!sourceTestArea) {
-      continue;
-    }
+  for (const directoryPath of PURE_CORE_TEST_AREA_DIRECTORIES) {
+    for (const filePath of listJavaScriptFiles(directoryPath, { includeTests: true })) {
+      const sourceTestArea = getTestArea(filePath);
+      if (!sourceTestArea) {
+        continue;
+      }
 
-    for (const specifier of extractImportSpecifiers(readSource(filePath))) {
-      const targetPath = resolveRelativeImport(filePath, specifier);
-      if (!targetPath) {
-        if (!PURE_CORE_TEST_EXTERNAL_IMPORTS.has(specifier)) {
+      for (const specifier of extractImportSpecifiers(readSource(filePath))) {
+        const targetPath = resolveRelativeImport(filePath, specifier);
+        if (!targetPath) {
+          if (!PURE_CORE_TEST_EXTERNAL_IMPORTS.has(specifier)) {
+            violations.push(
+              `${relativeToRepo(filePath)} (${sourceTestArea} test) imports external module ${specifier}`,
+            );
+          }
+          continue;
+        }
+
+        const targetTestArea = getTestArea(targetPath);
+        if (targetTestArea && targetTestArea !== sourceTestArea) {
           violations.push(
-            `${relativeToRepo(filePath)} (${sourceTestArea} test) imports external module ${specifier}`,
+            `${relativeToRepo(filePath)} (${sourceTestArea} test) imports ${targetTestArea} test: ${specifier}`,
+          );
+          continue;
+        }
+        if (targetTestArea === sourceTestArea) {
+          continue;
+        }
+
+        const targetLayer = getLayer(targetPath);
+        if (!targetLayer) {
+          violations.push(
+            `${relativeToRepo(filePath)} (${sourceTestArea} test) imports outside allowed boundaries: ${specifier}`,
+          );
+          continue;
+        }
+        if (!canTestAreaImportLayer(sourceTestArea, targetLayer)) {
+          violations.push(
+            `${relativeToRepo(filePath)} (${sourceTestArea} test) imports ${targetLayer}: ${specifier}`,
           );
         }
-        continue;
-      }
-
-      const targetTestArea = getTestArea(targetPath);
-      if (targetTestArea && targetTestArea !== sourceTestArea) {
-        violations.push(
-          `${relativeToRepo(filePath)} (${sourceTestArea} test) imports ${targetTestArea} test: ${specifier}`,
-        );
-        continue;
-      }
-      if (targetTestArea === sourceTestArea) {
-        continue;
-      }
-
-      const targetLayer = getLayer(targetPath);
-      if (!targetLayer) {
-        violations.push(
-          `${relativeToRepo(filePath)} (${sourceTestArea} test) imports outside allowed boundaries: ${specifier}`,
-        );
-        continue;
-      }
-      if (!canTestAreaImportLayer(sourceTestArea, targetLayer)) {
-        violations.push(
-          `${relativeToRepo(filePath)} (${sourceTestArea} test) imports ${targetLayer}: ${specifier}`,
-        );
       }
     }
   }
@@ -155,10 +195,9 @@ function getLayer(filePath) {
 }
 
 function getTestArea(filePath) {
-  for (const [areaName, directoryPath] of Object.entries(TEST_AREAS)) {
-    if (isInsidePath(filePath, directoryPath)) {
-      return areaName;
-    }
+  const [testClass, testRing] = path.relative(hexPath("test"), filePath).split(path.sep);
+  if (TEST_CLASSES[testClass] && TEST_RINGS.has(testRing)) {
+    return `${testClass}/${testRing}`;
   }
   return null;
 }
@@ -188,13 +227,22 @@ function canImportLayer({ sourceLayer, targetLayer, sourcePath, targetPath }) {
 }
 
 function canTestAreaImportLayer(testArea, targetLayer) {
-  if (testArea === "domain") {
+  const testRing = testRingOf(testArea);
+  if (testRing === "domain") {
     return targetLayer === "domain";
   }
-  if (testArea === "application") {
+  if (testRing === "application") {
     return ["domain", "ports", "application"].includes(targetLayer);
   }
   return true;
+}
+
+function testRingOf(testArea) {
+  return testArea.split("/")[1] ?? "";
+}
+
+function testClassOf(testArea) {
+  return testArea.split("/")[0] ?? "";
 }
 
 function isSameAdapter(sourcePath, targetPath) {

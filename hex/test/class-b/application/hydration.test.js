@@ -4,12 +4,12 @@ import assert from "node:assert/strict";
 import {
   APPLICATION_COMMAND_KIND,
   createApplicationCommand,
-} from "../../application/command.js";
+} from "../../../application/command.js";
 import {
   APPLICATION_BOUNDARY_ERROR_CODE,
-} from "../../application/errors.js";
-import { handleApplicationCommand } from "../../application/handle-command.js";
-import { createInitialApplicationState } from "../../application/state.js";
+} from "../../../application/errors.js";
+import { handleApplicationCommand } from "../../../application/handle-command.js";
+import { createInitialApplicationState } from "../../../application/state.js";
 import { assertApplicationBoundaryError } from "./application-boundary-assertions.js";
 import { assertApplicationResult } from "./application-result-assertions.js";
 import { assertPlainData } from "./plain-data-assertions.js";

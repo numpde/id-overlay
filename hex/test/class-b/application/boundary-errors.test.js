@@ -4,12 +4,12 @@ import assert from "node:assert/strict";
 import {
   APPLICATION_COMMAND_KIND,
   createApplicationCommand,
-} from "../../application/command.js";
+} from "../../../application/command.js";
 import {
   ApplicationBoundaryError,
   APPLICATION_BOUNDARY_ERROR_CODE,
-} from "../../application/errors.js";
-import { handleApplicationCommand } from "../../application/handle-command.js";
+} from "../../../application/errors.js";
+import { handleApplicationCommand } from "../../../application/handle-command.js";
 import { assertApplicationBoundaryError } from "./application-boundary-assertions.js";
 
 // Boundary errors are first-class application contract failures. They are stable

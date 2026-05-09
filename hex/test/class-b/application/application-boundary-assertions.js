@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 
-import { ApplicationBoundaryError } from "../../application/errors.js";
+import { ApplicationBoundaryError } from "../../../application/errors.js";
 
 // Test helper for the application API boundary. Keeping this single predicate
 // prevents each product test from redefining what "boundary error" means.
