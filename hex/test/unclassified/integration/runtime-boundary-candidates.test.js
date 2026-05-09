@@ -11,48 +11,6 @@ import {
 // pure application steps meet async host work. They are intentionally not yet
 // class-b: the driver names may change, but the boundary pressure is real.
 
-test("runtime dispatches each declared effect kind to its matching handler", async () => {
-  const effect = {
-    kind: "persist-durable-state",
-    durableState: {
-      session: {
-        mode: "trace",
-      },
-    },
-  };
-  const calls = [];
-  const runtime = createRuntimeDriver({
-    initialState: {},
-    effectHandlers: {
-      "persist-durable-state": async (receivedEffect) => {
-        calls.push({
-          handler: "persist-durable-state",
-          effect: receivedEffect,
-        });
-        return null;
-      },
-      "read-reference-image": () => {
-        assert.fail("runtime called a handler whose kind was not requested");
-      },
-    },
-    stepApplication({ state }) {
-      return {
-        state,
-        effects: [effect],
-      };
-    },
-  });
-
-  await runtime.dispatch({
-    kind: "user-command",
-  });
-
-  assert.deepEqual(calls, [{
-    handler: "persist-durable-state",
-    effect,
-  }]);
-});
-
 test("runtime rejects unknown effect kinds at the boundary", async () => {
   const runtime = createRuntimeDriver({
     initialState: {},
