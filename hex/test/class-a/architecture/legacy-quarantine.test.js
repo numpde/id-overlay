@@ -37,3 +37,25 @@ test("hex JavaScript files do not import legacy code", () => {
 
   assert.deepEqual(violations, []);
 });
+
+// Class-a: legacy is reference material, not a dependency tier. The future
+// browser shell and build scripts are outside ./hex, so the quarantine must
+// cover them too; otherwise a "clean" core could still ship through legacy
+// content or packaging code.
+test("browser shell and build path do not reference legacy", () => {
+  const violations = [];
+  for (const filePath of [
+    ...listJavaScriptFiles(repoPath("src")),
+    ...listJavaScriptFiles(repoPath("scripts")),
+    repoPath("manifest.chrome.json"),
+  ]) {
+    if (!fs.existsSync(filePath)) {
+      continue;
+    }
+    if (/\blegacy\b|legacy\//.test(readSource(filePath))) {
+      violations.push(relativeToRepo(filePath));
+    }
+  }
+
+  assert.deepEqual(violations, []);
+});

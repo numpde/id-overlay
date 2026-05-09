@@ -91,53 +91,10 @@ test("content module graph may include hex production but not tests or legacy", 
   )), []);
 });
 
-// Unclassified: the quarantine rule should apply to the future shell and build
-// scripts too, not just to hex modules. Legacy may be reference material; it
-// must not be imported or packed into the new browser path.
-test("browser shell and build path do not reference legacy", () => {
-  const violations = [];
-  for (const filePath of [
-    ...listJavaScriptFiles(repoPath("src")),
-    ...listJavaScriptFiles(repoPath("scripts")),
-    repoPath("manifest.chrome.json"),
-  ]) {
-    if (!fs.existsSync(filePath)) {
-      continue;
-    }
-    if (/\blegacy\b|legacy\//.test(readSource(filePath))) {
-      violations.push(relativeToRepo(filePath));
-    }
-  }
-
-  assert.deepEqual(violations, []);
-});
-
-function listJavaScriptFiles(rootDir) {
-  if (!fs.existsSync(rootDir)) {
-    return [];
-  }
-  const files = [];
-  for (const entry of fs.readdirSync(rootDir, { withFileTypes: true })) {
-    const filePath = path.join(rootDir, entry.name);
-    if (entry.isDirectory()) {
-      files.push(...listJavaScriptFiles(filePath));
-      continue;
-    }
-    if (entry.isFile() && filePath.endsWith(".js")) {
-      files.push(filePath);
-    }
-  }
-  return files.sort();
-}
-
 function readSource(filePath) {
   return fs.readFileSync(filePath, "utf8");
 }
 
 function repoPath(...segments) {
   return path.join(REPO_ROOT, ...segments);
-}
-
-function relativeToRepo(filePath) {
-  return path.relative(REPO_ROOT, filePath);
 }
