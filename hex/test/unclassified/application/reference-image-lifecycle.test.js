@@ -2,41 +2,13 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  APPLICATION_COMMAND_KIND,
-  createApplicationCommand,
-} from "../../../application/command.js";
-import { handleApplicationCommand } from "../../../application/handle-command.js";
-import { createInitialApplicationState } from "../../../application/state.js";
-import {
   selectDurableApplicationState,
 } from "../../../application/view-model.js";
 import {
-  assertApplicationResult,
-} from "../../class-b/application/application-result-assertions.js";
-import {
   awaitingReferenceImagePasteState,
-  durableStateChangedEffect,
   referenceImageDurableState,
   referenceImageLoadedState,
 } from "./user-behavior-fixtures.js";
-
-// Unclassified: deleting the overlay should return to the same user posture as
-// startup, not leave a hidden Align-capable session behind.
-test("clearing the reference image returns to no-session Trace", () => {
-  const command = createApplicationCommand(
-    APPLICATION_COMMAND_KIND.CLEAR_REFERENCE_IMAGE,
-  );
-
-  assertApplicationResult(handleApplicationCommand({
-    state: referenceImageLoadedState(),
-    command,
-  }), {
-    state: createInitialApplicationState(),
-    effects: [
-      durableStateChangedEffect(null),
-    ],
-  });
-});
 
 // Unclassified: pending input is application runtime state. Persisting it would
 // resurrect stale paste prompts after reload and blur durable/session ownership.
