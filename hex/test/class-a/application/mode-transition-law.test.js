@@ -60,6 +60,36 @@ test("re-selecting the current loaded mode is a no-op", () => {
   }
 });
 
+// Class-a: switching mode interrupts any in-progress placement draft. The
+// durable mode changes, but the uncommitted preview is discarded instead of
+// being saved or carried into the next mode.
+test("interrupted placement edit drops preview without changing durable session", () => {
+  const state = {
+    ...referenceImageLoadedState({ mode: "align" }),
+    placementPreview: {
+      beforePlacement: null,
+      previewPlacement: {
+        x: 80,
+        y: 40,
+        scale: 1,
+        rotationRad: 0,
+      },
+    },
+  };
+
+  assert.deepEqual(handleApplicationCommand({
+    state,
+    command: createApplicationCommand(APPLICATION_COMMAND_KIND.SELECT_MODE, {
+      mode: "trace",
+    }),
+  }), {
+    state: referenceImageLoadedState({ mode: "trace" }),
+    effects: [
+      durableStateChangedEffect(referenceImageDurableState({ mode: "trace" })),
+    ],
+  });
+});
+
 function referenceImageLoadedState({ mode }) {
   return {
     session: {
