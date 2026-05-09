@@ -7,7 +7,7 @@ import {
 } from "../../../application/errors.js";
 import { handleApplicationCommand } from "../../../application/handle-command.js";
 
-// Class-c candidate for class-a: malformed boundary input is a contract
+// Class-b candidate for class-a: malformed boundary input is a contract
 // failure. It must throw a boundary error instead of becoming product state.
 
 test("malformed application boundary input throws boundary error", () => {

@@ -12,7 +12,7 @@ import {
 import { handleApplicationCommand } from "../../../application/handle-command.js";
 import { createInitialApplicationState } from "../../../application/state.js";
 
-// Class-c candidate for class-a: application boundary data stays plain. The
+// Class-b candidate for class-a: application boundary data stays plain. The
 // only non-plain value here is the thrown Error object; its exposed diagnostics
 // still stay stable strings.
 

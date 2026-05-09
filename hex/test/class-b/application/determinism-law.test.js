@@ -8,7 +8,7 @@ import {
 import { handleApplicationCommand } from "../../../application/handle-command.js";
 import { createInitialApplicationState } from "../../../application/state.js";
 
-// Class-c candidate for class-a: the application is a deterministic state
+// Class-b candidate for class-a: the application is a deterministic state
 // transition. Same state plus same command must produce the same result.
 
 test("application command handling is deterministic", () => {

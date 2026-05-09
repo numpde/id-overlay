@@ -56,15 +56,6 @@ test("unknown commands throw ApplicationBoundaryError", () => {
   );
 });
 
-// The command handler should not infer intent from a partial envelope. Missing
-// command data is the same contract failure as an unknown command kind.
-test("missing command at the application boundary throws ApplicationBoundaryError", () => {
-  assertApplicationBoundaryError(
-    () => handleApplicationCommand({ state: {} }),
-    APPLICATION_BOUNDARY_ERROR_CODE.UNKNOWN_APPLICATION_COMMAND,
-  );
-});
-
 // State validation belongs at the command boundary. This prevents runtime
 // objects from becoming product state through command handling.
 test("invalid application state throws ApplicationBoundaryError", () => {

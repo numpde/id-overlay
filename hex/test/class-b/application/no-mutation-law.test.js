@@ -8,7 +8,7 @@ import {
 import { handleApplicationCommand } from "../../../application/handle-command.js";
 import { createInitialApplicationState } from "../../../application/state.js";
 
-// Class-c candidate for class-a: application command handling is pure with
+// Class-b candidate for class-a: application command handling is pure with
 // respect to caller-owned input. State and command inputs must survive intact.
 
 test("application command handling does not mutate state or command input", () => {

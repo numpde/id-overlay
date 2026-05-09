@@ -8,7 +8,7 @@ import {
 import { handleApplicationCommand } from "../../../application/handle-command.js";
 import { createInitialApplicationState } from "../../../application/state.js";
 
-// Class-c candidate for class-a: startup with no durable data is a pure
+// Class-b candidate for class-a: startup with no durable data is a pure
 // canonicalization step. It must not ask the outside world to do anything.
 
 test("hydrating no durable state returns canonical empty state with no effects", () => {

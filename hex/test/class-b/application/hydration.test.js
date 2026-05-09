@@ -8,10 +8,7 @@ import {
 import {
   APPLICATION_BOUNDARY_ERROR_CODE,
 } from "../../../application/errors.js";
-import { handleApplicationCommand } from "../../../application/handle-command.js";
-import { createInitialApplicationState } from "../../../application/state.js";
 import { assertApplicationBoundaryError } from "./application-boundary-assertions.js";
-import { assertApplicationResult } from "./application-result-assertions.js";
 import { assertPlainData } from "./plain-data-assertions.js";
 
 // Hydration is the startup seam: durable plain data enters the application and
@@ -28,38 +25,6 @@ test("application command vocabulary includes explicit hydration", () => {
   assert.deepEqual(command, {
     kind: "hydrate",
     durableState: null,
-  });
-});
-
-// Null is the caller's plain-data way to say "no durable state exists". The
-// application should turn that into canonical empty state without asking the
-// caller to do more work.
-test("hydrating missing durable state returns empty application state", () => {
-  const state = createInitialApplicationState();
-  const command = createApplicationCommand(APPLICATION_COMMAND_KIND.HYDRATE, {
-    durableState: null,
-  });
-
-  const result = handleApplicationCommand({ state, command });
-
-  assertApplicationResult(result, {
-    state: {},
-    effects: [],
-  });
-});
-
-// Empty durable data is the explicit no-session durable shape.
-test("hydrating empty durable state returns empty application state", () => {
-  const state = createInitialApplicationState();
-  const command = createApplicationCommand(APPLICATION_COMMAND_KIND.HYDRATE, {
-    durableState: {},
-  });
-
-  const result = handleApplicationCommand({ state, command });
-
-  assertApplicationResult(result, {
-    state: {},
-    effects: [],
   });
 });
 

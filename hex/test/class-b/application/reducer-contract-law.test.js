@@ -8,7 +8,7 @@ import {
 import { handleApplicationCommand } from "../../../application/handle-command.js";
 import { createInitialApplicationState } from "../../../application/state.js";
 
-// Class-c candidate for class-a: the application boundary is a pure reducer.
+// Class-b candidate for class-a: the application boundary is a pure reducer.
 // It returns next state plus effect descriptions; it does not execute effects.
 
 test("application command handling returns state and effect descriptions", () => {
