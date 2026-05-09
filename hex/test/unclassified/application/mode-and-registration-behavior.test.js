@@ -22,53 +22,6 @@ import {
   twoPins,
 } from "./user-behavior-fixtures.js";
 
-// Unclassified: pin toggling is a semantic transition over projected facts. The
-// adapter supplies image/map coordinates; the application owns add/remove rules.
-test("pin toggle adds and removes projected registration facts in Align mode", () => {
-  const add = handleApplicationCommand({
-    state: referenceImageLoadedState(),
-    command: createApplicationCommand(
-      APPLICATION_COMMAND_KIND.TOGGLE_REGISTRATION_PIN,
-      pinTogglePayload(),
-    ),
-  });
-
-  assertApplicationResult(add, {
-    state: referenceImageLoadedState({
-      pins: [firstPin()],
-      notice: {
-        kind: "added-pin",
-        pinId: 1,
-      },
-    }),
-    effects: [
-      durableStateChangedEffect(referenceImageDurableState({
-        pins: [firstPin()],
-      })),
-    ],
-  });
-
-  const remove = handleApplicationCommand({
-    state: add.state,
-    command: createApplicationCommand(
-      APPLICATION_COMMAND_KIND.TOGGLE_REGISTRATION_PIN,
-      pinTogglePayload({ existingPinId: 1 }),
-    ),
-  });
-
-  assertApplicationResult(remove, {
-    state: referenceImageLoadedState({
-      notice: {
-        kind: "removed-pin",
-        pinId: 1,
-      },
-    }),
-    effects: [
-      durableStateChangedEffect(referenceImageDurableState()),
-    ],
-  });
-});
-
 // Unclassified: pins are invisible in Trace, so pin-destructive controls and
 // pin mutation commands are invalid there from the user's perspective.
 test("pin edits and clear-pins are no-ops in Trace mode", () => {

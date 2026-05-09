@@ -29,9 +29,17 @@ export function referenceImageSessionState() {
   };
 }
 
-export function referenceImageDurableState() {
+export function referenceImageDurableState({ pins } = {}) {
+  const session = {
+    ...referenceImageSessionState().session,
+  };
+  if (pins !== undefined) {
+    session.registration = {
+      pins,
+    };
+  }
   return {
-    session: referenceImageSessionState().session,
+    session,
   };
 }
 
@@ -63,5 +71,17 @@ export function referenceImageLoadedState({
     },
     panelIntent,
     notice,
+  };
+}
+
+export function pinTogglePayload({
+  existingPinId = null,
+  imagePx = firstPin().imagePx,
+  mapLatLon = firstPin().mapLatLon,
+} = {}) {
+  return {
+    existingPinId,
+    imagePx,
+    mapLatLon,
   };
 }
