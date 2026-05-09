@@ -47,3 +47,20 @@ test("switching loaded image from Trace to Align changes mode durably", () => {
     ],
   });
 });
+
+// Class-b: selecting the already-active loaded mode is idempotent. It must not
+// create persistence effects, notices, history entries, or a different state.
+test("re-selecting the current loaded mode is a no-op", () => {
+  for (const mode of ["align", "trace"]) {
+    const state = referenceImageLoadedState({ mode });
+    const command = createApplicationCommand(
+      APPLICATION_COMMAND_KIND.SELECT_MODE,
+      { mode },
+    );
+
+    assertApplicationResult(handleApplicationCommand({ state, command }), {
+      state,
+      effects: [],
+    });
+  }
+});
