@@ -95,3 +95,35 @@ test("undo and redo labels describe image removal and reload", () => {
 
   assert.equal(selectApplicationView(undo.state).history.redo.label, "Reload image");
 });
+
+// Class-c: opacity visibly changes rendering and likely should persist, but the
+// non-undoable policy is still a product decision rather than architecture.
+test("opacity changes are durable but not undoable", () => {
+  const state = referenceImageLoadedState({
+    history: historyWithPast({
+      kind: "move-overlay",
+      undoLabel: "Undo move overlay",
+      redoLabel: "Redo move overlay",
+      before: {
+        placement: identityPlacement(),
+      },
+      after: {
+        placement: movedPlacement(),
+      },
+    }),
+  });
+  const result = handleApplicationCommand({
+    state,
+    command: createApplicationCommand(APPLICATION_COMMAND_KIND.SET_OPACITY, {
+      opacity: 0.5,
+    }),
+  });
+
+  assert.deepEqual(result.state.session.opacity, 0.5);
+  assert.deepEqual(result.state.history, state.history);
+  assert.deepEqual(result.effects, [
+    durableStateChangedEffect(referenceImageDurableState({
+      opacity: 0.5,
+    })),
+  ]);
+});

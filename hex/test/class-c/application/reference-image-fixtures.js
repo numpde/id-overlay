@@ -34,6 +34,7 @@ export function referenceImageDurableState({
   placement,
   pins,
   solved,
+  opacity,
 } = {}) {
   const session = {
     ...referenceImageSessionState().session,
@@ -49,6 +50,9 @@ export function referenceImageDurableState({
     if (solved !== undefined) {
       session.registration.solvedPlacement = solved;
     }
+  }
+  if (opacity !== undefined) {
+    session.opacity = opacity;
   }
   return {
     session,
@@ -104,6 +108,7 @@ export function referenceImageLoadedState({
   placement,
   pins = [],
   solved,
+  opacity,
   history,
   panelIntent = null,
   notice = null,
@@ -120,6 +125,9 @@ export function referenceImageLoadedState({
   }
   if (solved !== undefined) {
     session.registration.solvedPlacement = solved;
+  }
+  if (opacity !== undefined) {
+    session.opacity = opacity;
   }
   return {
     session,
