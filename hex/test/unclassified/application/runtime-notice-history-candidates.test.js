@@ -25,28 +25,6 @@ import {
   durableStateChangedEffect,
 } from "../../class-c/application/durable-state-fixtures.js";
 
-// Unclassified candidate: a new durable edit should invalidate redo history.
-// The exact history shape is not stable enough for class-b yet.
-test("new durable edit clears redo history", () => {
-  const state = {
-    ...referenceImageLoadedState(),
-    history: {
-      past: [],
-      future: [{
-        kind: "move-overlay",
-      }],
-    },
-  };
-  const result = handleApplicationCommand({
-    state,
-    command: createApplicationCommand(APPLICATION_COMMAND_KIND.SET_OPACITY, {
-      opacity: 0.5,
-    }),
-  });
-
-  assert.deepEqual(result.state.history.future, []);
-});
-
 // Unclassified candidate: a new user intent should clear stale notice state so
 // status copy cannot be composed from an old outcome and a new prompt.
 test("new user intent clears stale notice", () => {
