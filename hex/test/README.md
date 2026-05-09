@@ -21,6 +21,9 @@ evidence in class-a architecture checks until they are promoted.
 Class-c may reuse class-b support helpers to avoid quarantine-only framework
 bloat. That does not promote the class-c scenario itself.
 
+Class-c files prefixed with `candidate-` are possible class-a laws. Keep them
+self-contained so promotion is easy to review as a file move.
+
 Promotion criteria:
 
 - `class-c` to `class-b`: promote only after the test describes a product seam
