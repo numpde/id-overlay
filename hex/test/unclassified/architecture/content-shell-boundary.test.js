@@ -45,18 +45,6 @@ test("content module imports only the bootstrap ring from hex", () => {
   assert.deepEqual(violations, []);
 });
 
-// Unclassified: product/user copy belongs behind application/UI view-model
-// boundaries. If src/content contains final labels or status prose, the shell
-// has started owning presentation decisions again.
-test("content source does not own product copy", () => {
-  assert.deepEqual(collectContentPatternViolations([
-    {
-      label: "primary/status copy",
-      pattern: /Confirm clear|Clear image|No image loaded|Paste cancelled|image loaded|No image found/i,
-    },
-  ]), []);
-});
-
 // Unclassified: storage key placement is still unsettled, but the rushed shell
 // hard-coded it next to DOM and paste code. This test keeps that smell visible
 // until we decide whether it belongs in an extension adapter or bootstrap config.

@@ -47,6 +47,19 @@ test("content source does not own adapter mechanics", () => {
   ]), []);
 });
 
+// Class-b: product copy is part of the product/view-model boundary, not the
+// browser content shell. This stays class-b because exact copy ownership may
+// still move between application and UI view-model code, but src/content should
+// not be the place where final labels or status prose accumulate.
+test("content source does not own product copy", () => {
+  assert.deepEqual(collectContentPatternViolations([
+    {
+      label: "primary/status copy",
+      pattern: /Confirm clear|Clear image|No image loaded|Paste cancelled|image loaded|No image found/i,
+    },
+  ]), []);
+});
+
 function collectContentVocabularyViolations(words) {
   return collectContentPatternViolations(words.map((word) => ({
     label: word,
