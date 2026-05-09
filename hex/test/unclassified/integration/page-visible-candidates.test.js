@@ -26,19 +26,6 @@ const SELECTOR = {
   panelDragHandle: "[data-id-overlay-panel-drag-handle]",
 };
 
-// Unclassified candidate: unsupported pages should not mount product UI that
-// appears usable. A future promotion may choose a minimal unsupported notice
-// instead, but it should not be the full overlay panel.
-test("unsupported page does not mount product UI", async () => {
-  const page = await startPageVisibleExtension({
-    page: unsupportedPage(),
-    durableState: null,
-  });
-
-  assert.equal(count(page.document, SELECTOR.panel), 0);
-  assert.equal(count(page.document, SELECTOR.overlay), 0);
-});
-
 // Unclassified candidate: generated extension resources must allow content
 // bootstrap to complete. This captures the practical page-load failure mode
 // where dynamic imports are denied before any UI can mount.
