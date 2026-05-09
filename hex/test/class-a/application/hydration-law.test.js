@@ -6,6 +6,25 @@ import {
   createApplicationCommand,
 } from "../../../application/command.js";
 import { handleApplicationCommand } from "../../../application/handle-command.js";
+import { createInitialApplicationState } from "../../../application/state.js";
+
+// Class-a: no durable input is a pure startup canonicalization. It must produce
+// the empty application state and no effects; loading nothing is not a use case.
+test("hydrating no durable state returns canonical empty state with no effects", () => {
+  for (const durableState of [null, {}]) {
+    const result = handleApplicationCommand({
+      state: createInitialApplicationState(),
+      command: createApplicationCommand(APPLICATION_COMMAND_KIND.HYDRATE, {
+        durableState,
+      }),
+    });
+
+    assert.deepEqual(result, {
+      state: {},
+      effects: [],
+    });
+  }
+});
 
 // Class-a: hydration is replacement from durable input, not a merge. Stale
 // prompts, notices, and confirmations from an earlier run must not survive
