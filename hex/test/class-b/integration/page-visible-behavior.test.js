@@ -11,6 +11,7 @@ const SELECTOR = {
   overlay: "[data-id-overlay-reference-image]",
   panel: "[data-id-overlay-panel]",
   primaryAction: "[data-id-overlay-primary-action]",
+  status: "[data-id-overlay-status]",
 };
 
 // Class-b, not class-a: mounting a visible panel is the first end-to-end page
@@ -35,6 +36,20 @@ test("no-session panel shows Paste posture", async () => {
   assert.equal(selectedMode(page.document), "trace");
   assert.equal(assertOne(page.document, SELECTOR.alignControl).disabled, true);
   assert.equal(count(page.document, SELECTOR.overlay), 0);
+});
+
+// Class-b, not class-a: clicking Paste must visibly arm reference-image input,
+// but the DOM intent marker and exact status text are page-harness vocabulary.
+test("clicking Paste arms paste flow visibly", async () => {
+  const page = await startSupportedExtension();
+
+  await page.user.click(SELECTOR.primaryAction);
+
+  assert.equal(
+    assertOne(page.document, SELECTOR.primaryAction).dataset.intent,
+    "cancel-paste",
+  );
+  assert.match(textOf(page.document, SELECTOR.status), /paste/i);
 });
 
 async function startSupportedExtension(options = {}) {

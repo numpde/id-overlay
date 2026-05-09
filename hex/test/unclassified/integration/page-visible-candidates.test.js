@@ -26,21 +26,6 @@ const SELECTOR = {
   panelDragHandle: "[data-id-overlay-panel-drag-handle]",
 };
 
-// Unclassified candidate: clicking the visible primary button should arm the
-// paste flow. The exact status copy is provisional; the visible armed posture is
-// the behavior under test.
-test("clicking Paste arms paste flow visibly", async () => {
-  const page = await startSupportedExtension();
-
-  await page.user.click(SELECTOR.primaryAction);
-
-  assert.equal(
-    assertOne(page.document, SELECTOR.primaryAction).dataset.intent,
-    "cancel-paste",
-  );
-  assert.match(textOf(page.document, SELECTOR.status), /paste/i);
-});
-
 // Unclassified candidate: an accepted image result should render an image
 // overlay on the page, not merely update internal application state.
 test("accepted image shows overlay", async () => {
