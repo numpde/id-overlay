@@ -11,9 +11,8 @@ import { assertApplicationResult } from "./application-result-assertions.js";
 import { assertPlainData } from "./plain-data-assertions.js";
 
 // First real use case: with no session, the primary action starts the smallest
-// observable product flow. The UI reports "primary action activated"; the
-// application, not the UI adapter, decides that this means waiting for a pasted
-// reference image.
+// observable product flow. The caller reports "primary action activated"; the
+// application decides that this means waiting for a pasted reference image.
 
 test("application command vocabulary includes primary action activation", () => {
   assert.equal(
@@ -31,9 +30,8 @@ test("application command vocabulary includes primary action activation", () => 
   });
 });
 
-// Starting this flow is state, not an effect. The shell can observe the state
-// and translate a later paste into another application command; the application
-// should not invent a platform port just to arm the UI.
+// Starting this flow is state, not an effect. The caller can observe the state
+// and translate a later paste into another application command.
 test("activating the primary action with no session waits for a pasted reference image", () => {
   const state = createInitialApplicationState();
   const command = createApplicationCommand(

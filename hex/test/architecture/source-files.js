@@ -27,15 +27,6 @@ export function listJavaScriptFiles(rootDir, { includeTests = false } = {}) {
   });
 }
 
-export function listTextFiles(rootDir, { includeTests = false } = {}) {
-  return listFiles(rootDir, {
-    include(filePath) {
-      return isTextFile(filePath)
-        && (includeTests || !isInsidePath(filePath, hexPath("test")));
-    },
-  });
-}
-
 export function readSource(filePath) {
   return fs.readFileSync(filePath, "utf8");
 }
@@ -83,8 +74,4 @@ function listFiles(rootDir, { include }) {
     }
   }
   return files.sort();
-}
-
-function isTextFile(filePath) {
-  return [".js", ".json", ".md", ".txt"].includes(path.extname(filePath));
 }

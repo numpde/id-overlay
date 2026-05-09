@@ -1,6 +1,6 @@
 // Shared only for concrete reference-image specimens used across application
-// tests. These are not production factories; they keep the first vertical flow
-// aligned while the tests are still ahead of the implementation.
+// tests. These are not production factories; they keep cross-test product
+// vocabulary single-sourced without turning fixtures into architecture.
 
 export function awaitingReferenceImagePasteState() {
   return {

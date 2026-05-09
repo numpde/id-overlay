@@ -12,9 +12,9 @@ import { assertApplicationBoundaryError } from "./application-boundary-assertion
 import { assertApplicationResult } from "./application-result-assertions.js";
 import { awaitingReferenceImagePasteState } from "./reference-image-fixtures.js";
 
-// This is a principle test that uses the first paste flow as a concrete
-// specimen. It is not trying to exhaust the paste UX; it pins the default rule:
-// invalid application API input throws, valid negative product outcomes do not.
+// Reference-image paste failures are normal product outcomes when they arrive
+// as declared plain data. This file also pins the default boundary rule:
+// malformed application API input throws; valid negative product outcomes do not.
 
 test("known commands with malformed payloads are boundary errors", () => {
   assertApplicationBoundaryError(
@@ -34,7 +34,7 @@ test("known commands with malformed payloads are boundary errors", () => {
       {
         outcome: {
           kind: "failed",
-          reason: new Error("adapter leaked a runtime object"),
+          reason: new Error("caller leaked a runtime object"),
         },
       },
     ),
@@ -47,7 +47,7 @@ test("known commands with malformed payloads are boundary errors", () => {
         kind: APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_PASTE_OUTCOME,
         outcome: {
           kind: "failed",
-          reason: new Error("adapter leaked a runtime object"),
+          reason: new Error("caller leaked a runtime object"),
         },
       },
     }),
@@ -56,9 +56,9 @@ test("known commands with malformed payloads are boundary errors", () => {
 });
 
 // Empty paste is a normal user-world outcome: the user tried to paste, but no
-// reference image was available. The application should return product data
-// that the UI can show, not throw as if the shell called the API incorrectly.
-test("valid empty paste outcome transitions as product data", () => {
+// reference image was available. The application should return a product notice,
+// not throw as if the caller used the API incorrectly.
+test("empty paste outcome transitions as product data", () => {
   const command = createApplicationCommand(
     APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_PASTE_OUTCOME,
     {
@@ -84,9 +84,9 @@ test("valid empty paste outcome transitions as product data", () => {
 });
 
 // A failed paste attempt is also a product fact when it arrives as declared
-// plain data. The adapter may know the platform details; the application keeps
+// plain data. The caller may know the platform details; the application keeps
 // only a stable product reason for history, status, and tests.
-test("valid failed paste outcome transitions as product data", () => {
+test("failed paste outcome transitions as product data", () => {
   const command = createApplicationCommand(
     APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_PASTE_OUTCOME,
     {

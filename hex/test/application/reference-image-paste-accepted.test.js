@@ -18,9 +18,9 @@ import {
   referenceImageSessionState,
 } from "./reference-image-fixtures.js";
 
-// Accepted paste is the positive counterpart to empty/failed paste. The adapter
-// has already normalized pixels into a stable data reference plus intrinsic
-// size; the application accepts only that product-shaped data.
+// Accepted paste is the positive counterpart to empty/failed paste. Input has
+// already been normalized into a stable data reference plus intrinsic size; the
+// application accepts only that product-shaped data.
 
 test("application command vocabulary includes reference image paste outcome", () => {
   assert.equal(

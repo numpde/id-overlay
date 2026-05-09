@@ -33,6 +33,11 @@ const TEST_AREAS = {
   integration: hexPath("test/integration"),
 };
 
+const PURE_CORE_TEST_EXTERNAL_IMPORTS = new Set([
+  "node:assert/strict",
+  "node:test",
+]);
+
 test("hex source directories exist as explicit architecture rings", () => {
   const missing = Object.entries(LAYERS)
     .filter(([, directoryPath]) => (
@@ -103,6 +108,11 @@ test("domain and application tests do not import outward code", () => {
     for (const specifier of extractImportSpecifiers(readSource(filePath))) {
       const targetPath = resolveRelativeImport(filePath, specifier);
       if (!targetPath) {
+        if (!PURE_CORE_TEST_EXTERNAL_IMPORTS.has(specifier)) {
+          violations.push(
+            `${relativeToRepo(filePath)} (${sourceTestArea} test) imports external module ${specifier}`,
+          );
+        }
         continue;
       }
 

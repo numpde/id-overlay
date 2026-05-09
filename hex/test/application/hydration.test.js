@@ -16,8 +16,8 @@ import { assertPlainData } from "./plain-data-assertions.js";
 import { referenceImageSessionState } from "./reference-image-fixtures.js";
 
 // Hydration is the startup seam: persisted plain data enters the application
-// and becomes canonical state. Storage adapters and migration mechanics stay
-// outside this test; durable product shape does not.
+// and becomes canonical state. Storage mechanics stay outside this test;
+// durable product shape does not.
 
 test("application command vocabulary includes explicit hydration", () => {
   assert.equal(APPLICATION_COMMAND_KIND.HYDRATE, "hydrate");
@@ -33,9 +33,9 @@ test("application command vocabulary includes explicit hydration", () => {
   });
 });
 
-// Null is the adapter's plain-data way to say "nothing was persisted". The
-// application should turn that into canonical empty state without asking any
-// adapter to do more work.
+// Null is the caller's plain-data way to say "nothing was persisted". The
+// application should turn that into canonical empty state without asking the
+// caller to do more work.
 test("hydrating missing persisted state returns empty application state", () => {
   const state = createInitialApplicationState();
   const command = createApplicationCommand(APPLICATION_COMMAND_KIND.HYDRATE, {
@@ -102,7 +102,7 @@ test("hydrating unknown persisted fields rejects non-empty persisted data", () =
 });
 
 // Plain data can still be outside the declared durable schema. That is an
-// unsupported persisted shape, not an adapter data-shape leak.
+// unsupported persisted shape, not a caller data-shape leak.
 test("hydrating malformed persisted session rejects unsupported persisted state", () => {
   const state = createInitialApplicationState();
   const command = createApplicationCommand(APPLICATION_COMMAND_KIND.HYDRATE, {
@@ -127,8 +127,8 @@ test("hydrating malformed persisted session rejects unsupported persisted state"
 });
 
 // Hydration input must still be plain data before the application can decide
-// whether the persisted shape is supported. Rich values here mean an adapter
-// leaked platform data inward.
+// whether the persisted shape is supported. Rich values here mean the caller
+// leaked runtime data inward.
 test("hydration rejects non-data persisted state", () => {
   assertApplicationBoundaryError(
     () => createApplicationCommand(APPLICATION_COMMAND_KIND.HYDRATE, {
