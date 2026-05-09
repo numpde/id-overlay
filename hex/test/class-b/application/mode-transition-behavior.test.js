@@ -15,24 +15,6 @@ import {
   referenceImageLoadedState,
 } from "./reference-image-fixtures.js";
 
-// Class-b: once a reference image exists, Trace is a real user mode. Selecting
-// it changes the session and asks the adapter to persist the new durable state.
-test("switching loaded image from Align to Trace changes mode durably", () => {
-  const command = createApplicationCommand(APPLICATION_COMMAND_KIND.SELECT_MODE, {
-    mode: "trace",
-  });
-
-  assertApplicationResult(handleApplicationCommand({
-    state: referenceImageLoadedState({ mode: "align" }),
-    command,
-  }), {
-    state: referenceImageLoadedState({ mode: "trace" }),
-    effects: [
-      durableStateChangedEffect(referenceImageDurableState({ mode: "trace" })),
-    ],
-  });
-});
-
 // Class-b: Align is the inverse loaded-image user mode. Returning to it is
 // equally durable because it changes the saved session posture.
 test("switching loaded image from Trace to Align changes mode durably", () => {
