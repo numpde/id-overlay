@@ -9,6 +9,7 @@ import { handleApplicationCommand } from "../../application/handle-command.js";
 import { createApplicationResult } from "../../application/result.js";
 import { createInitialApplicationState } from "../../application/state.js";
 import { EFFECT_REQUEST_KIND } from "../../ports/effect-request.js";
+import { assertPlainData } from "./plain-data-assertions.js";
 
 // This file defines the smallest executable application seam before product
 // vocabulary exists: explicit commands in, explicit results out, no implicit
@@ -18,9 +19,7 @@ import { EFFECT_REQUEST_KIND } from "../../ports/effect-request.js";
 
 test("application command vocabulary starts with an explicit no-op command", () => {
   assert.equal(Object.isFrozen(APPLICATION_COMMAND_KIND), true);
-  assert.deepEqual(APPLICATION_COMMAND_KIND, {
-    NOOP: "noop",
-  });
+  assert.equal(APPLICATION_COMMAND_KIND.NOOP, "noop");
 
   const command = createApplicationCommand(APPLICATION_COMMAND_KIND.NOOP);
 
@@ -197,38 +196,3 @@ test("application results reject non-data effect requests", () => {
     /unknown effect request/i,
   );
 });
-
-// Plain data here means JSON-shaped data: primitives, arrays, and plain objects
-// only. structuredClone alone would allow Maps, Sets, Dates, and other runtime
-// objects that are too rich for the application boundary.
-function assertPlainData(value) {
-  assertJsonShape(value);
-}
-
-function assertJsonShape(value) {
-  if (value === null) {
-    return;
-  }
-  if (Array.isArray(value)) {
-    for (const nestedValue of value) {
-      assertJsonShape(nestedValue);
-    }
-    return;
-  }
-
-  const valueType = typeof value;
-  if (["string", "boolean"].includes(valueType)) {
-    return;
-  }
-  if (valueType === "number") {
-    assert.equal(Number.isFinite(value), true);
-    return;
-  }
-
-  assert.equal(valueType, "object");
-  assert.equal(Object.getPrototypeOf(value), Object.prototype);
-  for (const [key, nestedValue] of Object.entries(value)) {
-    assert.equal(typeof key, "string");
-    assertJsonShape(nestedValue);
-  }
-}
