@@ -21,3 +21,28 @@ test("selecting Align with no reference image is a no-op", () => {
     effects: [],
   });
 });
+
+// Class-a: registration pins belong to a visible reference image. With no
+// session, pin commands must not create hidden registration state.
+test("pin toggle is inert with no reference image", () => {
+  const state = createInitialApplicationState();
+  const command = createApplicationCommand(
+    APPLICATION_COMMAND_KIND.TOGGLE_REGISTRATION_PIN,
+    {
+      existingPinId: null,
+      imagePx: {
+        x: 520,
+        y: 240,
+      },
+      mapLatLon: {
+        lat: -1.23,
+        lon: 38.84,
+      },
+    },
+  );
+
+  assert.deepEqual(handleApplicationCommand({ state, command }), {
+    state,
+    effects: [],
+  });
+});
