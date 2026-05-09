@@ -7,9 +7,11 @@ import {
 
 const SELECTOR = {
   overlay: "[data-id-overlay-reference-image]",
+  overlaySurface: "[data-id-overlay-surface]",
   pin: "[data-id-overlay-pin]",
   primaryAction: "[data-id-overlay-primary-action]",
   status: "[data-id-overlay-status]",
+  undo: "[data-id-overlay-history='undo']",
 };
 
 // Class-c: clear-pins-before-clear-image is a plausible legacy-compatible
@@ -30,6 +32,43 @@ test("page-visible primary action clears pins before clearing the image", async 
   assert.equal(count(page.document, SELECTOR.overlay), 1);
   assert.equal(count(page.document, SELECTOR.pin), 0);
   assert.match(textOf(page.document, SELECTOR.status), /cleared.*pins/i);
+});
+
+// Class-c: direct overlay dragging is probably part of the desired product,
+// but this couples three unsettled boundaries: the legacy shift-drag gesture,
+// page-visible DOM transform evidence, and history tooltip copy. Keep it as
+// quarantine pressure until placement editing and history replay are specified.
+test("page-visible shift drag moves overlay and undo restores prior placement", async () => {
+  const page = await startSupportedExtension({
+    durableState: durableReferenceImageSession({
+      mode: "align",
+    }),
+  });
+  assert.equal(typeof page.user.drag, "function");
+  const overlay = assertOne(page.document, SELECTOR.overlay);
+  const before = overlay.getAttribute("style");
+
+  await page.user.drag(SELECTOR.overlaySurface, {
+    modifier: "shift",
+    fromScreenPx: {
+      x: 200,
+      y: 160,
+    },
+    toScreenPx: {
+      x: 260,
+      y: 210,
+    },
+  });
+
+  assert.notEqual(
+    overlay.getAttribute("style"),
+    before,
+    "shift-drag should visibly change overlay placement",
+  );
+  assert.match(assertOne(page.document, SELECTOR.undo).title, /move overlay/i);
+
+  await page.user.click(SELECTOR.undo);
+  assert.equal(overlay.getAttribute("style"), before);
 });
 
 async function startSupportedExtension(options = {}) {

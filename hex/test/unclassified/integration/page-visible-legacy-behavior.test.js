@@ -12,44 +12,7 @@ const SELECTOR = {
   panel: "[data-id-overlay-panel]",
   pin: "[data-id-overlay-pin]",
   status: "[data-id-overlay-status]",
-  undo: "[data-id-overlay-history='undo']",
 };
-
-// Unclassified: overlay edits should be visible on the page and undoable as
-// semantic placement changes. The exact DOM transform format is adapter detail;
-// the visible overlay must move when the user shift-drags it.
-test("page-visible shift drag moves overlay and undo restores prior placement", async () => {
-  const page = await startSupportedExtension({
-    durableState: durableReferenceImageSession({
-      mode: "align",
-    }),
-  });
-  assert.equal(typeof page.user.drag, "function");
-  const overlay = assertOne(page.document, SELECTOR.overlay);
-  const before = overlay.getAttribute("style");
-
-  await page.user.drag(SELECTOR.overlaySurface, {
-    modifier: "shift",
-    fromScreenPx: {
-      x: 200,
-      y: 160,
-    },
-    toScreenPx: {
-      x: 260,
-      y: 210,
-    },
-  });
-
-  assert.notEqual(
-    overlay.getAttribute("style"),
-    before,
-    "shift-drag should visibly change overlay placement",
-  );
-  assert.match(assertOne(page.document, SELECTOR.undo).title, /move overlay/i);
-
-  await page.user.click(SELECTOR.undo);
-  assert.equal(overlay.getAttribute("style"), before);
-});
 
 // Unclassified: wheel modifiers are a compact legacy interaction vocabulary.
 // They should remain page-visible behaviors even if the implementation is
