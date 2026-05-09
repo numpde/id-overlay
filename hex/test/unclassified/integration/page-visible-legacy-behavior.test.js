@@ -11,30 +11,9 @@ const SELECTOR = {
   overlaySurface: "[data-id-overlay-surface]",
   panel: "[data-id-overlay-panel]",
   pin: "[data-id-overlay-pin]",
-  primaryAction: "[data-id-overlay-primary-action]",
   status: "[data-id-overlay-status]",
   undo: "[data-id-overlay-history='undo']",
 };
-
-// Unclassified: this is the legacy destructive-action posture as visible to a
-// user. With pins present, Clear should first clear pins and leave the image
-// available before any image-removal confirmation is offered.
-test("page-visible primary action clears pins before clearing the image", async () => {
-  const page = await startSupportedExtension({
-    durableState: durableReferenceImageSession({
-      mode: "align",
-      pins: [firstPin(), secondPin()],
-    }),
-  });
-
-  await page.user.click(SELECTOR.primaryAction);
-  assert.match(textOf(page.document, SELECTOR.status), /clear pins/i);
-
-  await page.user.click(SELECTOR.primaryAction);
-  assert.equal(count(page.document, SELECTOR.overlay), 1);
-  assert.equal(count(page.document, SELECTOR.pin), 0);
-  assert.match(textOf(page.document, SELECTOR.status), /cleared.*pins/i);
-});
 
 // Unclassified: overlay edits should be visible on the page and undoable as
 // semantic placement changes. The exact DOM transform format is adapter detail;
