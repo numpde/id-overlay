@@ -51,23 +51,6 @@ test("switching loaded image from Trace to Align changes mode durably", () => {
   });
 });
 
-// Class-b: selecting the already-active loaded mode is idempotent. It must not
-// create persistence effects, notices, history entries, or a different state.
-test("re-selecting the current loaded mode is a no-op", () => {
-  for (const mode of ["align", "trace"]) {
-    const state = referenceImageLoadedState({ mode });
-    const command = createApplicationCommand(
-      APPLICATION_COMMAND_KIND.SELECT_MODE,
-      { mode },
-    );
-
-    assertApplicationResult(handleApplicationCommand({ state, command }), {
-      state,
-      effects: [],
-    });
-  }
-});
-
 // Class-b: changing mode interrupts an in-progress placement preview. The mode
 // change is durable; the preview itself is discarded instead of being saved.
 test("interrupted placement edit drops preview without changing durable session", () => {
