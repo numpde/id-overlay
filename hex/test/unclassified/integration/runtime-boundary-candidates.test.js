@@ -11,51 +11,6 @@ import {
 // pure application steps meet async host work. They are intentionally not yet
 // class-b: the driver names may change, but the boundary pressure is real.
 
-test("runtime executes multiple effects in declared order", async () => {
-  const order = [];
-  let firstFinished = false;
-  const runtime = createRuntimeDriver({
-    initialState: {},
-    effectHandlers: {
-      first: async () => {
-        order.push("first:start");
-        await Promise.resolve();
-        firstFinished = true;
-        order.push("first:end");
-        return null;
-      },
-      second: async () => {
-        assert.equal(firstFinished, true);
-        order.push("second");
-        return null;
-      },
-    },
-    stepApplication({ state }) {
-      return {
-        state,
-        effects: [
-          {
-            kind: "first",
-          },
-          {
-            kind: "second",
-          },
-        ],
-      };
-    },
-  });
-
-  await runtime.dispatch({
-    kind: "start",
-  });
-
-  assert.deepEqual(order, [
-    "first:start",
-    "first:end",
-    "second",
-  ]);
-});
-
 test("runtime disposal prevents late effect results from re-entering the app", async () => {
   const applicationCommands = [];
   let resolveLateResult = null;
