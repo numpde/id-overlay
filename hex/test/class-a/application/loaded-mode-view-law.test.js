@@ -2,13 +2,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { selectApplicationView } from "../../../application/view-model.js";
-import {
-  referenceImageLoadedState,
-} from "./reference-image-fixtures.js";
 
-// Class-b: Align is overlay-editing posture and Trace is native-map posture
-// once an image exists. The policy is stable; exact view-model keys are still
-// application API shape.
+// Class-a: with a loaded reference image, Align and Trace are user-visible
+// modes with different interaction ownership. Align edits the overlay; Trace
+// restores native map interaction and hides registration pins.
 test("loaded image view derives Align editing and Trace pass-through policies", () => {
   assert.deepEqual(selectApplicationView(referenceImageLoadedState({
     mode: "align",
@@ -26,3 +23,18 @@ test("loaded image view derives Align editing and Trace pass-through policies", 
     arePinsVisible: false,
   });
 });
+
+function referenceImageLoadedState({ mode }) {
+  return {
+    session: {
+      mode,
+      referenceImage: {
+        imageDataRef: "reference-image-data-1",
+        intrinsicSizePx: {
+          width: 640,
+          height: 480,
+        },
+      },
+    },
+  };
+}
