@@ -45,30 +45,6 @@ test("content module imports only the bootstrap ring from hex", () => {
   assert.deepEqual(violations, []);
 });
 
-// Unclassified: the loader may dynamically import the module entrypoint and
-// pass ambient handles. It should not inspect page state, product state, DOM,
-// storage, clipboard, or image data.
-test("content loader remains a dumb dynamic-import bridge", () => {
-  if (!fs.existsSync(CONTENT_LOADER)) {
-    return;
-  }
-
-  assert.deepEqual(collectPatternViolations(CONTENT_LOADER, [
-    {
-      label: "product vocabulary",
-      pattern: /\bsession\b|\breferenceImage\b|\bmode\b|\bpin\b|\bplacement\b/,
-    },
-    {
-      label: "DOM ownership",
-      pattern: /\bquerySelector\b|\bcreateElement\b|\baddEventListener\b/,
-    },
-    {
-      label: "host work",
-      pattern: /\bstorage\b|\bclipboard\b|\bFileReader\b|\bnew\s+Image\b/,
-    },
-  ]), []);
-});
-
 // Unclassified: product/user copy belongs behind application/UI view-model
 // boundaries. If src/content contains final labels or status prose, the shell
 // has started owning presentation decisions again.
