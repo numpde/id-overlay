@@ -91,6 +91,52 @@ test("clipboard image port reports normalized paste outcomes", async () => {
   }
 });
 
+// Class-b: the user can provide the same reference image either through a
+// direct clipboard read or through a paste event after the UI is armed. The
+// adapter boundary should not fork product paste semantics by input source.
+test("clipboard image port normalizes direct clipboard and paste-event image sources", async () => {
+  const normalized = {
+    kind: "accepted",
+    referenceImage: {
+      imageDataRef: "reference-image-data-1",
+      intrinsicSizePx: {
+        width: 640,
+        height: 480,
+      },
+    },
+  };
+  const normalizedHandles = [];
+  const port = createClipboardImagePortAdapter({
+    async readClipboardImageHandle() {
+      return {
+        kind: "image",
+        imageHandle: {
+          runtimeHandle: "clipboard-image",
+        },
+      };
+    },
+    async normalizeImageHandle(imageHandle) {
+      normalizedHandles.push(imageHandle);
+      return normalized;
+    },
+  });
+
+  assert.deepEqual(await port.readReferenceImage(), normalized);
+  assert.deepEqual(await port.readReferenceImageFromPasteEvent({
+    imageHandle: {
+      runtimeHandle: "event-image",
+    },
+  }), normalized);
+  assert.deepEqual(normalizedHandles, [
+    {
+      runtimeHandle: "clipboard-image",
+    },
+    {
+      runtimeHandle: "event-image",
+    },
+  ]);
+});
+
 // Class-b: image decoding may use browser handles internally, but normalized
 // output must contain only browser-neutral product facts.
 test("image normalization returns only browser-neutral image facts", async () => {

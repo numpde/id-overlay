@@ -18,5 +18,8 @@ export function createClipboardImagePortAdapter({
       }
       return normalizeImageHandle(clipboardResult.imageHandle);
     },
+    async readReferenceImageFromPasteEvent({ imageHandle }) {
+      return normalizeImageHandle(imageHandle);
+    },
   };
 }

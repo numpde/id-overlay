@@ -9,42 +9,6 @@ import {
   createPanelAdapter,
 } from "../../../adapters/ui/panel-adapter.js";
 
-// Unclassified: paste can arrive from direct clipboard read or a paste event.
-// Both should normalize into the same plain reference-image outcome before the
-// application sees it.
-test("paste adapter normalizes direct clipboard and paste-event image sources", async () => {
-  const { createPasteImageAdapter } = await importRequired(
-    "../../../adapters/web/paste-image-adapter.js",
-    "createPasteImageAdapter",
-  );
-  const normalized = {
-    kind: "accepted",
-    referenceImage: {
-      imageDataRef: "reference-image-data-1",
-      intrinsicSizePx: {
-        width: 640,
-        height: 480,
-      },
-    },
-  };
-  const adapter = createPasteImageAdapter({
-    readClipboardImageHandle: async () => ({
-      kind: "image",
-      imageHandle: {
-        runtimeHandle: "clipboard-image",
-      },
-    }),
-    normalizeImageHandle: async () => normalized,
-  });
-
-  assert.deepEqual(await adapter.readReferenceImage(), normalized);
-  assert.deepEqual(await adapter.readReferenceImageFromPasteEvent({
-    imageHandle: {
-      runtimeHandle: "event-image",
-    },
-  }), normalized);
-});
-
 // Unclassified: Align mode wheel gestures are overlay commands. The adapter
 // should emit plain facts and stop host bubbling; exact DOM event recovery can
 // remain adapter-local.
