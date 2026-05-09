@@ -5,8 +5,8 @@ import {
   solveRegistrationPlacement,
 } from "../../../domain/registration.js";
 
-// Unclassified candidate: registration solving should return explicit plain
-// facts. The domain should not throw for expected geometric failure cases.
+// Class-b: registration solving returns explicit plain facts. Expected
+// geometric failure cases are domain outcomes, not thrown control flow.
 test("registration solve returns explicit success and failure facts", () => {
   assert.deepEqual(solveRegistrationPlacement({
     pins: [
