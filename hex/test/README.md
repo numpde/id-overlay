@@ -17,3 +17,6 @@ not less "application-shaped"; it is less settled as design evidence.
 
 Class-c tests are classified so they are visible, but they should not become
 evidence in class-a architecture checks until they are promoted.
+
+Class-c may reuse class-b support helpers to avoid quarantine-only framework
+bloat. That does not promote the class-c scenario itself.

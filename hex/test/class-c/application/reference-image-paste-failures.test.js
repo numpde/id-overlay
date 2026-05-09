@@ -8,10 +8,17 @@ import {
   APPLICATION_BOUNDARY_ERROR_CODE,
 } from "../../../application/errors.js";
 import { handleApplicationCommand } from "../../../application/handle-command.js";
-import { assertApplicationBoundaryError } from "./application-boundary-assertions.js";
-import { assertApplicationResult } from "./application-result-assertions.js";
+import {
+  assertApplicationBoundaryError,
+} from "../../class-b/application/application-boundary-assertions.js";
+import {
+  assertApplicationResult,
+} from "../../class-b/application/application-result-assertions.js";
 import { awaitingReferenceImagePasteState } from "./reference-image-fixtures.js";
 
+// Class-c: negative paste outcomes are plausible product behavior, but the
+// exact notice vocabulary and command envelope are not settled enough to treat
+// as design bedrock.
 // Reference-image paste failures are normal product outcomes when they arrive
 // as declared plain data. This file also pins the default boundary rule:
 // malformed application API input throws; valid negative product outcomes do not.

@@ -9,10 +9,14 @@ import {
   APPLICATION_BOUNDARY_ERROR_CODE,
 } from "../../../application/errors.js";
 import { handleApplicationCommand } from "../../../application/handle-command.js";
-import { assertApplicationBoundaryError } from "./application-boundary-assertions.js";
-import { assertApplicationResult } from "./application-result-assertions.js";
+import {
+  assertApplicationBoundaryError,
+} from "../../class-b/application/application-boundary-assertions.js";
+import {
+  assertApplicationResult,
+} from "../../class-b/application/application-result-assertions.js";
+import { assertPlainData } from "../../class-b/application/plain-data-assertions.js";
 import { durableStateChangedEffect } from "./durable-state-fixtures.js";
-import { assertPlainData } from "./plain-data-assertions.js";
 import {
   awaitingReferenceImagePasteState,
   normalizedReferenceImage,
@@ -20,6 +24,9 @@ import {
   referenceImageSessionState,
 } from "./reference-image-fixtures.js";
 
+// Class-c: this is useful product pressure, not authoritative shape. The exact
+// reference-image input state, command name, and first-session fields may change
+// when the application model is implemented.
 // Accepted paste is the positive counterpart to empty/failed paste. Input has
 // already been normalized into a stable data reference plus intrinsic size; the
 // application accepts only that product-shaped data.
