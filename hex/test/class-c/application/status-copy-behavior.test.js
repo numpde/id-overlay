@@ -5,10 +5,10 @@ import { selectApplicationView } from "../../../application/view-model.js";
 import {
   firstPin,
   referenceImageLoadedState,
-} from "./user-behavior-fixtures.js";
+} from "./reference-image-fixtures.js";
 
-// Unclassified: status copy is product behavior when it describes visible app
-// state. Exact wording remains proposal-level until the UI model settles.
+// Class-c: concrete status copy is product behavior, but exact wording should
+// remain quarantined until the UI model and copy choices settle.
 test("application view describes concrete user-visible status", () => {
   for (const { state, status } of [
     {
