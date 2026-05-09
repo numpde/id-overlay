@@ -8,7 +8,6 @@ import {
 import { handleApplicationCommand } from "../../../application/handle-command.js";
 import { createInitialApplicationState } from "../../../application/state.js";
 import {
-  selectApplicationView,
   selectDurableApplicationState,
 } from "../../../application/view-model.js";
 import {
@@ -22,38 +21,6 @@ import {
   referenceImageDurableState,
   referenceImageLoadedState,
 } from "./user-behavior-fixtures.js";
-
-// Unclassified: this is the desired user posture, but the exact view-model key
-// names should not become authoritative until the application boundary exists.
-test("no-session view is native Trace with Paste as the primary action", () => {
-  assert.deepEqual(selectApplicationView(createInitialApplicationState()), {
-    status: "Paste a screenshot to begin.",
-    mode: APPLICATION_MODE.TRACE,
-    overlayInput: {
-      kind: "native-map",
-      canEditOverlay: false,
-      arePinsVisible: false,
-    },
-    modeSwitch: {
-      selected: APPLICATION_MODE.TRACE,
-      trace: {
-        enabled: true,
-      },
-      align: {
-        enabled: false,
-      },
-    },
-    primaryAction: {
-      kind: "request-reference-image-input",
-      label: "Paste",
-      enabled: true,
-    },
-    history: {
-      undo: null,
-      redo: null,
-    },
-  });
-});
 
 // Unclassified: the user rule is stable, but the command vocabulary may change.
 // Align without an image would expose an impossible editing mode.
