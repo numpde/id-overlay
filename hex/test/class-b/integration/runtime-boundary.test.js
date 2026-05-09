@@ -7,8 +7,9 @@ import {
   wireRuntime,
 } from "../../../bootstrap/runtime.js";
 
-// Class-b: the runtime is a driver, not a product-policy layer. Product facts
-// stay opaque to it; only the application step may interpret state fields.
+// Class-b, not class-a yet: this is an architectural law, but the referenced
+// runtime surface is still proposed harness shape. Promote only after the
+// runtime module exists and this test constrains implementation, not scaffolding.
 test("runtime driver does not inspect product state fields", async () => {
   const command = {
     kind: "user-command",
