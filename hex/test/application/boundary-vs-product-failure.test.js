@@ -11,6 +11,7 @@ import {
 } from "../../application/errors.js";
 import { handleApplicationCommand } from "../../application/handle-command.js";
 import { assertPlainData } from "./plain-data-assertions.js";
+import { awaitingReferenceImagePasteState } from "./reference-image-fixtures.js";
 
 // This is a principle test that uses the first paste flow as a concrete
 // specimen. It is not trying to exhaust the paste UX; it pins the default rule:
@@ -101,14 +102,6 @@ test("valid failed paste outcome transitions as product data", () => {
     effects: [],
   });
 });
-
-function awaitingReferenceImagePasteState() {
-  return {
-    referenceImageInput: {
-      status: "awaiting-paste",
-    },
-  };
-}
 
 function assertApplicationBoundaryError(run, expectedCode) {
   assert.throws(
