@@ -52,6 +52,20 @@ test("clicking Paste arms paste flow visibly", async () => {
   assert.match(textOf(page.document, SELECTOR.status), /paste/i);
 });
 
+// Class-b, not class-a: accepted image data must become a visible overlay on
+// the page, but the DOM attribute used to assert the image reference is adapter
+// test vocabulary.
+test("accepted image shows overlay", async () => {
+  const page = await startSupportedExtension();
+
+  await page.user.click(SELECTOR.primaryAction);
+  await page.user.pasteImage(normalizedReferenceImage());
+
+  const overlay = assertOne(page.document, SELECTOR.overlay);
+  assert.equal(overlay.dataset.imageDataRef, "reference-image-data-1");
+  assert.equal(overlay.hidden, false);
+});
+
 async function startSupportedExtension(options = {}) {
   return startPageVisibleExtension({
     page: supportedMapEditorPage(),
@@ -88,6 +102,16 @@ function supportedMapEditorPage() {
         lat: -1.24401,
         lon: 36.82412,
       },
+    },
+  };
+}
+
+function normalizedReferenceImage() {
+  return {
+    imageDataRef: "reference-image-data-1",
+    intrinsicSizePx: {
+      width: 640,
+      height: 480,
     },
   };
 }

@@ -26,19 +26,6 @@ const SELECTOR = {
   panelDragHandle: "[data-id-overlay-panel-drag-handle]",
 };
 
-// Unclassified candidate: an accepted image result should render an image
-// overlay on the page, not merely update internal application state.
-test("accepted image shows overlay", async () => {
-  const page = await startSupportedExtension();
-
-  await page.user.click(SELECTOR.primaryAction);
-  await page.user.pasteImage(normalizedReferenceImage());
-
-  const overlay = assertOne(page.document, SELECTOR.overlay);
-  assert.equal(overlay.dataset.imageDataRef, "reference-image-data-1");
-  assert.equal(overlay.hidden, false);
-});
-
 // Unclassified candidate: after image acceptance, the visible mode should move
 // to Align/editing posture. This duplicates a class-a product law at the page
 // boundary so adapter/bootstrap drift is caught later.
