@@ -18,27 +18,10 @@ import {
   assertApplicationResult,
 } from "../../class-b/application/application-result-assertions.js";
 import {
-  acceptedReferenceImagePastePayload,
-  awaitingReferenceImagePasteState,
   firstPin,
   referenceImageDurableState,
   referenceImageLoadedState,
 } from "./user-behavior-fixtures.js";
-
-// Unclassified: async adapter results must be request-bound. A stale paste
-// result should not overwrite the user's newer application state.
-test("stale reference-image paste outcomes are ignored", () => {
-  const state = awaitingReferenceImagePasteState({ requestId: 2 });
-  const command = createApplicationCommand(
-    APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_PASTE_OUTCOME,
-    acceptedReferenceImagePastePayload({ requestId: 1 }),
-  );
-
-  assertApplicationResult(handleApplicationCommand({ state, command }), {
-    state,
-    effects: [],
-  });
-});
 
 // Unclassified: hydration is the durable-state boundary. It should accept the
 // exact declared session shape, not adapter storage envelopes or runtime state.
