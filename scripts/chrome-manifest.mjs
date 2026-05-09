@@ -1,11 +1,9 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 
-export const WEB_ACCESSIBLE_CONTENT_ENTRYPOINT = "src/content/main.js";
-export const WEB_ACCESSIBLE_STATIC_RESOURCES = Object.freeze([]);
-const WEB_ACCESSIBLE_SOURCE_ROOTS = Object.freeze([
-  "hex/",
-  "src/",
+export const WEB_ACCESSIBLE_CONTENT_ENTRYPOINT = "src/content/content.js";
+export const WEB_ACCESSIBLE_STATIC_RESOURCES = Object.freeze([
+  "src/content/content.css",
 ]);
 
 export async function createChromeManifest({ root, sourceManifest }) {
@@ -40,7 +38,7 @@ export async function collectModuleGraph({ root, entryPath, seen = new Set() }) 
   const source = await fs.readFile(path.join(root, entryPath), "utf8");
   for (const specifier of collectRelativeModuleSpecifiers(source)) {
     const resolved = normalizeSourcePath(path.join(path.dirname(entryPath), specifier));
-    if (!WEB_ACCESSIBLE_SOURCE_ROOTS.some((root) => resolved.startsWith(root))) {
+    if (!resolved.startsWith("src/")) {
       continue;
     }
     await collectModuleGraph({ root, entryPath: resolved, seen });
