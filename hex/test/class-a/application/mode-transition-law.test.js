@@ -25,6 +25,24 @@ test("switching loaded image from Align to Trace changes mode durably", () => {
   });
 });
 
+// Class-a: Align is the inverse durable loaded-image mode. Returning to it is
+// not an adapter-local toggle; it changes the saved session posture.
+test("switching loaded image from Trace to Align changes mode durably", () => {
+  const command = createApplicationCommand(APPLICATION_COMMAND_KIND.SELECT_MODE, {
+    mode: "align",
+  });
+
+  assert.deepEqual(handleApplicationCommand({
+    state: referenceImageLoadedState({ mode: "trace" }),
+    command,
+  }), {
+    state: referenceImageLoadedState({ mode: "align" }),
+    effects: [
+      durableStateChangedEffect(referenceImageDurableState({ mode: "align" })),
+    ],
+  });
+});
+
 // Class-a: selecting the current loaded mode is a semantic no-op. It must not
 // create persistence work, history entries, notices, or a different state.
 test("re-selecting the current loaded mode is a no-op", () => {

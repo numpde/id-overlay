@@ -15,24 +15,6 @@ import {
   referenceImageLoadedState,
 } from "./reference-image-fixtures.js";
 
-// Class-b: Align is the inverse loaded-image user mode. Returning to it is
-// equally durable because it changes the saved session posture.
-test("switching loaded image from Trace to Align changes mode durably", () => {
-  const command = createApplicationCommand(APPLICATION_COMMAND_KIND.SELECT_MODE, {
-    mode: "align",
-  });
-
-  assertApplicationResult(handleApplicationCommand({
-    state: referenceImageLoadedState({ mode: "trace" }),
-    command,
-  }), {
-    state: referenceImageLoadedState({ mode: "align" }),
-    effects: [
-      durableStateChangedEffect(referenceImageDurableState({ mode: "align" })),
-    ],
-  });
-});
-
 // Class-b: changing mode interrupts an in-progress placement preview. The mode
 // change is durable; the preview itself is discarded instead of being saved.
 test("interrupted placement edit drops preview without changing durable session", () => {
