@@ -28,3 +28,16 @@ export function referenceImageSessionState() {
     },
   };
 }
+
+export function referenceImageDurableState() {
+  return {
+    session: referenceImageSessionState().session,
+  };
+}
+
+export function referenceImageDurableStateChangedEffect() {
+  return {
+    kind: "durable-state-changed",
+    durableState: referenceImageDurableState(),
+  };
+}

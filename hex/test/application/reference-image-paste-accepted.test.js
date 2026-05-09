@@ -15,6 +15,7 @@ import { assertPlainData } from "./plain-data-assertions.js";
 import {
   awaitingReferenceImagePasteState,
   normalizedReferenceImage,
+  referenceImageDurableStateChangedEffect,
   referenceImageSessionState,
 } from "./reference-image-fixtures.js";
 
@@ -100,10 +101,9 @@ test("accepted paste outcome requires normalized reference image data", () => {
   }
 });
 
-// Accepting the first reference image creates the first durable session. It
-// does not place the image on the map yet; placement requires a separate page
-// context fact and should not be smuggled into paste acceptance. Awaiting paste
-// is transient, so it must not appear beside the durable session.
+// Accepting the first reference image creates the first durable session and
+// reports that durable state changed. The effect carries only durable product
+// facts, not pending input, notices, placement, or caller instructions.
 test("accepted paste from awaiting state creates the first reference image session", () => {
   const result = handleApplicationCommand({
     state: awaitingReferenceImagePasteState(),
@@ -112,7 +112,9 @@ test("accepted paste from awaiting state creates the first reference image sessi
 
   assertApplicationResult(result, {
     state: referenceImageSessionState(),
-    effects: [],
+    effects: [
+      referenceImageDurableStateChangedEffect(),
+    ],
   });
 });
 
