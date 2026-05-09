@@ -26,24 +26,6 @@ const SELECTOR = {
   panelDragHandle: "[data-id-overlay-panel-drag-handle]",
 };
 
-// Unclassified candidate: registration pins are an Align affordance. They
-// should render in Align and disappear in Trace without deleting the session.
-test("pins render only in Align", async () => {
-  const page = await startSupportedExtension({
-    durableState: durableReferenceImageSession({
-      mode: "align",
-      pins: [firstPin(), secondPin()],
-    }),
-  });
-
-  assert.equal(count(page.document, SELECTOR.pin), 2);
-
-  await page.user.selectMode("trace");
-
-  assert.equal(count(page.document, SELECTOR.pin), 0);
-  assert.equal(count(page.document, SELECTOR.overlay), 1);
-});
-
 // Unclassified candidate: history controls should expose what will happen, not
 // generic Undo/Redo labels. Exact wording is product copy and should be reviewed
 // before promotion.

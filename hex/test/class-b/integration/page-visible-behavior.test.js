@@ -148,6 +148,24 @@ test("clear image removes overlay and returns to Paste posture", async () => {
   assert.equal(selectedMode(page.document), "trace");
 });
 
+// Class-b, not class-a: registration pins are an Align affordance, but these
+// assertions are page-rendering evidence through provisional pin DOM handles.
+test("pins render only in Align", async () => {
+  const page = await startSupportedExtension({
+    durableState: durableReferenceImageSession({
+      mode: "align",
+      pins: [firstPin(), secondPin()],
+    }),
+  });
+
+  assert.equal(count(page.document, SELECTOR.pin), 2);
+
+  await page.user.selectMode("trace");
+
+  assert.equal(count(page.document, SELECTOR.pin), 0);
+  assert.equal(count(page.document, SELECTOR.overlay), 1);
+});
+
 async function startSupportedExtension(options = {}) {
   return startPageVisibleExtension({
     page: supportedMapEditorPage(),
@@ -223,6 +241,20 @@ function firstPin() {
     mapLatLon: {
       lat: -1.23,
       lon: 36.84,
+    },
+  };
+}
+
+function secondPin() {
+  return {
+    id: 2,
+    imagePx: {
+      x: 520,
+      y: 240,
+    },
+    mapLatLon: {
+      lat: -1.23,
+      lon: 38.84,
     },
   };
 }
