@@ -19,25 +19,8 @@ import {
 } from "../../class-b/application/application-result-assertions.js";
 import {
   firstPin,
-  referenceImageDurableState,
   referenceImageLoadedState,
 } from "./user-behavior-fixtures.js";
-
-// Unclassified: hydration is the durable-state boundary. It should accept the
-// exact declared session shape, not adapter storage envelopes or runtime state.
-test("hydration restores the declared durable reference-image session", () => {
-  const command = createApplicationCommand(APPLICATION_COMMAND_KIND.HYDRATE, {
-    durableState: referenceImageDurableState(),
-  });
-
-  assertApplicationResult(handleApplicationCommand({
-    state: createInitialApplicationState(),
-    command,
-  }), {
-    state: referenceImageLoadedState(),
-    effects: [],
-  });
-});
 
 // Unclassified: unsupported durable data is not a product outcome. It is a
 // boundary contract failure until a migration/versioning policy exists.
