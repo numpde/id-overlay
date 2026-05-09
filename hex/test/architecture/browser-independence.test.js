@@ -1,3 +1,5 @@
+// These tests keep the product core independent from browser and extension
+// concepts. Browser objects belong in adapters, not in domain/application/ports.
 import test from "node:test";
 import assert from "node:assert/strict";
 

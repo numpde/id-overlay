@@ -1,3 +1,5 @@
+// The legacy tree is reference material only. These tests prevent the clean
+// implementation from quietly depending on quarantined source or tests.
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";

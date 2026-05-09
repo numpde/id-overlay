@@ -1,3 +1,6 @@
+// These tests make the hexagonal dependency direction executable. They should
+// fail before review if a new module points outward or bypasses the intended
+// composition boundary.
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";

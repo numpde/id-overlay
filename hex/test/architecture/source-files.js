@@ -1,3 +1,6 @@
+// Shared source scanning helpers for architecture tests. These helpers are
+// intentionally test-local so production hex code does not grow reflection
+// utilities just to police its own structure.
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
