@@ -11,6 +11,7 @@ const SELECTOR = {
   overlay: "[data-id-overlay-reference-image]",
   overlaySurface: "[data-id-overlay-surface]",
   panel: "[data-id-overlay-panel]",
+  pin: "[data-id-overlay-pin]",
   primaryAction: "[data-id-overlay-primary-action]",
   status: "[data-id-overlay-status]",
 };
@@ -84,6 +85,27 @@ test("accepted image switches to visible Align posture", async () => {
   assert.equal(assertOne(page.document, SELECTOR.alignControl).disabled, false);
 });
 
+// Class-b, not class-a: Trace pass-through is a product law, but this page
+// check uses provisional DOM handles to prove pins disappear and map ownership
+// is visible without removing the reference image.
+test("Trace mode makes page pass-through visible", async () => {
+  const page = await startSupportedExtension({
+    durableState: durableReferenceImageSession({
+      mode: "align",
+      pins: [firstPin()],
+    }),
+  });
+
+  await page.user.selectMode("trace");
+
+  assert.equal(count(page.document, SELECTOR.overlay), 1);
+  assert.equal(count(page.document, SELECTOR.pin), 0);
+  assert.equal(
+    assertOne(page.document, SELECTOR.overlaySurface).dataset.interactionOwner,
+    "map",
+  );
+});
+
 async function startSupportedExtension(options = {}) {
   return startPageVisibleExtension({
     page: supportedMapEditorPage(),
@@ -130,6 +152,35 @@ function normalizedReferenceImage() {
     intrinsicSizePx: {
       width: 640,
       height: 480,
+    },
+  };
+}
+
+function durableReferenceImageSession({ mode, pins = [] }) {
+  const session = {
+    mode,
+    referenceImage: normalizedReferenceImage(),
+  };
+  if (pins.length > 0) {
+    session.registration = {
+      pins,
+    };
+  }
+  return {
+    session,
+  };
+}
+
+function firstPin() {
+  return {
+    id: 1,
+    imagePx: {
+      x: 320,
+      y: 240,
+    },
+    mapLatLon: {
+      lat: -1.23,
+      lon: 36.84,
     },
   };
 }

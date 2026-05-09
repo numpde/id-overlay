@@ -26,26 +26,6 @@ const SELECTOR = {
   panelDragHandle: "[data-id-overlay-panel-drag-handle]",
 };
 
-// Unclassified candidate: Trace should visibly return interaction ownership to
-// the map while leaving the reference image present for tracing.
-test("Trace mode makes page pass-through visible", async () => {
-  const page = await startSupportedExtension({
-    durableState: durableReferenceImageSession({
-      mode: "align",
-      pins: [firstPin()],
-    }),
-  });
-
-  await page.user.selectMode("trace");
-
-  assert.equal(count(page.document, SELECTOR.overlay), 1);
-  assert.equal(count(page.document, SELECTOR.pin), 0);
-  assert.equal(
-    assertOne(page.document, SELECTOR.overlaySurface).dataset.interactionOwner,
-    "map",
-  );
-});
-
 // Unclassified candidate: Align should make the page underneath inert through
 // the overlay. This protects the previously observed bug where map hover still
 // reacted under the image.
