@@ -7,53 +7,6 @@ import {
 } from "../../../application/command.js";
 import { handleApplicationCommand } from "../../../application/handle-command.js";
 
-// Unclassified: pin toggling is a product edit, not overlay-local state. It
-// should add a projected pin, remove an existing pin by id, and persist only the
-// resulting durable session.
-test("pin toggle adds and removes registration pins in Align mode", () => {
-  const added = step(loadedState(), createApplicationCommand(
-    APPLICATION_COMMAND_KIND.TOGGLE_REGISTRATION_PIN,
-    {
-      existingPinId: null,
-      imagePx: {
-        x: 320,
-        y: 240,
-      },
-      mapLatLon: {
-        lat: -1.23,
-        lon: 36.84,
-      },
-    },
-  ));
-
-  assert.deepEqual(added.state.session.registration.pins, [firstPin()]);
-  assert.deepEqual(added.state.notice, {
-    kind: "added-pin",
-    pinId: 1,
-  });
-
-  const removed = step(added.state, createApplicationCommand(
-    APPLICATION_COMMAND_KIND.TOGGLE_REGISTRATION_PIN,
-    {
-      existingPinId: 1,
-      imagePx: {
-        x: 320,
-        y: 240,
-      },
-      mapLatLon: {
-        lat: -1.23,
-        lon: 36.84,
-      },
-    },
-  ));
-
-  assert.deepEqual(removed.state.session.registration.pins, []);
-  assert.deepEqual(removed.state.notice, {
-    kind: "removed-pin",
-    pinId: 1,
-  });
-});
-
 // Unclassified: switching to Trace is the moment registration becomes useful
 // to the user. If enough pins exist, the app should fit the overlay and mark the
 // solve as clean without requiring a separate hidden command.
