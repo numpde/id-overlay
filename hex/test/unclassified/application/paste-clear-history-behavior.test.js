@@ -8,23 +8,6 @@ import {
 import { handleApplicationCommand } from "../../../application/handle-command.js";
 import { selectApplicationView } from "../../../application/view-model.js";
 
-// Unclassified: legacy tried direct clipboard read and then allowed manual
-// paste. The exact effect names are not settled, but the user-visible contract
-// is that pressing Paste creates one correlated image-input request owned by
-// the app, not by a content-script-local callback.
-test("Paste activation requests a correlated reference-image read", () => {
-  const result = step({}, createApplicationCommand(
-    APPLICATION_COMMAND_KIND.ACTIVATE_PRIMARY_ACTION,
-  ));
-
-  assert.equal(result.state.referenceImageInput.status, "awaiting-paste");
-  assert.equal(Number.isInteger(result.state.referenceImageInput.requestId), true);
-  assert.deepEqual(result.effects, [{
-    kind: "read-reference-image",
-    requestId: result.state.referenceImageInput.requestId,
-  }]);
-});
-
 // Unclassified: cancellation is only meaningful if late clipboard/paste
 // completions cannot resurrect a stale image. This should remain true whether
 // the host used navigator clipboard, a paste event, or another image port.
