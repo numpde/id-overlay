@@ -10,7 +10,6 @@ import {
   APPLICATION_BOUNDARY_ERROR_CODE,
 } from "../../application/errors.js";
 import { handleApplicationCommand } from "../../application/handle-command.js";
-import { createApplicationResult } from "../../application/result.js";
 import { assertApplicationBoundaryError } from "./application-boundary-assertions.js";
 
 // Boundary errors are first-class application contract failures. They are stable
@@ -23,7 +22,6 @@ test("application boundary error exposes stable identity and code", () => {
     UNKNOWN_APPLICATION_COMMAND: "unknown-application-command",
     INVALID_APPLICATION_COMMAND: "invalid-application-command",
     INVALID_APPLICATION_STATE: "invalid-application-state",
-    INVALID_EFFECT_REQUEST: "invalid-effect-request",
     INVALID_PERSISTED_STATE: "invalid-persisted-state",
     UNSUPPORTED_PERSISTED_STATE: "unsupported-persisted-state",
   });
@@ -48,6 +46,13 @@ test("unknown commands throw ApplicationBoundaryError", () => {
     () => createApplicationCommand("unknown-command"),
     APPLICATION_BOUNDARY_ERROR_CODE.UNKNOWN_APPLICATION_COMMAND,
   );
+  assertApplicationBoundaryError(
+    () => handleApplicationCommand({
+      state: {},
+      command: { kind: "unknown-command" },
+    }),
+    APPLICATION_BOUNDARY_ERROR_CODE.UNKNOWN_APPLICATION_COMMAND,
+  );
 });
 
 // The command handler should not infer intent from a partial envelope. Missing
@@ -59,11 +64,12 @@ test("missing command at the application boundary throws ApplicationBoundaryErro
   );
 });
 
-// State validation belongs at every application entry and exit. This prevents
-// runtime objects from becoming product state through either command handling or
-// direct result construction.
+// State validation belongs at the command boundary. This prevents runtime
+// objects from becoming product state through command handling.
 test("invalid application state throws ApplicationBoundaryError", () => {
-  const command = createApplicationCommand(APPLICATION_COMMAND_KIND.NOOP);
+  const command = createApplicationCommand(
+    APPLICATION_COMMAND_KIND.ACTIVATE_PRIMARY_ACTION,
+  );
 
   assertApplicationBoundaryError(
     () => handleApplicationCommand({ command }),
@@ -75,38 +81,6 @@ test("invalid application state throws ApplicationBoundaryError", () => {
       command,
     }),
     APPLICATION_BOUNDARY_ERROR_CODE.INVALID_APPLICATION_STATE,
-  );
-  assertApplicationBoundaryError(
-    () => createApplicationResult({
-      state: new Map(),
-      effects: [],
-    }),
-    APPLICATION_BOUNDARY_ERROR_CODE.INVALID_APPLICATION_STATE,
-  );
-});
-
-// Effects are the only executable work leaving the application. Invalid effect
-// data must fail before a shell/effect runner can interpret it dynamically.
-test("invalid effect requests throw ApplicationBoundaryError", () => {
-  assertApplicationBoundaryError(
-    () => createApplicationResult({
-      state: {},
-    }),
-    APPLICATION_BOUNDARY_ERROR_CODE.INVALID_EFFECT_REQUEST,
-  );
-  assertApplicationBoundaryError(
-    () => createApplicationResult({
-      state: {},
-      effects: [new Map()],
-    }),
-    APPLICATION_BOUNDARY_ERROR_CODE.INVALID_EFFECT_REQUEST,
-  );
-  assertApplicationBoundaryError(
-    () => createApplicationResult({
-      state: {},
-      effects: [{ kind: "unknown-effect" }],
-    }),
-    APPLICATION_BOUNDARY_ERROR_CODE.INVALID_EFFECT_REQUEST,
   );
 });
 
@@ -122,7 +96,7 @@ test("invalid persisted state throws ApplicationBoundaryError", () => {
 });
 
 // Unsupported persisted state is different from invalid data shape: it is plain
-// data, but the application has not declared any durable vocabulary for it yet.
+// data, but it is outside the declared durable vocabulary.
 test("unsupported persisted state throws ApplicationBoundaryError", () => {
   const command = createApplicationCommand(APPLICATION_COMMAND_KIND.HYDRATE, {
     persistedState: {

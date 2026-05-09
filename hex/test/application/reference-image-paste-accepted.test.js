@@ -15,6 +15,7 @@ import { assertPlainData } from "./plain-data-assertions.js";
 import {
   awaitingReferenceImagePasteState,
   normalizedReferenceImage,
+  referenceImageSessionState,
 } from "./reference-image-fixtures.js";
 
 // Accepted paste is the positive counterpart to empty/failed paste. The adapter
@@ -101,7 +102,8 @@ test("accepted paste outcome requires normalized reference image data", () => {
 
 // Accepting the first reference image creates the first durable session. It
 // does not place the image on the map yet; placement requires a separate page
-// context fact and should not be smuggled into paste acceptance.
+// context fact and should not be smuggled into paste acceptance. Awaiting paste
+// is transient, so it must not appear beside the durable session.
 test("accepted paste from awaiting state creates the first reference image session", () => {
   const result = handleApplicationCommand({
     state: awaitingReferenceImagePasteState(),
@@ -109,26 +111,9 @@ test("accepted paste from awaiting state creates the first reference image sessi
   });
 
   assertApplicationResult(result, {
-    state: {
-      session: {
-        mode: "align",
-        referenceImage: normalizedReferenceImage(),
-      },
-    },
+    state: referenceImageSessionState(),
     effects: [],
   });
-});
-
-// Awaiting paste is a transient intent, not durable session data. Once the
-// image is accepted, the transient must disappear instead of lingering beside
-// the session as a second source of truth.
-test("accepted paste clears the awaiting-paste transient", () => {
-  const result = handleApplicationCommand({
-    state: awaitingReferenceImagePasteState(),
-    command: acceptedReferenceImagePasteCommand(),
-  });
-
-  assert.equal("referenceImageInput" in result.state, false);
 });
 
 function acceptedReferenceImagePasteCommand() {

@@ -40,6 +40,19 @@ test("known commands with malformed payloads are boundary errors", () => {
     ),
     APPLICATION_BOUNDARY_ERROR_CODE.INVALID_APPLICATION_COMMAND,
   );
+  assertApplicationBoundaryError(
+    () => handleApplicationCommand({
+      state: awaitingReferenceImagePasteState(),
+      command: {
+        kind: APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_PASTE_OUTCOME,
+        outcome: {
+          kind: "failed",
+          reason: new Error("adapter leaked a runtime object"),
+        },
+      },
+    }),
+    APPLICATION_BOUNDARY_ERROR_CODE.INVALID_APPLICATION_COMMAND,
+  );
 });
 
 // Empty paste is a normal user-world outcome: the user tried to paste, but no

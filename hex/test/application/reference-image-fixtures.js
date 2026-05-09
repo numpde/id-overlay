@@ -19,3 +19,12 @@ export function normalizedReferenceImage() {
     },
   };
 }
+
+export function referenceImageSessionState() {
+  return {
+    session: {
+      mode: "align",
+      referenceImage: normalizedReferenceImage(),
+    },
+  };
+}

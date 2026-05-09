@@ -6,10 +6,13 @@ import fs from "node:fs";
 
 import {
   HEX_ROOT,
+  extractImportSpecifiers,
   hexPath,
-  listTextFiles,
+  isInsidePath,
+  listJavaScriptFiles,
   readSource,
   relativeToRepo,
+  resolveRelativeImport,
   repoPath,
 } from "./source-files.js";
 
@@ -19,12 +22,16 @@ test("legacy implementation remains quarantined outside the hex tree", () => {
   assert.equal(fs.existsSync(hexPath("legacy")), false);
 });
 
-test("hex production files do not import or reference legacy code", () => {
+test("hex JavaScript files do not import legacy code", () => {
   const violations = [];
-  for (const filePath of listTextFiles(HEX_ROOT)) {
-    const source = readSource(filePath);
-    if (/\blegacy(?:\/|\\)|(?:\.\.\/)+legacy\b/.test(source)) {
-      violations.push(relativeToRepo(filePath));
+  for (const filePath of listJavaScriptFiles(HEX_ROOT, { includeTests: true })) {
+    for (const specifier of extractImportSpecifiers(readSource(filePath))) {
+      const targetPath = resolveRelativeImport(filePath, specifier);
+      if (specifier.includes("legacy") || (
+        targetPath && isInsidePath(targetPath, repoPath("legacy"))
+      )) {
+        violations.push(`${relativeToRepo(filePath)} imports ${specifier}`);
+      }
     }
   }
 
