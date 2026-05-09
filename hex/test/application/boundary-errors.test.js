@@ -52,6 +52,8 @@ test("application boundary error exposes stable identity and code", () => {
   assert.equal(error instanceof Error, true);
 });
 
+// Command validation is the first application gate. Unknown command names are
+// not recoverable product events; they mean the caller used an undeclared API.
 test("unknown commands throw ApplicationBoundaryError", () => {
   assertApplicationBoundaryError(
     () => createApplicationCommand("unknown-command"),
@@ -59,6 +61,8 @@ test("unknown commands throw ApplicationBoundaryError", () => {
   );
 });
 
+// The command handler should not infer intent from a partial envelope. Missing
+// command data is the same contract failure as an unknown command kind.
 test("missing command at the application boundary throws ApplicationBoundaryError", () => {
   assertApplicationBoundaryError(
     () => handleApplicationCommand({ state: {} }),
@@ -66,6 +70,9 @@ test("missing command at the application boundary throws ApplicationBoundaryErro
   );
 });
 
+// State validation belongs at every application entry and exit. This prevents
+// runtime objects from becoming product state through either command handling or
+// direct result construction.
 test("invalid application state throws ApplicationBoundaryError", () => {
   const command = createApplicationCommand(APPLICATION_COMMAND_KIND.NOOP);
 
@@ -82,6 +89,8 @@ test("invalid application state throws ApplicationBoundaryError", () => {
   );
 });
 
+// Effects are the only executable work leaving the application. Invalid effect
+// data must fail before a shell/effect runner can interpret it dynamically.
 test("invalid effect requests throw ApplicationBoundaryError", () => {
   assertApplicationBoundaryError(
     () => createApplicationResult({
@@ -105,6 +114,8 @@ test("invalid effect requests throw ApplicationBoundaryError", () => {
   );
 });
 
+// Invalid persisted state is about data shape: the adapter leaked a runtime
+// object or otherwise failed to provide platform-neutral persisted data.
 test("invalid persisted state throws ApplicationBoundaryError", () => {
   assertApplicationBoundaryError(
     () => createApplicationCommand(APPLICATION_COMMAND_KIND.HYDRATE, {
@@ -114,6 +125,8 @@ test("invalid persisted state throws ApplicationBoundaryError", () => {
   );
 });
 
+// Unsupported persisted state is different from invalid data shape: it is plain
+// data, but the application has not declared any durable vocabulary for it yet.
 test("unsupported persisted state throws ApplicationBoundaryError", () => {
   const command = createApplicationCommand(APPLICATION_COMMAND_KIND.HYDRATE, {
     persistedState: {
