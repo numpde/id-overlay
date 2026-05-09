@@ -26,23 +26,6 @@ const SELECTOR = {
   panelDragHandle: "[data-id-overlay-panel-drag-handle]",
 };
 
-// Unclassified candidate: clearing the image should be visible as overlay
-// removal and return to Paste / Trace posture.
-test("clear image removes overlay and returns to Paste posture", async () => {
-  const page = await startSupportedExtension({
-    durableState: durableReferenceImageSession({
-      mode: "align",
-    }),
-  });
-
-  await page.user.click(SELECTOR.primaryAction);
-  await page.user.click(SELECTOR.primaryAction);
-
-  assert.equal(count(page.document, SELECTOR.overlay), 0);
-  assert.match(textOf(page.document, SELECTOR.primaryAction), /^Paste$/i);
-  assert.equal(selectedMode(page.document), "trace");
-});
-
 // Unclassified candidate: registration pins are an Align affordance. They
 // should render in Align and disappear in Trace without deleting the session.
 test("pins render only in Align", async () => {

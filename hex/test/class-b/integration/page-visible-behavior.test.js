@@ -130,6 +130,24 @@ test("Align mode makes map inert under overlay", async () => {
   );
 });
 
+// Class-b, not class-a: clearing image is a product lifecycle law, but this
+// verifies the page-visible result: no overlay and a returned Paste / Trace
+// posture after the confirmation flow.
+test("clear image removes overlay and returns to Paste posture", async () => {
+  const page = await startSupportedExtension({
+    durableState: durableReferenceImageSession({
+      mode: "align",
+    }),
+  });
+
+  await page.user.click(SELECTOR.primaryAction);
+  await page.user.click(SELECTOR.primaryAction);
+
+  assert.equal(count(page.document, SELECTOR.overlay), 0);
+  assert.match(textOf(page.document, SELECTOR.primaryAction), /^Paste$/i);
+  assert.equal(selectedMode(page.document), "trace");
+});
+
 async function startSupportedExtension(options = {}) {
   return startPageVisibleExtension({
     page: supportedMapEditorPage(),
