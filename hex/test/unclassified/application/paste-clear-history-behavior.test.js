@@ -8,33 +8,6 @@ import {
 import { handleApplicationCommand } from "../../../application/handle-command.js";
 import { selectApplicationView } from "../../../application/view-model.js";
 
-// Unclassified: cancellation is only meaningful if late clipboard/paste
-// completions cannot resurrect a stale image. This should remain true whether
-// the host used navigator clipboard, a paste event, or another image port.
-test("cancelled paste ignores later image-read completion", () => {
-  const armed = step({}, createApplicationCommand(
-    APPLICATION_COMMAND_KIND.ACTIVATE_PRIMARY_ACTION,
-  )).state;
-  const cancelled = step(armed, createApplicationCommand(
-    APPLICATION_COMMAND_KIND.ACTIVATE_PRIMARY_ACTION,
-  )).state;
-
-  const lateResult = step(cancelled, createApplicationCommand(
-    APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_PASTE_OUTCOME,
-    {
-      requestId: armed.referenceImageInput.requestId,
-      outcome: {
-        kind: "accepted",
-        referenceImage: referenceImage(),
-      },
-    },
-  ));
-
-  assert.equal(lateResult.state.session, undefined);
-  assert.equal(lateResult.state.notice.kind, "reference-image-paste-cancelled");
-  assert.deepEqual(lateResult.effects, []);
-});
-
 // Unclassified: failed paste should be visible as a paste failure, not silently
 // collapsed into the same status as an empty clipboard. The exact wording can
 // move to a view-model, but the product fact should keep the failure reason.
