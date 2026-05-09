@@ -6,23 +6,24 @@ import {
   createApplicationCommand,
 } from "../../../application/command.js";
 import { handleApplicationCommand } from "../../../application/handle-command.js";
-import {
-  movedPlacement,
-  placementEditPayload,
-} from "./placement-fixtures.js";
-import {
-  referenceImageLoadedState,
-} from "./reference-image-fixtures.js";
 
-// Class-b: Trace is native-map posture. Overlay placement edits must be inert
-// there, though the edit command/payload vocabulary is still application API.
+// Class-a: Trace is the native-map posture. Overlay placement commands can
+// still arrive from stale UI wiring, but they must not mutate hidden state.
 test("placement edits are no-ops in Trace mode", () => {
   const state = referenceImageLoadedState({
     mode: "trace",
   });
   const command = createApplicationCommand(
     APPLICATION_COMMAND_KIND.COMMIT_PLACEMENT_EDIT,
-    placementEditPayload({ kind: "move", placement: movedPlacement() }),
+    {
+      kind: "move",
+      placement: {
+        x: 80,
+        y: 40,
+        scale: 1,
+        rotationRad: 0,
+      },
+    },
   );
 
   assert.deepEqual(handleApplicationCommand({ state, command }), {
@@ -30,3 +31,18 @@ test("placement edits are no-ops in Trace mode", () => {
     effects: [],
   });
 });
+
+function referenceImageLoadedState({ mode }) {
+  return {
+    session: {
+      mode,
+      referenceImage: {
+        imageDataRef: "reference-image-data-1",
+        intrinsicSizePx: {
+          width: 640,
+          height: 480,
+        },
+      },
+    },
+  };
+}
