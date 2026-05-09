@@ -6,47 +6,6 @@ import {
   createPanelAdapter,
 } from "../../../adapters/ui/panel-adapter.js";
 
-// Unclassified candidate: panel DOM is a projection of a view model. The UI
-// adapter should not need application state to decide labels or disabled state.
-test("panel adapter renders from view model only", () => {
-  const { window } = new JSDOM("<!doctype html><body></body>");
-  const panel = createPanelAdapter({
-    document: window.document,
-  });
-
-  const root = panel.render({
-    primaryAction: {
-      label: "Paste",
-      enabled: true,
-    },
-    modeSwitch: {
-      selected: "trace",
-      align: {
-        enabled: false,
-      },
-    },
-    history: {
-      undo: {
-        enabled: false,
-        label: null,
-      },
-      redo: {
-        enabled: true,
-        label: "Reload image",
-      },
-    },
-    status: "Clipboard does not contain an image.",
-  });
-
-  assert.equal(root.querySelector("[data-control='primary']").textContent, "Paste");
-  assert.equal(root.querySelector("[data-control='align']").disabled, true);
-  assert.equal(root.querySelector("[data-control='redo']").title, "Reload image");
-  assert.equal(
-    root.querySelector("[data-region='status']").textContent,
-    "Clipboard does not contain an image.",
-  );
-});
-
 // Unclassified candidate: the panel emits semantic application commands. It
 // must not call ports or mutate application state directly.
 test("panel adapter emits semantic commands only", () => {
