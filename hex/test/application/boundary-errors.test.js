@@ -22,8 +22,8 @@ test("application boundary error exposes stable identity and code", () => {
     UNKNOWN_APPLICATION_COMMAND: "unknown-application-command",
     INVALID_APPLICATION_COMMAND: "invalid-application-command",
     INVALID_APPLICATION_STATE: "invalid-application-state",
-    INVALID_PERSISTED_STATE: "invalid-persisted-state",
-    UNSUPPORTED_PERSISTED_STATE: "unsupported-persisted-state",
+    INVALID_DURABLE_STATE: "invalid-durable-state",
+    UNSUPPORTED_DURABLE_STATE: "unsupported-durable-state",
   });
 
   const error = new ApplicationBoundaryError({

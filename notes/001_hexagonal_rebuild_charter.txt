@@ -84,8 +84,8 @@ Application code may own:
 - mode transitions
 - history recording and replay
 - product selectors and product-facing presentation facts
-- requests for effects such as read-clipboard-image, persist-session, start
-  timer, cancel timer, or request page context
+- effect requests and notifications such as read-clipboard-image,
+  durable-state-changed, start timer, cancel timer, or request page context
 
 Application code must not:
 
@@ -108,7 +108,7 @@ interfaces.
 A good port speaks in plain data:
 
 - readClipboardImage -> ClipboardImageReadResult
-- persistSession(PersistedSession)
+- writeDurableState(DurableState)
 - startTimer({ timerId, delayMs, purpose })
 - observePageSnapshot -> PageSnapshotFact
 - projectScreenPoint(ScreenPoint) -> MapPoint/ImagePoint fact
@@ -138,7 +138,7 @@ Browser/web adapters translate:
 - clipboard APIs into clipboard image facts
 - Blob/File/Image/createImageBitmap/canvas behavior into normalized image facts
 - timers into timer result facts
-- local storage APIs into persisted session facts
+- local storage APIs into durable state facts
 
 Extension adapters translate:
 
@@ -173,7 +173,7 @@ Browser independence
 
 Browser independence means more than avoiding chrome.* in core code. It means
 domain and application are not coupled to browser concepts, even indirectly
-through port shapes, test shims, or persisted platform handles.
+through port shapes, test shims, or platform handles embedded in durable data.
 
 The domain and application should be independent of:
 
@@ -221,9 +221,9 @@ State must not contain:
 
 Effects leaving the application should be data. The shell executes them through
 ports and reports typed facts back. This keeps the application deterministic and
-testable. Effect request data may include request ids, durations, storage keys,
-or semantic operation names; it must not include callbacks, promises, DOM nodes,
-or platform handles.
+testable. Effect request data may include request ids, durations, semantic
+operation names, or durable state snapshots; it must not include callbacks,
+promises, DOM nodes, storage keys, or platform handles.
 
 Testing posture
 
