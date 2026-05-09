@@ -39,3 +39,35 @@ test("stale reference-image paste outcomes are ignored", () => {
     effects: [],
   });
 });
+
+// Class-a: delayed status clearing is also request-correlated. An older clear
+// request must not erase a newer notice that reached the app after scheduling.
+test("stale status clear requests are ignored", () => {
+  const state = {
+    session: {
+      mode: "align",
+      referenceImage: {
+        imageDataRef: "reference-image-data-1",
+        intrinsicSizePx: {
+          width: 640,
+          height: 480,
+        },
+      },
+    },
+    notice: {
+      kind: "reference-image-paste-empty",
+      requestId: 2,
+    },
+  };
+
+  assert.deepEqual(handleApplicationCommand({
+    state,
+    command: createApplicationCommand(
+      APPLICATION_COMMAND_KIND.CLEAR_STATUS_NOTICE,
+      { requestId: 1 },
+    ),
+  }), {
+    state,
+    effects: [],
+  });
+});
