@@ -17,28 +17,6 @@ import {
   referenceImageLoadedState,
 } from "./user-behavior-fixtures.js";
 
-// Unclassified: the first click asks for confirmation because clearing pins is
-// destructive but leaves the image. This belongs in application behavior, not
-// in the panel adapter.
-test("primary action with visible pins requests clear-pins confirmation", () => {
-  const result = handleApplicationCommand({
-    state: referenceImageLoadedState({ pins: [firstPin()] }),
-    command: createApplicationCommand(
-      APPLICATION_COMMAND_KIND.ACTIVATE_PRIMARY_ACTION,
-    ),
-  });
-
-  assertApplicationResult(result, {
-    state: referenceImageLoadedState({
-      pins: [firstPin()],
-      panelIntent: {
-        kind: "confirm-clear-pins",
-      },
-    }),
-    effects: [],
-  });
-});
-
 // Unclassified: the second click performs the pending destructive action. The
 // durability effect should describe the new session, not panel implementation.
 test("primary action confirms clear-pins when clear-pins confirmation is active", () => {

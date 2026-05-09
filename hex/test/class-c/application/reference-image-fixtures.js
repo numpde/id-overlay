@@ -34,3 +34,34 @@ export function referenceImageDurableState() {
     session: referenceImageSessionState().session,
   };
 }
+
+export function firstPin() {
+  return {
+    id: 1,
+    imagePx: {
+      x: 320,
+      y: 240,
+    },
+    mapLatLon: {
+      lat: -1.23,
+      lon: 36.84,
+    },
+  };
+}
+
+export function referenceImageLoadedState({
+  pins = [],
+  panelIntent = null,
+  notice = null,
+} = {}) {
+  return {
+    session: {
+      ...referenceImageSessionState().session,
+      registration: {
+        pins,
+      },
+    },
+    panelIntent,
+    notice,
+  };
+}
