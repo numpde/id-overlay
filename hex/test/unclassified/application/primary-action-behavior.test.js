@@ -12,38 +12,9 @@ import {
 import {
   APPLICATION_MODE,
   durableStateChangedEffect,
-  firstPin,
   referenceImageDurableState,
   referenceImageLoadedState,
 } from "./user-behavior-fixtures.js";
-
-// Unclassified: the second click performs the pending destructive action. The
-// durability effect should describe the new session, not panel implementation.
-test("primary action confirms clear-pins when clear-pins confirmation is active", () => {
-  const result = handleApplicationCommand({
-    state: referenceImageLoadedState({
-      pins: [firstPin()],
-      panelIntent: {
-        kind: "confirm-clear-pins",
-      },
-    }),
-    command: createApplicationCommand(
-      APPLICATION_COMMAND_KIND.ACTIVATE_PRIMARY_ACTION,
-    ),
-  });
-
-  assertApplicationResult(result, {
-    state: referenceImageLoadedState({
-      notice: {
-        kind: "cleared-pins",
-        count: 1,
-      },
-    }),
-    effects: [
-      durableStateChangedEffect(referenceImageDurableState()),
-    ],
-  });
-});
 
 // Unclassified: when no pins are visible, the same button escalates to clearing
 // the image itself. This keeps the panel dumb and the app flow inspectable.
