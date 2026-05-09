@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import {
   createPageSnapshotAdapter,
+  createProjectionAdapter,
 } from "../../../adapters/page-osm-id/page-adapter.js";
 
 // Class-b: the page adapter is allowed to inspect dirty page handles, but its
@@ -48,6 +49,28 @@ test("page snapshot adapter emits plain map facts", () => {
     },
   });
   assertPlainData(snapshot);
+});
+
+// Class-b: expected projection misses are explicit data facts. The application
+// should not receive null guesses or page-adapter exceptions.
+test("projection adapter reports explicit failure facts", () => {
+  const projection = createProjectionAdapter({
+    readProjectionContext() {
+      return {
+        kind: "missing-viewport",
+      };
+    },
+  });
+
+  assert.deepEqual(projection.projectScreenPoint({
+    screenPx: {
+      x: 320,
+      y: 240,
+    },
+  }), {
+    kind: "failed",
+    reason: "missing-viewport",
+  });
 });
 
 function assertPlainData(value) {
