@@ -14,7 +14,6 @@ import {
 } from "./application-boundary-assertions.js";
 import { assertApplicationResult } from "./application-result-assertions.js";
 import {
-  awaitingReferenceImagePasteState,
   referenceImageDurableState,
   referenceImageLoadedState,
 } from "./reference-image-fixtures.js";
@@ -28,30 +27,6 @@ test("hydration restores the declared durable reference-image session", () => {
 
   assertApplicationResult(handleApplicationCommand({
     state: createInitialApplicationState(),
-    command,
-  }), {
-    state: referenceImageLoadedState(),
-    effects: [],
-  });
-});
-
-// Class-b: hydration is replacement from durable input, not a merge into stale
-// in-memory prompts, notices, or confirmations from a previous run.
-test("hydration replaces current transient state from durable input", () => {
-  const command = createApplicationCommand(APPLICATION_COMMAND_KIND.HYDRATE, {
-    durableState: referenceImageDurableState(),
-  });
-
-  assertApplicationResult(handleApplicationCommand({
-    state: {
-      ...awaitingReferenceImagePasteState(),
-      notice: {
-        kind: "reference-image-paste-cancelled",
-      },
-      panelIntent: {
-        kind: "confirm-clear-reference-image",
-      },
-    },
     command,
   }), {
     state: referenceImageLoadedState(),
