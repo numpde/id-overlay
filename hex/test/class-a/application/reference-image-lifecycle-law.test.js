@@ -6,6 +6,7 @@ import {
   createApplicationCommand,
 } from "../../../application/command.js";
 import { handleApplicationCommand } from "../../../application/handle-command.js";
+import { createInitialApplicationState } from "../../../application/state.js";
 
 // Class-a: accepting a reference image creates the first visible overlay
 // session. The canonical first posture is Align, and the new durable session is
@@ -90,12 +91,37 @@ test("accepted reference image clears pending input notice and panel intent", ()
   });
 });
 
+// Class-a: clearing the reference image collapses the app back to no session
+// and emits durable clearing. There is no hidden overlay state after removal.
+test("clearing the reference image returns to no-session Trace", () => {
+  assert.deepEqual(handleApplicationCommand({
+    state: referenceImageLoadedState(),
+    command: createApplicationCommand(
+      APPLICATION_COMMAND_KIND.CLEAR_REFERENCE_IMAGE,
+    ),
+  }), {
+    state: createInitialApplicationState(),
+    effects: [
+      durableStateChangedEffect(null),
+    ],
+  });
+});
+
 function normalizedReferenceImage() {
   return {
     imageDataRef: "reference-image-data-1",
     intrinsicSizePx: {
       width: 640,
       height: 480,
+    },
+  };
+}
+
+function referenceImageLoadedState() {
+  return {
+    session: {
+      mode: "align",
+      referenceImage: normalizedReferenceImage(),
     },
   };
 }
