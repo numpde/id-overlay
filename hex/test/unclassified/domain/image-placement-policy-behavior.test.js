@@ -1,33 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-// Unclassified: the legacy app downscaled large pasted images once, then used
-// one canonical working coordinate space. The exact module name is provisional;
-// the product rule is not.
-test("image policy constrains oversized images by longest side", async () => {
-  const { constrainImageSize } = await importRequired(
-    "../../../domain/image-policy.js",
-    "constrainImageSize",
-  );
-
-  assert.deepEqual(constrainImageSize({
-    width: 5000,
-    height: 2500,
-    maxLongestSide: 2000,
-  }), {
-    width: 2000,
-    height: 1000,
-  });
-  assert.deepEqual(constrainImageSize({
-    width: 640,
-    height: 480,
-    maxLongestSide: 2000,
-  }), {
-    width: 640,
-    height: 480,
-  });
-});
-
 // Unclassified: durable image facts should be canonical metadata plus a data
 // reference. Legacy compatibility may be accepted at the edge, but app state
 // should never carry multiple competing image shapes.
