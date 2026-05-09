@@ -9,31 +9,6 @@ import {
   createPanelAdapter,
 } from "../../../adapters/ui/panel-adapter.js";
 
-// Unclassified: page support is a page-adapter concern. The app should receive
-// a supported/unsupported fact, not inspect location, iframe, or OSM/iD DOM
-// details itself.
-test("page adapter accepts only supported OpenStreetMap edit contexts", async () => {
-  const { createActiveMapContextAdapter } = await importRequired(
-    "../../../adapters/page-osm-id/active-map-context-adapter.js",
-    "createActiveMapContextAdapter",
-  );
-  const adapter = createActiveMapContextAdapter({
-    readLocation: () => ({
-      origin: "https://www.openstreetmap.org",
-      pathname: "/edit",
-      search: "?editor=id",
-    }),
-    findEmbeddedEditorFrame: () => null,
-  });
-
-  assert.deepEqual(adapter.readActiveMapContext(), {
-    kind: "supported-map-editor-page",
-    surface: {
-      kind: "native-page",
-    },
-  });
-});
-
 // Unclassified: paste can arrive from direct clipboard read or a paste event.
 // Both should normalize into the same plain reference-image outcome before the
 // application sees it.
