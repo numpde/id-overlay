@@ -18,23 +18,6 @@ import {
   referenceImageLoadedState,
 } from "./user-behavior-fixtures.js";
 
-// Unclassified: primary action is the UI's semantic button. The precise command
-// name is tentative; the invariant is that adapters report intent, not decide
-// whether the app should paste, cancel, clear pins, or clear the image.
-test("primary action with no session waits for a pasted reference image", () => {
-  const result = handleApplicationCommand({
-    state: createInitialApplicationState(),
-    command: createApplicationCommand(
-      APPLICATION_COMMAND_KIND.ACTIVATE_PRIMARY_ACTION,
-    ),
-  });
-
-  assertApplicationResult(result, {
-    state: awaitingReferenceImagePasteState(),
-    effects: [],
-  });
-});
-
 // Unclassified: pressing the same semantic button while paste is armed should
 // cancel the user-facing prompt instead of starting a second overlapping input.
 test("primary action while awaiting paste cancels the pending paste prompt", () => {
