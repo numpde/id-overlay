@@ -11,29 +11,6 @@ import {
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../..");
 
-// Unclassified: copying whole source directories makes the bundle lie about
-// what the manifest needs. The build should copy content scripts plus generated
-// web-accessible resources only, so stale legacy/test files cannot hitchhike.
-test("chrome build copies only manifest-reachable browser resources", () => {
-  const source = readSource(repoPath("scripts/build-chrome.mjs"));
-
-  assert.equal(
-    /\bcollectBrowserResources\b/.test(source),
-    true,
-    "build should derive copied files from manifest content scripts and web-accessible resources",
-  );
-  assert.equal(
-    /\bcp\s*\(/.test(source),
-    false,
-    "build should not recursively copy whole source directories",
-  );
-  assert.equal(
-    /\[\s*["']src["']\s*,\s*["']assets["']\s*\]/.test(source),
-    false,
-    "build should not maintain a parallel directory-copy list",
-  );
-});
-
 // Unclassified: resource collection should cross from src into hex production
 // modules, but never into tests or legacy. This is the build-time mirror of the
 // runtime dependency boundary.
@@ -54,10 +31,6 @@ test("content module graph may include hex production but not tests or legacy", 
       || resource.includes("/legacy/")
   )), []);
 });
-
-function readSource(filePath) {
-  return fs.readFileSync(filePath, "utf8");
-}
 
 function repoPath(...segments) {
   return path.join(REPO_ROOT, ...segments);

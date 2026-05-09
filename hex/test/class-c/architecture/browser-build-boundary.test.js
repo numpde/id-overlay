@@ -38,6 +38,29 @@ test("chrome manifest can be generated from the real extension adapter graph", a
   )), []);
 });
 
+// Class-c: packaging should copy only files reachable from the generated
+// manifest, but this test still talks in terms of one script implementation
+// hook. Keep the pressure visible while the browser build pipeline is rebuilt.
+test("chrome build copies only manifest-reachable browser resources", () => {
+  const source = readSource(repoPath("scripts/build-chrome.mjs"));
+
+  assert.equal(
+    /\bcollectBrowserResources\b/.test(source),
+    true,
+    "build should derive copied files from manifest content scripts and web-accessible resources",
+  );
+  assert.equal(
+    /\bcp\s*\(/.test(source),
+    false,
+    "build should not recursively copy whole source directories",
+  );
+  assert.equal(
+    /\[\s*["']src["']\s*,\s*["']assets["']\s*\]/.test(source),
+    false,
+    "build should not maintain a parallel directory-copy list",
+  );
+});
+
 function readSource(filePath) {
   return fs.readFileSync(filePath, "utf8");
 }
