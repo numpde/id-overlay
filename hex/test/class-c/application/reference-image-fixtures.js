@@ -29,14 +29,26 @@ export function referenceImageSessionState() {
   };
 }
 
-export function referenceImageDurableState({ pins } = {}) {
+export function referenceImageDurableState({
+  mode = "align",
+  placement,
+  pins,
+  solved,
+} = {}) {
   const session = {
     ...referenceImageSessionState().session,
+    mode,
   };
+  if (placement !== undefined) {
+    session.placement = placement;
+  }
   if (pins !== undefined) {
     session.registration = {
       pins,
     };
+    if (solved !== undefined) {
+      session.registration.solvedPlacement = solved;
+    }
   }
   return {
     session,
@@ -57,18 +69,59 @@ export function firstPin() {
   };
 }
 
+export function secondPin() {
+  return {
+    id: 2,
+    imagePx: {
+      x: 520,
+      y: 240,
+    },
+    mapLatLon: {
+      lat: -1.23,
+      lon: 38.84,
+    },
+  };
+}
+
+export function twoPins() {
+  return [
+    firstPin(),
+    secondPin(),
+  ];
+}
+
+export function solvedPlacement() {
+  return {
+    x: 120,
+    y: 90,
+    scale: 1.25,
+    rotationRad: 0.1,
+  };
+}
+
 export function referenceImageLoadedState({
+  mode = "align",
+  placement,
   pins = [],
+  solved,
   panelIntent = null,
   notice = null,
 } = {}) {
-  return {
-    session: {
-      ...referenceImageSessionState().session,
-      registration: {
-        pins,
-      },
+  const session = {
+    ...referenceImageSessionState().session,
+    mode,
+    registration: {
+      pins,
     },
+  };
+  if (placement !== undefined) {
+    session.placement = placement;
+  }
+  if (solved !== undefined) {
+    session.registration.solvedPlacement = solved;
+  }
+  return {
+    session,
     panelIntent,
     notice,
   };
