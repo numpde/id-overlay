@@ -21,18 +21,18 @@ export function awaitingReferenceImagePasteState({ requestId = 1 } = {}) {
   };
 }
 
-export function referenceImageLoadedState() {
+export function referenceImageLoadedState({ mode = "align" } = {}) {
   return {
     session: {
-      mode: "align",
+      mode,
       referenceImage: normalizedReferenceImage(),
     },
   };
 }
 
-export function referenceImageDurableState() {
+export function referenceImageDurableState({ mode = "align" } = {}) {
   return {
-    session: referenceImageLoadedState().session,
+    session: referenceImageLoadedState({ mode }).session,
   };
 }
 
