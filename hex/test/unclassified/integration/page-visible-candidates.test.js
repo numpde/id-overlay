@@ -26,18 +26,6 @@ const SELECTOR = {
   panelDragHandle: "[data-id-overlay-panel-drag-handle]",
 };
 
-// Unclassified candidate: empty storage on reload should not resurrect overlay
-// state. This pairs with the durable restore test above.
-test("reload with no durable state shows Paste", async () => {
-  const page = await startSupportedExtension({
-    durableState: null,
-  });
-
-  assert.equal(count(page.document, SELECTOR.overlay), 0);
-  assert.match(textOf(page.document, SELECTOR.primaryAction), /^Paste$/i);
-  assert.equal(selectedMode(page.document), "trace");
-});
-
 // Unclassified candidate: unsupported pages should not mount product UI that
 // appears usable. A future promotion may choose a minimal unsupported notice
 // instead, but it should not be the full overlay panel.

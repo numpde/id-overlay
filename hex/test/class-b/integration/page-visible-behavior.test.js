@@ -232,6 +232,19 @@ test("reload restores visible durable session", async () => {
   assert.equal(count(page.document, SELECTOR.pin), 1);
 });
 
+// Class-b, not class-a: this checks storage/bootstrap/rendering together. With
+// no durable state, reload must show the no-session Paste posture rather than a
+// stale overlay.
+test("reload with no durable state shows Paste", async () => {
+  const page = await startSupportedExtension({
+    durableState: null,
+  });
+
+  assert.equal(count(page.document, SELECTOR.overlay), 0);
+  assert.match(textOf(page.document, SELECTOR.primaryAction), /^Paste$/i);
+  assert.equal(selectedMode(page.document), "trace");
+});
+
 async function startSupportedExtension(options = {}) {
   return startPageVisibleExtension({
     page: supportedMapEditorPage(),
