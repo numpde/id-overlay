@@ -9,6 +9,9 @@ import {
   referenceImageDurableState,
   referenceImageLoadedState,
 } from "./reference-image-fixtures.js";
+import {
+  movedPlacement,
+} from "./placement-fixtures.js";
 
 // Class-b: durable state is the persisted session projection, not the whole
 // application object. The exact field vocabulary is still application schema,
@@ -30,6 +33,18 @@ test("durable state excludes input notices panel intent and history", () => {
         kind: "load-reference-image",
       }],
       future: [],
+    },
+  }), referenceImageDurableState());
+});
+
+// Class-b: drag previews may be visible while editing, but only committed
+// placement belongs in durable state.
+test("transient placement preview is not durable state", () => {
+  assert.deepEqual(selectDurableApplicationState({
+    ...referenceImageLoadedState(),
+    placementPreview: {
+      beforePlacement: null,
+      previewPlacement: movedPlacement(),
     },
   }), referenceImageDurableState());
 });

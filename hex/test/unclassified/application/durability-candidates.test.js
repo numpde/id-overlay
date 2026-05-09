@@ -1,14 +1,10 @@
 import test from "node:test";
-import assert from "node:assert/strict";
 
 import {
   APPLICATION_COMMAND_KIND,
   createApplicationCommand,
 } from "../../../application/command.js";
 import { handleApplicationCommand } from "../../../application/handle-command.js";
-import {
-  selectDurableApplicationState,
-} from "../../../application/view-model.js";
 import {
   assertApplicationResult,
 } from "../../class-b/application/application-result-assertions.js";
@@ -17,21 +13,6 @@ import {
   referenceImageDurableState,
   referenceImageLoadedState,
 } from "../../class-b/application/reference-image-fixtures.js";
-import {
-  movedPlacement,
-} from "../../class-b/application/placement-fixtures.js";
-
-// Unclassified candidate: placement preview is runtime-only. Drag previews
-// should not be persisted before the user commits the edit.
-test("transient placement preview is not durable state", () => {
-  assert.deepEqual(selectDurableApplicationState({
-    ...referenceImageLoadedState(),
-    placementPreview: {
-      beforePlacement: null,
-      previewPlacement: movedPlacement(),
-    },
-  }), referenceImageDurableState());
-});
 
 // Unclassified candidate: hydration should replace stale in-memory app state,
 // not merge durable data with pending prompts, notices, or confirmations.
