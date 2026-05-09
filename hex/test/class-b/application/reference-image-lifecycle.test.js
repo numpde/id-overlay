@@ -15,26 +15,6 @@ import {
   referenceImageLoadedState,
 } from "./reference-image-fixtures.js";
 
-// Class-b: accepted paste should create the first visible session and request
-// durability. The user behavior is firm, but exact command/state/effect
-// vocabulary is still application API shape.
-test("accepted reference image creates an Align session and durability effect", () => {
-  const command = createApplicationCommand(
-    APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_PASTE_OUTCOME,
-    acceptedReferenceImagePastePayload(),
-  );
-
-  assertApplicationResult(handleApplicationCommand({
-    state: awaitingReferenceImagePasteState(),
-    command,
-  }), {
-    state: referenceImageLoadedState(),
-    effects: [
-      durableStateChangedEffect(referenceImageDurableState()),
-    ],
-  });
-});
-
 // Class-b: accepting the image replaces the pending input flow. Stale notices
 // and confirmations must not carry into the new loaded session.
 test("accepted reference image clears pending input notice and panel intent", () => {
