@@ -29,6 +29,25 @@ test("bootstrap mounts one visible panel", async () => {
   assert.equal(assertOne(page.document, SELECTOR.panel).hidden, false);
 });
 
+// Class-b, not class-a: idempotent bootstrap is a real extension lifecycle
+// invariant, but this checks it through the provisional page-visible harness.
+// Re-injection must replace/reconcile owned UI without duplicating the panel or
+// losing the already-hydrated product posture.
+test("bootstrap reinjection keeps one owned visible UI instance", async () => {
+  const page = await startSupportedExtension({
+    durableState: durableReferenceImageSession({
+      mode: "align",
+    }),
+  });
+
+  await page.bootstrap.reinject();
+  await page.bootstrap.reinject();
+
+  assert.equal(count(page.document, SELECTOR.panel), 1);
+  assert.equal(count(page.document, SELECTOR.overlay), 1);
+  assert.equal(selectedMode(page.document), "align");
+});
+
 // Class-b, not class-a: the no-session Paste / Trace posture is already a
 // product law, but this checks that bootstrap and UI rendering expose it on the
 // page through provisional DOM test handles.

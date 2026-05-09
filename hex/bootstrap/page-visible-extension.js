@@ -20,6 +20,11 @@ export async function startPageVisibleExtension({
   const productCommands = [];
   const bootstrap = {
     dynamicImportFailures: manifestResources ? [] : ["missing-resources"],
+    async reinject() {
+      if (page.kind === "supported-map-editor-page") {
+        render();
+      }
+    },
   };
 
   if (page.kind === "supported-map-editor-page") {
