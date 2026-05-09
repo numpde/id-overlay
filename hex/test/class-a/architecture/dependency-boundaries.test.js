@@ -99,6 +99,23 @@ test("hex tests declare authority class and test ring in their path", () => {
   assert.deepEqual(unclassified, []);
 });
 
+test("class-c quarantine does not leak into stronger test classes", () => {
+  const violations = [];
+  for (const filePath of [
+    ...listJavaScriptFiles(TEST_CLASSES["class-a"], { includeTests: true }),
+    ...listJavaScriptFiles(TEST_CLASSES["class-b"], { includeTests: true }),
+  ]) {
+    for (const specifier of extractImportSpecifiers(readSource(filePath))) {
+      const targetPath = resolveRelativeImport(filePath, specifier);
+      if (targetPath && isInsidePath(targetPath, TEST_CLASSES["class-c"])) {
+        violations.push(`${relativeToRepo(filePath)} imports class-c: ${specifier}`);
+      }
+    }
+  }
+
+  assert.deepEqual(violations, []);
+});
+
 test("hex production imports point inward only", () => {
   const violations = [];
   for (const filePath of listJavaScriptFiles(HEX_ROOT)) {

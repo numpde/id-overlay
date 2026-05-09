@@ -8,7 +8,9 @@
     "test:hex:class-b": "node --test hex/test/class-b/**/*.test.js",
     "test:hex:class-c": "files=$(find hex/test/class-c -type f -name '*.test.js' | sort); if [ -n \"$files\" ]; then node --test $files; else echo \"No class-c tests\"; fi",
     "test:hex:architecture": "npm run test:hex:class-a",
-    "test:hex:application": "npm run test:hex:class-b",
+    "test:hex:harness": "npm run test:hex:class-b",
+    "test:hex:quarantine": "npm run test:hex:class-c",
+    "test:hex:application": "npm run test:hex:harness",
     "test:hex": "npm run test:hex:class-a && npm run test:hex:class-b",
     "test": "npm run test:hex"
   },

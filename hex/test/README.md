@@ -20,3 +20,14 @@ evidence in class-a architecture checks until they are promoted.
 
 Class-c may reuse class-b support helpers to avoid quarantine-only framework
 bloat. That does not promote the class-c scenario itself.
+
+Promotion criteria:
+
+- `class-c` to `class-b`: promote only after the test describes a product seam
+  we still want when nearby implementation details change. Rename or split it
+  first if it mainly preserves one speculative scenario.
+- `class-b` to `class-a`: promote only after the test describes architecture or
+  product shape we would defend during a rewrite. A class-a test should survive
+  serious implementation alternatives.
+- Demotion is always allowed when a test starts constraining the wrong thing.
+  The class path is an authority claim, not a reward.
