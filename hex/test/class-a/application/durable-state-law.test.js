@@ -28,3 +28,42 @@ test("application with no reference image has no durable state", () => {
     null,
   );
 });
+
+// Class-a: persistence is a session projection, not an application snapshot.
+// This is promoted because prompts, notices, confirmations, and undo history
+// are runtime interaction context; resurrecting them after reload is wrong
+// regardless of the eventual storage adapter or UI implementation.
+test("durable state excludes transient application context", () => {
+  const session = {
+    mode: "align",
+    referenceImage: {
+      imageDataRef: "reference-image-data-1",
+      intrinsicSizePx: {
+        width: 640,
+        height: 480,
+      },
+    },
+  };
+
+  assert.deepEqual(selectDurableApplicationState({
+    session,
+    referenceImageInput: {
+      status: "awaiting-paste",
+      requestId: 1,
+    },
+    notice: {
+      kind: "reference-image-paste-empty",
+    },
+    panelIntent: {
+      kind: "confirm-clear-reference-image",
+    },
+    history: {
+      past: [{
+        kind: "load-reference-image",
+      }],
+      future: [],
+    },
+  }), {
+    session,
+  });
+});
