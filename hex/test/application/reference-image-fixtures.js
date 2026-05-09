@@ -1,6 +1,6 @@
-// Shared only for concrete application specimens used across tests. These are
-// not factory abstractions for production; they prevent drift in the first
-// reference-image flow while the implementation is still test-driven.
+// Shared only for concrete reference-image specimens used across application
+// tests. These are not production factories; they keep the first vertical flow
+// aligned while the tests are still ahead of the implementation.
 
 export function awaitingReferenceImagePasteState() {
   return {

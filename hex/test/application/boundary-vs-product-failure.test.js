@@ -6,10 +6,10 @@ import {
   createApplicationCommand,
 } from "../../application/command.js";
 import {
-  ApplicationBoundaryError,
   APPLICATION_BOUNDARY_ERROR_CODE,
 } from "../../application/errors.js";
 import { handleApplicationCommand } from "../../application/handle-command.js";
+import { assertApplicationBoundaryError } from "./application-boundary-assertions.js";
 import { assertPlainData } from "./plain-data-assertions.js";
 import { awaitingReferenceImagePasteState } from "./reference-image-fixtures.js";
 
@@ -102,14 +102,3 @@ test("valid failed paste outcome transitions as product data", () => {
     effects: [],
   });
 });
-
-function assertApplicationBoundaryError(run, expectedCode) {
-  assert.throws(
-    run,
-    (error) => (
-      error instanceof ApplicationBoundaryError
-        && error.name === "ApplicationBoundaryError"
-        && error.code === expectedCode
-    ),
-  );
-}

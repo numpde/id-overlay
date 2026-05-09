@@ -11,6 +11,7 @@ import {
 } from "../../application/errors.js";
 import { handleApplicationCommand } from "../../application/handle-command.js";
 import { createApplicationResult } from "../../application/result.js";
+import { assertApplicationBoundaryError } from "./application-boundary-assertions.js";
 
 // Boundary errors are first-class application contract failures. They are stable
 // enough for diagnostics, but they are not product facts and must never be
@@ -158,14 +159,3 @@ test("application boundary errors are thrown, not returned as application data",
     ApplicationBoundaryError,
   );
 });
-
-function assertApplicationBoundaryError(run, expectedCode) {
-  assert.throws(
-    run,
-    (error) => (
-      error instanceof ApplicationBoundaryError
-        && error.name === "ApplicationBoundaryError"
-        && error.code === expectedCode
-    ),
-  );
-}

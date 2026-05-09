@@ -6,10 +6,10 @@ import {
   createApplicationCommand,
 } from "../../application/command.js";
 import {
-  ApplicationBoundaryError,
   APPLICATION_BOUNDARY_ERROR_CODE,
 } from "../../application/errors.js";
 import { handleApplicationCommand } from "../../application/handle-command.js";
+import { assertApplicationBoundaryError } from "./application-boundary-assertions.js";
 import { assertPlainData } from "./plain-data-assertions.js";
 import {
   awaitingReferenceImagePasteState,
@@ -18,7 +18,7 @@ import {
 
 // Accepted paste is the positive counterpart to empty/failed paste. The adapter
 // has already normalized pixels into a stable data reference plus intrinsic
-// size; the application only accepts plain product data.
+// size; the application accepts only that product-shaped data.
 
 test("application command vocabulary includes reference image paste outcome", () => {
   assert.equal(
@@ -39,56 +39,63 @@ test("application command vocabulary includes reference image paste outcome", ()
 });
 
 // The command boundary rejects data that has not been normalized into the
-// declared reference-image shape. This keeps platform handles and half-decoded
-// payloads out of product state.
+// declared reference-image shape. This keeps platform handles, missing data, and
+// geometrically impossible images out of product state.
 test("accepted paste outcome requires normalized reference image data", () => {
-  assertApplicationBoundaryError(
-    () => createApplicationCommand(
-      APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_PASTE_OUTCOME,
-      {
-        outcome: {
-          kind: "accepted",
-        },
+  for (const { description, outcome } of [
+    {
+      description: "missing reference image",
+      outcome: {
+        kind: "accepted",
       },
-    ),
-    APPLICATION_BOUNDARY_ERROR_CODE.INVALID_APPLICATION_COMMAND,
-  );
-  assertApplicationBoundaryError(
-    () => createApplicationCommand(
-      APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_PASTE_OUTCOME,
-      {
-        outcome: {
-          kind: "accepted",
-          referenceImage: {
-            imageDataRef: new Map(),
-            intrinsicSizePx: {
-              width: 640,
-              height: 480,
-            },
+    },
+    {
+      description: "runtime data reference",
+      outcome: {
+        kind: "accepted",
+        referenceImage: {
+          imageDataRef: new Map(),
+          intrinsicSizePx: {
+            width: 640,
+            height: 480,
           },
         },
       },
-    ),
-    APPLICATION_BOUNDARY_ERROR_CODE.INVALID_APPLICATION_COMMAND,
-  );
-  assertApplicationBoundaryError(
-    () => createApplicationCommand(
-      APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_PASTE_OUTCOME,
-      {
-        outcome: {
-          kind: "accepted",
-          referenceImage: {
-            imageDataRef: "reference-image-data-1",
-            intrinsicSizePx: {
-              width: 0,
-              height: 480,
-            },
+    },
+    {
+      description: "missing intrinsic size",
+      outcome: {
+        kind: "accepted",
+        referenceImage: {
+          imageDataRef: "reference-image-data-1",
+        },
+      },
+    },
+    {
+      description: "impossible intrinsic size",
+      outcome: {
+        kind: "accepted",
+        referenceImage: {
+          imageDataRef: "reference-image-data-1",
+          intrinsicSizePx: {
+            width: 0,
+            height: 480,
           },
         },
       },
-    ),
-    APPLICATION_BOUNDARY_ERROR_CODE.INVALID_APPLICATION_COMMAND,
-  );
+    },
+  ]) {
+    assertApplicationBoundaryError(
+      () => createApplicationCommand(
+        APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_PASTE_OUTCOME,
+        {
+          outcome,
+        },
+      ),
+      APPLICATION_BOUNDARY_ERROR_CODE.INVALID_APPLICATION_COMMAND,
+      description,
+    );
+  }
 });
 
 // Accepting the first reference image creates the first durable session. It
@@ -133,16 +140,5 @@ function acceptedReferenceImagePasteCommand() {
         referenceImage: normalizedReferenceImage(),
       },
     },
-  );
-}
-
-function assertApplicationBoundaryError(run, expectedCode) {
-  assert.throws(
-    run,
-    (error) => (
-      error instanceof ApplicationBoundaryError
-        && error.name === "ApplicationBoundaryError"
-        && error.code === expectedCode
-    ),
   );
 }
