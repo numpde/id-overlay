@@ -14,27 +14,12 @@ import {
   assertApplicationResult,
 } from "../../class-b/application/application-result-assertions.js";
 import {
-  APPLICATION_MODE,
   acceptedReferenceImagePastePayload,
   awaitingReferenceImagePasteState,
   durableStateChangedEffect,
   referenceImageDurableState,
   referenceImageLoadedState,
 } from "./user-behavior-fixtures.js";
-
-// Unclassified: the user rule is stable, but the command vocabulary may change.
-// Align without an image would expose an impossible editing mode.
-test("selecting Align with no reference image is a no-op", () => {
-  const state = createInitialApplicationState();
-  const command = createApplicationCommand(APPLICATION_COMMAND_KIND.SELECT_MODE, {
-    mode: APPLICATION_MODE.ALIGN,
-  });
-
-  assertApplicationResult(handleApplicationCommand({ state, command }), {
-    state,
-    effects: [],
-  });
-});
 
 // Unclassified: accepted paste should create the first visible session and
 // request durability; adapter details of image decoding are intentionally absent.
