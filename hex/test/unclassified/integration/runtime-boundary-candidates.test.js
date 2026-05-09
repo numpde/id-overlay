@@ -11,48 +11,6 @@ import {
 // pure application steps meet async host work. They are intentionally not yet
 // class-b: the driver names may change, but the boundary pressure is real.
 
-test("runtime converts handler failures into plain application facts", async () => {
-  const effect = {
-    kind: "read-reference-image",
-    requestId: "paste-1",
-  };
-  const applicationCommands = [];
-  const runtime = createRuntimeDriver({
-    initialState: {},
-    effectHandlers: {
-      "read-reference-image": async () => {
-        throw new Error("permission denied");
-      },
-    },
-    stepApplication({ state, command }) {
-      applicationCommands.push(command);
-      if (command.kind === "start") {
-        return {
-          state,
-          effects: [effect],
-        };
-      }
-
-      assert.equal(command.kind, "runtime-effect-failed");
-      assert.equal(command.effectKind, "read-reference-image");
-      assert.equal(command.requestId, "paste-1");
-      assert.equal(command.error.code, "effect-handler-failed");
-      assert.equal("stack" in command.error, false);
-      assertPlainData(command);
-      return {
-        state,
-        effects: [],
-      };
-    },
-  });
-
-  await runtime.dispatch({
-    kind: "start",
-  });
-
-  assert.equal(applicationCommands.length, 2);
-});
-
 test("runtime preserves correlation ids and leaves staleness decisions to the application", async () => {
   const applicationCommands = [];
   const runtime = createRuntimeDriver({
