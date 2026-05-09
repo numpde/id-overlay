@@ -5,8 +5,8 @@ import {
   createTimerPortAdapter,
 } from "../../../adapters/web/timer-port.js";
 
-// Unclassified candidate: timer handles stay inside the adapter. The only fact
-// that crosses back inward is the original request identity.
+// Class-b: timer handles are runtime capabilities. The durable app-facing fact
+// is only that a previously requested timer fired.
 test("timer port preserves request identity", async () => {
   const scheduled = [];
   const timerPort = createTimerPortAdapter({
