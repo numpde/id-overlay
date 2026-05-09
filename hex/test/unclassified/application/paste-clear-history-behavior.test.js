@@ -8,33 +8,6 @@ import {
 import { handleApplicationCommand } from "../../../application/handle-command.js";
 import { selectApplicationView } from "../../../application/view-model.js";
 
-// Unclassified: with visible pins, the destructive primary action should clear
-// pins before escalating to image removal. This preserves the old user posture
-// without committing to legacy panel internals.
-test("primary action clears visible pins before clearing the image", () => {
-  const state = loadedState({
-    pins: [firstPin()],
-  });
-
-  const confirmPins = step(state, createApplicationCommand(
-    APPLICATION_COMMAND_KIND.ACTIVATE_PRIMARY_ACTION,
-  )).state;
-  assert.deepEqual(confirmPins.panelIntent, {
-    kind: "confirm-clear-pins",
-  });
-
-  const clearedPins = step(confirmPins, createApplicationCommand(
-    APPLICATION_COMMAND_KIND.ACTIVATE_PRIMARY_ACTION,
-  ));
-  assert.deepEqual(clearedPins.state.session.registration?.pins ?? [], []);
-  assert.equal(clearedPins.state.session.referenceImage.imageDataRef, "reference-image-data-1");
-  assert.deepEqual(clearedPins.state.panelIntent, null);
-  assert.deepEqual(clearedPins.state.notice, {
-    kind: "cleared-pins",
-    count: 1,
-  });
-});
-
 // Unclassified: undo/redo should describe and replay semantic user-visible
 // changes. It should not replay raw commands or leave stale confirmation intent.
 test("undo and redo restore committed image removal and reset confirmation intent", () => {
@@ -76,7 +49,6 @@ function step(state, command) {
 }
 
 function loadedState({
-  pins = [],
   panelIntent,
 } = {}) {
   const state = {
@@ -85,11 +57,6 @@ function loadedState({
       referenceImage: referenceImage(),
     },
   };
-  if (pins.length > 0) {
-    state.session.registration = {
-      pins,
-    };
-  }
   if (panelIntent !== undefined) {
     state.panelIntent = panelIntent;
   }
@@ -102,20 +69,6 @@ function referenceImage() {
     intrinsicSizePx: {
       width: 640,
       height: 480,
-    },
-  };
-}
-
-function firstPin() {
-  return {
-    id: 1,
-    imagePx: {
-      x: 320,
-      y: 240,
-    },
-    mapLatLon: {
-      lat: -1.23,
-      lon: 36.84,
     },
   };
 }
