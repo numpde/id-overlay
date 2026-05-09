@@ -39,6 +39,36 @@ test("runtime driver does not inspect product state fields", async () => {
   assert.equal(stepCallCount, 1);
 });
 
+// Class-b: app output is the only source of host work. The runtime must not
+// infer persistence, timers, paste reads, or any other effect from state shape.
+test("runtime runs only effects returned by the application step", async () => {
+  const state = {
+    durableState: {
+      session: {
+        mode: "align",
+      },
+    },
+  };
+  const runtime = createRuntimeDriver({
+    initialState: state,
+    effectHandlers: {
+      "persist-durable-state": () => {
+        assert.fail("runtime invented persistence from state inspection");
+      },
+    },
+    stepApplication() {
+      return {
+        state,
+        effects: [],
+      };
+    },
+  });
+
+  await runtime.dispatch({
+    kind: "user-command",
+  });
+});
+
 function createOpaqueProductState(value) {
   const forbiddenProductFields = new Set([
     "mode",

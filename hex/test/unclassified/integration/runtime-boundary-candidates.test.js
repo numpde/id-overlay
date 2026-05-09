@@ -11,34 +11,6 @@ import {
 // pure application steps meet async host work. They are intentionally not yet
 // class-b: the driver names may change, but the boundary pressure is real.
 
-test("runtime runs only effects returned by the application step", async () => {
-  const state = {
-    durableState: {
-      session: {
-        mode: "align",
-      },
-    },
-  };
-  const runtime = createRuntimeDriver({
-    initialState: state,
-    effectHandlers: {
-      "persist-durable-state": () => {
-        assert.fail("runtime invented persistence from state inspection");
-      },
-    },
-    stepApplication() {
-      return {
-        state,
-        effects: [],
-      };
-    },
-  });
-
-  await runtime.dispatch({
-    kind: "user-command",
-  });
-});
-
 test("runtime dispatches each declared effect kind to its matching handler", async () => {
   const effect = {
     kind: "persist-durable-state",
