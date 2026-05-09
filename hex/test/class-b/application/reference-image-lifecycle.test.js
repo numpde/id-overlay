@@ -35,6 +35,33 @@ test("accepted reference image creates an Align session and durability effect", 
   });
 });
 
+// Class-b: accepting the image replaces the pending input flow. Stale notices
+// and confirmations must not carry into the new loaded session.
+test("accepted reference image clears pending input notice and panel intent", () => {
+  const command = createApplicationCommand(
+    APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_PASTE_OUTCOME,
+    acceptedReferenceImagePastePayload(),
+  );
+
+  assertApplicationResult(handleApplicationCommand({
+    state: {
+      ...awaitingReferenceImagePasteState(),
+      notice: {
+        kind: "reference-image-paste-empty",
+      },
+      panelIntent: {
+        kind: "confirm-clear-reference-image",
+      },
+    },
+    command,
+  }), {
+    state: referenceImageLoadedState(),
+    effects: [
+      durableStateChangedEffect(referenceImageDurableState()),
+    ],
+  });
+});
+
 // Class-b: clearing the overlay should return to startup posture and request
 // durable clearing. This is user-visible behavior, but the exact loaded-session
 // fixture and effect vocabulary are still application API shape.
