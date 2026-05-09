@@ -12,17 +12,6 @@ import {
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../..");
 
-// Unclassified: this names the proposed module entrypoint for the clean shell.
-// It should be promoted only if we still want a loader+module split after the
-// next implementation pass.
-test("web-accessible graph starts from the module content entrypoint", () => {
-  assert.equal(
-    WEB_ACCESSIBLE_CONTENT_ENTRYPOINT,
-    "src/content/main.js",
-    "the web-accessible graph should start at the module entrypoint, not the loader",
-  );
-});
-
 // Unclassified: the manifest must be derived from the real source graph, not a
 // toy fixture. This protects against the earlier failure mode where Chrome
 // denied a dynamic import because a dependency was missing from resources.
