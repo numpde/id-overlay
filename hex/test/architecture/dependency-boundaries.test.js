@@ -86,10 +86,68 @@ test("hex production imports point inward only", () => {
   assert.deepEqual(violations, []);
 });
 
+// Test code can leak architecture just as easily as production code. A domain
+// or application test that imports an outward ring or another test area has
+// already encoded the wrong shape, even if production code still looks clean.
+test("domain and application tests do not import outward code", () => {
+  const violations = [];
+  for (const filePath of [
+    ...listJavaScriptFiles(TEST_AREAS.domain, { includeTests: true }),
+    ...listJavaScriptFiles(TEST_AREAS.application, { includeTests: true }),
+  ]) {
+    const sourceTestArea = getTestArea(filePath);
+    if (!sourceTestArea) {
+      continue;
+    }
+
+    for (const specifier of extractImportSpecifiers(readSource(filePath))) {
+      const targetPath = resolveRelativeImport(filePath, specifier);
+      if (!targetPath) {
+        continue;
+      }
+
+      const targetTestArea = getTestArea(targetPath);
+      if (targetTestArea && targetTestArea !== sourceTestArea) {
+        violations.push(
+          `${relativeToRepo(filePath)} (${sourceTestArea} test) imports ${targetTestArea} test: ${specifier}`,
+        );
+        continue;
+      }
+      if (targetTestArea === sourceTestArea) {
+        continue;
+      }
+
+      const targetLayer = getLayer(targetPath);
+      if (!targetLayer) {
+        violations.push(
+          `${relativeToRepo(filePath)} (${sourceTestArea} test) imports outside allowed boundaries: ${specifier}`,
+        );
+        continue;
+      }
+      if (!canTestAreaImportLayer(sourceTestArea, targetLayer)) {
+        violations.push(
+          `${relativeToRepo(filePath)} (${sourceTestArea} test) imports ${targetLayer}: ${specifier}`,
+        );
+      }
+    }
+  }
+
+  assert.deepEqual(violations, []);
+});
+
 function getLayer(filePath) {
   for (const [layerName, directoryPath] of Object.entries(LAYERS)) {
     if (isInsidePath(filePath, directoryPath)) {
       return layerName;
+    }
+  }
+  return null;
+}
+
+function getTestArea(filePath) {
+  for (const [areaName, directoryPath] of Object.entries(TEST_AREAS)) {
+    if (isInsidePath(filePath, directoryPath)) {
+      return areaName;
     }
   }
   return null;
@@ -117,6 +175,16 @@ function canImportLayer({ sourceLayer, targetLayer, sourcePath, targetPath }) {
     return true;
   }
   return false;
+}
+
+function canTestAreaImportLayer(testArea, targetLayer) {
+  if (testArea === "domain") {
+    return targetLayer === "domain";
+  }
+  if (testArea === "application") {
+    return ["domain", "ports", "application"].includes(targetLayer);
+  }
+  return true;
 }
 
 function isSameAdapter(sourcePath, targetPath) {

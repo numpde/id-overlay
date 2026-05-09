@@ -6,5 +6,6 @@ import { assertPlainData } from "./plain-data-assertions.js";
 // keeps that invariant attached to every expected result shape in behavior tests.
 export function assertApplicationResult(actualResult, expectedResult) {
   assertPlainData(actualResult);
+  assertPlainData(expectedResult);
   assert.deepEqual(actualResult, expectedResult);
 }

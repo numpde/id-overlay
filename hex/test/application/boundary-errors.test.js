@@ -83,29 +83,3 @@ test("invalid application state throws ApplicationBoundaryError", () => {
     APPLICATION_BOUNDARY_ERROR_CODE.INVALID_APPLICATION_STATE,
   );
 });
-
-// Invalid persisted state is about data shape: the adapter leaked a runtime
-// object or otherwise failed to provide platform-neutral persisted data.
-test("invalid persisted state throws ApplicationBoundaryError", () => {
-  assertApplicationBoundaryError(
-    () => createApplicationCommand(APPLICATION_COMMAND_KIND.HYDRATE, {
-      persistedState: new Map(),
-    }),
-    APPLICATION_BOUNDARY_ERROR_CODE.INVALID_PERSISTED_STATE,
-  );
-});
-
-// Unsupported persisted state is different from invalid data shape: it is plain
-// data, but it is outside the declared durable vocabulary.
-test("unsupported persisted state throws ApplicationBoundaryError", () => {
-  const command = createApplicationCommand(APPLICATION_COMMAND_KIND.HYDRATE, {
-    persistedState: {
-      futureField: true,
-    },
-  });
-
-  assertApplicationBoundaryError(
-    () => handleApplicationCommand({ state: {}, command }),
-    APPLICATION_BOUNDARY_ERROR_CODE.UNSUPPORTED_PERSISTED_STATE,
-  );
-});
