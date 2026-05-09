@@ -26,6 +26,35 @@ test("hydrating no durable state returns canonical empty state with no effects",
   }
 });
 
+// Class-a: durable session data reconstructs the loaded app state exactly.
+// Hydration itself is pure; it must not re-emit persistence for data it just read.
+test("hydration restores the declared durable reference-image session", () => {
+  const session = {
+    mode: "align",
+    referenceImage: {
+      imageDataRef: "reference-image-data-1",
+      intrinsicSizePx: {
+        width: 640,
+        height: 480,
+      },
+    },
+  };
+
+  assert.deepEqual(handleApplicationCommand({
+    state: createInitialApplicationState(),
+    command: createApplicationCommand(APPLICATION_COMMAND_KIND.HYDRATE, {
+      durableState: {
+        session,
+      },
+    }),
+  }), {
+    state: {
+      session,
+    },
+    effects: [],
+  });
+});
+
 // Class-a: hydration is replacement from durable input, not a merge. Stale
 // prompts, notices, and confirmations from an earlier run must not survive
 // once saved session data has been accepted.
