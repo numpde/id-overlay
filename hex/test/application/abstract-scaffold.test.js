@@ -11,11 +11,9 @@ import { createInitialApplicationState } from "../../application/state.js";
 import { EFFECT_REQUEST_KIND } from "../../ports/effect-request.js";
 import { assertPlainData } from "./plain-data-assertions.js";
 
-// This file defines the smallest executable application seam before product
-// vocabulary exists: explicit commands in, explicit results out, no implicit
-// effects or hidden platform work.
-// It is intentionally not a product state-machine spec. Product state enters
-// only when a real use case forces it.
+// This file defines the behavior-independent application seam: explicit
+// commands in, explicit results out, no implicit effects or hidden platform
+// work. Product-specific behavior belongs in focused use-case tests.
 
 test("application command vocabulary starts with an explicit no-op command", () => {
   assert.equal(Object.isFrozen(APPLICATION_COMMAND_KIND), true);
@@ -41,9 +39,8 @@ test("application command construction rejects implicit command vocabulary", () 
   );
 });
 
-// The first state is deliberately empty as a guard against speculative product
-// fields. The first real use case should replace this with the smallest needed
-// product state, not layer behavior around an abstract placeholder.
+// The first state is deliberately empty as a no-session baseline. Product
+// fields should appear only after a use case actually needs them.
 test("initial application state is plain data", () => {
   const state = createInitialApplicationState();
 
