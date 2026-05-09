@@ -62,3 +62,37 @@ test("panel adapter emits semantic commands only", () => {
     },
   ]);
 });
+
+// Class-b: moving the panel shell is runtime UI chrome, not product intent.
+// It may persist adapter-local position but must not emit app commands.
+test("panel drag is adapter-local", () => {
+  const { window } = new JSDOM("<!doctype html><body></body>");
+  const commands = [];
+  const positions = [];
+  const panel = createPanelAdapter({
+    document: window.document,
+    emitCommand(command) {
+      commands.push(command);
+    },
+    writePanelPosition(position) {
+      positions.push(position);
+    },
+  });
+
+  panel.dragPanel({
+    fromScreenPx: {
+      x: 10,
+      y: 20,
+    },
+    toScreenPx: {
+      x: 30,
+      y: 55,
+    },
+  });
+
+  assert.deepEqual(commands, []);
+  assert.deepEqual(positions, [{
+    x: 20,
+    y: 35,
+  }]);
+});
