@@ -14,25 +14,6 @@ import {
   referenceImageLoadedState,
 } from "../../class-b/application/reference-image-fixtures.js";
 
-// Unclassified candidate: the loaded image should be able to move from Align to
-// Trace as a durable user mode change. This fills the gap between no-image mode
-// inertness and the loaded-mode view policy.
-test("switching loaded image from Align to Trace changes mode durably", () => {
-  const command = createApplicationCommand(APPLICATION_COMMAND_KIND.SELECT_MODE, {
-    mode: "trace",
-  });
-
-  assertApplicationResult(handleApplicationCommand({
-    state: referenceImageLoadedState({ mode: "align" }),
-    command,
-  }), {
-    state: referenceImageLoadedState({ mode: "trace" }),
-    effects: [
-      durableStateChangedEffect(referenceImageDurableState({ mode: "trace" })),
-    ],
-  });
-});
-
 // Unclassified candidate: the loaded image should be able to return from Trace
 // to Align as the inverse durable user mode change.
 test("switching loaded image from Trace to Align changes mode durably", () => {
