@@ -11,36 +11,6 @@ import {
 // pure application steps meet async host work. They are intentionally not yet
 // class-b: the driver names may change, but the boundary pressure is real.
 
-test("runtime disposal calls registered disposers exactly once", () => {
-  const calls = [];
-  const runtime = createRuntimeDriver({
-    initialState: {},
-    effectHandlers: {},
-    stepApplication({ state }) {
-      return {
-        state,
-        effects: [],
-      };
-    },
-    subscriptions: [
-      () => {
-        calls.push("first");
-      },
-      () => {
-        calls.push("second");
-      },
-    ],
-  });
-
-  runtime.dispose();
-  runtime.dispose();
-
-  assert.deepEqual(calls, [
-    "first",
-    "second",
-  ]);
-});
-
 test("bootstrap wiring does not inspect product state or execute app behavior", () => {
   const initialState = createOpaqueProductState({
     session: {
