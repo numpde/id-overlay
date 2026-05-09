@@ -6,39 +6,10 @@ import {
 } from "../../../bootstrap/page-visible-extension.js";
 
 const SELECTOR = {
-  modeSwitch: "[data-id-overlay-mode-switch]",
-  overlay: "[data-id-overlay-reference-image]",
   overlaySurface: "[data-id-overlay-surface]",
   panel: "[data-id-overlay-panel]",
   pin: "[data-id-overlay-pin]",
-  status: "[data-id-overlay-status]",
 };
-
-// Unclassified: two pins should make Trace useful immediately by fitting the
-// overlay. The visible posture is: pins disappear, image remains, and transform
-// changes to the solved placement.
-test("page-visible Trace switch fits overlay from two pins", async () => {
-  const page = await startSupportedExtension({
-    durableState: durableReferenceImageSession({
-      mode: "align",
-      pins: [firstPin(), secondPin()],
-    }),
-  });
-  const overlay = assertOne(page.document, SELECTOR.overlay);
-  const before = overlay.getAttribute("style");
-
-  await page.user.selectMode("trace");
-
-  assert.equal(selectedMode(page.document), "trace");
-  assert.equal(count(page.document, SELECTOR.pin), 0);
-  assert.equal(count(page.document, SELECTOR.overlay), 1);
-  assert.notEqual(
-    overlay.getAttribute("style"),
-    before,
-    "Trace switch with two pins should visibly apply solved placement",
-  );
-  assert.match(textOf(page.document, SELECTOR.status), /fit.*pins/i);
-});
 
 // Unclassified: keyboard shortcuts were part of the efficient legacy workflow.
 // Space temporarily lets the map receive gestures while aligning; P toggles a
@@ -112,59 +83,17 @@ function assertOne(document, selector) {
   return nodes[0];
 }
 
-function selectedMode(document) {
-  return assertOne(document, SELECTOR.modeSwitch).dataset.selectedMode;
-}
-
-function textOf(document, selector) {
-  return assertOne(document, selector).textContent.trim();
-}
-
-function durableReferenceImageSession({ mode, pins = [] }) {
-  const session = {
-    mode,
-    referenceImage: {
-      imageDataRef: "reference-image-data-1",
-      intrinsicSizePx: {
-        width: 640,
-        height: 480,
+function durableReferenceImageSession({ mode }) {
+  return {
+    session: {
+      mode,
+      referenceImage: {
+        imageDataRef: "reference-image-data-1",
+        intrinsicSizePx: {
+          width: 640,
+          height: 480,
+        },
       },
-    },
-  };
-  if (pins.length > 0) {
-    session.registration = {
-      pins,
-    };
-  }
-  return {
-    session,
-  };
-}
-
-function firstPin() {
-  return {
-    id: 1,
-    imagePx: {
-      x: 320,
-      y: 240,
-    },
-    mapLatLon: {
-      lat: -1.23,
-      lon: 36.84,
-    },
-  };
-}
-
-function secondPin() {
-  return {
-    id: 2,
-    imagePx: {
-      x: 520,
-      y: 240,
-    },
-    mapLatLon: {
-      lat: -1.23,
-      lon: 38.84,
     },
   };
 }

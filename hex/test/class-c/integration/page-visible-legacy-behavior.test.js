@@ -129,6 +129,33 @@ test("page-visible wheel modifiers adjust opacity rotate scale and mode", async 
   assert.equal(selectedMode(page.document), "trace");
 });
 
+// Class-c: fitting from pins on Trace is likely product behavior, but the full
+// page-visible contract still spans unsettled boundaries: page projection,
+// solved placement injection, DOM transform evidence, pin visibility, and
+// status copy. Keep this integration pressure below authoritative classes.
+test("page-visible Trace switch fits overlay from two pins", async () => {
+  const page = await startSupportedExtension({
+    durableState: durableReferenceImageSession({
+      mode: "align",
+      pins: [firstPin(), secondPin()],
+    }),
+  });
+  const overlay = assertOne(page.document, SELECTOR.overlay);
+  const before = overlay.getAttribute("style");
+
+  await page.user.selectMode("trace");
+
+  assert.equal(selectedMode(page.document), "trace");
+  assert.equal(count(page.document, SELECTOR.pin), 0);
+  assert.equal(count(page.document, SELECTOR.overlay), 1);
+  assert.notEqual(
+    overlay.getAttribute("style"),
+    before,
+    "Trace switch with two pins should visibly apply solved placement",
+  );
+  assert.match(textOf(page.document, SELECTOR.status), /fit.*pins/i);
+});
+
 async function startSupportedExtension(options = {}) {
   return startPageVisibleExtension({
     page: {
