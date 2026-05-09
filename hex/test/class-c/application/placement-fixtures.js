@@ -43,3 +43,10 @@ export function placementEditPayload({ kind, placement }) {
     placement,
   };
 }
+
+export function historyWithPast(...records) {
+  return {
+    past: records,
+    future: [],
+  };
+}

@@ -6,8 +6,10 @@ import {
   createApplicationCommand,
 } from "../../../application/command.js";
 import { handleApplicationCommand } from "../../../application/handle-command.js";
+import { selectApplicationView } from "../../../application/view-model.js";
 import { durableStateChangedEffect } from "./durable-state-fixtures.js";
 import {
+  historyWithPast,
   identityPlacement,
   movedPlacement,
   placementEditPayload,
@@ -66,4 +68,30 @@ test("move rotate and scale placement edits create semantic history records", ()
       durableStateChangedEffect(referenceImageDurableState({ placement })),
     ]);
   }
+});
+
+// Class-c: these are the user-facing labels we probably want, but they depend
+// on exact history record shape and tooltip wording.
+test("undo and redo labels describe image removal and reload", () => {
+  const state = referenceImageLoadedState({
+    history: historyWithPast({
+      kind: "load-reference-image",
+      undoLabel: "Remove image",
+      redoLabel: "Reload image",
+      before: null,
+      after: referenceImageDurableState(),
+    }),
+  });
+
+  assert.deepEqual(selectApplicationView(state).history.undo, {
+    enabled: true,
+    label: "Remove image",
+  });
+
+  const undo = handleApplicationCommand({
+    state,
+    command: createApplicationCommand(APPLICATION_COMMAND_KIND.UNDO),
+  });
+
+  assert.equal(selectApplicationView(undo.state).history.redo.label, "Reload image");
 });

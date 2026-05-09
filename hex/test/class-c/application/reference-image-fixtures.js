@@ -104,6 +104,7 @@ export function referenceImageLoadedState({
   placement,
   pins = [],
   solved,
+  history,
   panelIntent = null,
   notice = null,
 } = {}) {
@@ -124,6 +125,7 @@ export function referenceImageLoadedState({
     session,
     panelIntent,
     notice,
+    ...(history === undefined ? {} : { history }),
   };
 }
 

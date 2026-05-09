@@ -6,7 +6,6 @@ import {
   createApplicationCommand,
 } from "../../../application/command.js";
 import { handleApplicationCommand } from "../../../application/handle-command.js";
-import { selectApplicationView } from "../../../application/view-model.js";
 import {
   APPLICATION_MODE,
   durableStateChangedEffect,
@@ -17,32 +16,6 @@ import {
   referenceImageDurableState,
   referenceImageLoadedState,
 } from "./user-behavior-fixtures.js";
-
-// Unclassified: image load/removal is user-visible history. The labels should
-// say what will happen, not expose generic "undo change" implementation terms.
-test("undo and redo labels describe image removal and reload", () => {
-  const state = referenceImageLoadedState({
-    history: historyWithPast({
-      kind: "load-reference-image",
-      undoLabel: "Remove image",
-      redoLabel: "Reload image",
-      before: null,
-      after: referenceImageDurableState(),
-    }),
-  });
-
-  assert.deepEqual(selectApplicationView(state).history.undo, {
-    enabled: true,
-    label: "Remove image",
-  });
-
-  const undo = handleApplicationCommand({
-    state,
-    command: createApplicationCommand(APPLICATION_COMMAND_KIND.UNDO),
-  });
-
-  assert.equal(selectApplicationView(undo.state).history.redo.label, "Reload image");
-});
 
 // Unclassified: opacity affects the rendering but should not create history
 // pressure. Undo/redo should stay focused on image, pins, fit, and placement.
