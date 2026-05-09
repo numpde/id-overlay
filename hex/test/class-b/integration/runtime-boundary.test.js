@@ -180,6 +180,78 @@ test("runtime passes effect payloads to handlers unchanged", async () => {
   assert.deepEqual(handlerEffect, effect);
 });
 
+// Class-b: handler output becomes the next application input. Runtime must not
+// interpret the result as a state patch or update product state directly.
+test("runtime feeds plain effect results back through the application step", async () => {
+  const effect = {
+    kind: "persist-durable-state",
+    durableState: {
+      session: {
+        mode: "align",
+      },
+    },
+    requestId: "persist-1",
+  };
+  const effectResult = {
+    kind: "durable-state-persisted",
+    requestId: "persist-1",
+  };
+  const applicationCalls = [];
+  const runtime = createRuntimeDriver({
+    initialState: {
+      phase: "idle",
+    },
+    effectHandlers: {
+      "persist-durable-state": async () => effectResult,
+    },
+    stepApplication({ state, command }) {
+      applicationCalls.push({
+        state,
+        command,
+      });
+      if (command.kind === "start") {
+        return {
+          state: {
+            phase: "persisting",
+          },
+          effects: [effect],
+        };
+      }
+      assert.deepEqual(command, effectResult);
+      return {
+        state: {
+          phase: "complete",
+        },
+        effects: [],
+      };
+    },
+  });
+
+  await runtime.dispatch({
+    kind: "start",
+  });
+
+  assert.deepEqual(applicationCalls, [
+    {
+      state: {
+        phase: "idle",
+      },
+      command: {
+        kind: "start",
+      },
+    },
+    {
+      state: {
+        phase: "persisting",
+      },
+      command: effectResult,
+    },
+  ]);
+  assert.deepEqual(runtime.getState(), {
+    phase: "complete",
+  });
+});
+
 function createOpaqueProductState(value) {
   const forbiddenProductFields = new Set([
     "mode",
