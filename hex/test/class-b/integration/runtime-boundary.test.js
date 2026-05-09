@@ -345,6 +345,42 @@ test("runtime preserves correlation ids and leaves staleness decisions to the ap
   ]);
 });
 
+// Class-b: port results must be plain data before they re-enter the app. Rich
+// runtime handles are stopped at the boundary.
+test("runtime rejects non-plain handler results before app re-entry", async () => {
+  const runtime = createRuntimeDriver({
+    initialState: {},
+    effectHandlers: {
+      "read-reference-image": async () => ({
+        kind: "reference-image-read",
+        runtimeHandle: new Map(),
+      }),
+    },
+    stepApplication({ state, command }) {
+      if (command.kind !== "start") {
+        assert.fail("non-plain handler result reached the application step");
+      }
+      return {
+        state,
+        effects: [{
+          kind: "read-reference-image",
+          requestId: "paste-1",
+        }],
+      };
+    },
+  });
+
+  await assert.rejects(
+    () => runtime.dispatch({
+      kind: "start",
+    }),
+    (error) => (
+      error instanceof RuntimeBoundaryError
+        && error.code === "non-plain-effect-result"
+    ),
+  );
+});
+
 function createOpaqueProductState(value) {
   const forbiddenProductFields = new Set([
     "mode",

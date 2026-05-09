@@ -11,40 +11,6 @@ import {
 // pure application steps meet async host work. They are intentionally not yet
 // class-b: the driver names may change, but the boundary pressure is real.
 
-test("runtime rejects non-plain handler results before app re-entry", async () => {
-  const runtime = createRuntimeDriver({
-    initialState: {},
-    effectHandlers: {
-      "read-reference-image": async () => ({
-        kind: "reference-image-read",
-        runtimeHandle: new Map(),
-      }),
-    },
-    stepApplication({ state, command }) {
-      if (command.kind !== "start") {
-        assert.fail("non-plain handler result reached the application step");
-      }
-      return {
-        state,
-        effects: [{
-          kind: "read-reference-image",
-          requestId: "paste-1",
-        }],
-      };
-    },
-  });
-
-  await assert.rejects(
-    () => runtime.dispatch({
-      kind: "start",
-    }),
-    (error) => (
-      error instanceof RuntimeBoundaryError
-        && error.code === "non-plain-effect-result"
-    ),
-  );
-});
-
 test("runtime does not mutate state commands effects or handler results", async () => {
   const state = deepFreeze({
     session: {
