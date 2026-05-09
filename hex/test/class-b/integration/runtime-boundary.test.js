@@ -447,6 +447,51 @@ test("runtime does not mutate state commands effects or handler results", async 
   });
 });
 
+// Class-b: disposal closes the ingress gate. Late async results may settle, but
+// they must not be delivered to the application after the runtime is disposed.
+test("runtime disposal prevents late effect results from re-entering the app", async () => {
+  const applicationCommands = [];
+  let resolveLateResult = null;
+  const lateResult = new Promise((resolve) => {
+    resolveLateResult = resolve;
+  });
+  const runtime = createRuntimeDriver({
+    initialState: {},
+    effectHandlers: {
+      "read-reference-image": async () => lateResult,
+    },
+    stepApplication({ state, command }) {
+      applicationCommands.push(command);
+      return {
+        state,
+        effects: command.kind === "start"
+          ? [{
+            kind: "read-reference-image",
+            requestId: "paste-1",
+          }]
+          : [],
+      };
+    },
+  });
+
+  const dispatch = runtime.dispatch({
+    kind: "start",
+  });
+  runtime.dispose();
+  resolveLateResult({
+    kind: "reference-image-read",
+    requestId: "paste-1",
+    outcome: {
+      kind: "empty",
+    },
+  });
+
+  await assert.doesNotReject(dispatch);
+  assert.deepEqual(applicationCommands, [{
+    kind: "start",
+  }]);
+});
+
 function createOpaqueProductState(value) {
   const forbiddenProductFields = new Set([
     "mode",
