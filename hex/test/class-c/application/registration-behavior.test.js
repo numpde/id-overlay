@@ -92,8 +92,10 @@ test("adding a registration pin preserves current visible placement", () => {
   assert.deepEqual(result.state.session.placement, placement);
 });
 
-// Class-c: auto-fitting on Trace switch is user-visible and likely right, but
-// solved-placement payloads and fit notices are still unsettled product shape.
+// Class-c: auto-fitting on Trace switch is user-visible and likely right. The
+// command carries solvedPlacement on purpose: the application should decide
+// whether to accept a solve, not know page projection mechanics itself. The
+// exact solved-placement payload and fit notice remain unsettled product shape.
 test("switching to Trace with two pins fits the overlay from registration", () => {
   const state = referenceImageLoadedState({
     mode: "align",
