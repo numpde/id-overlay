@@ -245,6 +245,20 @@ test("reload with no durable state shows Paste", async () => {
   assert.equal(selectedMode(page.document), "trace");
 });
 
+// Class-b, not class-a: manifest resource generation is an integration
+// contract. This catches dynamic-import denial before any panel can mount, but
+// the exact generated resource list belongs to the build/bootstrap harness.
+test("manifest resources allow content bootstrap", async () => {
+  const page = await startPageVisibleExtension({
+    page: supportedMapEditorPage(),
+    durableState: null,
+    manifestResources: generatedManifestResources(),
+  });
+
+  assert.deepEqual(page.bootstrap.dynamicImportFailures, []);
+  assert.equal(count(page.document, SELECTOR.panel), 1);
+});
+
 async function startSupportedExtension(options = {}) {
   return startPageVisibleExtension({
     page: supportedMapEditorPage(),
