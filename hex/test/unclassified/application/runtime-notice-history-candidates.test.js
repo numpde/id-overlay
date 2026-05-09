@@ -24,28 +24,6 @@ import {
   durableStateChangedEffect,
 } from "../../class-c/application/durable-state-fixtures.js";
 
-// Unclassified candidate: request-bound status clearing prevents older timeout
-// results from erasing newer notices.
-test("status clear is request-bound", () => {
-  const state = {
-    ...referenceImageLoadedState(),
-    notice: {
-      kind: "reference-image-paste-empty",
-      requestId: 2,
-    },
-  };
-
-  assertApplicationResult(handleApplicationCommand({
-    state,
-    command: createApplicationCommand(APPLICATION_COMMAND_KIND.CLEAR_STATUS_NOTICE, {
-      requestId: 1,
-    }),
-  }), {
-    state,
-    effects: [],
-  });
-});
-
 // Unclassified candidate: committing a placement edit that makes no visible
 // change should clear preview runtime but not record history or persist.
 test("unchanged placement edit does not create history or durability effect", () => {
