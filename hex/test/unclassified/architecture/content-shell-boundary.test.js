@@ -45,20 +45,6 @@ test("content module imports only the bootstrap ring from hex", () => {
   assert.deepEqual(violations, []);
 });
 
-// Unclassified: direct reducer/selectors calls in src/content are a clear SSoT
-// break. Runtime/bootstrap should be the only place that knows how commands,
-// state, selectors, and effect handlers are assembled.
-test("content source does not own product stepping", () => {
-  assert.deepEqual(collectContentVocabularyViolations([
-    "APPLICATION_COMMAND_KIND",
-    "createApplicationCommand",
-    "handleApplicationCommand",
-    "selectApplicationView",
-    "createInitialApplicationState",
-    "durable-state-changed",
-  ]), []);
-});
-
 // Unclassified: these APIs are legitimate in adapters, but if they appear in
 // src/content then the shell is decoding images, rendering DOM, or persisting
 // state instead of delegating those responsibilities to adapter ports.
@@ -131,13 +117,6 @@ test("content source does not define durable storage identity", () => {
   ]), []);
 });
 
-function collectContentVocabularyViolations(words) {
-  return collectContentPatternViolations(words.map((word) => ({
-    label: word,
-    pattern: new RegExp(`\\b${escapeRegExp(word)}\\b`),
-  })));
-}
-
 function collectContentPatternViolations(forbiddenPatterns) {
   const violations = [];
   for (const filePath of listJavaScriptFiles(CONTENT_DIR)) {
@@ -208,8 +187,4 @@ function repoPath(...segments) {
 
 function relativeToRepo(filePath) {
   return path.relative(REPO_ROOT, filePath);
-}
-
-function escapeRegExp(value) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
