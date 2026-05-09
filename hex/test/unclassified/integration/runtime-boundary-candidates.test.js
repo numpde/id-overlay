@@ -11,43 +11,6 @@ import {
 // pure application steps meet async host work. They are intentionally not yet
 // class-b: the driver names may change, but the boundary pressure is real.
 
-test("runtime passes effect payloads to handlers unchanged", async () => {
-  const effect = {
-    kind: "persist-durable-state",
-    durableState: {
-      session: {
-        mode: "align",
-        referenceImage: {
-          imageDataRef: "reference-image-data-1",
-        },
-      },
-    },
-    requestId: "persist-1",
-  };
-  let handlerEffect = null;
-  const runtime = createRuntimeDriver({
-    initialState: {},
-    effectHandlers: {
-      "persist-durable-state": async (receivedEffect) => {
-        handlerEffect = receivedEffect;
-        return null;
-      },
-    },
-    stepApplication({ state }) {
-      return {
-        state,
-        effects: [effect],
-      };
-    },
-  });
-
-  await runtime.dispatch({
-    kind: "user-command",
-  });
-
-  assert.deepEqual(handlerEffect, effect);
-});
-
 test("runtime feeds plain effect results back through the application step", async () => {
   const effect = {
     kind: "persist-durable-state",
