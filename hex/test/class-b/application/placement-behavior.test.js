@@ -7,17 +7,18 @@ import {
 } from "../../../application/command.js";
 import { handleApplicationCommand } from "../../../application/handle-command.js";
 import {
-  APPLICATION_MODE,
   movedPlacement,
   placementEditPayload,
+} from "./placement-fixtures.js";
+import {
   referenceImageLoadedState,
-} from "./user-behavior-fixtures.js";
+} from "./reference-image-fixtures.js";
 
-// Unclassified: placement edits are invalid in Trace because the underlying map
-// is native there. This prevents hidden overlay manipulation through pass-through.
+// Class-b: Trace is native-map posture. Overlay placement edits must be inert
+// there, though the edit command/payload vocabulary is still application API.
 test("placement edits are no-ops in Trace mode", () => {
   const state = referenceImageLoadedState({
-    mode: APPLICATION_MODE.TRACE,
+    mode: "trace",
   });
   const command = createApplicationCommand(
     APPLICATION_COMMAND_KIND.COMMIT_PLACEMENT_EDIT,
