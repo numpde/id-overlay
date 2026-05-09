@@ -38,39 +38,26 @@ const FORBIDDEN_BROWSER_VOCABULARY = [
   "sessionStorage",
 ];
 
+const PLAIN_DATA_TEST_DIRECTORIES = [
+  hexPath("test/domain"),
+  hexPath("test/application"),
+];
+
 test("domain, application, and ports do not mention browser or platform objects", () => {
-  const violations = [];
-  for (const directoryPath of [
+  const violations = collectForbiddenVocabularyViolations([
     hexPath("domain"),
     hexPath("application"),
     hexPath("ports"),
-  ]) {
-    for (const filePath of listJavaScriptFiles(directoryPath, { includeTests: true })) {
-      const source = readSource(filePath);
-      for (const word of FORBIDDEN_BROWSER_VOCABULARY) {
-        if (new RegExp(`\\b${word}\\b`).test(source)) {
-          violations.push(`${relativeToRepo(filePath)} mentions ${word}`);
-        }
-      }
-    }
-  }
+  ]);
 
   assert.deepEqual(violations, []);
 });
 
 test("domain and application tests stay plain-data tests", () => {
-  const violations = [];
-  for (const directoryPath of [
-    hexPath("test/domain"),
-    hexPath("test/application"),
-  ]) {
+  const violations = collectForbiddenVocabularyViolations(PLAIN_DATA_TEST_DIRECTORIES);
+  for (const directoryPath of PLAIN_DATA_TEST_DIRECTORIES) {
     for (const filePath of listJavaScriptFiles(directoryPath, { includeTests: true })) {
       const source = readSource(filePath);
-      for (const word of FORBIDDEN_BROWSER_VOCABULARY) {
-        if (new RegExp(`\\b${word}\\b`).test(source)) {
-          violations.push(`${relativeToRepo(filePath)} mentions ${word}`);
-        }
-      }
       if (/\bjsdom\b/i.test(source)) {
         violations.push(`${relativeToRepo(filePath)} imports jsdom`);
       }
@@ -79,3 +66,18 @@ test("domain and application tests stay plain-data tests", () => {
 
   assert.deepEqual(violations, []);
 });
+
+function collectForbiddenVocabularyViolations(directoryPaths) {
+  const violations = [];
+  for (const directoryPath of directoryPaths) {
+    for (const filePath of listJavaScriptFiles(directoryPath, { includeTests: true })) {
+      const source = readSource(filePath);
+      for (const word of FORBIDDEN_BROWSER_VOCABULARY) {
+        if (new RegExp(`\\b${word}\\b`).test(source)) {
+          violations.push(`${relativeToRepo(filePath)} mentions ${word}`);
+        }
+      }
+    }
+  }
+  return violations;
+}

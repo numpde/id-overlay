@@ -19,30 +19,14 @@ import { assertApplicationBoundaryError } from "./application-boundary-assertion
 
 test("application boundary error exposes stable identity and code", () => {
   assert.equal(Object.isFrozen(APPLICATION_BOUNDARY_ERROR_CODE), true);
-  assert.equal(
-    APPLICATION_BOUNDARY_ERROR_CODE.UNKNOWN_APPLICATION_COMMAND,
-    "unknown-application-command",
-  );
-  assert.equal(
-    APPLICATION_BOUNDARY_ERROR_CODE.INVALID_APPLICATION_COMMAND,
-    "invalid-application-command",
-  );
-  assert.equal(
-    APPLICATION_BOUNDARY_ERROR_CODE.INVALID_APPLICATION_STATE,
-    "invalid-application-state",
-  );
-  assert.equal(
-    APPLICATION_BOUNDARY_ERROR_CODE.INVALID_EFFECT_REQUEST,
-    "invalid-effect-request",
-  );
-  assert.equal(
-    APPLICATION_BOUNDARY_ERROR_CODE.INVALID_PERSISTED_STATE,
-    "invalid-persisted-state",
-  );
-  assert.equal(
-    APPLICATION_BOUNDARY_ERROR_CODE.UNSUPPORTED_PERSISTED_STATE,
-    "unsupported-persisted-state",
-  );
+  assert.deepEqual(APPLICATION_BOUNDARY_ERROR_CODE, {
+    UNKNOWN_APPLICATION_COMMAND: "unknown-application-command",
+    INVALID_APPLICATION_COMMAND: "invalid-application-command",
+    INVALID_APPLICATION_STATE: "invalid-application-state",
+    INVALID_EFFECT_REQUEST: "invalid-effect-request",
+    INVALID_PERSISTED_STATE: "invalid-persisted-state",
+    UNSUPPORTED_PERSISTED_STATE: "unsupported-persisted-state",
+  });
 
   const error = new ApplicationBoundaryError({
     code: APPLICATION_BOUNDARY_ERROR_CODE.UNKNOWN_APPLICATION_COMMAND,
@@ -83,6 +67,13 @@ test("invalid application state throws ApplicationBoundaryError", () => {
 
   assertApplicationBoundaryError(
     () => handleApplicationCommand({ command }),
+    APPLICATION_BOUNDARY_ERROR_CODE.INVALID_APPLICATION_STATE,
+  );
+  assertApplicationBoundaryError(
+    () => handleApplicationCommand({
+      state: new Map(),
+      command,
+    }),
     APPLICATION_BOUNDARY_ERROR_CODE.INVALID_APPLICATION_STATE,
   );
   assertApplicationBoundaryError(
@@ -142,20 +133,5 @@ test("unsupported persisted state throws ApplicationBoundaryError", () => {
   assertApplicationBoundaryError(
     () => handleApplicationCommand({ state: {}, command }),
     APPLICATION_BOUNDARY_ERROR_CODE.UNSUPPORTED_PERSISTED_STATE,
-  );
-});
-
-// The application should throw deliberate boundary errors; it should not catch
-// them and return error-shaped state or effects. Recoverable external failures
-// will enter later as typed facts, not as exceptions.
-test("application boundary errors are thrown, not returned as application data", () => {
-  const command = createApplicationCommand(APPLICATION_COMMAND_KIND.NOOP);
-
-  assert.throws(
-    () => handleApplicationCommand({
-      state: new Map(),
-      command,
-    }),
-    ApplicationBoundaryError,
   );
 });

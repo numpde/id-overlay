@@ -5,8 +5,13 @@ import {
   APPLICATION_COMMAND_KIND,
   createApplicationCommand,
 } from "../../application/command.js";
+import {
+  APPLICATION_BOUNDARY_ERROR_CODE,
+} from "../../application/errors.js";
 import { handleApplicationCommand } from "../../application/handle-command.js";
 import { createInitialApplicationState } from "../../application/state.js";
+import { assertApplicationBoundaryError } from "./application-boundary-assertions.js";
+import { assertApplicationResult } from "./application-result-assertions.js";
 import { assertPlainData } from "./plain-data-assertions.js";
 
 // Hydration is the abstract startup seam: persisted plain data enters the
@@ -38,15 +43,15 @@ test("hydrating missing persisted state returns empty application state", () => 
 
   const result = handleApplicationCommand({ state, command });
 
-  assertPlainData(result);
-  assert.deepEqual(result, {
+  assertApplicationResult(result, {
     state: {},
     effects: [],
   });
 });
 
-// Empty persisted data is currently the only valid durable shape. This keeps the
-// persistence seam real while refusing to invent session fields prematurely.
+// Empty persisted data is the only valid durable shape until a product field is
+// specified. This keeps the persistence seam real without inventing session
+// fields prematurely.
 test("hydrating empty persisted state returns empty application state", () => {
   const state = createInitialApplicationState();
   const command = createApplicationCommand(APPLICATION_COMMAND_KIND.HYDRATE, {
@@ -55,8 +60,7 @@ test("hydrating empty persisted state returns empty application state", () => {
 
   const result = handleApplicationCommand({ state, command });
 
-  assertPlainData(result);
-  assert.deepEqual(result, {
+  assertApplicationResult(result, {
     state: {},
     effects: [],
   });
@@ -76,9 +80,9 @@ test("hydrating unknown persisted fields rejects non-empty persisted data", () =
     },
   });
 
-  assert.throws(
+  assertApplicationBoundaryError(
     () => handleApplicationCommand({ state, command }),
-    /unsupported persisted state/i,
+    APPLICATION_BOUNDARY_ERROR_CODE.UNSUPPORTED_PERSISTED_STATE,
   );
 });
 
@@ -86,10 +90,10 @@ test("hydrating unknown persisted fields rejects non-empty persisted data", () =
 // whether the persisted shape is supported. Rich values here mean an adapter
 // leaked platform data inward.
 test("hydration rejects non-data persisted state", () => {
-  assert.throws(
+  assertApplicationBoundaryError(
     () => createApplicationCommand(APPLICATION_COMMAND_KIND.HYDRATE, {
       persistedState: new Map(),
     }),
-    /plain persisted state/i,
+    APPLICATION_BOUNDARY_ERROR_CODE.INVALID_PERSISTED_STATE,
   );
 });

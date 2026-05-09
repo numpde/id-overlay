@@ -10,6 +10,7 @@ import {
 } from "../../application/errors.js";
 import { handleApplicationCommand } from "../../application/handle-command.js";
 import { assertApplicationBoundaryError } from "./application-boundary-assertions.js";
+import { assertApplicationResult } from "./application-result-assertions.js";
 import { assertPlainData } from "./plain-data-assertions.js";
 import {
   awaitingReferenceImagePasteState,
@@ -107,8 +108,7 @@ test("accepted paste from awaiting state creates the first reference image sessi
     command: acceptedReferenceImagePasteCommand(),
   });
 
-  assertPlainData(result);
-  assert.deepEqual(result, {
+  assertApplicationResult(result, {
     state: {
       session: {
         mode: "align",

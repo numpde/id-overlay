@@ -7,6 +7,7 @@ import {
 } from "../../application/command.js";
 import { handleApplicationCommand } from "../../application/handle-command.js";
 import { createInitialApplicationState } from "../../application/state.js";
+import { assertApplicationResult } from "./application-result-assertions.js";
 import { assertPlainData } from "./plain-data-assertions.js";
 
 // First real use case: with no session, the primary action starts the smallest
@@ -41,8 +42,7 @@ test("activating the primary action with no session waits for a pasted reference
 
   const result = handleApplicationCommand({ state, command });
 
-  assertPlainData(result);
-  assert.deepEqual(result, {
+  assertApplicationResult(result, {
     state: {
       referenceImageInput: {
         status: "awaiting-paste",

@@ -1,5 +1,4 @@
 import test from "node:test";
-import assert from "node:assert/strict";
 
 import {
   APPLICATION_COMMAND_KIND,
@@ -10,7 +9,7 @@ import {
 } from "../../application/errors.js";
 import { handleApplicationCommand } from "../../application/handle-command.js";
 import { assertApplicationBoundaryError } from "./application-boundary-assertions.js";
-import { assertPlainData } from "./plain-data-assertions.js";
+import { assertApplicationResult } from "./application-result-assertions.js";
 import { awaitingReferenceImagePasteState } from "./reference-image-fixtures.js";
 
 // This is a principle test that uses the first paste flow as a concrete
@@ -61,8 +60,7 @@ test("valid empty paste outcome transitions as product data", () => {
     command,
   });
 
-  assertPlainData(result);
-  assert.deepEqual(result, {
+  assertApplicationResult(result, {
     state: {
       notice: {
         kind: "reference-image-paste-empty",
@@ -91,8 +89,7 @@ test("valid failed paste outcome transitions as product data", () => {
     command,
   });
 
-  assertPlainData(result);
-  assert.deepEqual(result, {
+  assertApplicationResult(result, {
     state: {
       notice: {
         kind: "reference-image-paste-failed",
