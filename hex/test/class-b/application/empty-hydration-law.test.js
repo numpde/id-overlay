@@ -8,8 +8,8 @@ import {
 import { handleApplicationCommand } from "../../../application/handle-command.js";
 import { createInitialApplicationState } from "../../../application/state.js";
 
-// Class-b candidate for class-a: startup with no durable data is a pure
-// canonicalization step. It must not ask the outside world to do anything.
+// Class-b: startup with no durable data is a pure canonicalization step. This
+// depends on the HYDRATE/durableState API vocabulary, so it is not class-a yet.
 
 test("hydrating no durable state returns canonical empty state with no effects", () => {
   for (const durableState of [null, {}]) {

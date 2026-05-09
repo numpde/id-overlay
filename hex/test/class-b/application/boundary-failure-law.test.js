@@ -7,8 +7,8 @@ import {
 } from "../../../application/errors.js";
 import { handleApplicationCommand } from "../../../application/handle-command.js";
 
-// Class-b candidate for class-a: malformed boundary input is a contract
-// failure. It must throw a boundary error instead of becoming product state.
+// Class-b: malformed boundary input is a contract failure. This is important
+// harness pressure, but the exact missing-command semantics are still API shape.
 
 test("malformed application boundary input throws boundary error", () => {
   assert.throws(
