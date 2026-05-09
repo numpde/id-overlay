@@ -23,6 +23,10 @@ test("application boundary error exposes stable identity and code", () => {
     "unknown-application-command",
   );
   assert.equal(
+    APPLICATION_BOUNDARY_ERROR_CODE.INVALID_APPLICATION_COMMAND,
+    "invalid-application-command",
+  );
+  assert.equal(
     APPLICATION_BOUNDARY_ERROR_CODE.INVALID_APPLICATION_STATE,
     "invalid-application-state",
   );
