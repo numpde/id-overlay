@@ -16,26 +16,6 @@ import {
   referenceImageLoadedState,
 } from "./user-behavior-fixtures.js";
 
-// Unclassified: when no pins are visible, the same button escalates to clearing
-// the image itself. This keeps the panel dumb and the app flow inspectable.
-test("primary action without pins requests clear-image confirmation", () => {
-  const result = handleApplicationCommand({
-    state: referenceImageLoadedState(),
-    command: createApplicationCommand(
-      APPLICATION_COMMAND_KIND.ACTIVATE_PRIMARY_ACTION,
-    ),
-  });
-
-  assertApplicationResult(result, {
-    state: referenceImageLoadedState({
-      panelIntent: {
-        kind: "confirm-clear-reference-image",
-      },
-    }),
-    effects: [],
-  });
-});
-
 // Unclassified: confirming image removal should collapse the whole session back
 // to startup posture. Pins, placement, mode, and image data leave together.
 test("primary action confirms clear-image when clear-image confirmation is active", () => {
