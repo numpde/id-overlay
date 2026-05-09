@@ -1,0 +1,221 @@
+import { APPLICATION_COMMAND_KIND } from "./command.js";
+import {
+  ApplicationBoundaryError,
+  APPLICATION_BOUNDARY_ERROR_CODE,
+} from "./errors.js";
+import { isPlainData } from "./plain-data.js";
+import { createInitialApplicationState } from "./state.js";
+import { selectDurableApplicationState } from "./view-model.js";
+
+export function handleApplicationCommand({ state, command }) {
+  assertValidState(state);
+  assertValidCommand(command);
+
+  switch (command.kind) {
+    case APPLICATION_COMMAND_KIND.HYDRATE:
+      return hydrate(command.durableState);
+    case APPLICATION_COMMAND_KIND.ACTIVATE_PRIMARY_ACTION:
+      return activatePrimaryAction(state);
+    case APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_PASTE_OUTCOME:
+      return reportReferenceImagePasteOutcome(state, command);
+    case APPLICATION_COMMAND_KIND.CLEAR_REFERENCE_IMAGE:
+      return {
+        state: createInitialApplicationState(),
+        effects: [durableStateChangedEffect(null)],
+      };
+    case APPLICATION_COMMAND_KIND.SELECT_MODE:
+      return selectMode(state, command.mode);
+    case APPLICATION_COMMAND_KIND.TOGGLE_REGISTRATION_PIN:
+    case APPLICATION_COMMAND_KIND.CLEAR_REGISTRATION_PINS:
+    case APPLICATION_COMMAND_KIND.COMMIT_PLACEMENT_EDIT:
+      return inertResult(state);
+    case APPLICATION_COMMAND_KIND.CLEAR_STATUS_NOTICE:
+      return clearStatusNotice(state, command.requestId);
+    default:
+      throwBoundary(
+        APPLICATION_BOUNDARY_ERROR_CODE.UNKNOWN_APPLICATION_COMMAND,
+        "Unknown application command.",
+      );
+  }
+}
+
+function hydrate(durableState) {
+  if (durableState === null || isEmptyObject(durableState)) {
+    return {
+      state: createInitialApplicationState(),
+      effects: [],
+    };
+  }
+  assertSupportedDurableState(durableState);
+  return {
+    state: {
+      session: durableState.session,
+    },
+    effects: [],
+  };
+}
+
+function activatePrimaryAction(state) {
+  if (state.referenceImageInput?.status === "awaiting-paste") {
+    return {
+      state: {
+        notice: {
+          kind: "reference-image-paste-cancelled",
+        },
+      },
+      effects: [],
+    };
+  }
+  if (!state.session) {
+    return {
+      state: {
+        referenceImageInput: {
+          status: "awaiting-paste",
+          requestId: 1,
+        },
+      },
+      effects: [],
+    };
+  }
+  if (state.panelIntent?.kind === "confirm-clear-reference-image") {
+    return {
+      state: createInitialApplicationState(),
+      effects: [durableStateChangedEffect(null)],
+    };
+  }
+
+  return {
+    state: {
+      session: state.session,
+      panelIntent: {
+        kind: "confirm-clear-reference-image",
+      },
+    },
+    effects: [],
+  };
+}
+
+function reportReferenceImagePasteOutcome(state, command) {
+  if (state.referenceImageInput?.requestId !== command.requestId) {
+    return inertResult(state);
+  }
+  if (command.outcome?.kind !== "accepted") {
+    return {
+      state: {
+        notice: {
+          kind: "reference-image-paste-empty",
+          requestId: command.requestId,
+        },
+      },
+      effects: [],
+    };
+  }
+
+  const session = {
+    mode: "align",
+    referenceImage: command.outcome.referenceImage,
+  };
+  return {
+    state: {
+      session,
+    },
+    effects: [durableStateChangedEffect({ session })],
+  };
+}
+
+function selectMode(state, mode) {
+  if (!state.session || state.session.mode === mode) {
+    return inertResult(state);
+  }
+
+  const nextState = {
+    session: {
+      ...state.session,
+      mode,
+    },
+  };
+  return {
+    state: nextState,
+    effects: [
+      durableStateChangedEffect(selectDurableApplicationState(nextState)),
+    ],
+  };
+}
+
+function clearStatusNotice(state, requestId) {
+  if (state.notice?.requestId !== requestId) {
+    return inertResult(state);
+  }
+
+  const nextState = {};
+  for (const [key, value] of Object.entries(state)) {
+    if (key !== "notice") {
+      nextState[key] = value;
+    }
+  }
+  return {
+    state: nextState,
+    effects: [],
+  };
+}
+
+function inertResult(state) {
+  return {
+    state,
+    effects: [],
+  };
+}
+
+function durableStateChangedEffect(durableState) {
+  return {
+    kind: "durable-state-changed",
+    durableState,
+  };
+}
+
+function assertValidState(state) {
+  if (!isPlainData(state) || state === null || Array.isArray(state)) {
+    throwBoundary(
+      APPLICATION_BOUNDARY_ERROR_CODE.INVALID_APPLICATION_STATE,
+      "Invalid application state.",
+    );
+  }
+}
+
+function assertValidCommand(command) {
+  if (!isPlainData(command) || command === null || Array.isArray(command)) {
+    throwBoundary(
+      APPLICATION_BOUNDARY_ERROR_CODE.UNKNOWN_APPLICATION_COMMAND,
+      "Unknown application command.",
+    );
+  }
+}
+
+function assertSupportedDurableState(durableState) {
+  if (!isPlainData(durableState)) {
+    throwBoundary(
+      APPLICATION_BOUNDARY_ERROR_CODE.INVALID_DURABLE_STATE,
+      "Invalid durable state.",
+    );
+  }
+  const sessionKeys = durableState.session ? Object.keys(durableState.session) : [];
+  for (const key of sessionKeys) {
+    if (!["mode", "referenceImage", "registration"].includes(key)) {
+      throwBoundary(
+        APPLICATION_BOUNDARY_ERROR_CODE.UNSUPPORTED_DURABLE_STATE,
+        "Unsupported durable state.",
+      );
+    }
+  }
+}
+
+function isEmptyObject(value) {
+  return value
+    && typeof value === "object"
+    && Object.getPrototypeOf(value) === Object.prototype
+    && Object.keys(value).length === 0;
+}
+
+function throwBoundary(code, message) {
+  throw new ApplicationBoundaryError({ code, message });
+}
