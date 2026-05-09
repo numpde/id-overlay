@@ -15,20 +15,6 @@ import {
 } from "../../class-b/application/application-boundary-assertions.js";
 import { assertPlainData } from "../../class-b/application/plain-data-assertions.js";
 
-// Unclassified candidate: this may belong in class-a. Unknown API input should
-// be a boundary error, never product state or a recoverable user outcome.
-test("unknown commands throw a boundary error instead of returning state", () => {
-  assertApplicationBoundaryError(
-    () => handleApplicationCommand({
-      state: createInitialApplicationState(),
-      command: {
-        kind: "unknown-application-command",
-      },
-    }),
-    APPLICATION_BOUNDARY_ERROR_CODE.UNKNOWN_APPLICATION_COMMAND,
-  );
-});
-
 // Unclassified candidate: known command kinds with malformed payloads should
 // fail at the application boundary. Product state should not encode API misuse.
 test("known commands with malformed payloads throw boundary errors", () => {
