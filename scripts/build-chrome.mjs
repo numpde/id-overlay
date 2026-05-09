@@ -1,4 +1,4 @@
-import { cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createChromeManifest } from "./chrome-manifest.mjs";
@@ -21,32 +21,25 @@ async function main() {
   });
   await writeFile(manifestTarget, `${JSON.stringify(chromeManifest, null, 2)}\n`);
 
-  for (const entry of ["src", "assets"]) {
-    const source = path.join(root, entry);
-    try {
-      await cp(source, path.join(distDir, entry), { recursive: true });
-    } catch (error) {
-      if (error && error.code === "ENOENT") {
-        continue;
-      }
-      throw error;
-    }
+  for (const resource of collectBrowserResources(chromeManifest)) {
+    await copyResource(resource);
   }
 
-  const buildInfoTarget = path.join(distDir, "src", "core", "build-info.js");
-  const builtAt = new Date().toISOString();
-  await writeFile(
-    buildInfoTarget,
-    [
-      "export const BUILD_INFO = Object.freeze({",
-      `  version: ${JSON.stringify(chromeManifest.version)},`,
-      `  builtAt: ${JSON.stringify(builtAt)},`,
-      "});",
-      "",
-    ].join("\n"),
-  );
-
   process.stdout.write(`Built Chromium extension scaffold in ${distDir}\n`);
+}
+
+function collectBrowserResources(manifest) {
+  return [...new Set([
+    ...manifest.content_scripts.flatMap((contentScript) => contentScript.js ?? []),
+    ...manifest.web_accessible_resources.flatMap((entry) => entry.resources ?? []),
+  ])];
+}
+
+async function copyResource(resource) {
+  const source = path.join(root, resource);
+  const target = path.join(distDir, resource);
+  await mkdir(path.dirname(target), { recursive: true });
+  await copyFile(source, target);
 }
 
 main().catch((error) => {
