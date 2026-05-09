@@ -56,6 +56,17 @@ test("unknown commands throw ApplicationBoundaryError", () => {
   );
 });
 
+// Declared commands still have boundary contracts. Malformed payloads are API
+// misuse, not product states to recover from inside the reducer.
+test("known commands with malformed payloads throw ApplicationBoundaryError", () => {
+  assertApplicationBoundaryError(
+    () => createApplicationCommand(APPLICATION_COMMAND_KIND.SELECT_MODE, {
+      mode: new Map(),
+    }),
+    APPLICATION_BOUNDARY_ERROR_CODE.INVALID_APPLICATION_COMMAND,
+  );
+});
+
 // State validation belongs at the command boundary. This prevents runtime
 // objects from becoming product state through command handling.
 test("invalid application state throws ApplicationBoundaryError", () => {

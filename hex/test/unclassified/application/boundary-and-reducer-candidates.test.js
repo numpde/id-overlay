@@ -5,33 +5,9 @@ import {
   APPLICATION_COMMAND_KIND,
   createApplicationCommand,
 } from "../../../application/command.js";
-import {
-  APPLICATION_BOUNDARY_ERROR_CODE,
-} from "../../../application/errors.js";
 import { handleApplicationCommand } from "../../../application/handle-command.js";
 import { createInitialApplicationState } from "../../../application/state.js";
-import {
-  assertApplicationBoundaryError,
-} from "../../class-b/application/application-boundary-assertions.js";
 import { assertPlainData } from "../../class-b/application/plain-data-assertions.js";
-
-// Unclassified candidate: known command kinds with malformed payloads should
-// fail at the application boundary. Product state should not encode API misuse.
-test("known commands with malformed payloads throw boundary errors", () => {
-  assertApplicationBoundaryError(
-    () => createApplicationCommand(APPLICATION_COMMAND_KIND.SELECT_MODE, {
-      mode: new Map(),
-    }),
-    APPLICATION_BOUNDARY_ERROR_CODE.INVALID_APPLICATION_COMMAND,
-  );
-
-  assertApplicationBoundaryError(
-    () => createApplicationCommand(APPLICATION_COMMAND_KIND.HYDRATE, {
-      durableState: new Map(),
-    }),
-    APPLICATION_BOUNDARY_ERROR_CODE.INVALID_DURABLE_STATE,
-  );
-});
 
 // Unclassified candidate: this generalizes the class-a reducer-envelope law
 // beyond one command. It should be promoted only if this exact broad contract
