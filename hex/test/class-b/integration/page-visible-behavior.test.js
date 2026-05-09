@@ -6,7 +6,11 @@ import {
 } from "../../../bootstrap/page-visible-extension.js";
 
 const SELECTOR = {
+  alignControl: "[data-id-overlay-mode='align']",
+  modeSwitch: "[data-id-overlay-mode-switch]",
+  overlay: "[data-id-overlay-reference-image]",
   panel: "[data-id-overlay-panel]",
+  primaryAction: "[data-id-overlay-primary-action]",
 };
 
 // Class-b, not class-a: mounting a visible panel is the first end-to-end page
@@ -17,6 +21,20 @@ test("bootstrap mounts one visible panel", async () => {
 
   assert.equal(count(page.document, SELECTOR.panel), 1);
   assert.equal(assertOne(page.document, SELECTOR.panel).hidden, false);
+});
+
+// Class-b, not class-a: the no-session Paste / Trace posture is already a
+// product law, but this checks that bootstrap and UI rendering expose it on the
+// page through provisional DOM test handles.
+test("no-session panel shows Paste posture", async () => {
+  const page = await startSupportedExtension({
+    durableState: null,
+  });
+
+  assert.match(textOf(page.document, SELECTOR.primaryAction), /^Paste$/i);
+  assert.equal(selectedMode(page.document), "trace");
+  assert.equal(assertOne(page.document, SELECTOR.alignControl).disabled, true);
+  assert.equal(count(page.document, SELECTOR.overlay), 0);
 });
 
 async function startSupportedExtension(options = {}) {
@@ -35,6 +53,14 @@ function assertOne(document, selector) {
   const nodes = [...document.querySelectorAll(selector)];
   assert.equal(nodes.length, 1, `expected exactly one ${selector}`);
   return nodes[0];
+}
+
+function selectedMode(document) {
+  return assertOne(document, SELECTOR.modeSwitch).dataset.selectedMode;
+}
+
+function textOf(document, selector) {
+  return assertOne(document, selector).textContent.trim();
 }
 
 function supportedMapEditorPage() {

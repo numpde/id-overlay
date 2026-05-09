@@ -26,19 +26,6 @@ const SELECTOR = {
   panelDragHandle: "[data-id-overlay-panel-drag-handle]",
 };
 
-// Unclassified candidate: empty durable state should visibly start in Paste /
-// Trace posture with no overlay image. This is the first useful page milestone.
-test("no-session panel shows Paste posture", async () => {
-  const page = await startSupportedExtension({
-    durableState: null,
-  });
-
-  assert.match(textOf(page.document, SELECTOR.primaryAction), /^Paste$/i);
-  assert.equal(selectedMode(page.document), "trace");
-  assert.equal(assertOne(page.document, SELECTOR.alignControl).disabled, true);
-  assert.equal(count(page.document, SELECTOR.overlay), 0);
-});
-
 // Unclassified candidate: clicking the visible primary button should arm the
 // paste flow. The exact status copy is provisional; the visible armed posture is
 // the behavior under test.
