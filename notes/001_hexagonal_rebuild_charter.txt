@@ -1,0 +1,271 @@
+Hexagonal rebuild charter
+
+We are rebuilding the extension under ./hex as a clean hexagonal system.
+
+The quarantined implementation under ./legacy is available for product
+reference, but it is not the source of the new design. The new design should be
+derived from the product facts and user-visible behavior, not by moving old
+modules back into place.
+
+The goal
+
+The goal is a browser-independent product core surrounded by explicit adapters.
+The whole extension cannot be browser-independent: it is a browser extension and
+it integrates with a live OSM/iD page. The product core can and should be
+browser-independent.
+
+The center of the system should be runnable in plain Node with no DOM shim, no
+Chrome/WebExtension shim, no clipboard API, no image element, no storage API, no
+timer handles, and no live OSM/iD page. It may describe timer requests as plain
+data; it must not schedule timers itself. If the application cannot run in that
+environment, the hexagon has leaked.
+
+The intended shape is:
+
+- domain: pure product facts and pure rules
+- application: pure use cases, state transitions, effect requests, product
+  selectors
+- ports: browser-neutral data contracts at the application boundary
+- adapters: translations between real external systems and port data
+- bootstrap: the only place concrete adapters are assembled into a running app
+
+The dependency rule is inward-only:
+
+- domain imports nothing from application, ports, adapters, or bootstrap
+- application imports only domain and ports
+- ports import only domain-shaped data definitions or other port definitions
+- adapters may import domain, application, and ports, but not sibling adapters
+  unless the dependency is explicitly composed outside both adapters
+- bootstrap may import concrete adapters because its job is wiring; bootstrap
+  should still not import ./legacy
+
+Domain
+
+The domain should contain product vocabulary, invariants, and pure calculations.
+
+Domain code may define:
+
+- session shape
+- image metadata shape
+- placement and transform facts
+- registration pins
+- mode vocabulary
+- opacity rules
+- capability predicates
+- semantic history record vocabulary
+- pure geometry and projection math that does not depend on the live page
+
+Domain code must not know:
+
+- DOM event names
+- element selectors
+- CSS transforms from the host page
+- chrome.storage
+- navigator.clipboard
+- setTimeout/requestAnimationFrame
+- content scripts
+- manifest rules
+- user-interface element structure
+
+Application
+
+The application should own product behavior.
+
+Application code receives typed input facts and user intents. It returns the
+next application state plus plain-data effect requests. It should not execute
+effects directly.
+
+Application code may own:
+
+- state machine transitions
+- undo/redo semantics
+- paste/clear confirmation intent
+- status notices
+- mode transitions
+- history recording and replay
+- product selectors and product-facing presentation facts
+- requests for effects such as read-clipboard-image, persist-session, start
+  timer, cancel timer, or request page context
+
+Application code must not:
+
+- call browser APIs
+- register event listeners
+- create DOM nodes
+- inspect DOM targets
+- decode images through browser objects
+- store callbacks or promises in state
+- receive raw PointerEvent, KeyboardEvent, WheelEvent, Blob, File, Element,
+  Window, Document, or chrome/browser objects
+
+Ports
+
+Ports describe what the application needs from the outside world without naming
+the concrete outside world. Port names and shapes should be discovered from use
+cases; the examples below are illustrative, not a commitment to these exact
+interfaces.
+
+A good port speaks in plain data:
+
+- readClipboardImage -> ClipboardImageReadResult
+- persistSession(PersistedSession)
+- startTimer({ timerId, delayMs, purpose })
+- observePageSnapshot -> PageSnapshotFact
+- projectScreenPoint(ScreenPoint) -> MapPoint/ImagePoint fact
+- forwardMapGesture(MapGestureFact) -> MapGestureResult
+
+A bad port leaks platform objects:
+
+- readClipboard() -> Blob
+- handlePointer(event: PointerEvent)
+- save(chrome.storage.local, key, value)
+- projectWithElement(element, point)
+- startTimer(callback)
+
+Ports are contracts, not implementations. They should be stable across plausible
+adapter changes: Chrome to Firefox, callback storage to promise storage, DOM
+clipboard to extension clipboard, or OSM/iD DOM heuristics to an official page
+API. They do not need to pretend the product can run without any page adapter;
+they need to keep the page adapter's mechanics outside the application.
+
+Adapters
+
+Adapters are allowed to be impure. They are where the real world enters.
+
+Browser/web adapters translate:
+
+- DOM events into input facts
+- clipboard APIs into clipboard image facts
+- Blob/File/Image/createImageBitmap/canvas behavior into normalized image facts
+- timers into timer result facts
+- local storage APIs into persisted session facts
+
+Extension adapters translate:
+
+- chrome.* or browser.* APIs into port implementations
+- manifest/content-script loading concerns into bootstrap inputs
+- web-accessible-resource constraints into build-time artifacts
+
+Page adapters translate:
+
+- OSM/iD DOM structure into page snapshot facts
+- hash/tile/rendered viewport observations into map view facts
+- CSS transform and viewport geometry into surface motion facts
+- synthetic pointer/wheel forwarding into map gesture results
+
+UI adapters translate:
+
+- application product projections into DOM-specific view models
+- DOM control activations into typed user intents
+- panel-local shell behavior such as dragging into local UI behavior, not
+  product state, unless it becomes a user preference
+
+UI view models are adapter concerns when they encode DOM labels, ARIA structure,
+CSS classes, control grouping, or layout. Application selectors may expose
+product-facing facts such as "can undo", "primary action is paste", or "status
+notice is paste failed"; they should not describe DOM shape.
+
+The page adapter is the intentionally dirty boundary. It may contain heuristics,
+DOM selectors, tile parsing, RAF polling, and synthetic events, but those details
+must not escape as application concepts.
+
+Browser independence
+
+Browser independence means more than avoiding chrome.* in core code. It means
+domain and application are not coupled to browser concepts, even indirectly
+through port shapes, test shims, or persisted platform handles.
+
+The domain and application should be independent of:
+
+- Chrome vs Firefox extension APIs
+- content script vs web page execution context
+- DOM availability
+- browser image-decoding objects
+- browser timer handles
+- jsdom test shims
+- the exact OSM/iD DOM structure
+
+The way to achieve that is to normalize at the edge:
+
+- raw keyboard/pointer/wheel events become plain input facts
+- raw clipboard results become image read facts
+- raw decoded images become canonical image metadata and browser-neutral data
+  references
+- raw page geometry becomes page snapshot facts
+- raw projection failures become explicit result facts
+- raw timers become typed timeout completion facts
+
+State and effects
+
+Application state should contain product facts, not platform handles.
+
+State may contain:
+
+- current durable session
+- transient product intent, such as pending paste or clear confirmation
+- transient status notice identity and parameters
+- input runtime facts expressed as plain data
+- undo/redo history
+- pending effect request ids
+
+State must not contain:
+
+- DOM elements
+- event objects
+- timer handles
+- promises
+- callbacks
+- Blob/File/Image/Canvas objects
+- storage handles
+- page adapter instances
+
+Effects leaving the application should be data. The shell executes them through
+ports and reports typed facts back. This keeps the application deterministic and
+testable. Effect request data may include request ids, durations, storage keys,
+or semantic operation names; it must not include callbacks, promises, DOM nodes,
+or platform handles.
+
+Testing posture
+
+The first tests under ./hex should not be product behavior tests. They should be
+architecture tests.
+
+The architecture tests should enforce:
+
+- domain has no imports from application, ports, adapters, bootstrap, or legacy
+- application imports only domain and ports
+- ports do not mention forbidden browser/platform vocabulary
+- adapters do not become dependencies of inward code
+- bootstrap is the only composition point
+- domain/application tests run without jsdom
+- no new ./hex file imports from ./legacy
+- product tests do not construct DOM events, DOM nodes, Blob/File/Image objects,
+  or chrome/browser objects
+
+After that, product behavior tests should be added at the correct ring:
+
+- domain tests for pure rules and invariants
+- application tests for state transitions, undo/redo, effects, and selectors
+- adapter tests for DOM, browser, extension, and OSM/iD translation behavior
+- integration tests at adapter/bootstrap boundaries where multiple real
+  dependencies are intentionally assembled
+
+What not to do
+
+Do not start by copying legacy files into ./hex.
+
+Do not start by making the UI render.
+
+Do not start by making the extension load in Chrome.
+
+Do not start by adapting tests until the architecture boundary exists.
+
+The correct first implementation step is:
+
+- create the ./hex directory skeleton
+- write the architecture contract tests
+- add the smallest placeholder modules needed to make those tests meaningful
+- only then begin implementing the domain and application behavior with plain
+  data tests
+
+This note is the map. The architecture tests are the fence.
