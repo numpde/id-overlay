@@ -35,3 +35,20 @@ test("storage port stores exactly durable state", async () => {
     },
   ]);
 });
+
+// Class-b: absent extension-storage data is a platform detail. The adapter
+// presents the application with explicit no-durable-state instead.
+test("storage port normalizes missing state to null", async () => {
+  for (const record of [undefined, null, {}, { "id-overlay/state": undefined }]) {
+    const storage = createStoragePortAdapter({
+      storageArea: {
+        async get() {
+          return record;
+        },
+      },
+      storageKey: "id-overlay/state",
+    });
+
+    assert.equal(await storage.readDurableState(), null);
+  }
+});
