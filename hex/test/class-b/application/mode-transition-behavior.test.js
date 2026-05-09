@@ -29,3 +29,21 @@ test("switching loaded image from Align to Trace changes mode durably", () => {
     ],
   });
 });
+
+// Class-b: Align is the inverse loaded-image user mode. Returning to it is
+// equally durable because it changes the saved session posture.
+test("switching loaded image from Trace to Align changes mode durably", () => {
+  const command = createApplicationCommand(APPLICATION_COMMAND_KIND.SELECT_MODE, {
+    mode: "align",
+  });
+
+  assertApplicationResult(handleApplicationCommand({
+    state: referenceImageLoadedState({ mode: "trace" }),
+    command,
+  }), {
+    state: referenceImageLoadedState({ mode: "align" }),
+    effects: [
+      durableStateChangedEffect(referenceImageDurableState({ mode: "align" })),
+    ],
+  });
+});
