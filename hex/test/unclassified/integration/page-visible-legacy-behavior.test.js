@@ -14,62 +14,6 @@ const SELECTOR = {
   status: "[data-id-overlay-status]",
 };
 
-// Unclassified: wheel modifiers are a compact legacy interaction vocabulary.
-// They should remain page-visible behaviors even if the implementation is
-// rebuilt through cleaner ports.
-test("page-visible wheel modifiers adjust opacity rotate scale and mode", async () => {
-  const page = await startSupportedExtension({
-    durableState: durableReferenceImageSession({
-      mode: "align",
-    }),
-  });
-  assert.equal(typeof page.user.wheel, "function");
-  const overlay = assertOne(page.document, SELECTOR.overlay);
-  const beforeOpacity = overlay.getAttribute("data-opacity");
-  const beforeTransform = overlay.getAttribute("style");
-
-  await page.user.wheel(SELECTOR.overlaySurface, {
-    modifier: "alt",
-    deltaY: -100,
-    screenPx: {
-      x: 200,
-      y: 160,
-    },
-  });
-  assert.notEqual(
-    overlay.getAttribute("data-opacity"),
-    beforeOpacity,
-    "alt-wheel should visibly change overlay opacity",
-  );
-
-  await page.user.wheel(SELECTOR.overlaySurface, {
-    modifier: "ctrl",
-    deltaY: -100,
-    screenPx: {
-      x: 200,
-      y: 160,
-    },
-  });
-  await page.user.wheel(SELECTOR.overlaySurface, {
-    modifier: "shift",
-    deltaY: -100,
-    screenPx: {
-      x: 200,
-      y: 160,
-    },
-  });
-  assert.notEqual(
-    overlay.getAttribute("style"),
-    beforeTransform,
-    "ctrl/shift wheel should visibly change overlay transform",
-  );
-
-  await page.user.wheel(SELECTOR.modeSwitch, {
-    deltaY: 100,
-  });
-  assert.equal(selectedMode(page.document), "trace");
-});
-
 // Unclassified: two pins should make Trace useful immediately by fitting the
 // overlay. The visible posture is: pins disappear, image remains, and transform
 // changes to the solved placement.

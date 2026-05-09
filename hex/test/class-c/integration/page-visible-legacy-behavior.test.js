@@ -6,6 +6,7 @@ import {
 } from "../../../bootstrap/page-visible-extension.js";
 
 const SELECTOR = {
+  modeSwitch: "[data-id-overlay-mode-switch]",
   overlay: "[data-id-overlay-reference-image]",
   overlaySurface: "[data-id-overlay-surface]",
   pin: "[data-id-overlay-pin]",
@@ -71,6 +72,63 @@ test("page-visible shift drag moves overlay and undo restores prior placement", 
   assert.equal(overlay.getAttribute("style"), before);
 });
 
+// Class-c: the raw overlay wheel facts are already class-b; this is stronger
+// and less settled because it asserts the full page-visible legacy vocabulary:
+// alt-wheel opacity, ctrl/shift-wheel transform edits, and wheel-to-toggle on
+// the mode switch. Promote only if that entire shortcut bundle survives design.
+test("page-visible wheel modifiers adjust opacity rotate scale and mode", async () => {
+  const page = await startSupportedExtension({
+    durableState: durableReferenceImageSession({
+      mode: "align",
+    }),
+  });
+  assert.equal(typeof page.user.wheel, "function");
+  const overlay = assertOne(page.document, SELECTOR.overlay);
+  const beforeOpacity = overlay.getAttribute("data-opacity");
+  const beforeTransform = overlay.getAttribute("style");
+
+  await page.user.wheel(SELECTOR.overlaySurface, {
+    modifier: "alt",
+    deltaY: -100,
+    screenPx: {
+      x: 200,
+      y: 160,
+    },
+  });
+  assert.notEqual(
+    overlay.getAttribute("data-opacity"),
+    beforeOpacity,
+    "alt-wheel should visibly change overlay opacity",
+  );
+
+  await page.user.wheel(SELECTOR.overlaySurface, {
+    modifier: "ctrl",
+    deltaY: -100,
+    screenPx: {
+      x: 200,
+      y: 160,
+    },
+  });
+  await page.user.wheel(SELECTOR.overlaySurface, {
+    modifier: "shift",
+    deltaY: -100,
+    screenPx: {
+      x: 200,
+      y: 160,
+    },
+  });
+  assert.notEqual(
+    overlay.getAttribute("style"),
+    beforeTransform,
+    "ctrl/shift wheel should visibly change overlay transform",
+  );
+
+  await page.user.wheel(SELECTOR.modeSwitch, {
+    deltaY: 100,
+  });
+  assert.equal(selectedMode(page.document), "trace");
+});
+
 async function startSupportedExtension(options = {}) {
   return startPageVisibleExtension({
     page: {
@@ -96,6 +154,10 @@ function assertOne(document, selector) {
   const nodes = [...document.querySelectorAll(selector)];
   assert.equal(nodes.length, 1, `expected exactly one ${selector}`);
   return nodes[0];
+}
+
+function selectedMode(document) {
+  return assertOne(document, SELECTOR.modeSwitch).dataset.selectedMode;
 }
 
 function durableReferenceImageSession({ mode, pins = [] }) {
