@@ -70,6 +70,29 @@ test("move rotate and scale placement edits create semantic history records", ()
   }
 });
 
+// Class-c: committing the current placement again is not a user-visible edit.
+// It should not create history or ask for durable persistence.
+test("unchanged placement edit does not create history or durability effect", () => {
+  const state = referenceImageLoadedState({
+    placement: identityPlacement(),
+    history: historyWithPast(),
+  });
+
+  assert.deepEqual(handleApplicationCommand({
+    state,
+    command: createApplicationCommand(
+      APPLICATION_COMMAND_KIND.COMMIT_PLACEMENT_EDIT,
+      placementEditPayload({
+        kind: "move",
+        placement: identityPlacement(),
+      }),
+    ),
+  }), {
+    state,
+    effects: [],
+  });
+});
+
 // Class-c: these are the user-facing labels we probably want, but they depend
 // on exact history record shape and tooltip wording.
 test("undo and redo labels describe image removal and reload", () => {
