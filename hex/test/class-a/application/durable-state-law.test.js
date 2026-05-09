@@ -67,3 +67,34 @@ test("durable state excludes transient application context", () => {
     session,
   });
 });
+
+// Class-a: placement preview is a live interaction draft. Only committed
+// session placement may be durable; persisting previews would replay a drag that
+// the user had not committed.
+test("durable state excludes transient placement previews", () => {
+  const session = {
+    mode: "align",
+    referenceImage: {
+      imageDataRef: "reference-image-data-1",
+      intrinsicSizePx: {
+        width: 640,
+        height: 480,
+      },
+    },
+  };
+
+  assert.deepEqual(selectDurableApplicationState({
+    session,
+    placementPreview: {
+      beforePlacement: null,
+      previewPlacement: {
+        x: 80,
+        y: 40,
+        scale: 1,
+        rotationRad: 0,
+      },
+    },
+  }), {
+    session,
+  });
+});
