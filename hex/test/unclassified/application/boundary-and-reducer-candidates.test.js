@@ -29,6 +29,24 @@ test("unknown commands throw a boundary error instead of returning state", () =>
   );
 });
 
+// Unclassified candidate: known command kinds with malformed payloads should
+// fail at the application boundary. Product state should not encode API misuse.
+test("known commands with malformed payloads throw boundary errors", () => {
+  assertApplicationBoundaryError(
+    () => createApplicationCommand(APPLICATION_COMMAND_KIND.SELECT_MODE, {
+      mode: new Map(),
+    }),
+    APPLICATION_BOUNDARY_ERROR_CODE.INVALID_APPLICATION_COMMAND,
+  );
+
+  assertApplicationBoundaryError(
+    () => createApplicationCommand(APPLICATION_COMMAND_KIND.HYDRATE, {
+      durableState: new Map(),
+    }),
+    APPLICATION_BOUNDARY_ERROR_CODE.INVALID_DURABLE_STATE,
+  );
+});
+
 // Unclassified candidate: this generalizes the class-a reducer-envelope law
 // beyond one command. It should be promoted only if this exact broad contract
 // stays useful once real commands exist.

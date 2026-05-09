@@ -6,6 +6,7 @@ import {
   createApplicationCommand,
 } from "../../../application/command.js";
 import { handleApplicationCommand } from "../../../application/handle-command.js";
+import { createInitialApplicationState } from "../../../application/state.js";
 import {
   selectDurableApplicationState,
 } from "../../../application/view-model.js";
@@ -17,6 +18,15 @@ import {
   referenceImageDurableState,
   referenceImageLoadedState,
 } from "../../class-b/application/reference-image-fixtures.js";
+import {
+  movedPlacement,
+} from "../../class-b/application/placement-fixtures.js";
+
+// Unclassified candidate: no image means there is no durable session to save.
+// This is likely class-a, but keep it here until durable selection is built.
+test("no image has no durable state", () => {
+  assert.equal(selectDurableApplicationState(createInitialApplicationState()), null);
+});
 
 // Unclassified candidate: durable state should be the session-shaped product
 // snapshot only. Runtime input, notices, panel intent, and history should not
@@ -38,6 +48,18 @@ test("durable state excludes input notices panel intent and history", () => {
         kind: "load-reference-image",
       }],
       future: [],
+    },
+  }), referenceImageDurableState());
+});
+
+// Unclassified candidate: placement preview is runtime-only. Drag previews
+// should not be persisted before the user commits the edit.
+test("transient placement preview is not durable state", () => {
+  assert.deepEqual(selectDurableApplicationState({
+    ...referenceImageLoadedState(),
+    placementPreview: {
+      beforePlacement: null,
+      previewPlacement: movedPlacement(),
     },
   }), referenceImageDurableState());
 });
