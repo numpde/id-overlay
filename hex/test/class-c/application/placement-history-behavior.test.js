@@ -119,6 +119,45 @@ test("undo and redo labels describe image removal and reload", () => {
   assert.equal(selectApplicationView(undo.state).history.redo.label, "Reload image");
 });
 
+// Class-c: undo/redo should replay semantic user-visible history entries, not
+// raw commands, and replay must not preserve transient confirmation intent from
+// the original action. The history record shape and command vocabulary are
+// still quarantined.
+test("undo and redo restore committed image removal and reset confirmation intent", () => {
+  const state = referenceImageLoadedState({
+    panelIntent: {
+      kind: "confirm-clear-reference-image",
+    },
+  });
+  const cleared = handleApplicationCommand({
+    state,
+    command: createApplicationCommand(
+      APPLICATION_COMMAND_KIND.ACTIVATE_PRIMARY_ACTION,
+    ),
+  }).state;
+  const undo = handleApplicationCommand({
+    state: cleared,
+    command: createApplicationCommand("undo"),
+  }).state;
+
+  assert.deepEqual(undo.session, state.session);
+  assert.equal(undo.panelIntent, null);
+  assert.deepEqual(selectApplicationView(undo).history.redo, {
+    enabled: true,
+    label: "Remove image",
+  });
+
+  const redo = handleApplicationCommand({
+    state: undo,
+    command: createApplicationCommand("redo"),
+  }).state;
+  assert.equal(redo.session, undefined);
+  assert.deepEqual(selectApplicationView(redo).history.undo, {
+    enabled: true,
+    label: "Reload image",
+  });
+});
+
 // Class-c: redo should not outlive a later durable edit. The exact history
 // representation is still unsettled, so this stays quarantined.
 test("new durable edit clears redo history", () => {
