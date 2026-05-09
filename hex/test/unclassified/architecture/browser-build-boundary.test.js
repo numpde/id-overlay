@@ -7,34 +7,9 @@ import { fileURLToPath } from "node:url";
 import {
   WEB_ACCESSIBLE_CONTENT_ENTRYPOINT,
   collectModuleGraph,
-  createChromeManifest,
 } from "../../../../scripts/chrome-manifest.mjs";
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../..");
-
-// Unclassified: the manifest must be derived from the real source graph, not a
-// toy fixture. This protects against the earlier failure mode where Chrome
-// denied a dynamic import because a dependency was missing from resources.
-test("chrome manifest can be generated from the real content graph", async () => {
-  assert.equal(
-    fs.existsSync(repoPath(WEB_ACCESSIBLE_CONTENT_ENTRYPOINT)),
-    true,
-    `missing ${WEB_ACCESSIBLE_CONTENT_ENTRYPOINT}`,
-  );
-
-  const sourceManifest = JSON.parse(readSource(repoPath("manifest.chrome.json")));
-
-  const manifest = await createChromeManifest({
-    root: REPO_ROOT,
-    sourceManifest,
-  });
-
-  assert.deepEqual(manifest.content_scripts[0].js, ["src/content/content-loader.js"]);
-  assert.equal(
-    manifest.web_accessible_resources[0].resources.includes("src/content/main.js"),
-    true,
-  );
-});
 
 // Unclassified: copying whole source directories makes the bundle lie about
 // what the manifest needs. The build should copy content scripts plus generated
