@@ -156,6 +156,54 @@ test("page-visible Trace switch fits overlay from two pins", async () => {
   assert.match(textOf(page.document, SELECTOR.status), /fit.*pins/i);
 });
 
+// Class-c: temporary pass-through is a plausible Align workflow, but the exact
+// Space shortcut and the dataset used as page-visible evidence are UI-shell
+// decisions. Keep this below class-b until keyboard accessibility is settled.
+test("page-visible Space temporarily gives the map interaction ownership", async () => {
+  const page = await startSupportedExtension({
+    durableState: durableReferenceImageSession({
+      mode: "align",
+    }),
+  });
+  assert.equal(typeof page.user.keyDown, "function");
+  assert.equal(typeof page.user.keyUp, "function");
+
+  await page.user.keyDown(" ");
+  assert.equal(
+    assertOne(page.document, SELECTOR.overlaySurface).dataset.interactionOwner,
+    "map",
+  );
+
+  await page.user.keyUp(" ");
+  assert.equal(
+    assertOne(page.document, SELECTOR.overlaySurface).dataset.interactionOwner,
+    "overlay",
+  );
+});
+
+// Class-c: keyboard pin toggling crosses keyboard routing, current-pointer
+// memory, map projection, and application registration edits. The workflow is
+// useful, but the "P at current pointer" shortcut should stay quarantined until
+// the broader input vocabulary is intentionally designed.
+test("page-visible P toggles a pin at the current pointer", async () => {
+  const page = await startSupportedExtension({
+    durableState: durableReferenceImageSession({
+      mode: "align",
+    }),
+  });
+  assert.equal(typeof page.user.keyPress, "function");
+  assert.equal(typeof page.user.movePointer, "function");
+
+  await page.user.movePointer(SELECTOR.overlaySurface, {
+    screenPx: {
+      x: 320,
+      y: 240,
+    },
+  });
+  await page.user.keyPress("p");
+  assert.equal(count(page.document, SELECTOR.pin), 1);
+});
+
 async function startSupportedExtension(options = {}) {
   return startPageVisibleExtension({
     page: {
