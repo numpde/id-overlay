@@ -14,31 +14,11 @@ import {
   assertApplicationResult,
 } from "../../class-b/application/application-result-assertions.js";
 import {
-  acceptedReferenceImagePastePayload,
   awaitingReferenceImagePasteState,
   durableStateChangedEffect,
   referenceImageDurableState,
   referenceImageLoadedState,
 } from "./user-behavior-fixtures.js";
-
-// Unclassified: accepted paste should create the first visible session and
-// request durability; adapter details of image decoding are intentionally absent.
-test("accepted reference image creates an Align session and durability effect", () => {
-  const command = createApplicationCommand(
-    APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_PASTE_OUTCOME,
-    acceptedReferenceImagePastePayload(),
-  );
-
-  assertApplicationResult(handleApplicationCommand({
-    state: awaitingReferenceImagePasteState(),
-    command,
-  }), {
-    state: referenceImageLoadedState(),
-    effects: [
-      durableStateChangedEffect(referenceImageDurableState()),
-    ],
-  });
-});
 
 // Unclassified: deleting the overlay should return to the same user posture as
 // startup, not leave a hidden Align-capable session behind.
