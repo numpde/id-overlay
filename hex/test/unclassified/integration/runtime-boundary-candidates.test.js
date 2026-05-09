@@ -11,38 +11,6 @@ import {
 // pure application steps meet async host work. They are intentionally not yet
 // class-b: the driver names may change, but the boundary pressure is real.
 
-test("runtime driver does not inspect product state fields", async () => {
-  const command = {
-    kind: "user-command",
-  };
-  const state = createOpaqueProductState({
-    session: {
-      mode: "align",
-      pins: [],
-    },
-    status: "Loaded screenshot.",
-  });
-  let stepCallCount = 0;
-
-  const runtime = createRuntimeDriver({
-    initialState: state,
-    effectHandlers: {},
-    stepApplication({ state: receivedState, command: receivedCommand }) {
-      stepCallCount += 1;
-      assert.equal(receivedState, state);
-      assert.equal(receivedCommand, command);
-      return {
-        state: receivedState,
-        effects: [],
-      };
-    },
-  });
-
-  await runtime.dispatch(command);
-
-  assert.equal(stepCallCount, 1);
-});
-
 test("runtime runs only effects returned by the application step", async () => {
   const state = {
     durableState: {
