@@ -5,7 +5,8 @@
   "scripts": {
     "build:chrome": "node ./scripts/build-chrome.mjs",
     "test:hex:architecture": "node --test hex/test/architecture/*.test.js",
-    "test:hex": "npm run test:hex:architecture",
+    "test:hex:application": "node --test hex/test/application/*.test.js",
+    "test:hex": "npm run test:hex:architecture && npm run test:hex:application",
     "test": "npm run test:hex"
   },
   "devDependencies": {
