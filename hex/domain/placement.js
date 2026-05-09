@@ -9,6 +9,30 @@ export function applyPlacementToPoint(point, placement) {
   };
 }
 
+export function applyAnchoredPlacementEdit({ base, edit }) {
+  if (edit.kind === "move") {
+    return composePlacementEdits({ base, edits: [edit] });
+  }
+
+  const anchorBefore = applyPlacementToPoint(edit.anchorImagePx, base);
+  const next = {
+    ...base,
+    ...(edit.kind === "scale" ? { scale: base.scale * edit.factor } : {}),
+    ...(edit.kind === "rotate" ? { rotationRad: base.rotationRad + edit.deltaRad } : {}),
+  };
+  const anchoredAtOrigin = applyPlacementToPoint(edit.anchorImagePx, {
+    ...next,
+    x: 0,
+    y: 0,
+  });
+
+  return {
+    ...next,
+    x: anchorBefore.x - anchoredAtOrigin.x,
+    y: anchorBefore.y - anchoredAtOrigin.y,
+  };
+}
+
 export function invertPlacement(placement) {
   const inverseScale = 1 / placement.scale;
   const inverseRotation = -placement.rotationRad;

@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  applyAnchoredPlacementEdit,
   applyPlacementToPoint,
   composePlacementEdits,
   invertPlacement,
@@ -65,6 +66,42 @@ test("placement edit composition is stable across batching", () => {
   });
 
   assertPlacementClose(stepwise, batched);
+});
+
+// Class-b: scale/rotate wheel edits happen around the user's pointer. The
+// domain operation must preserve the screen-space anchor independent of DOM
+// wheel events or adapter gesture details.
+test("anchored placement edits keep the anchor fixed in screen space", () => {
+  const base = {
+    x: 80,
+    y: 40,
+    scale: 1,
+    rotationRad: 0,
+  };
+  const imagePx = {
+    x: 320,
+    y: 240,
+  };
+  const before = applyPlacementToPoint(imagePx, base);
+
+  for (const edit of [
+    {
+      kind: "scale",
+      factor: 1.2,
+      anchorImagePx: imagePx,
+    },
+    {
+      kind: "rotate",
+      deltaRad: Math.PI / 8,
+      anchorImagePx: imagePx,
+    },
+  ]) {
+    const placement = applyAnchoredPlacementEdit({
+      base,
+      edit,
+    });
+    assertPointClose(applyPlacementToPoint(imagePx, placement), before);
+  }
 });
 
 function assertPointClose(actual, expected) {
