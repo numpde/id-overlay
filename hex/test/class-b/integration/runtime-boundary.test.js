@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  RuntimeBoundaryError,
   createRuntimeDriver,
 } from "../../../bootstrap/runtime.js";
 
@@ -111,6 +112,33 @@ test("runtime dispatches each declared effect kind to its matching handler", asy
     handler: "persist-durable-state",
     effect,
   }]);
+});
+
+// Class-b: unknown host work is an integration bug, not a product outcome.
+// Runtime must fail loudly instead of silently ignoring or guessing.
+test("runtime rejects unknown effect kinds at the boundary", async () => {
+  const runtime = createRuntimeDriver({
+    initialState: {},
+    effectHandlers: {},
+    stepApplication({ state }) {
+      return {
+        state,
+        effects: [{
+          kind: "unknown-effect",
+        }],
+      };
+    },
+  });
+
+  await assert.rejects(
+    () => runtime.dispatch({
+      kind: "user-command",
+    }),
+    (error) => (
+      error instanceof RuntimeBoundaryError
+        && error.code === "unknown-effect-kind"
+    ),
+  );
 });
 
 function createOpaqueProductState(value) {

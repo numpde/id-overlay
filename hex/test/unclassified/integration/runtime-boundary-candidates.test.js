@@ -11,31 +11,6 @@ import {
 // pure application steps meet async host work. They are intentionally not yet
 // class-b: the driver names may change, but the boundary pressure is real.
 
-test("runtime rejects unknown effect kinds at the boundary", async () => {
-  const runtime = createRuntimeDriver({
-    initialState: {},
-    effectHandlers: {},
-    stepApplication({ state }) {
-      return {
-        state,
-        effects: [{
-          kind: "unknown-effect",
-        }],
-      };
-    },
-  });
-
-  await assert.rejects(
-    () => runtime.dispatch({
-      kind: "user-command",
-    }),
-    (error) => (
-      error instanceof RuntimeBoundaryError
-        && error.code === "unknown-effect-kind"
-    ),
-  );
-});
-
 test("runtime passes effect payloads to handlers unchanged", async () => {
   const effect = {
     kind: "persist-durable-state",
