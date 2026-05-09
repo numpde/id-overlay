@@ -26,22 +26,6 @@ const SELECTOR = {
   panelDragHandle: "[data-id-overlay-panel-drag-handle]",
 };
 
-// Unclassified candidate: saved durable state should be visible after reload.
-// This is the first page-visible proof that storage, hydration, and rendering
-// are wired end to end.
-test("reload restores visible durable session", async () => {
-  const page = await startSupportedExtension({
-    durableState: durableReferenceImageSession({
-      mode: "align",
-      pins: [firstPin()],
-    }),
-  });
-
-  assert.equal(count(page.document, SELECTOR.overlay), 1);
-  assert.equal(selectedMode(page.document), "align");
-  assert.equal(count(page.document, SELECTOR.pin), 1);
-});
-
 // Unclassified candidate: empty storage on reload should not resurrect overlay
 // state. This pairs with the durable restore test above.
 test("reload with no durable state shows Paste", async () => {

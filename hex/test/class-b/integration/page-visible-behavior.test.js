@@ -216,6 +216,22 @@ test("panel drag is visible but app-inert", async () => {
   assert.equal(count(page.document, SELECTOR.overlay), 0);
 });
 
+// Class-b, not class-a: durable restore is an application law, but this checks
+// the integrated page result after storage, hydration, bootstrap, and rendering
+// have been wired together.
+test("reload restores visible durable session", async () => {
+  const page = await startSupportedExtension({
+    durableState: durableReferenceImageSession({
+      mode: "align",
+      pins: [firstPin()],
+    }),
+  });
+
+  assert.equal(count(page.document, SELECTOR.overlay), 1);
+  assert.equal(selectedMode(page.document), "align");
+  assert.equal(count(page.document, SELECTOR.pin), 1);
+});
+
 async function startSupportedExtension(options = {}) {
   return startPageVisibleExtension({
     page: supportedMapEditorPage(),
