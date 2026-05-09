@@ -46,6 +46,50 @@ test("accepted reference image creates an Align session and durability effect", 
   });
 });
 
+// Class-a: accepting an image starts a new loaded session. Stale input prompts,
+// notices, and destructive confirmations must not carry into that session.
+test("accepted reference image clears pending input notice and panel intent", () => {
+  const referenceImage = normalizedReferenceImage();
+  const session = {
+    mode: "align",
+    referenceImage,
+  };
+
+  assert.deepEqual(handleApplicationCommand({
+    state: {
+      referenceImageInput: {
+        status: "awaiting-paste",
+        requestId: 1,
+      },
+      notice: {
+        kind: "reference-image-paste-empty",
+      },
+      panelIntent: {
+        kind: "confirm-clear-reference-image",
+      },
+    },
+    command: createApplicationCommand(
+      APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_PASTE_OUTCOME,
+      {
+        requestId: 1,
+        outcome: {
+          kind: "accepted",
+          referenceImage,
+        },
+      },
+    ),
+  }), {
+    state: {
+      session,
+    },
+    effects: [
+      durableStateChangedEffect({
+        session,
+      }),
+    ],
+  });
+});
+
 function normalizedReferenceImage() {
   return {
     imageDataRef: "reference-image-data-1",
