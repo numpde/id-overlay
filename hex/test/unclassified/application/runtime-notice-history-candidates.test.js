@@ -14,8 +14,6 @@ import {
   placementEditPayload,
 } from "../../class-b/application/placement-fixtures.js";
 import {
-  firstPin,
-  pinTogglePayload,
   referenceImageDurableState,
   referenceImageLoadedState,
 } from "../../class-b/application/reference-image-fixtures.js";
@@ -26,32 +24,6 @@ import {
 import {
   durableStateChangedEffect,
 } from "../../class-c/application/durable-state-fixtures.js";
-
-// Unclassified candidate: registration edits after a fit should preserve the
-// current visible placement instead of making the overlay jump.
-test("adding a registration pin can preserve current visible placement", () => {
-  const result = handleApplicationCommand({
-    state: referenceImageLoadedState({
-      pins: [firstPin()],
-    }),
-    command: createApplicationCommand(
-      APPLICATION_COMMAND_KIND.TOGGLE_REGISTRATION_PIN,
-      pinTogglePayload({
-        imagePx: {
-          x: 300,
-          y: 150,
-        },
-        mapLatLon: {
-          lat: -1.1,
-          lon: 37.1,
-        },
-        preservedPlacement: movedPlacement(),
-      }),
-    ),
-  });
-
-  assert.deepEqual(result.state.session.placement, movedPlacement());
-});
 
 // Unclassified candidate: a new durable edit should invalidate redo history.
 // The exact history shape is not stable enough for class-b yet.

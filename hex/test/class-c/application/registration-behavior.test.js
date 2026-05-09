@@ -16,9 +16,13 @@ import {
   pinTogglePayload,
   referenceImageDurableState,
   referenceImageLoadedState,
+  secondPin,
   solvedPlacement,
   twoPins,
 } from "./reference-image-fixtures.js";
+import {
+  movedPlacement,
+} from "./placement-fixtures.js";
 
 // Class-c: pin toggling belongs in the application, but exact pin IDs, notices,
 // and durable registration shape need more implementation evidence.
@@ -65,6 +69,27 @@ test("pin toggle adds and removes projected registration facts in Align mode", (
       durableStateChangedEffect(referenceImageDurableState()),
     ],
   });
+});
+
+// Class-c: registration edits after a fit should not make the overlay jump, but
+// the exact placement/registration coupling is still proposal-level shape.
+test("adding a registration pin preserves current visible placement", () => {
+  const placement = movedPlacement();
+  const result = handleApplicationCommand({
+    state: referenceImageLoadedState({
+      placement,
+      pins: [firstPin()],
+    }),
+    command: createApplicationCommand(
+      APPLICATION_COMMAND_KIND.TOGGLE_REGISTRATION_PIN,
+      pinTogglePayload({
+        imagePx: secondPin().imagePx,
+        mapLatLon: secondPin().mapLatLon,
+      }),
+    ),
+  });
+
+  assert.deepEqual(result.state.session.placement, placement);
 });
 
 // Class-c: auto-fitting on Trace switch is user-visible and likely right, but
