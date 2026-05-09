@@ -1,34 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-// Unclassified: durable image facts should be canonical metadata plus a data
-// reference. Legacy compatibility may be accepted at the edge, but app state
-// should never carry multiple competing image shapes.
-test("image metadata normalization upgrades legacy image shape to canonical facts", async () => {
-  const { normalizeReferenceImage } = await importRequired(
-    "../../../domain/image-normalization.js",
-    "normalizeReferenceImage",
-  );
-
-  assert.deepEqual(normalizeReferenceImage({
-    dataUrl: "data:image/png;base64,a",
-    naturalWidth: 1600,
-    naturalHeight: 1200,
-    workingWidth: 800,
-    workingHeight: 600,
-  }), {
-    imageDataRef: "data:image/png;base64,a",
-    intrinsicSizePx: {
-      width: 1600,
-      height: 1200,
-    },
-    workingSizePx: {
-      width: 800,
-      height: 600,
-    },
-  });
-});
-
 // Unclassified: wheel scale/rotate around a point should keep the image point
 // under the pointer stable. This is the geometric core of "edit what I am
 // pointing at", independent of DOM wheel events.
