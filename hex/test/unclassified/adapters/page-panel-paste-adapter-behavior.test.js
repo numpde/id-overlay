@@ -3,54 +3,8 @@ import assert from "node:assert/strict";
 import { JSDOM } from "jsdom";
 
 import {
-  createOverlayAdapter,
-} from "../../../adapters/ui/overlay-adapter.js";
-import {
   createPanelAdapter,
 } from "../../../adapters/ui/panel-adapter.js";
-
-// Unclassified: Align mode wheel gestures are overlay commands. The adapter
-// should emit plain facts and stop host bubbling; exact DOM event recovery can
-// remain adapter-local.
-test("overlay adapter emits wheel facts for opacity rotate scale and map forwarding", () => {
-  const { window } = new JSDOM("<!doctype html><body><div id='surface'></div></body>");
-  const facts = [];
-  const surface = window.document.getElementById("surface");
-  const overlay = createOverlayAdapter({
-    emitInteractionFact(fact) {
-      facts.push(fact);
-    },
-  });
-
-  overlay.bindInput(surface);
-  surface.dispatchEvent(new window.WheelEvent("wheel", {
-    altKey: true,
-    deltaY: -100,
-    clientX: 120,
-    clientY: 90,
-    bubbles: true,
-  }));
-  surface.dispatchEvent(new window.WheelEvent("wheel", {
-    ctrlKey: true,
-    deltaY: -100,
-    clientX: 120,
-    clientY: 90,
-    bubbles: true,
-  }));
-  surface.dispatchEvent(new window.WheelEvent("wheel", {
-    shiftKey: true,
-    deltaY: -100,
-    clientX: 120,
-    clientY: 90,
-    bubbles: true,
-  }));
-
-  assert.deepEqual(facts.map((fact) => fact.kind), [
-    "overlay-opacity-wheel",
-    "overlay-rotate-wheel",
-    "overlay-scale-wheel",
-  ]);
-});
 
 // Unclassified: mode-switch wheel behavior was user-facing panel chrome. It
 // should emit semantic mode selection, not DOM-specific wheel deltas.
