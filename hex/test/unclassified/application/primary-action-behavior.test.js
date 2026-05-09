@@ -11,32 +11,11 @@ import {
 } from "../../class-b/application/application-result-assertions.js";
 import {
   APPLICATION_MODE,
-  awaitingReferenceImagePasteState,
   durableStateChangedEffect,
   firstPin,
   referenceImageDurableState,
   referenceImageLoadedState,
 } from "./user-behavior-fixtures.js";
-
-// Unclassified: pressing the same semantic button while paste is armed should
-// cancel the user-facing prompt instead of starting a second overlapping input.
-test("primary action while awaiting paste cancels the pending paste prompt", () => {
-  const result = handleApplicationCommand({
-    state: awaitingReferenceImagePasteState(),
-    command: createApplicationCommand(
-      APPLICATION_COMMAND_KIND.ACTIVATE_PRIMARY_ACTION,
-    ),
-  });
-
-  assertApplicationResult(result, {
-    state: {
-      notice: {
-        kind: "reference-image-paste-cancelled",
-      },
-    },
-    effects: [],
-  });
-});
 
 // Unclassified: the first click asks for confirmation because clearing pins is
 // destructive but leaves the image. This belongs in application behavior, not

@@ -27,3 +27,24 @@ test("primary action with no session waits for a pasted reference image", () => 
     effects: [],
   });
 });
+
+// Class-b: while paste is armed, the same semantic button cancels the prompt
+// instead of starting an overlapping input flow. Exact notice vocabulary remains
+// application API shape.
+test("primary action while awaiting paste cancels the pending paste prompt", () => {
+  const result = handleApplicationCommand({
+    state: awaitingReferenceImagePasteState(),
+    command: createApplicationCommand(
+      APPLICATION_COMMAND_KIND.ACTIVATE_PRIMARY_ACTION,
+    ),
+  });
+
+  assertApplicationResult(result, {
+    state: {
+      notice: {
+        kind: "reference-image-paste-cancelled",
+      },
+    },
+    effects: [],
+  });
+});
