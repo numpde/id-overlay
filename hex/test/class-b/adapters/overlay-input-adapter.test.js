@@ -6,8 +6,8 @@ import {
   createOverlayAdapter,
 } from "../../../adapters/ui/overlay-adapter.js";
 
-// Unclassified candidate: raw pointer data is adapter input. What crosses
-// inward is a plain interaction fact, never the original DOM event.
+// Class-b: raw pointer input is adapter-local. The application receives a
+// plain interaction fact, not the DOM event.
 test("overlay input adapter emits pointer facts only", () => {
   const { window } = new JSDOM("<!doctype html><body><div id='surface'></div></body>");
   const facts = [];
