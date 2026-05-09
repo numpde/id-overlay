@@ -106,6 +106,30 @@ test("Trace mode makes page pass-through visible", async () => {
   );
 });
 
+// Class-b, not class-a: Align must prevent map hover behavior through the
+// overlay. This protects a real page-visible regression, but the host-map hover
+// counter is intentionally a provisional page-adapter harness detail.
+test("Align mode makes map inert under overlay", async () => {
+  const page = await startSupportedExtension({
+    durableState: durableReferenceImageSession({
+      mode: "align",
+    }),
+  });
+
+  await page.user.hover(SELECTOR.overlaySurface, {
+    screenPx: {
+      x: 200,
+      y: 160,
+    },
+  });
+
+  assert.equal(page.hostMap.hoveredFeatureCount, 0);
+  assert.equal(
+    assertOne(page.document, SELECTOR.overlaySurface).dataset.interactionOwner,
+    "overlay",
+  );
+});
+
 async function startSupportedExtension(options = {}) {
   return startPageVisibleExtension({
     page: supportedMapEditorPage(),

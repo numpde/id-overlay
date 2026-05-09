@@ -26,30 +26,6 @@ const SELECTOR = {
   panelDragHandle: "[data-id-overlay-panel-drag-handle]",
 };
 
-// Unclassified candidate: Align should make the page underneath inert through
-// the overlay. This protects the previously observed bug where map hover still
-// reacted under the image.
-test("Align mode makes map inert under overlay", async () => {
-  const page = await startSupportedExtension({
-    durableState: durableReferenceImageSession({
-      mode: "align",
-    }),
-  });
-
-  await page.user.hover(SELECTOR.overlaySurface, {
-    screenPx: {
-      x: 200,
-      y: 160,
-    },
-  });
-
-  assert.equal(page.hostMap.hoveredFeatureCount, 0);
-  assert.equal(
-    assertOne(page.document, SELECTOR.overlaySurface).dataset.interactionOwner,
-    "overlay",
-  );
-});
-
 // Unclassified candidate: clearing the image should be visible as overlay
 // removal and return to Paste / Trace posture.
 test("clear image removes overlay and returns to Paste posture", async () => {
