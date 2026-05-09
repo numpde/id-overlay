@@ -26,29 +26,6 @@ const SELECTOR = {
   panelDragHandle: "[data-id-overlay-panel-drag-handle]",
 };
 
-// Unclassified candidate: panel dragging is visible shell behavior. It may move
-// the panel, but it must not emit product commands or change session state.
-test("panel drag is visible but app-inert", async () => {
-  const page = await startSupportedExtension();
-  const panel = assertOne(page.document, SELECTOR.panel);
-  const beforePosition = panel.getAttribute("style");
-
-  await page.user.drag(SELECTOR.panelDragHandle, {
-    fromScreenPx: {
-      x: 20,
-      y: 20,
-    },
-    toScreenPx: {
-      x: 80,
-      y: 60,
-    },
-  });
-
-  assert.notEqual(panel.getAttribute("style"), beforePosition);
-  assert.deepEqual(page.productCommands, []);
-  assert.equal(count(page.document, SELECTOR.overlay), 0);
-});
-
 // Unclassified candidate: saved durable state should be visible after reload.
 // This is the first page-visible proof that storage, hydration, and rendering
 // are wired end to end.

@@ -11,6 +11,7 @@ const SELECTOR = {
   overlay: "[data-id-overlay-reference-image]",
   overlaySurface: "[data-id-overlay-surface]",
   panel: "[data-id-overlay-panel]",
+  panelDragHandle: "[data-id-overlay-panel-drag-handle]",
   pin: "[data-id-overlay-pin]",
   primaryAction: "[data-id-overlay-primary-action]",
   redo: "[data-id-overlay-history='redo']",
@@ -189,6 +190,30 @@ test("undo and redo controls render semantic labels", async () => {
 
   assert.equal(assertOne(page.document, SELECTOR.redo).title, "Remove image");
   assert.notEqual(assertOne(page.document, SELECTOR.redo).title, "Redo");
+});
+
+// Class-b, not class-a: panel drag is page chrome behavior. It should visibly
+// move the panel without becoming a product command or creating session state,
+// but the exact style assertion is UI-adapter harness detail.
+test("panel drag is visible but app-inert", async () => {
+  const page = await startSupportedExtension();
+  const panel = assertOne(page.document, SELECTOR.panel);
+  const beforePosition = panel.getAttribute("style");
+
+  await page.user.drag(SELECTOR.panelDragHandle, {
+    fromScreenPx: {
+      x: 20,
+      y: 20,
+    },
+    toScreenPx: {
+      x: 80,
+      y: 60,
+    },
+  });
+
+  assert.notEqual(panel.getAttribute("style"), beforePosition);
+  assert.deepEqual(page.productCommands, []);
+  assert.equal(count(page.document, SELECTOR.overlay), 0);
 });
 
 async function startSupportedExtension(options = {}) {
