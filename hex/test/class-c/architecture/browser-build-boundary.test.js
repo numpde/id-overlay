@@ -5,6 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
+  collectModuleGraph,
   createChromeManifest,
 } from "../../../../scripts/chrome-manifest.mjs";
 
@@ -59,6 +60,29 @@ test("chrome build copies only manifest-reachable browser resources", () => {
     false,
     "build should not maintain a parallel directory-copy list",
   );
+});
+
+// Class-c: the build graph should be allowed to cross into hex production code
+// because the extension adapter is part of hex. This is quarantined until the
+// real extension content module exists and the graph collector supports that
+// production entrypoint directly.
+test("extension content module graph may include hex production but not tests or legacy", async () => {
+  if (!fs.existsSync(repoPath(EXTENSION_CONTENT_MODULE))) {
+    assert.fail(`missing ${EXTENSION_CONTENT_MODULE}`);
+  }
+
+  const resources = [...await collectModuleGraph({
+    root: REPO_ROOT,
+    entryPath: EXTENSION_CONTENT_MODULE,
+  })].sort();
+
+  assert.equal(resources.includes(EXTENSION_CONTENT_MODULE), true);
+  assert.equal(resources.some((resource) => resource.startsWith("hex/")), true);
+  assert.deepEqual(resources.filter((resource) => (
+    resource.startsWith("hex/test/")
+      || resource.startsWith("legacy/")
+      || resource.includes("/legacy/")
+  )), []);
 });
 
 function readSource(filePath) {
