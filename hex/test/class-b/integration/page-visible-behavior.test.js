@@ -43,17 +43,15 @@ test("no-session panel shows Paste posture", async () => {
   assert.equal(count(page.document, SELECTOR.overlay), 0);
 });
 
-// Class-b, not class-a: clicking Paste must visibly arm reference-image input,
-// but the DOM intent marker and exact status text are page-harness vocabulary.
+// Class-b, not class-a: clicking Paste must visibly arm reference-image input.
+// The exact button/status copy is still reviewable UI text, but the user needs
+// a visible cancellation affordance once paste is armed.
 test("clicking Paste arms paste flow visibly", async () => {
   const page = await startSupportedExtension();
 
   await page.user.click(SELECTOR.primaryAction);
 
-  assert.equal(
-    assertOne(page.document, SELECTOR.primaryAction).dataset.intent,
-    "cancel-paste",
-  );
+  assert.match(textOf(page.document, SELECTOR.primaryAction), /cancel/i);
   assert.match(textOf(page.document, SELECTOR.status), /paste/i);
 });
 
@@ -245,14 +243,28 @@ test("reload with no durable state shows Paste", async () => {
   assert.equal(selectedMode(page.document), "trace");
 });
 
-// Class-b, not class-a: manifest resource generation is an integration
-// contract. This catches dynamic-import denial before any panel can mount, but
-// the exact generated resource list belongs to the build/bootstrap harness.
+// Class-b, not class-a: unsupported pages may later render a minimal notice,
+// but they must not expose usable overlay controls or an image overlay that
+// appears to work on the wrong page.
+test("unsupported page does not expose usable overlay UI", async () => {
+  const page = await startPageVisibleExtension({
+    page: unsupportedPage(),
+    durableState: null,
+    manifestResources: webAccessibleResourcesAllowingBootstrap(),
+  });
+
+  assert.equal(count(page.document, SELECTOR.overlay), 0);
+  assert.equal(count(page.document, SELECTOR.primaryAction), 0);
+});
+
+// Class-b, not class-a: manifest resource availability is an integration
+// precondition. This catches dynamic-import denial before any panel can mount,
+// while exact resource generation remains covered by build-manifest tests.
 test("manifest resources allow content bootstrap", async () => {
   const page = await startPageVisibleExtension({
     page: supportedMapEditorPage(),
     durableState: null,
-    manifestResources: generatedManifestResources(),
+    manifestResources: webAccessibleResourcesAllowingBootstrap(),
   });
 
   assert.deepEqual(page.bootstrap.dynamicImportFailures, []);
@@ -263,7 +275,8 @@ async function startSupportedExtension(options = {}) {
   return startPageVisibleExtension({
     page: supportedMapEditorPage(),
     durableState: options.durableState ?? null,
-    manifestResources: options.manifestResources ?? generatedManifestResources(),
+    manifestResources: options.manifestResources
+      ?? webAccessibleResourcesAllowingBootstrap(),
   });
 }
 
@@ -296,6 +309,13 @@ function supportedMapEditorPage() {
         lon: 36.82412,
       },
     },
+  };
+}
+
+function unsupportedPage() {
+  return {
+    kind: "unsupported-page",
+    url: "https://www.openstreetmap.org/",
   };
 }
 
@@ -352,14 +372,8 @@ function secondPin() {
   };
 }
 
-function generatedManifestResources() {
+function webAccessibleResourcesAllowingBootstrap() {
   return {
-    kind: "generated-web-accessible-resources",
-    resources: [
-      "hex/adapters/extension/content-loader.js",
-      "hex/adapters/ui/panel-adapter.js",
-      "hex/bootstrap/runtime.js",
-      "hex/adapters/ui/panel.css",
-    ],
+    kind: "web-accessible-resources-allowing-page-visible-bootstrap",
   };
 }
