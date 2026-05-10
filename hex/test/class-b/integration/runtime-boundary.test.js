@@ -116,6 +116,55 @@ test("runtime dispatches each declared effect kind to its matching handler", asy
   }]);
 });
 
+// Class-b, not class-a: a future runtime could introduce explicit parallel
+// scheduling, but this driver currently offers deterministic serial effects.
+// If an application emits effects in order, the next effect starts only after
+// the prior effect has finished and had its chance to re-enter the app.
+test("runtime executes multiple effects in declared order", async () => {
+  const order = [];
+  let firstFinished = false;
+  const runtime = createRuntimeDriver({
+    initialState: {},
+    effectHandlers: {
+      first: async () => {
+        order.push("first:start");
+        await Promise.resolve();
+        firstFinished = true;
+        order.push("first:end");
+        return null;
+      },
+      second: async () => {
+        assert.equal(firstFinished, true);
+        order.push("second");
+        return null;
+      },
+    },
+    stepApplication({ state }) {
+      return {
+        state,
+        effects: [
+          {
+            kind: "first",
+          },
+          {
+            kind: "second",
+          },
+        ],
+      };
+    },
+  });
+
+  await runtime.dispatch({
+    kind: "start",
+  });
+
+  assert.deepEqual(order, [
+    "first:start",
+    "first:end",
+    "second",
+  ]);
+});
+
 // Class-b: unknown host work is an integration bug, not a product outcome.
 // Runtime must fail loudly instead of silently ignoring or guessing.
 test("runtime rejects unknown effect kinds at the boundary", async () => {
