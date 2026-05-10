@@ -76,8 +76,9 @@ test("projection adapter reports explicit failure facts", () => {
   });
 });
 
-// Class-b: mode policy belongs outside the forwarding adapter. It forwards only
-// explicit gesture facts it was asked to forward.
+// Class-b, deliberately not class-a: the exact gesture transport is adapter
+// plumbing. The boundary matters: mode policy stays outside this adapter, which
+// forwards only explicit gesture facts it was handed.
 test("gesture forwarding adapter is mode-agnostic", async () => {
   const forwarded = [];
   const adapter = createGestureForwardingAdapter({
