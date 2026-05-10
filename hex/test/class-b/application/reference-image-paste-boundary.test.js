@@ -8,6 +8,7 @@ import {
 import {
   APPLICATION_BOUNDARY_ERROR_CODE,
 } from "../../../application/errors.js";
+import { handleApplicationCommand } from "../../../application/handle-command.js";
 import {
   assertApplicationBoundaryError,
 } from "./application-boundary-assertions.js";
@@ -103,4 +104,73 @@ test("accepted paste outcome requires normalized reference image data", () => {
       description,
     );
   }
+});
+
+// Class-b, not class-a: exact negative outcome vocabulary can still change, but
+// malformed paste outcomes are boundary failures. A known command with an
+// undeclared outcome or runtime object payload must be rejected consistently,
+// whether it enters through the command factory or the reducer boundary.
+test("malformed reference image paste outcome commands are boundary errors", () => {
+  assertApplicationBoundaryError(
+    () => createApplicationCommand(
+      APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_PASTE_OUTCOME,
+      {
+        requestId: 1,
+        outcome: {
+          kind: "mystery-outcome",
+        },
+      },
+    ),
+    APPLICATION_BOUNDARY_ERROR_CODE.INVALID_APPLICATION_COMMAND,
+  );
+  assertApplicationBoundaryError(
+    () => createApplicationCommand(
+      APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_PASTE_OUTCOME,
+      {
+        requestId: 1,
+        outcome: {
+          kind: "failed",
+          reason: new Error("caller leaked a runtime object"),
+        },
+      },
+    ),
+    APPLICATION_BOUNDARY_ERROR_CODE.INVALID_APPLICATION_COMMAND,
+  );
+  assertApplicationBoundaryError(
+    () => handleApplicationCommand({
+      state: {
+        referenceImageInput: {
+          status: "awaiting-paste",
+          requestId: 1,
+        },
+      },
+      command: {
+        kind: APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_PASTE_OUTCOME,
+        requestId: 1,
+        outcome: {
+          kind: "failed",
+          reason: new Error("caller leaked a runtime object"),
+        },
+      },
+    }),
+    APPLICATION_BOUNDARY_ERROR_CODE.INVALID_APPLICATION_COMMAND,
+  );
+  assertApplicationBoundaryError(
+    () => handleApplicationCommand({
+      state: {
+        referenceImageInput: {
+          status: "awaiting-paste",
+          requestId: 1,
+        },
+      },
+      command: {
+        kind: APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_PASTE_OUTCOME,
+        requestId: 1,
+        outcome: {
+          kind: "mystery-outcome",
+        },
+      },
+    }),
+    APPLICATION_BOUNDARY_ERROR_CODE.INVALID_APPLICATION_COMMAND,
+  );
 });

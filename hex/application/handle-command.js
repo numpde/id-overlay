@@ -1,4 +1,7 @@
-import { APPLICATION_COMMAND_KIND } from "./command.js";
+import {
+  APPLICATION_COMMAND_KIND,
+  createApplicationCommand,
+} from "./command.js";
 import {
   ApplicationBoundaryError,
   APPLICATION_BOUNDARY_ERROR_CODE,
@@ -220,11 +223,33 @@ function assertValidState(state) {
 
 function assertValidCommand(command) {
   if (!isPlainData(command) || command === null || Array.isArray(command)) {
+    if (isKnownCommandObject(command)) {
+      throwBoundary(
+        APPLICATION_BOUNDARY_ERROR_CODE.INVALID_APPLICATION_COMMAND,
+        "Invalid application command.",
+      );
+    }
     throwBoundary(
       APPLICATION_BOUNDARY_ERROR_CODE.UNKNOWN_APPLICATION_COMMAND,
       "Unknown application command.",
     );
   }
+  if (!isKnownCommandObject(command)) {
+    throwBoundary(
+      APPLICATION_BOUNDARY_ERROR_CODE.UNKNOWN_APPLICATION_COMMAND,
+      "Unknown application command.",
+    );
+  }
+
+  const { kind, ...payload } = command;
+  createApplicationCommand(kind, payload);
+}
+
+function isKnownCommandObject(command) {
+  return command
+    && typeof command === "object"
+    && !Array.isArray(command)
+    && Object.values(APPLICATION_COMMAND_KIND).includes(command.kind);
 }
 
 function assertSupportedDurableState(durableState) {

@@ -4,63 +4,16 @@ import {
   APPLICATION_COMMAND_KIND,
   createApplicationCommand,
 } from "../../../application/command.js";
-import {
-  APPLICATION_BOUNDARY_ERROR_CODE,
-} from "../../../application/errors.js";
 import { handleApplicationCommand } from "../../../application/handle-command.js";
-import {
-  assertApplicationBoundaryError,
-} from "../../class-b/application/application-boundary-assertions.js";
 import {
   assertApplicationResult,
 } from "../../class-b/application/application-result-assertions.js";
 import { awaitingReferenceImagePasteState } from "./reference-image-fixtures.js";
 
-// Class-c: negative paste outcomes are plausible product behavior, but the
-// exact notice vocabulary and command envelope are not settled enough to treat
-// as design bedrock.
-// Reference-image paste failures are normal product outcomes when they arrive
-// as declared plain data. This file also pins the default boundary rule:
-// malformed application API input throws; valid negative product outcomes do not.
-
-test("known commands with malformed payloads are boundary errors", () => {
-  assertApplicationBoundaryError(
-    () => createApplicationCommand(
-      APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_PASTE_OUTCOME,
-      {
-        outcome: {
-          kind: "mystery-outcome",
-        },
-      },
-    ),
-    APPLICATION_BOUNDARY_ERROR_CODE.INVALID_APPLICATION_COMMAND,
-  );
-  assertApplicationBoundaryError(
-    () => createApplicationCommand(
-      APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_PASTE_OUTCOME,
-      {
-        outcome: {
-          kind: "failed",
-          reason: new Error("caller leaked a runtime object"),
-        },
-      },
-    ),
-    APPLICATION_BOUNDARY_ERROR_CODE.INVALID_APPLICATION_COMMAND,
-  );
-  assertApplicationBoundaryError(
-    () => handleApplicationCommand({
-      state: awaitingReferenceImagePasteState(),
-      command: {
-        kind: APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_PASTE_OUTCOME,
-        outcome: {
-          kind: "failed",
-          reason: new Error("caller leaked a runtime object"),
-        },
-      },
-    }),
-    APPLICATION_BOUNDARY_ERROR_CODE.INVALID_APPLICATION_COMMAND,
-  );
-});
+// Class-c: these remaining negative paste outcomes are plausible product
+// behavior, but the exact notice vocabulary is not settled enough to treat as
+// design bedrock. Malformed paste payloads were promoted separately as boundary
+// errors after correcting them to include request correlation.
 
 // Empty paste is a normal user-world outcome: the user tried to paste, but no
 // reference image was available. The application should return a product notice,
