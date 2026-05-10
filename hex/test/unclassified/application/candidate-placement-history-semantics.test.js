@@ -1,0 +1,643 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+import {
+  APPLICATION_COMMAND_KIND,
+  createApplicationCommand,
+} from "../../../application/command.js";
+import { handleApplicationCommand } from "../../../application/handle-command.js";
+import { selectApplicationView } from "../../../application/view-model.js";
+
+// Unclassified: candidate product law for placement history semantics.
+//
+// Serious alternatives considered:
+// - No placement undo. Rejected: move/rotate/scale are direct, visible overlay
+//   edits; users reasonably expect them to be reversible.
+// - Full durable snapshot replay for every history record. Rejected for
+//   placement: undoing "move overlay" after a later Trace switch should not
+//   unexpectedly switch mode back to Align or revert unrelated opacity/pins.
+// - Bespoke inverse code per command. Rejected: it spreads history semantics
+//   across transitions and makes undo/redo a second reducer.
+// - Event sourcing by replaying original commands. Rejected for now: commands
+//   are interpreted against current state, while undo needs stable before/after
+//   facts.
+//
+// Preferred model: placement history records are semantic, scoped records. The
+// app records the placement revision before/after a committed move/rotate/scale
+// and generic history replay applies that scope over the current durable
+// session, preserving unrelated durable facts.
+
+const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../..");
+const APPLICATION_DIR = path.join(REPO_ROOT, "hex/application");
+
+const EFFECT_KIND = Object.freeze({
+  PERSIST_DURABLE_STATE: "persist-durable-state",
+});
+
+const FORBIDDEN_HISTORY_SOURCE_SNIPPETS = Object.freeze([
+  // History records should carry semantic descriptors; user-facing copy belongs
+  // in the view-model boundary so labels can improve without rewriting history.
+  "undoLabel",
+  "redoLabel",
+]);
+
+// Candidate: a committed placement edit is the single durable user action for a
+// gesture. It pushes one scoped record with semantic editKind and before/after
+// placement revisions; it does not store a full durable snapshot or literal UI
+// copy in the record.
+test("candidate: committed Align placement edit creates semantic scoped history", () => {
+  const result = handleApplicationCommand({
+    state: referenceImageLoadedState({
+      mode: "align",
+    }),
+    command: createApplicationCommand(
+      APPLICATION_COMMAND_KIND.COMMIT_PLACEMENT_EDIT,
+      {
+        editKind: "move",
+        placement: movedPlacement(),
+      },
+    ),
+  });
+
+  assert.deepEqual(result, {
+    state: {
+      session: referenceImageSession({
+        mode: "align",
+        placement: movedPlacement(),
+      }),
+      history: {
+        past: [placementHistoryRecord({
+          editKind: "move",
+          before: placementRevision({
+            placement: null,
+            registrationSolvedPlacement: null,
+          }),
+          after: placementRevision({
+            placement: movedPlacement(),
+            registrationSolvedPlacement: null,
+          }),
+        })],
+        future: [],
+      },
+    },
+    effects: [{
+      kind: EFFECT_KIND.PERSIST_DURABLE_STATE,
+      durableState: durableImageState({
+        mode: "align",
+        placement: movedPlacement(),
+      }),
+    }],
+  });
+});
+
+// Candidate: placement undo applies the placement scope over the current
+// session. Mode, opacity, reference image, and pins are not part of a move
+// record, so they must survive even when the user switched mode after editing.
+test("candidate: undoing placement preserves unrelated current durable state", () => {
+  const record = placementHistoryRecord({
+    editKind: "move",
+    before: placementRevision({
+      placement: originalPlacement(),
+      registrationSolvedPlacement: null,
+    }),
+    after: placementRevision({
+      placement: movedPlacement(),
+      registrationSolvedPlacement: null,
+    }),
+  });
+
+  assert.deepEqual(handleApplicationCommand({
+    state: {
+      session: referenceImageSession({
+        mode: "trace",
+        opacity: 0.5,
+        pins: [firstPin()],
+        placement: movedPlacement(),
+      }),
+      history: {
+        past: [record],
+        future: [],
+      },
+    },
+    command: createApplicationCommand(APPLICATION_COMMAND_KIND.UNDO),
+  }), {
+    state: {
+      session: referenceImageSession({
+        mode: "trace",
+        opacity: 0.5,
+        pins: [firstPin()],
+        placement: originalPlacement(),
+      }),
+      history: {
+        past: [],
+        future: [record],
+      },
+    },
+    effects: [{
+      kind: EFFECT_KIND.PERSIST_DURABLE_STATE,
+      durableState: durableImageState({
+        mode: "trace",
+        opacity: 0.5,
+        pins: [firstPin()],
+        placement: originalPlacement(),
+      }),
+    }],
+  });
+});
+
+// Candidate: redo is the same scoped replay in the other direction. It should
+// reapply the placement revision while preserving whatever unrelated durable
+// facts are current at redo time.
+test("candidate: redoing placement preserves unrelated current durable state", () => {
+  const record = placementHistoryRecord({
+    editKind: "rotate",
+    before: placementRevision({
+      placement: originalPlacement(),
+      registrationSolvedPlacement: null,
+    }),
+    after: placementRevision({
+      placement: rotatedPlacement(),
+      registrationSolvedPlacement: null,
+    }),
+  });
+
+  assert.deepEqual(handleApplicationCommand({
+    state: {
+      session: referenceImageSession({
+        mode: "align",
+        opacity: 0.7,
+        pins: [firstPin()],
+        placement: originalPlacement(),
+      }),
+      history: {
+        past: [],
+        future: [record],
+      },
+    },
+    command: createApplicationCommand(APPLICATION_COMMAND_KIND.REDO),
+  }), {
+    state: {
+      session: referenceImageSession({
+        mode: "align",
+        opacity: 0.7,
+        pins: [firstPin()],
+        placement: rotatedPlacement(),
+      }),
+      history: {
+        past: [record],
+        future: [],
+      },
+    },
+    effects: [{
+      kind: EFFECT_KIND.PERSIST_DURABLE_STATE,
+      durableState: durableImageState({
+        mode: "align",
+        opacity: 0.7,
+        pins: [firstPin()],
+        placement: rotatedPlacement(),
+      }),
+    }],
+  });
+});
+
+// Candidate: registration fit metadata is part of the placement revision, not a
+// separate hidden state machine. Manual placement clears solved metadata; undo
+// restores it if the before revision was the fitted placement.
+test("candidate: undoing manual placement restores solved registration placement metadata", () => {
+  const record = placementHistoryRecord({
+    editKind: "move",
+    before: placementRevision({
+      placement: originalPlacement(),
+      registrationSolvedPlacement: originalPlacement(),
+    }),
+    after: placementRevision({
+      placement: movedPlacement(),
+      registrationSolvedPlacement: null,
+    }),
+  });
+
+  assert.deepEqual(handleApplicationCommand({
+    state: {
+      session: referenceImageSession({
+        mode: "align",
+        pins: [firstPin(), secondPin()],
+        placement: movedPlacement(),
+      }),
+      history: {
+        past: [record],
+        future: [],
+      },
+    },
+    command: createApplicationCommand(APPLICATION_COMMAND_KIND.UNDO),
+  }), {
+    state: {
+      session: referenceImageSession({
+        mode: "align",
+        pins: [firstPin(), secondPin()],
+        placement: originalPlacement(),
+        registrationSolvedPlacement: originalPlacement(),
+      }),
+      history: {
+        past: [],
+        future: [record],
+      },
+    },
+    effects: [{
+      kind: EFFECT_KIND.PERSIST_DURABLE_STATE,
+      durableState: durableImageState({
+        mode: "align",
+        pins: [firstPin(), secondPin()],
+        placement: originalPlacement(),
+        registrationSolvedPlacement: originalPlacement(),
+      }),
+    }],
+  });
+});
+
+// Candidate: a non-undoable durable edit creates a new branch but should not
+// erase still-valid past placement history. It only clears redo future because
+// future records no longer follow the current durable timeline.
+test("candidate: non-undoable durable edits preserve past placement history and clear future", () => {
+  const pastRecord = placementHistoryRecord({
+    editKind: "move",
+    before: placementRevision({
+      placement: originalPlacement(),
+      registrationSolvedPlacement: null,
+    }),
+    after: placementRevision({
+      placement: movedPlacement(),
+      registrationSolvedPlacement: null,
+    }),
+  });
+  const futureRecord = placementHistoryRecord({
+    editKind: "scale",
+    before: placementRevision({
+      placement: movedPlacement(),
+      registrationSolvedPlacement: null,
+    }),
+    after: placementRevision({
+      placement: scaledPlacement(),
+      registrationSolvedPlacement: null,
+    }),
+  });
+
+  assert.deepEqual(handleApplicationCommand({
+    state: {
+      session: referenceImageSession({
+        mode: "align",
+        placement: movedPlacement(),
+      }),
+      history: {
+        past: [pastRecord],
+        future: [futureRecord],
+      },
+    },
+    command: createApplicationCommand(APPLICATION_COMMAND_KIND.SELECT_MODE, {
+      mode: "trace",
+    }),
+  }), {
+    state: {
+      session: referenceImageSession({
+        mode: "trace",
+        placement: movedPlacement(),
+      }),
+      history: {
+        past: [pastRecord],
+        future: [],
+      },
+    },
+    effects: [{
+      kind: EFFECT_KIND.PERSIST_DURABLE_STATE,
+      durableState: durableImageState({
+        mode: "trace",
+        placement: movedPlacement(),
+      }),
+    }],
+  });
+});
+
+// Candidate: duplicate commit facts are adapter noise, not user edits. They
+// must neither persist nor create empty history records.
+test("candidate: unchanged placement edit is inert and leaves history untouched", () => {
+  const state = {
+    session: referenceImageSession({
+      mode: "align",
+      placement: movedPlacement(),
+    }),
+    history: {
+      past: [placementHistoryRecord({
+        editKind: "move",
+        before: placementRevision({
+          placement: originalPlacement(),
+          registrationSolvedPlacement: null,
+        }),
+        after: placementRevision({
+          placement: movedPlacement(),
+          registrationSolvedPlacement: null,
+        }),
+      })],
+      future: [],
+    },
+  };
+
+  assert.deepEqual(handleApplicationCommand({
+    state,
+    command: createApplicationCommand(
+      APPLICATION_COMMAND_KIND.COMMIT_PLACEMENT_EDIT,
+      {
+        editKind: "move",
+        placement: movedPlacement(),
+      },
+    ),
+  }), {
+    state,
+    effects: [],
+  });
+});
+
+// Candidate: Trace/native-map mode is not an overlay editing mode. Stale
+// placement commands cannot mutate placement, persistence, or history.
+test("candidate: Trace placement edit is inert and leaves history untouched", () => {
+  const state = {
+    session: referenceImageSession({
+      mode: "trace",
+      placement: originalPlacement(),
+    }),
+    history: {
+      past: [placementHistoryRecord({
+        editKind: "move",
+        before: placementRevision({
+          placement: null,
+          registrationSolvedPlacement: null,
+        }),
+        after: placementRevision({
+          placement: originalPlacement(),
+          registrationSolvedPlacement: null,
+        }),
+      })],
+      future: [],
+    },
+  };
+
+  assert.deepEqual(handleApplicationCommand({
+    state,
+    command: createApplicationCommand(
+      APPLICATION_COMMAND_KIND.COMMIT_PLACEMENT_EDIT,
+      {
+        editKind: "move",
+        placement: movedPlacement(),
+      },
+    ),
+  }), {
+    state,
+    effects: [],
+  });
+});
+
+// Candidate: history copy is derived from semantic records at the view-model
+// boundary. The important law is not the exact prose; it is that a placement
+// record without stored labels still yields specific, non-generic affordances.
+test("candidate: view model labels placement history from semantic records", () => {
+  const view = selectApplicationView({
+    session: referenceImageSession({
+      mode: "align",
+      placement: movedPlacement(),
+    }),
+    history: {
+      past: [placementHistoryRecord({
+        editKind: "move",
+        before: placementRevision({
+          placement: originalPlacement(),
+          registrationSolvedPlacement: null,
+        }),
+        after: placementRevision({
+          placement: movedPlacement(),
+          registrationSolvedPlacement: null,
+        }),
+      })],
+      future: [placementHistoryRecord({
+        editKind: "rotate",
+        before: placementRevision({
+          placement: movedPlacement(),
+          registrationSolvedPlacement: null,
+        }),
+        after: placementRevision({
+          placement: rotatedPlacement(),
+          registrationSolvedPlacement: null,
+        }),
+      })],
+    },
+  });
+
+  assert.equal(view.history.undo.enabled, true);
+  assert.equal(view.history.redo.enabled, true);
+  assert.match(view.history.undo.label, /move overlay/i);
+  assert.match(view.history.redo.label, /rotate overlay/i);
+  assert.doesNotMatch(view.history.undo.label, /^undo$/i);
+  assert.doesNotMatch(view.history.redo.label, /^redo$/i);
+});
+
+// Candidate: production application code should not bake literal history labels
+// into records. Semantic records plus view-model copy keep persistence/replay
+// separate from UI wording.
+test("candidate: application source stores no literal history labels", () => {
+  const violations = [];
+  for (const filePath of listJavaScriptFiles(APPLICATION_DIR)) {
+    const source = fs.readFileSync(filePath, "utf8");
+    for (const snippet of FORBIDDEN_HISTORY_SOURCE_SNIPPETS) {
+      if (source.includes(snippet)) {
+        violations.push(`${relativeToRepo(filePath)} contains ${snippet}`);
+      }
+    }
+  }
+
+  assert.deepEqual(violations, []);
+});
+
+function placementHistoryRecord({ editKind, before, after }) {
+  return {
+    kind: "overlay-placement-edit",
+    editKind,
+    before,
+    after,
+  };
+}
+
+function placementRevision({ placement, registrationSolvedPlacement }) {
+  return {
+    placement,
+    registrationSolvedPlacement,
+  };
+}
+
+function referenceImageLoadedState({
+  mode,
+  placement,
+  opacity,
+  pins,
+  registrationSolvedPlacement,
+}) {
+  return {
+    session: referenceImageSession({
+      mode,
+      placement,
+      opacity,
+      pins,
+      registrationSolvedPlacement,
+    }),
+  };
+}
+
+function durableImageState({
+  mode,
+  placement,
+  opacity,
+  pins,
+  registrationSolvedPlacement,
+}) {
+  return referenceImageLoadedState({
+    mode,
+    placement,
+    opacity,
+    pins,
+    registrationSolvedPlacement,
+  });
+}
+
+function referenceImageSession({
+  mode,
+  placement = undefined,
+  opacity = undefined,
+  pins = [],
+  registrationSolvedPlacement = undefined,
+}) {
+  const session = {
+    mode,
+    referenceImage: normalizedReferenceImage(),
+  };
+  if (placement !== undefined) {
+    session.placement = placement;
+  }
+  if (opacity !== undefined) {
+    session.opacity = opacity;
+  }
+  if (pins.length > 0 || registrationSolvedPlacement !== undefined) {
+    session.registration = {
+      pins,
+    };
+    if (registrationSolvedPlacement !== undefined) {
+      session.registration.solvedPlacement = registrationSolvedPlacement;
+    }
+  }
+  return session;
+}
+
+function normalizedReferenceImage() {
+  return {
+    imageDataRef: "data:image/png;base64,reference-image",
+    intrinsicSizePx: {
+      width: 640,
+      height: 480,
+    },
+  };
+}
+
+function firstPin() {
+  return {
+    id: 1,
+    imagePx: {
+      x: 320,
+      y: 240,
+    },
+    mapLatLon: {
+      lat: -1.23,
+      lon: 36.84,
+    },
+  };
+}
+
+function secondPin() {
+  return {
+    id: 2,
+    imagePx: {
+      x: 500,
+      y: 260,
+    },
+    mapLatLon: {
+      lat: -1.22,
+      lon: 36.85,
+    },
+  };
+}
+
+function originalPlacement() {
+  return placement({
+    x: 10,
+    y: 20,
+    scale: 1,
+    rotationRad: 0,
+  });
+}
+
+function movedPlacement() {
+  return placement({
+    x: 30,
+    y: 50,
+    scale: 1,
+    rotationRad: 0,
+  });
+}
+
+function rotatedPlacement() {
+  return placement({
+    x: 30,
+    y: 50,
+    scale: 1,
+    rotationRad: 0.5,
+  });
+}
+
+function scaledPlacement() {
+  return placement({
+    x: 30,
+    y: 50,
+    scale: 1.5,
+    rotationRad: 0,
+  });
+}
+
+function placement({
+  x,
+  y,
+  scale,
+  rotationRad,
+}) {
+  return {
+    x,
+    y,
+    scale,
+    rotationRad,
+  };
+}
+
+function listJavaScriptFiles(directoryPath) {
+  const files = [];
+  for (const entry of fs.readdirSync(directoryPath, { withFileTypes: true })) {
+    const filePath = path.join(directoryPath, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...listJavaScriptFiles(filePath));
+      continue;
+    }
+    if (entry.isFile() && filePath.endsWith(".js")) {
+      files.push(filePath);
+    }
+  }
+  return files.sort();
+}
+
+function relativeToRepo(filePath) {
+  return path.relative(REPO_ROOT, filePath);
+}
