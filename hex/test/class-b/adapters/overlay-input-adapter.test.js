@@ -6,10 +6,9 @@ import {
   createOverlayAdapter,
 } from "../../../adapters/ui/overlay-adapter.js";
 
-// Class-b, not class-a: DOM tags and data markers are adapter-local test
-// handles, but the boundary is stable. The overlay adapter renders from
-// application view facts only; it must not receive or inspect session-shaped
-// product state.
+// Class-b, deliberately not class-a: DOM tags, CSS serialization, and data
+// markers are adapter-local handles. The stable boundary is narrower: overlay
+// rendering consumes only view facts, never session-shaped product state.
 test("overlay adapter renders from overlay view facts only", () => {
   const { window } = new JSDOM("<!doctype html><body></body>");
   const overlay = createOverlayAdapter({
