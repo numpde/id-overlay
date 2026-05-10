@@ -28,6 +28,9 @@ Unclassified files are the holding area for possible product laws before we
 know whether they belong in class-a, class-b, or class-c. Keep them
 self-contained so promotion is easy to review as a file move.
 
+Candidate tests live in `unclassified` and use `candidate-*.test.js` filenames.
+They are proposals, not a fourth authority class.
+
 Promotion criteria:
 
 - `unclassified` to any class: promote only after deciding the test's authority

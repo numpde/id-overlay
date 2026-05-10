@@ -7,6 +7,7 @@
     "test:hex:class-a": "node --test hex/test/class-a/**/*.test.js",
     "test:hex:class-b": "node --test hex/test/class-b/**/*.test.js",
     "test:hex:class-c": "files=$(find hex/test/class-c -type f -name '*.test.js' | sort); if [ -n \"$files\" ]; then node --test $files; else echo \"No class-c tests\"; fi",
+    "test:hex:candidates": "files=$(find hex/test/unclassified -type f -name 'candidate-*.test.js' | sort); if [ -n \"$files\" ]; then node --test $files; else echo \"No candidate tests\"; fi",
     "test:hex:unclassified": "files=$(find hex/test/unclassified -type f -name '*.test.js' | sort); if [ -n \"$files\" ]; then node --test $files; else echo \"No unclassified tests\"; fi",
     "test:hex:architecture": "node --test hex/test/class-a/architecture/*.test.js",
     "test:hex:harness": "npm run test:hex:class-b",
