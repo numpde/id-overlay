@@ -19,12 +19,32 @@ export function selectApplicationView(state) {
       },
     },
     primaryAction: {
-      label: state.referenceImageInput?.status === "awaiting-paste"
-        ? "Cancel paste"
-        : "Paste",
+      label: primaryActionLabel(state),
       enabled: true,
     },
   };
+}
+
+function primaryActionLabel(state) {
+  if (state.referenceImageInput?.status === "awaiting-paste") {
+    return "Cancel paste";
+  }
+  if (!state.session) {
+    return "Paste";
+  }
+  if (state.panelIntent?.kind === "confirm-clear-pins") {
+    return "Clear pins?";
+  }
+  if (state.panelIntent?.kind === "confirm-clear-reference-image") {
+    return "Clear image?";
+  }
+  if (
+    state.session.mode === "align"
+      && (state.session.registration?.pins ?? []).length > 0
+  ) {
+    return "Clear pins";
+  }
+  return "Clear image";
 }
 
 function overlayInputForMode(mode, hasSession) {

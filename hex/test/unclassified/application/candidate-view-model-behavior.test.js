@@ -3,59 +3,6 @@ import assert from "node:assert/strict";
 
 import { selectApplicationView } from "../../../application/view-model.js";
 
-// Candidate: the primary button should expose the next user-visible action.
-// These labels are product vocabulary, so they belong in the application view
-// model, not in panel DOM code or browser shell glue.
-test("view model exposes primary action labels for each product posture", () => {
-  const cases = [
-    {
-      state: {},
-      label: "Paste",
-    },
-    {
-      state: {
-        referenceImageInput: {
-          status: "awaiting-paste",
-          requestId: 1,
-        },
-      },
-      label: "Cancel paste",
-    },
-    {
-      state: referenceImageLoadedState(),
-      label: "Clear image",
-    },
-    {
-      state: referenceImageLoadedState({
-        pins: [firstPin()],
-      }),
-      label: "Clear pins",
-    },
-    {
-      state: referenceImageLoadedState({
-        pins: [firstPin()],
-        panelIntent: {
-          kind: "confirm-clear-pins",
-        },
-      }),
-      label: "Clear pins?",
-    },
-    {
-      state: referenceImageLoadedState({
-        panelIntent: {
-          kind: "confirm-clear-reference-image",
-        },
-      }),
-      label: "Clear image?",
-    },
-  ];
-
-  assert.deepEqual(
-    cases.map(({ state }) => selectApplicationView(state).primaryAction.label),
-    cases.map(({ label }) => label),
-  );
-});
-
 // Candidate: history controls describe semantic user changes. The view model
 // should read history records and expose labels; panel adapters should never
 // synthesize generic Undo/Redo copy.
