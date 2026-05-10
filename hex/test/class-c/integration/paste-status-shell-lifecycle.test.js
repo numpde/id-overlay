@@ -5,9 +5,12 @@ import {
   bootstrapBrowserExtension,
 } from "../../../bootstrap/index.js";
 
-// Class-c: status copy is already class-b at the view-model boundary. This
-// composed shell scenario should be promoted only after browser paste effects
-// exist; today it would pretend clipboard reads are wired when they are not.
+// Class-c: status copy and paste outcome semantics are covered at the
+// application/view-model boundary. This composed shell scenario still smuggles
+// in a browser workflow: primary action would have to arm paste, a clipboard
+// adapter would have to report a correlated outcome command, and the shell would
+// re-render the resulting status. Promote only when that effect boundary exists;
+// do not teach primary action itself to read the clipboard.
 test("empty paste status is visible and successful image load clears it", async () => {
   const referenceImage = normalizedReferenceImage();
   const storage = createDurableStorageHarness({
