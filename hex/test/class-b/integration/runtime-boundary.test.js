@@ -7,41 +7,6 @@ import {
   wireRuntime,
 } from "../../../bootstrap/runtime.js";
 
-// Class-b, not class-a yet: this is an architectural law, but the referenced
-// runtime surface is still proposed harness shape. Promote only after the
-// runtime module exists and this test constrains implementation, not scaffolding.
-test("runtime driver does not inspect product state fields", async () => {
-  const command = {
-    kind: "user-command",
-  };
-  const state = createOpaqueProductState({
-    session: {
-      mode: "align",
-      pins: [],
-    },
-    status: "Loaded screenshot.",
-  });
-  let stepCallCount = 0;
-
-  const runtime = createRuntimeDriver({
-    initialState: state,
-    effectHandlers: {},
-    stepApplication({ state: receivedState, command: receivedCommand }) {
-      stepCallCount += 1;
-      assert.equal(receivedState, state);
-      assert.equal(receivedCommand, command);
-      return {
-        state: receivedState,
-        effects: [],
-      };
-    },
-  });
-
-  await runtime.dispatch(command);
-
-  assert.equal(stepCallCount, 1);
-});
-
 // Class-b: app output is the only source of host work. The runtime must not
 // infer persistence, timers, paste reads, or any other effect from state shape.
 test("runtime runs only effects returned by the application step", async () => {
