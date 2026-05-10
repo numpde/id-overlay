@@ -21,11 +21,14 @@ export function awaitingReferenceImagePasteState({ requestId = 1 } = {}) {
   };
 }
 
-export function referenceImageLoadedState({ mode = "align", pins } = {}) {
+export function referenceImageLoadedState({ mode = "align", placement, pins } = {}) {
   const session = {
     mode,
     referenceImage: normalizedReferenceImage(),
   };
+  if (placement !== undefined) {
+    session.placement = placement;
+  }
   if (pins !== undefined) {
     session.registration = {
       pins,

@@ -12,41 +12,15 @@ import {
 } from "../../class-b/application/application-result-assertions.js";
 import { durableStateChangedEffect } from "./durable-state-fixtures.js";
 import {
-  firstPin,
-  pinTogglePayload,
   referenceImageDurableState,
   referenceImageLoadedState,
-  secondPin,
   solvedPlacement,
   twoPins,
 } from "./reference-image-fixtures.js";
-import {
-  movedPlacement,
-} from "./placement-fixtures.js";
 
 // Class-c: pin toggling was promoted as core Align-mode behavior. The remaining
-// tests cover registration/placement coupling and Trace auto-fit policy.
-
-// Class-c: registration edits after a fit should not make the overlay jump, but
-// the exact placement/registration coupling is still proposal-level shape.
-test("adding a registration pin preserves current visible placement", () => {
-  const placement = movedPlacement();
-  const result = handleApplicationCommand({
-    state: referenceImageLoadedState({
-      placement,
-      pins: [firstPin()],
-    }),
-    command: createApplicationCommand(
-      APPLICATION_COMMAND_KIND.TOGGLE_REGISTRATION_PIN,
-      pinTogglePayload({
-        imagePx: secondPin().imagePx,
-        mapLatLon: secondPin().mapLatLon,
-      }),
-    ),
-  });
-
-  assert.deepEqual(result.state.session.placement, placement);
-});
+// test covers Trace auto-fit policy. Placement preservation during pin edits was
+// promoted because explicit overlay placement must survive registration edits.
 
 // Class-c: auto-fitting on Trace switch is user-visible and likely right. The
 // command carries solvedPlacement on purpose: the application should decide

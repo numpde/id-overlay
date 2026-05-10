@@ -85,6 +85,62 @@ test("pin toggle adds and removes projected registration facts in Align mode", (
   });
 });
 
+// Class-b, not class-a: exact fit/solve policy can still evolve, but editing
+// registration pins must not disturb an explicitly placed overlay. Pin toggles
+// update registration facts while carrying the current visible placement through
+// both state and durability.
+test("adding a registration pin preserves current visible placement", () => {
+  const placement = {
+    x: 80,
+    y: 40,
+    scale: 1,
+    rotationRad: 0,
+  };
+
+  const result = handleApplicationCommand({
+    state: referenceImageLoadedState({
+      placement,
+      pins: [firstPin()],
+    }),
+    command: createApplicationCommand(
+      APPLICATION_COMMAND_KIND.TOGGLE_REGISTRATION_PIN,
+      pinTogglePayload({
+        imagePx: secondPin().imagePx,
+        mapLatLon: secondPin().mapLatLon,
+      }),
+    ),
+  });
+
+  assert.deepEqual(result, {
+    state: {
+      session: {
+        mode: "align",
+        referenceImage: normalizedReferenceImage(),
+        placement,
+        registration: {
+          pins: [firstPin(), secondPin()],
+        },
+      },
+      notice: {
+        kind: "added-pin",
+        pinId: 2,
+      },
+    },
+    effects: [
+      durableStateChangedEffect({
+        session: {
+          mode: "align",
+          referenceImage: normalizedReferenceImage(),
+          placement,
+          registration: {
+            pins: [firstPin(), secondPin()],
+          },
+        },
+      }),
+    ],
+  });
+});
+
 // Class-b, not class-a: the exact user-facing notice and the absent-vs-empty
 // registration representation may still change. The application boundary is
 // settled enough: clearing pins in Align is a product transition, keeps the
