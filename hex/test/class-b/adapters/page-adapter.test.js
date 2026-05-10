@@ -53,8 +53,9 @@ test("page snapshot adapter emits plain map facts", () => {
   assertPlainData(snapshot);
 });
 
-// Class-b: expected projection misses are explicit data facts. The application
-// should not receive null guesses or page-adapter exceptions.
+// Class-b, deliberately not class-a: map projection can be implemented many
+// ways. The boundary promise is that expected misses cross inward as explicit
+// plain failure facts, never as null guesses or page-adapter exceptions.
 test("projection adapter reports explicit failure facts", () => {
   const projection = createProjectionAdapter({
     readProjectionContext() {
