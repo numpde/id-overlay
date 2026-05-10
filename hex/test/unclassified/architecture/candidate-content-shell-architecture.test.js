@@ -1,22 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import fs from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 
-const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../..");
-const MAIN_ENTRY = repoPath("src/content/main.js");
 const CONTENT_LOADER_MODULE = "./content-loader.js";
-
-// Unclassified: src/content/main.js is not present yet. This test exists to
-// make the next step explicit: either keep it absent, or introduce it as a
-// wiring-only file and promote this contract with the actual allowed imports.
-test("content/main.js has no hidden contract until it exists", () => {
-  assert.equal(fs.existsSync(MAIN_ENTRY), false, [
-    "src/content/main.js now exists.",
-    "Replace this absence guard with a wiring-only contract before proceeding.",
-  ].join(" "));
-});
 
 // Unclassified: this helper is deliberately unused until main.js exists. It
 // records the intended contract without pretending to validate absent code.
@@ -102,8 +87,4 @@ function collectPatternViolations(source, forbiddenPatterns) {
     }
   }
   return violations;
-}
-
-function repoPath(...segments) {
-  return path.join(REPO_ROOT, ...segments);
 }

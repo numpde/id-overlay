@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../..");
 const CONTENT_DIR = repoPath("src/content");
 const CONTENT_LOADER = repoPath("src/content/content-loader.js");
+const MAIN_ENTRY = repoPath("src/content/main.js");
 
 // Class-b, deliberately not class-a: Chrome's classic content-script loader is
 // browser packaging policy, not product law. The settled boundary is narrower:
@@ -37,6 +38,17 @@ test("content loader remains a dumb dynamic-import bridge", () => {
       pattern: /\bstorage\b|\bclipboard\b|\bFileReader\b|\bnew\s+Image\b/,
     },
   ]), []);
+});
+
+// Class-b, deliberately not class-a: the file layout of the browser shell may
+// change. The current contract is that there is no second content-script
+// entrypoint with an implicit role; adding src/content/main.js must come with an
+// explicit wiring-only test instead of inheriting product authority by accident.
+test("content shell has no hidden main entrypoint", () => {
+  assert.equal(fs.existsSync(MAIN_ENTRY), false, [
+    "src/content/main.js now exists.",
+    "Replace this absence guard with a wiring-only contract before proceeding.",
+  ].join(" "));
 });
 
 // Class-b, deliberately not class-a: the browser-shell layout is still
