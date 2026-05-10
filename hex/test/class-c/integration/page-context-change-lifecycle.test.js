@@ -5,10 +5,11 @@ import {
   bootstrapBrowserExtension,
 } from "../../../bootstrap/index.js";
 
-// Class-c: initial page support detection is class-b, but dynamic page-context
-// subscription is not implemented. Keep this target quarantined until route/
-// frame support changes are shell lifecycle facts that mount or dispose one
-// owned runtime cleanly.
+// Class-c: the user-visible lifecycle is stable, but the port shape is not.
+// Initial page support detection is already class-b; this candidate goes further
+// and invents `pageContextPort.subscribePageContextChanged`, root removal, and
+// runtime reset semantics. Promote only after the shell has one explicit
+// page-context observation port and one explicit ownership/disposal policy.
 test("becoming unsupported disposes the owned UI root and runtime listeners", async () => {
   const pageContext = createPageContextHarness({
     initialContext: {
@@ -34,8 +35,11 @@ test("becoming unsupported disposes the owned UI root and runtime listeners", as
   assert.equal(pageContext.disposeCount, 1);
 });
 
-// Class-c: unsupported startup currently returns without mounting. This target
-// says the tab should still recover if client-side routing later enters iD.
+// Class-c: SPA recovery is a real browser behavior, but this test should not be
+// the thing that chooses whether unsupported startup returns a dormant bootstrap,
+// a disposer, or a subscribed shell controller. Keep it quarantined until that
+// lifecycle boundary is named once and reused by both supported->unsupported and
+// unsupported->supported transitions.
 test("becoming supported after unsupported startup mounts the extension once", async () => {
   const pageContext = createPageContextHarness({
     initialContext: {
