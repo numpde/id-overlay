@@ -154,8 +154,7 @@ test("primary action confirms clear-pins confirmation durably", () => {
 });
 
 // Class-a: once clear-image confirmation is active, the primary action removes
-// the reference-image session and writes durable null. Undo/history affordances
-// are weaker UI policy; durable removal is the non-negotiable product law.
+// the reference-image session and writes durable null.
 test("primary action confirms clear-image confirmation durably", () => {
   const result = handleApplicationCommand({
     state: {
@@ -174,6 +173,31 @@ test("primary action confirms clear-image confirmation durably", () => {
   assert.deepEqual(result.effects, [
     durableStateChangedEffect(null),
   ]);
+});
+
+// Class-a: removing an image is user-recoverable. Confirmation must record the
+// durable before/after states so Undo can reload the exact removed image without
+// preserving transient confirmation state.
+test("primary action clear-image confirmation records undoable removal history", () => {
+  const result = handleApplicationCommand({
+    state: {
+      ...referenceImageLoadedState(),
+      panelIntent: {
+        kind: "confirm-clear-reference-image",
+      },
+    },
+    command: createApplicationCommand(
+      APPLICATION_COMMAND_KIND.ACTIVATE_PRIMARY_ACTION,
+    ),
+  });
+
+  assert.equal(result.state.history.past.length, 1);
+  assert.deepEqual(result.state.history.future, []);
+  assert.deepEqual(result.state.history.past[0].before, {
+    session: referenceImageLoadedState().session,
+  });
+  assert.equal(result.state.history.past[0].after, null);
+  assert.equal(result.state.panelIntent, undefined);
 });
 
 function referenceImageLoadedState({ pins } = {}) {

@@ -8,7 +8,6 @@ import {
 import { handleApplicationCommand } from "../../../application/handle-command.js";
 import {
   firstPin,
-  referenceImageDurableState,
   referenceImageLoadedState,
 } from "./reference-image-fixtures.js";
 
@@ -37,17 +36,10 @@ test("primary action clear-pins confirmation emits cleared-pins notice", () => {
   });
 });
 
-// Class-b, deliberately not class-a: class-a owns durable image removal. This
-// test keeps the weaker undo affordance policy visible: confirmed removal
-// records a reloadable history entry with current product labels.
-test("primary action clear-image confirmation records reloadable history", () => {
-  const record = {
-    kind: "remove-reference-image",
-    undoLabel: "Reload image",
-    redoLabel: "Remove image",
-    before: referenceImageDurableState(),
-    after: null,
-  };
+// Class-b, deliberately not class-a: class-a owns the undoable before/after
+// history record for image removal. This test keeps only the weaker current
+// product copy for the history affordance: Undo should say what it will do.
+test("primary action clear-image confirmation labels reloadable history", () => {
   const result = handleApplicationCommand({
     state: {
       ...referenceImageLoadedState(),
@@ -60,8 +52,6 @@ test("primary action clear-image confirmation records reloadable history", () =>
     ),
   });
 
-  assert.deepEqual(result.state.history, {
-    past: [record],
-    future: [],
-  });
+  assert.equal(result.state.history.past[0].undoLabel, "Reload image");
+  assert.equal(result.state.history.past[0].redoLabel, "Remove image");
 });
