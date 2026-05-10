@@ -227,6 +227,95 @@ test("browser shell re-renders and persists clear-image undo and redo", async ()
   ]);
 });
 
+// Class-b, deliberately not class-a: application mode laws are already
+// authoritative. This integration boundary checks the browser shell composition:
+// a rendered mode command must update visible overlay input posture and persist
+// the same durable session projection.
+test("browser shell mode switching hides and restores Align pins", async () => {
+  const storage = createDurableStorageHarness({
+    durableState: durableImageState({
+      mode: "align",
+      referenceImage: normalizedReferenceImage(),
+      pins: [firstPin()],
+    }),
+  });
+  const host = createBrowserHostHarness({
+    pageContext: {
+      kind: "supported-map-editor-page",
+    },
+    durableStatePort: storage.port,
+  });
+
+  await bootstrapBrowserExtension(host);
+  assert.deepEqual(host.latestRender.view.overlayInput, {
+    kind: "overlay-editing",
+    canEditOverlay: true,
+    arePinsVisible: true,
+  });
+  assert.deepEqual(host.latestRender.view.overlay.pins, [firstPin()]);
+
+  await host.latestRender.dispatchCommand({
+    kind: "select-mode",
+    mode: "trace",
+  });
+  assert.deepEqual(host.latestRender.view.overlayInput, {
+    kind: "native-map",
+    canEditOverlay: false,
+    arePinsVisible: false,
+  });
+  assert.deepEqual(host.latestRender.view.overlay.pins, []);
+
+  await host.latestRender.dispatchCommand({
+    kind: "select-mode",
+    mode: "align",
+  });
+  assert.deepEqual(host.latestRender.view.overlayInput, {
+    kind: "overlay-editing",
+    canEditOverlay: true,
+    arePinsVisible: true,
+  });
+  assert.deepEqual(host.latestRender.view.overlay.pins, [firstPin()]);
+
+  assert.deepEqual(storage.writes, [
+    durableImageState({
+      mode: "trace",
+      referenceImage: normalizedReferenceImage(),
+      pins: [firstPin()],
+    }),
+    durableImageState({
+      mode: "align",
+      referenceImage: normalizedReferenceImage(),
+      pins: [firstPin()],
+    }),
+  ]);
+});
+
+// Class-b, deliberately not class-a: no-session mode inertness is class-a at the
+// application boundary. The shell still needs this guard because disabled UI is
+// advisory; stale or synthetic commands must not create hidden durable state.
+test("browser shell keeps no-session Align selection inert", async () => {
+  const storage = createDurableStorageHarness({
+    durableState: null,
+  });
+  const host = createBrowserHostHarness({
+    pageContext: {
+      kind: "supported-map-editor-page",
+    },
+    durableStatePort: storage.port,
+  });
+
+  const result = await bootstrapBrowserExtension(host);
+  await host.latestRender.dispatchCommand({
+    kind: "select-mode",
+    mode: "align",
+  });
+
+  assert.deepEqual(result.runtime.getState(), {});
+  assert.equal(host.latestRender.view.mode, "trace");
+  assert.equal(host.latestRender.view.modeSwitch.align.enabled, false);
+  assert.deepEqual(storage.writes, []);
+});
+
 function createBrowserHostHarness({
   pageContext,
   durableStatePort = createDurableStorageHarness({ durableState: null }).port,
@@ -254,11 +343,19 @@ function createBrowserHostHarness({
   };
 }
 
-function durableImageState({ mode, referenceImage }) {
+function durableImageState({ mode, referenceImage, pins }) {
+  const session = {
+    mode,
+    referenceImage,
+  };
+  if (pins !== undefined) {
+    session.registration = {
+      pins,
+    };
+  }
   return {
     session: {
-      mode,
-      referenceImage,
+      ...session,
     },
   };
 }
@@ -269,6 +366,20 @@ function normalizedReferenceImage() {
     intrinsicSizePx: {
       width: 640,
       height: 480,
+    },
+  };
+}
+
+function firstPin() {
+  return {
+    id: 1,
+    imagePx: {
+      x: 320,
+      y: 240,
+    },
+    mapLatLon: {
+      lat: -1.23,
+      lon: 36.84,
     },
   };
 }
