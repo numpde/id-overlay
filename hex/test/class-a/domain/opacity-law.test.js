@@ -5,9 +5,11 @@ import {
   normalizeOpacity,
 } from "../../../domain/opacity.js";
 
-// Class-b: opacity is a bounded product value. The domain accepts finite
-// numeric input and returns a value inside the product interval.
-test("opacity normalizes to the declared product range", () => {
+// Class-a: opacity is a normalized product value, not caller preference. The
+// only durable/renderable opacity interval is [0, 1]; finite out-of-range input
+// is clamped at the domain boundary, and non-numeric input is rejected before it
+// can become application state.
+test("opacity normalizes to the product range", () => {
   assert.equal(normalizeOpacity(0), 0);
   assert.equal(normalizeOpacity(0.5), 0.5);
   assert.equal(normalizeOpacity(1), 1);
