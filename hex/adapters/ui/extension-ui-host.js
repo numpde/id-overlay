@@ -69,7 +69,6 @@ function createStyleElement(document) {
   style.textContent = `
     :host {
       all: initial;
-      color-scheme: light;
       font-family: ui-sans-serif, system-ui, sans-serif;
     }
 
@@ -102,10 +101,11 @@ function createStyleElement(document) {
 
     [data-region="panel"] section {
       align-items: center;
-      background: rgba(255, 255, 255, 0.96);
-      border: 1px solid rgba(15, 23, 42, 0.14);
+      background: light-dark(rgba(255, 255, 255, 0.96), rgba(15, 23, 42, 0.94));
+      border: 1px solid light-dark(rgba(15, 23, 42, 0.14), rgba(226, 232, 240, 0.16));
       border-radius: 8px;
       box-shadow: 0 16px 40px rgba(15, 23, 42, 0.18);
+      color-scheme: light dark;
       display: flex;
       gap: 6px;
       padding: 8px;
@@ -130,7 +130,7 @@ function createStyleElement(document) {
     }
 
     output {
-      color: #334155;
+      color: light-dark(#334155, #cbd5e1);
       font: 500 12px/1.2 ui-sans-serif, system-ui, sans-serif;
       max-width: 220px;
     }
