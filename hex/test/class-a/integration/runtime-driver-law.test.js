@@ -40,6 +40,37 @@ test("runtime driver treats product state as opaque", async () => {
   assert.equal(stepCallCount, 1);
 });
 
+// Class-a: application output is the only source of host work. The runtime must
+// not infer persistence, timers, input reads, or any other effect from state
+// shape; only declared effects cross outward.
+test("runtime runs only effects returned by the application step", async () => {
+  const state = {
+    durableState: {
+      session: {
+        mode: "align",
+      },
+    },
+  };
+  const runtime = createRuntimeDriver({
+    initialState: state,
+    effectHandlers: {
+      "persist-durable-state": () => {
+        assert.fail("runtime invented persistence from state inspection");
+      },
+    },
+    stepApplication() {
+      return {
+        state,
+        effects: [],
+      };
+    },
+  });
+
+  await runtime.dispatch({
+    kind: "user-command",
+  });
+});
+
 function createOpaqueProductState(value) {
   const forbiddenProductFields = new Set([
     "mode",

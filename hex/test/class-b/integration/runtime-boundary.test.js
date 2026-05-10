@@ -7,36 +7,6 @@ import {
   wireRuntime,
 } from "../../../bootstrap/runtime.js";
 
-// Class-b: app output is the only source of host work. The runtime must not
-// infer persistence, timers, paste reads, or any other effect from state shape.
-test("runtime runs only effects returned by the application step", async () => {
-  const state = {
-    durableState: {
-      session: {
-        mode: "align",
-      },
-    },
-  };
-  const runtime = createRuntimeDriver({
-    initialState: state,
-    effectHandlers: {
-      "persist-durable-state": () => {
-        assert.fail("runtime invented persistence from state inspection");
-      },
-    },
-    stepApplication() {
-      return {
-        state,
-        effects: [],
-      };
-    },
-  });
-
-  await runtime.dispatch({
-    kind: "user-command",
-  });
-});
-
 // Class-b: effect kind is the runtime dispatch key. A declared effect must call
 // exactly its matching handler and no neighboring handler.
 test("runtime dispatches each declared effect kind to its matching handler", async () => {
