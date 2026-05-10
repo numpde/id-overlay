@@ -1,5 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 import {
   APPLICATION_COMMAND_KIND,
@@ -7,11 +10,18 @@ import {
 } from "../../../application/command.js";
 import { handleApplicationCommand } from "../../../application/handle-command.js";
 
-// Unclassified: this file codifies the target effect vocabulary only. The
-// authority claim is still pending because nearby implementation uses the older
-// `durable-state-changed` effect and still leaves paste/timer workflows partly
-// implicit in the shell. Keep these tests as candidate evidence until the
-// vocabulary is accepted and the old effect names are deliberately migrated.
+// Unclassified: these tests are candidate law for the desired effect boundary.
+// They are intentionally sharper than the current implementation. A passing
+// implementation must make product causality explicit through a tiny set of
+// application-emitted effects, and must fail the old shell-watcher shape where
+// browser code infers work from state changes.
+
+const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../..");
+const APPLICATION_DIR = path.join(REPO_ROOT, "hex/application");
+
+const COMMAND_KIND = Object.freeze({
+  REPORT_REFERENCE_IMAGE_INPUT_OUTCOME: "report-reference-image-input-outcome",
+});
 
 const EFFECT_KIND = Object.freeze({
   PERSIST_DURABLE_STATE: "persist-durable-state",
@@ -20,49 +30,80 @@ const EFFECT_KIND = Object.freeze({
   SCHEDULE_CLEAR_PANEL_INTENT: "schedule-clear-panel-intent",
 });
 
+const FORBIDDEN_EFFECT_KINDS = Object.freeze([
+  // Transitional/internal vocabulary: persistence is product-declared work, not
+  // a notification that some shell watcher should interpret.
+  "durable-state-changed",
+
+  // Browser mechanics: the reference-image input adapter may use these, but the
+  // application effect vocabulary should not choose browser implementation.
+  "read-clipboard-image",
+  "start-manual-paste-capture",
+  "cancel-manual-paste-capture",
+
+  // Interaction/page mechanics: these are shell adapter responsibilities.
+  "forward-map-gesture",
+  "dispatch-pointer-event",
+
+  // Image-ref lifetime is not part of the baseline vocabulary until the image
+  // reference strategy is decided.
+  "release-image-data-ref",
+]);
+
 const DEFAULT_STATUS_NOTICE_DELAY_MS = 2500;
 const DEFAULT_PANEL_INTENT_DELAY_MS = 2500;
+
+// Candidate: the public command vocabulary should be generic user-input
+// vocabulary. A paste event is one adapter path; it should not name the product
+// command. This fails the old `report-reference-image-paste-outcome` shape.
+test("candidate: reference-image input outcome command is source-agnostic", () => {
+  assert.equal(
+    APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_INPUT_OUTCOME,
+    COMMAND_KIND.REPORT_REFERENCE_IMAGE_INPUT_OUTCOME,
+  );
+  assert.equal(
+    Object.values(APPLICATION_COMMAND_KIND).includes("report-reference-image-paste-outcome"),
+    false,
+  );
+});
 
 // Candidate: Paste is product causality. The app should declare reference-image
 // input work as an effect; the shell should not infer clipboard/manual-paste
 // work by watching `referenceImageInput` appear in state.
-test("candidate: activating Paste emits a reference-image input request effect", () => {
-  assert.deepEqual(handleApplicationCommand({
+test("candidate: activating Paste emits only a reference-image input request effect", () => {
+  assertApplicationResult(handleApplicationCommand({
     state: {},
     command: createApplicationCommand(APPLICATION_COMMAND_KIND.ACTIVATE_PRIMARY_ACTION),
   }), {
     state: {
       referenceImageInput: {
-        status: "awaiting-paste",
+        status: "awaiting-input",
         requestId: 1,
       },
     },
-    effects: [{
-      kind: EFFECT_KIND.REQUEST_REFERENCE_IMAGE_INPUT,
-      requestId: 1,
-    }],
+    effects: [
+      effect({
+        kind: EFFECT_KIND.REQUEST_REFERENCE_IMAGE_INPUT,
+        requestId: 1,
+      }),
+    ],
   });
 });
 
-// Candidate: persistence is product-declared work. The application should emit
-// one canonical persistence effect name instead of the transitional
-// `durable-state-changed` wording.
-test("candidate: accepted reference image emits canonical durable persistence effect", () => {
+// Candidate: accepted input commits a product session and declares persistence
+// through the canonical effect name. It should not emit the transitional
+// `durable-state-changed` effect or any browser-source-specific work.
+test("candidate: accepted reference-image input emits canonical persistence effect", () => {
   const referenceImage = normalizedReferenceImage();
   const session = {
     mode: "align",
     referenceImage,
   };
 
-  assert.deepEqual(handleApplicationCommand({
-    state: {
-      referenceImageInput: {
-        status: "awaiting-paste",
-        requestId: 1,
-      },
-    },
+  assertApplicationResult(handleApplicationCommand({
+    state: awaitingReferenceImageInputState({ requestId: 1 }),
     command: createApplicationCommand(
-      APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_PASTE_OUTCOME,
+      APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_INPUT_OUTCOME,
       {
         requestId: 1,
         outcome: {
@@ -75,28 +116,25 @@ test("candidate: accepted reference image emits canonical durable persistence ef
     state: {
       session,
     },
-    effects: [{
-      kind: EFFECT_KIND.PERSIST_DURABLE_STATE,
-      durableState: {
-        session,
-      },
-    }],
+    effects: [
+      effect({
+        kind: EFFECT_KIND.PERSIST_DURABLE_STATE,
+        durableState: {
+          session,
+        },
+      }),
+    ],
   });
 });
 
 // Candidate: status expiry is product causality because request correlation and
-// stale-timeout rejection are application rules. The shell should execute a
-// declared timer effect, not notice state changes and start timers on its own.
+// stale-timeout rejection are application rules. The app should declare the
+// timeout; the shell should not watch notices and start timers on its own.
 test("candidate: empty reference-image input schedules status notice expiry", () => {
-  assert.deepEqual(handleApplicationCommand({
-    state: {
-      referenceImageInput: {
-        status: "awaiting-paste",
-        requestId: 1,
-      },
-    },
+  assertApplicationResult(handleApplicationCommand({
+    state: awaitingReferenceImageInputState({ requestId: 1 }),
     command: createApplicationCommand(
-      APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_PASTE_OUTCOME,
+      APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_INPUT_OUTCOME,
       {
         requestId: 1,
         outcome: {
@@ -107,23 +145,25 @@ test("candidate: empty reference-image input schedules status notice expiry", ()
   }), {
     state: {
       notice: {
-        kind: "reference-image-paste-empty",
+        kind: "reference-image-input-empty",
         requestId: 1,
       },
     },
-    effects: [{
-      kind: EFFECT_KIND.SCHEDULE_CLEAR_STATUS_NOTICE,
-      requestId: 1,
-      delayMs: DEFAULT_STATUS_NOTICE_DELAY_MS,
-    }],
+    effects: [
+      effect({
+        kind: EFFECT_KIND.SCHEDULE_CLEAR_STATUS_NOTICE,
+        requestId: 1,
+        delayMs: DEFAULT_STATUS_NOTICE_DELAY_MS,
+      }),
+    ],
   });
 });
 
-// Candidate: destructive confirmation expiry is product causality. If the app
-// arms "Clear image?", it should also declare the matching expiry work so the
-// shell does not become a hidden confirmation state machine.
+// Candidate: destructive confirmation expiry is product causality. Arming the
+// confirmation and scheduling its expiry must be one application transition so
+// the shell cannot become the confirmation state machine.
 test("candidate: arming clear-image confirmation schedules panel intent expiry", () => {
-  assert.deepEqual(handleApplicationCommand({
+  assertApplicationResult(handleApplicationCommand({
     state: referenceImageLoadedState(),
     command: createApplicationCommand(APPLICATION_COMMAND_KIND.ACTIVATE_PRIMARY_ACTION),
   }), {
@@ -134,35 +174,31 @@ test("candidate: arming clear-image confirmation schedules panel intent expiry",
         requestId: 1,
       },
     },
-    effects: [{
-      kind: EFFECT_KIND.SCHEDULE_CLEAR_PANEL_INTENT,
-      requestId: 1,
-      intentKind: "confirm-clear-reference-image",
-      delayMs: DEFAULT_PANEL_INTENT_DELAY_MS,
-    }],
+    effects: [
+      effect({
+        kind: EFFECT_KIND.SCHEDULE_CLEAR_PANEL_INTENT,
+        requestId: 1,
+        intentKind: "confirm-clear-reference-image",
+        delayMs: DEFAULT_PANEL_INTENT_DELAY_MS,
+      }),
+    ],
   });
 });
 
-// Candidate: the vocabulary should stay small and product-named. These samples
-// cover the first accepted effects; browser mechanics such as clipboard reads,
-// paste listener setup, setTimeout handles, map gesture forwarding, and object
-// URL release are adapter mechanics or later strategy decisions, not baseline
+// Candidate: this is the baseline vocabulary, not a sampling convenience. If a
+// use case needs another effect, it should be added here deliberately with a
+// product-causality explanation. Browser mechanics should never sneak in as
 // effect names.
-test("candidate: first effect vocabulary contains only product-declared work", () => {
-  const effects = [
+test("candidate: baseline effect vocabulary is exact and product-named", () => {
+  const observedEffects = [
     ...handleApplicationCommand({
       state: {},
       command: createApplicationCommand(APPLICATION_COMMAND_KIND.ACTIVATE_PRIMARY_ACTION),
     }).effects,
     ...handleApplicationCommand({
-      state: {
-        referenceImageInput: {
-          status: "awaiting-paste",
-          requestId: 1,
-        },
-      },
+      state: awaitingReferenceImageInputState({ requestId: 1 }),
       command: createApplicationCommand(
-        APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_PASTE_OUTCOME,
+        APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_INPUT_OUTCOME,
         {
           requestId: 1,
           outcome: {
@@ -173,14 +209,9 @@ test("candidate: first effect vocabulary contains only product-declared work", (
       ),
     }).effects,
     ...handleApplicationCommand({
-      state: {
-        referenceImageInput: {
-          status: "awaiting-paste",
-          requestId: 2,
-        },
-      },
+      state: awaitingReferenceImageInputState({ requestId: 2 }),
       command: createApplicationCommand(
-        APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_PASTE_OUTCOME,
+        APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_INPUT_OUTCOME,
         {
           requestId: 2,
           outcome: {
@@ -196,22 +227,79 @@ test("candidate: first effect vocabulary contains only product-declared work", (
   ];
 
   assert.deepEqual(
-    effects.map((effect) => effect.kind).sort(),
+    observedEffects.map((observedEffect) => observedEffect.kind).sort(),
     Object.values(EFFECT_KIND).sort(),
   );
   assert.deepEqual(
-    effects.filter((effect) => BROWSER_MECHANIC_EFFECT_KINDS.has(effect.kind)),
+    observedEffects.flatMap(validateEffectShape),
     [],
   );
 });
 
-const BROWSER_MECHANIC_EFFECT_KINDS = new Set([
-  "read-clipboard-image",
-  "start-manual-paste-capture",
-  "forward-map-gesture",
-  "release-image-data-ref",
-  "durable-state-changed",
-]);
+// Candidate: even before runtime wiring exists, production application source
+// should not contain the rejected effect names. This catches the undesired shape
+// directly instead of relying only on the sampled transitions above.
+test("candidate: application source contains no forbidden effect vocabulary", () => {
+  const violations = [];
+  for (const filePath of listJavaScriptFiles(APPLICATION_DIR)) {
+    const source = fs.readFileSync(filePath, "utf8");
+    for (const forbiddenKind of FORBIDDEN_EFFECT_KINDS) {
+      if (source.includes(forbiddenKind)) {
+        violations.push(`${relativeToRepo(filePath)} contains ${forbiddenKind}`);
+      }
+    }
+  }
+
+  assert.deepEqual(violations, []);
+});
+
+function assertApplicationResult(actual, expected) {
+  assert.deepEqual(actual, expected);
+  assertPlainData(actual);
+  assert.deepEqual(actual.effects.flatMap(validateEffectShape), []);
+}
+
+function effect(payload) {
+  assert.deepEqual(validateEffectShape(payload), []);
+  return payload;
+}
+
+function validateEffectShape(candidateEffect) {
+  const violations = [];
+  if (!Object.values(EFFECT_KIND).includes(candidateEffect.kind)) {
+    violations.push(`unknown effect kind: ${candidateEffect.kind}`);
+  }
+  if (FORBIDDEN_EFFECT_KINDS.includes(candidateEffect.kind)) {
+    violations.push(`forbidden effect kind: ${candidateEffect.kind}`);
+  }
+  if (!isPlainData(candidateEffect)) {
+    violations.push(`non-plain effect: ${candidateEffect.kind}`);
+  }
+  for (const forbiddenKey of [
+    "callback",
+    "promise",
+    "handle",
+    "timerHandle",
+    "imageHandle",
+    "storageKey",
+    "element",
+    "event",
+  ]) {
+    if (Object.hasOwn(candidateEffect, forbiddenKey)) {
+      violations.push(`forbidden effect field: ${candidateEffect.kind}.${forbiddenKey}`);
+    }
+  }
+  return violations;
+}
+
+function awaitingReferenceImageInputState({ requestId }) {
+  return {
+    referenceImageInput: {
+      status: "awaiting-input",
+      requestId,
+    },
+  };
+}
 
 function referenceImageLoadedState() {
   return {
@@ -230,4 +318,51 @@ function normalizedReferenceImage() {
       height: 480,
     },
   };
+}
+
+function assertPlainData(value) {
+  assert.equal(isPlainData(value), true);
+}
+
+function isPlainData(value) {
+  if (value === null) {
+    return true;
+  }
+  if (Array.isArray(value)) {
+    return value.every(isPlainData);
+  }
+
+  const valueType = typeof value;
+  if (["string", "boolean"].includes(valueType)) {
+    return true;
+  }
+  if (valueType === "number") {
+    return Number.isFinite(value);
+  }
+  if (valueType !== "object") {
+    return false;
+  }
+  if (Object.getPrototypeOf(value) !== Object.prototype) {
+    return false;
+  }
+  return Object.values(value).every(isPlainData);
+}
+
+function listJavaScriptFiles(directoryPath) {
+  const files = [];
+  for (const entry of fs.readdirSync(directoryPath, { withFileTypes: true })) {
+    const filePath = path.join(directoryPath, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...listJavaScriptFiles(filePath));
+      continue;
+    }
+    if (entry.isFile() && filePath.endsWith(".js")) {
+      files.push(filePath);
+    }
+  }
+  return files.sort();
+}
+
+function relativeToRepo(filePath) {
+  return path.relative(REPO_ROOT, filePath);
 }
