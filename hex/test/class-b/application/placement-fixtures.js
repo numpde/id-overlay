@@ -10,6 +10,24 @@ export function movedPlacement() {
   };
 }
 
+export function rotatedPlacement() {
+  return {
+    x: 80,
+    y: 40,
+    scale: 1,
+    rotationRad: Math.PI / 4,
+  };
+}
+
+export function scaledPlacement() {
+  return {
+    x: 80,
+    y: 40,
+    scale: 1.5,
+    rotationRad: 0,
+  };
+}
+
 export function placementEditPayload({ kind, placement }) {
   return {
     kind,

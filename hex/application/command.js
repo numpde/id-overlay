@@ -2,6 +2,7 @@ import {
   ApplicationBoundaryError,
   APPLICATION_BOUNDARY_ERROR_CODE,
 } from "./errors.js";
+import { isPlacementData } from "./placement.js";
 import { isPlainData } from "./plain-data.js";
 import { isReferenceImageData } from "./reference-image.js";
 
@@ -47,20 +48,30 @@ export function createApplicationCommand(kind, payload = {}) {
     assertValidReferenceImagePasteOutcomePayload(payload);
   }
 
-  if (
-    kind === APPLICATION_COMMAND_KIND.COMMIT_PLACEMENT_EDIT
-      && Object.hasOwn(payload, "kind")
-  ) {
-    return {
-      ...payload,
-      editKind: payload.kind,
-      kind,
-    };
+  if (kind === APPLICATION_COMMAND_KIND.COMMIT_PLACEMENT_EDIT) {
+    return createPlacementEditCommand(payload);
   }
 
   return {
     ...payload,
     kind,
+  };
+}
+
+function createPlacementEditCommand(payload) {
+  const editKind = payload.editKind ?? payload.kind;
+  if (
+    !["move", "rotate", "scale"].includes(editKind)
+      || !isPlacementData(payload.placement)
+  ) {
+    throwInvalidApplicationCommand();
+  }
+
+  const { kind: _payloadKind, editKind: _payloadEditKind, ...rest } = payload;
+  return {
+    ...rest,
+    editKind,
+    kind: APPLICATION_COMMAND_KIND.COMMIT_PLACEMENT_EDIT,
   };
 }
 

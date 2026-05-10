@@ -39,9 +39,9 @@ export function referenceImageLoadedState({ mode = "align", placement, pins } = 
   };
 }
 
-export function referenceImageDurableState({ mode = "align", pins } = {}) {
+export function referenceImageDurableState({ mode = "align", placement, pins } = {}) {
   return {
-    session: referenceImageLoadedState({ mode, pins }).session,
+    session: referenceImageLoadedState({ mode, placement, pins }).session,
   };
 }
 

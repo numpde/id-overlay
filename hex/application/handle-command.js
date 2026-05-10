@@ -6,6 +6,7 @@ import {
   ApplicationBoundaryError,
   APPLICATION_BOUNDARY_ERROR_CODE,
 } from "./errors.js";
+import { isPlacementData, placementEquals } from "./placement.js";
 import { isPlainData } from "./plain-data.js";
 import { isReferenceImageData } from "./reference-image.js";
 import { createInitialApplicationState } from "./state.js";
@@ -32,7 +33,7 @@ export function handleApplicationCommand({ state, command }) {
     case APPLICATION_COMMAND_KIND.TOGGLE_REGISTRATION_PIN:
       return toggleRegistrationPin(state, command);
     case APPLICATION_COMMAND_KIND.COMMIT_PLACEMENT_EDIT:
-      return inertResult(state);
+      return commitPlacementEdit(state, command);
     case APPLICATION_COMMAND_KIND.CLEAR_REGISTRATION_PINS:
       return clearRegistrationPins(state);
     case APPLICATION_COMMAND_KIND.CLEAR_STATUS_NOTICE:
@@ -43,6 +44,29 @@ export function handleApplicationCommand({ state, command }) {
         "Unknown application command.",
       );
   }
+}
+
+function commitPlacementEdit(state, command) {
+  if (
+    !state.session
+      || state.session.mode !== "align"
+      || placementEquals(state.session.placement, command.placement)
+  ) {
+    return inertResult(state);
+  }
+
+  const nextState = {
+    session: {
+      ...state.session,
+      placement: command.placement,
+    },
+  };
+  return {
+    state: nextState,
+    effects: [
+      durableStateChangedEffect(selectDurableApplicationState(nextState)),
+    ],
+  };
 }
 
 function hydrate(durableState) {
@@ -397,7 +421,7 @@ function assertSupportedDurableState(durableState) {
   }
   const sessionKeys = durableState.session ? Object.keys(durableState.session) : [];
   for (const key of sessionKeys) {
-    if (!["mode", "referenceImage", "registration"].includes(key)) {
+    if (!["mode", "referenceImage", "registration", "placement"].includes(key)) {
       throwBoundary(
         APPLICATION_BOUNDARY_ERROR_CODE.UNSUPPORTED_DURABLE_STATE,
         "Unsupported durable state.",
@@ -417,7 +441,8 @@ function isSupportedSession(session) {
     && typeof session === "object"
     && !Array.isArray(session)
     && ["align", "trace"].includes(session.mode)
-    && isReferenceImageData(session.referenceImage);
+    && isReferenceImageData(session.referenceImage)
+    && (session.placement === undefined || isPlacementData(session.placement));
 }
 
 function isEmptyObject(value) {
