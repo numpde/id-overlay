@@ -92,9 +92,9 @@ test("view model exposes semantic history controls", () => {
   assert.notEqual(view.history.redo.label, "Redo");
 });
 
-// Class-b, not class-a: overlay rendering needs a stable plain-data projection,
-// but the final renderer may rename individual fields. The key boundary is
-// that adapters receive render facts instead of reading session internals.
+// Class-b, deliberately not class-a: class-a owns the visible law that Trace
+// hides pins. This test protects the adapter contract shape: overlay adapters
+// receive plain render facts and do not read session internals directly.
 test("view model exposes overlay render facts", () => {
   const placement = {
     x: 80,
