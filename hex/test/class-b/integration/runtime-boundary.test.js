@@ -56,45 +56,6 @@ test("runtime executes multiple effects in declared order", async () => {
   ]);
 });
 
-// Class-b: runtime dispatch is not an adapter-normalization layer. The selected
-// handler receives the effect as emitted by the application.
-test("runtime passes effect payloads to handlers unchanged", async () => {
-  const effect = {
-    kind: "persist-durable-state",
-    durableState: {
-      session: {
-        mode: "align",
-        referenceImage: {
-          imageDataRef: "reference-image-data-1",
-        },
-      },
-    },
-    requestId: "persist-1",
-  };
-  let handlerEffect = null;
-  const runtime = createRuntimeDriver({
-    initialState: {},
-    effectHandlers: {
-      "persist-durable-state": async (receivedEffect) => {
-        handlerEffect = receivedEffect;
-        return null;
-      },
-    },
-    stepApplication({ state }) {
-      return {
-        state,
-        effects: [effect],
-      };
-    },
-  });
-
-  await runtime.dispatch({
-    kind: "user-command",
-  });
-
-  assert.deepEqual(handlerEffect, effect);
-});
-
 // Class-b: handler output becomes the next application input. Runtime must not
 // interpret the result as a state patch or update product state directly.
 test("runtime feeds plain effect results back through the application step", async () => {

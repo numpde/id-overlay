@@ -144,6 +144,45 @@ test("runtime rejects unknown effect kinds at the boundary", async () => {
   );
 });
 
+// Class-a: runtime dispatch is not an adapter-normalization layer. The matching
+// host handler receives exactly the effect emitted by the application.
+test("runtime passes effect payloads to handlers unchanged", async () => {
+  const effect = {
+    kind: "persist-durable-state",
+    durableState: {
+      session: {
+        mode: "align",
+        referenceImage: {
+          imageDataRef: "reference-image-data-1",
+        },
+      },
+    },
+    requestId: "persist-1",
+  };
+  let handlerEffect = null;
+  const runtime = createRuntimeDriver({
+    initialState: {},
+    effectHandlers: {
+      "persist-durable-state": async (receivedEffect) => {
+        handlerEffect = receivedEffect;
+        return null;
+      },
+    },
+    stepApplication({ state }) {
+      return {
+        state,
+        effects: [effect],
+      };
+    },
+  });
+
+  await runtime.dispatch({
+    kind: "user-command",
+  });
+
+  assert.deepEqual(handlerEffect, effect);
+});
+
 function createOpaqueProductState(value) {
   const forbiddenProductFields = new Set([
     "mode",
