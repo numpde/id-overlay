@@ -36,10 +36,9 @@ test("reference image paste outcome command is correlated plain data", () => {
   });
 });
 
-// Class-b, not class-a: the exact notice vocabulary for an empty paste can still
-// change, but "no image was available" is a normal user-world outcome, not a
-// boundary failure. The notice keeps the request id so delayed status clearing
-// cannot erase a newer message.
+// Class-b, deliberately not class-a: class-a owns the empty-paste product law
+// that no session or durable work is created. This test keeps only the current
+// transient notice vocabulary and request id used by status-clearing correlation.
 test("empty reference image paste outcome becomes a correlated notice", () => {
   assertApplicationResult(handleApplicationCommand({
     state: {

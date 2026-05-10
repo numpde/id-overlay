@@ -91,6 +91,33 @@ test("accepted reference image clears pending input notice and panel intent", ()
   });
 });
 
+// Class-a: an empty paste is a normal user-world outcome, not a boundary
+// failure. It must end the transient paste input without creating a session or
+// durable work; exact notice vocabulary is weaker UI policy.
+test("empty reference image paste outcome ends input without durability", () => {
+  const result = handleApplicationCommand({
+    state: {
+      referenceImageInput: {
+        status: "awaiting-paste",
+        requestId: 1,
+      },
+    },
+    command: createApplicationCommand(
+      APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_PASTE_OUTCOME,
+      {
+        requestId: 1,
+        outcome: {
+          kind: "empty",
+        },
+      },
+    ),
+  });
+
+  assert.equal(result.state.session, undefined);
+  assert.equal(result.state.referenceImageInput, undefined);
+  assert.deepEqual(result.effects, []);
+});
+
 // Class-a: clearing the reference image collapses the app back to no session
 // and emits durable clearing. There is no hidden overlay state after removal.
 test("clearing the reference image returns to no-session Trace", () => {
