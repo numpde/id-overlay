@@ -5,10 +5,11 @@ import {
   bootstrapBrowserExtension,
 } from "../../../bootstrap/index.js";
 
-// Unclassified: overlay gesture containment is composed policy. In Align, owned
-// overlay wheel gestures should be handled by the extension; in Trace and
-// no-session postures, native map gestures should pass through to the page.
-test("candidate: Align contains overlay wheel gestures while Trace forwards them to the page", async () => {
+// Class-c: adapter-level wheel containment is class-b, but this composed policy
+// needs the not-yet-built interaction-fact dispatcher. Promote only when Align
+// overlay gestures and Trace/native-map forwarding are routed through one shell
+// boundary instead of separate DOM event paths.
+test("Align contains overlay wheel gestures while Trace forwards them to the page", async () => {
   const alignHost = createBrowserHostHarness({
     durableStatePort: createDurableStorageHarness({
       durableState: durableImageState({
@@ -42,10 +43,10 @@ test("candidate: Align contains overlay wheel gestures while Trace forwards them
   }]);
 });
 
-// Unclassified: no-session is the native map. Even if an overlay gesture fact
-// leaks from stale UI wiring, the shell must not capture or translate it as an
-// overlay edit.
-test("candidate: no-session overlay gestures pass through without extension edits", async () => {
+// Class-c: no-session is native map. Even if a stale overlay emits a gesture
+// fact, the shell should forward it rather than translating it into an overlay
+// edit when no image session exists.
+test("no-session overlay gestures pass through without extension edits", async () => {
   const host = createBrowserHostHarness({
     durableStatePort: createDurableStorageHarness({
       durableState: null,
