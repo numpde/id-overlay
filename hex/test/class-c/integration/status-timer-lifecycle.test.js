@@ -5,11 +5,12 @@ import {
   bootstrapBrowserExtension,
 } from "../../../bootstrap/index.js";
 
-// Unclassified: the timer adapter already preserves request identity. This
-// candidate captures composed status behavior: visible notices should schedule
-// matching clear work through a timer port, then clear only when the matching
-// timer fires.
-test("candidate: empty paste notice schedules and clears matching status timer", async () => {
+// Class-c: timer identity is already tested at the adapter/runtime boundary, but
+// composed status timing is not a settled contract. This candidate assumes paste
+// effects exist, notices schedule timer work, and timer completion re-enters as
+// `clear-status-notice`. Promote only after transient status expiration is a
+// named application effect instead of a shell convention.
+test("empty paste notice schedules and clears matching status timer", async () => {
   const storage = createDurableStorageHarness({
     durableState: null,
   });
@@ -44,10 +45,11 @@ test("candidate: empty paste notice schedules and clears matching status timer",
   assert.equal(host.latestRender.view.status, "");
 });
 
-// Unclassified: stale timer handling is a class-a reducer law. This composed
-// candidate ensures the shell does not collapse timer identity before the app
-// can reject an old clear-status result.
-test("candidate: stale status timer does not clear newer visible notice", async () => {
+// Class-c: stale timer rejection is application law, but this composed version
+// also chooses failed-paste copy and a browser clipboard sequence. Keep it
+// quarantined until status copy, timer effects, and paste effects are each owned
+// by one boundary.
+test("stale status timer does not clear newer visible notice", async () => {
   const storage = createDurableStorageHarness({
     durableState: null,
   });
