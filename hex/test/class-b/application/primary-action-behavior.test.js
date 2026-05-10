@@ -183,31 +183,3 @@ test("primary action confirms clear-image when clear-image confirmation is activ
     ],
   });
 });
-
-// Class-b: destructive confirmations are tied to the current visible intention.
-// A different semantic action clears the armed confirmation instead of leaving a
-// stale second-click active.
-test("unrelated semantic action clears pending clear-image confirmation", () => {
-  const result = handleApplicationCommand({
-    state: {
-      ...referenceImageLoadedState(),
-      panelIntent: {
-        kind: "confirm-clear-reference-image",
-      },
-    },
-    command: createApplicationCommand(APPLICATION_COMMAND_KIND.SELECT_MODE, {
-      mode: "trace",
-    }),
-  });
-
-  assertApplicationResult(result, {
-    state: referenceImageLoadedState({
-      mode: "trace",
-    }),
-    effects: [
-      durableStateChangedEffect(referenceImageDurableState({
-        mode: "trace",
-      })),
-    ],
-  });
-});

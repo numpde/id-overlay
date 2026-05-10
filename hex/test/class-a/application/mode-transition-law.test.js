@@ -90,6 +90,28 @@ test("interrupted placement edit drops preview without changing durable session"
   });
 });
 
+// Class-a: destructive confirmations are tied to the current visible intention.
+// A different semantic action must clear the armed confirmation so a stale
+// second-click cannot perform a destructive action later.
+test("mode switching clears pending destructive confirmation", () => {
+  assert.deepEqual(handleApplicationCommand({
+    state: {
+      ...referenceImageLoadedState({ mode: "align" }),
+      panelIntent: {
+        kind: "confirm-clear-reference-image",
+      },
+    },
+    command: createApplicationCommand(APPLICATION_COMMAND_KIND.SELECT_MODE, {
+      mode: "trace",
+    }),
+  }), {
+    state: referenceImageLoadedState({ mode: "trace" }),
+    effects: [
+      durableStateChangedEffect(referenceImageDurableState({ mode: "trace" })),
+    ],
+  });
+});
+
 // Class-a: selecting Trace must never fabricate a placement. Fitting is a
 // separate semantic consequence of a successful registration solve; with only
 // unsolved pins, Trace changes durable mode and preserves registration for a
