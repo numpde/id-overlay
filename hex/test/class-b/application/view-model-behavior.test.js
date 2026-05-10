@@ -120,10 +120,10 @@ test("view model exposes overlay render facts", () => {
   });
 });
 
-// Class-b, not class-a: temporary pass-through is intentionally transient, so
-// its state spelling may change when input handling is finalized. The product
-// boundary is important now: temporary map ownership is derived in the view
-// model, not by teaching adapters to inspect Align mode internals.
+// Class-b, deliberately not class-a: temporary pass-through is user-visible,
+// but it is not yet a first-class application command/transition. Until that
+// seam exists, this test protects only the current view-model boundary: adapters
+// render a derived interaction posture instead of inspecting Align internals.
 test("view model exposes temporary pass-through as interaction posture", () => {
   assert.deepEqual(selectApplicationView({
     ...referenceImageLoadedState({
