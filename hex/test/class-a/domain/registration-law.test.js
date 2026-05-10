@@ -5,8 +5,9 @@ import {
   solveRegistrationPlacement,
 } from "../../../domain/registration.js";
 
-// Class-b: registration solving returns explicit plain facts. Expected
-// geometric failure cases are domain outcomes, not thrown control flow.
+// Class-a: two-pin registration is a domain law. A solvable pin pair yields the
+// similarity transform that maps image points into map points, while expected
+// geometric impossibilities are explicit facts rather than thrown control flow.
 test("registration solve returns explicit success and failure facts", () => {
   assert.deepEqual(solveRegistrationPlacement({
     pins: [
