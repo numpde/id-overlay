@@ -42,6 +42,9 @@ export function createApplicationCommand(kind, payload = {}) {
       message: "Invalid mode command.",
     });
   }
+  if (kind === APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_PASTE_OUTCOME) {
+    assertValidReferenceImagePasteOutcomePayload(payload);
+  }
 
   if (
     kind === APPLICATION_COMMAND_KIND.COMMIT_PLACEMENT_EDIT
@@ -58,4 +61,54 @@ export function createApplicationCommand(kind, payload = {}) {
     ...payload,
     kind,
   };
+}
+
+function assertValidReferenceImagePasteOutcomePayload(payload) {
+  if (!isPositiveInteger(payload.requestId)) {
+    throwInvalidApplicationCommand();
+  }
+
+  const outcome = payload.outcome;
+  if (outcome?.kind === "accepted") {
+    assertValidReferenceImage(outcome.referenceImage);
+    return;
+  }
+  if (outcome?.kind === "empty") {
+    return;
+  }
+  if (
+    outcome?.kind === "failed"
+      && typeof outcome.reason === "string"
+      && outcome.reason.length > 0
+  ) {
+    return;
+  }
+  throwInvalidApplicationCommand();
+}
+
+function assertValidReferenceImage(referenceImage) {
+  if (
+    !referenceImage
+      || typeof referenceImage.imageDataRef !== "string"
+      || referenceImage.imageDataRef.length === 0
+      || !isPositiveFiniteNumber(referenceImage.intrinsicSizePx?.width)
+      || !isPositiveFiniteNumber(referenceImage.intrinsicSizePx?.height)
+  ) {
+    throwInvalidApplicationCommand();
+  }
+}
+
+function isPositiveInteger(value) {
+  return Number.isInteger(value) && value > 0;
+}
+
+function isPositiveFiniteNumber(value) {
+  return Number.isFinite(value) && value > 0;
+}
+
+function throwInvalidApplicationCommand() {
+  throw new ApplicationBoundaryError({
+    code: APPLICATION_BOUNDARY_ERROR_CODE.INVALID_APPLICATION_COMMAND,
+    message: "Invalid application command payload.",
+  });
 }

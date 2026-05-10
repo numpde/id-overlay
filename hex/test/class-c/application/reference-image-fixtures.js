@@ -6,6 +6,7 @@ export function awaitingReferenceImagePasteState() {
   return {
     referenceImageInput: {
       status: "awaiting-paste",
+      requestId: 1,
     },
   };
 }
