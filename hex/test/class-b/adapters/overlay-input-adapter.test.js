@@ -88,10 +88,10 @@ test("overlay input adapter emits pointer facts only", () => {
   }]);
 });
 
-// Class-b: modifier-wheel gestures are overlay editing input in Align posture.
-// The UI adapter owns DOM wheel details; the application/runtime should only
-// receive plain interaction facts, and the host page should not see handled
-// overlay wheel events.
+// Class-b, deliberately not class-a: modifier-to-edit mappings are UI
+// vocabulary. This adapter-level contract is that handled overlay wheel events
+// are contained and emitted as plain facts, leaving posture-specific meaning to
+// the application/runtime boundary.
 test("overlay input adapter emits contained wheel facts", () => {
   const { window } = new JSDOM("<!doctype html><body><div id='surface'></div></body>");
   const facts = [];
