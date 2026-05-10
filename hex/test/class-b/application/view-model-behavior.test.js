@@ -56,6 +56,40 @@ test("view model exposes primary action labels for each product posture", () => 
   );
 });
 
+// Class-b, not class-a: exact labels and record fields are still product-copy
+// choices, but the ownership is not. Panels render semantic history controls
+// selected from application state; they do not invent generic Undo/Redo text.
+test("view model exposes semantic history controls", () => {
+  const view = selectApplicationView({
+    ...referenceImageLoadedState(),
+    history: {
+      past: [{
+        kind: "remove-reference-image",
+        undoLabel: "Reload image",
+        redoLabel: "Remove image",
+      }],
+      future: [{
+        kind: "move-overlay",
+        undoLabel: "Undo move overlay",
+        redoLabel: "Redo move overlay",
+      }],
+    },
+  });
+
+  assert.deepEqual(view.history, {
+    undo: {
+      enabled: true,
+      label: "Reload image",
+    },
+    redo: {
+      enabled: true,
+      label: "Redo move overlay",
+    },
+  });
+  assert.notEqual(view.history.undo.label, "Undo");
+  assert.notEqual(view.history.redo.label, "Redo");
+});
+
 function referenceImageLoadedState({
   mode = "align",
   pins = [],

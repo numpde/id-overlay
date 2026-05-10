@@ -18,9 +18,25 @@ export function selectApplicationView(state) {
         enabled: Boolean(state.session),
       },
     },
+    history: historyControls(state),
     primaryAction: {
       label: primaryActionLabel(state),
       enabled: true,
+    },
+  };
+}
+
+function historyControls(state) {
+  const undoRecord = state.history?.past?.at(-1) ?? null;
+  const redoRecord = state.history?.future?.at(-1) ?? null;
+  return {
+    undo: {
+      enabled: undoRecord !== null,
+      label: undoRecord?.undoLabel ?? null,
+    },
+    redo: {
+      enabled: redoRecord !== null,
+      label: redoRecord?.redoLabel ?? null,
     },
   };
 }

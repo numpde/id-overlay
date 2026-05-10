@@ -3,40 +3,6 @@ import assert from "node:assert/strict";
 
 import { selectApplicationView } from "../../../application/view-model.js";
 
-// Candidate: history controls describe semantic user changes. The view model
-// should read history records and expose labels; panel adapters should never
-// synthesize generic Undo/Redo copy.
-test("view model exposes semantic history controls", () => {
-  const view = selectApplicationView({
-    ...referenceImageLoadedState(),
-    history: {
-      past: [{
-        kind: "remove-reference-image",
-        undoLabel: "Reload image",
-        redoLabel: "Remove image",
-      }],
-      future: [{
-        kind: "move-overlay",
-        undoLabel: "Undo move overlay",
-        redoLabel: "Redo move overlay",
-      }],
-    },
-  });
-
-  assert.deepEqual(view.history, {
-    undo: {
-      enabled: true,
-      label: "Reload image",
-    },
-    redo: {
-      enabled: true,
-      label: "Redo move overlay",
-    },
-  });
-  assert.notEqual(view.history.undo.label, "Undo");
-  assert.notEqual(view.history.redo.label, "Redo");
-});
-
 // Candidate: overlay rendering should be a pure projection from state. The
 // adapter needs concrete facts, not permission to inspect session internals.
 test("view model exposes overlay render facts", () => {
