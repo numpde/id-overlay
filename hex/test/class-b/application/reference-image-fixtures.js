@@ -73,6 +73,22 @@ export function secondPin() {
   };
 }
 
+export function twoPins() {
+  return [
+    firstPin(),
+    secondPin(),
+  ];
+}
+
+export function solvedPlacement() {
+  return {
+    x: 120,
+    y: 90,
+    scale: 1.25,
+    rotationRad: 0.1,
+  };
+}
+
 export function pinTogglePayload({
   existingPinId = null,
   imagePx = firstPin().imagePx,

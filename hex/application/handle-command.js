@@ -28,7 +28,7 @@ export function handleApplicationCommand({ state, command }) {
         effects: [durableStateChangedEffect(null)],
       };
     case APPLICATION_COMMAND_KIND.SELECT_MODE:
-      return selectMode(state, command.mode);
+      return selectMode(state, command);
     case APPLICATION_COMMAND_KIND.TOGGLE_REGISTRATION_PIN:
       return toggleRegistrationPin(state, command);
     case APPLICATION_COMMAND_KIND.COMMIT_PLACEMENT_EDIT:
@@ -158,9 +158,39 @@ function reportReferenceImagePasteOutcome(state, command) {
   };
 }
 
-function selectMode(state, mode) {
+function selectMode(state, command) {
+  const { mode } = command;
   if (!state.session || state.session.mode === mode) {
     return inertResult(state);
+  }
+
+  if (
+    mode === "trace"
+      && commandHasSolvedPlacement(command)
+      && (state.session.registration?.pins ?? []).length >= 2
+  ) {
+    const solvedPlacement = command.solvedPlacement;
+    const nextState = {
+      session: {
+        ...state.session,
+        mode,
+        placement: solvedPlacement,
+        registration: {
+          ...state.session.registration,
+          solvedPlacement,
+        },
+      },
+      notice: {
+        kind: "fit-reference-image-from-pins",
+        pinCount: state.session.registration.pins.length,
+      },
+    };
+    return {
+      state: nextState,
+      effects: [
+        durableStateChangedEffect(selectDurableApplicationState(nextState)),
+      ],
+    };
   }
 
   const nextState = {
@@ -175,6 +205,10 @@ function selectMode(state, mode) {
       durableStateChangedEffect(selectDurableApplicationState(nextState)),
     ],
   };
+}
+
+function commandHasSolvedPlacement(command) {
+  return command?.solvedPlacement !== undefined;
 }
 
 function clearRegistrationPins(state) {
