@@ -44,6 +44,10 @@ test("application boundary error exposes stable identity and code", () => {
 // not recoverable product events; they mean the caller used an undeclared API.
 test("unknown commands throw ApplicationBoundaryError", () => {
   assertApplicationBoundaryError(
+    () => handleApplicationCommand({ state: {} }),
+    APPLICATION_BOUNDARY_ERROR_CODE.UNKNOWN_APPLICATION_COMMAND,
+  );
+  assertApplicationBoundaryError(
     () => createApplicationCommand("unknown-command"),
     APPLICATION_BOUNDARY_ERROR_CODE.UNKNOWN_APPLICATION_COMMAND,
   );
