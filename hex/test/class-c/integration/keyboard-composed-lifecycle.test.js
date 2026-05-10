@@ -4,17 +4,12 @@ import assert from "node:assert/strict";
 import {
   bootstrapBrowserExtension,
 } from "../../../bootstrap/index.js";
-import {
-  createBrowserHostHarness,
-  createDurableStorageHarness,
-  durableImageState,
-  normalizedReferenceImage,
-} from "./candidate-browser-harness.js";
 
-// Unclassified: key choices are provisional, but the boundary is not. Keyboard
-// events must be adapter facts that are bound/disposed by the shell and resolved
-// through projection before application commands mutate pins or pass-through.
-test("candidate: keyboard pin shortcut is bound by the shell and resolved through projection", async () => {
+// Class-c: key choices are UI vocabulary, but the missing piece is architectural:
+// bootstrap does not yet bind keyboard facts into the interaction runtime. Keep
+// this quarantined until keyboard input is composed through projection before
+// any application pin/pass-through command is emitted.
+test("keyboard pin shortcut is bound by the shell and resolved through projection", async () => {
   const keyboard = createKeyboardHarness();
   const projection = createProjectionHarness({
     projectedPin: {
@@ -61,10 +56,10 @@ test("candidate: keyboard pin shortcut is bound by the shell and resolved throug
   }]);
 });
 
-// Unclassified: temporary pass-through is interaction posture, not durable
-// state. Space press/release should visibly switch overlay input without
-// persisting or modifying the image session.
-test("candidate: keyboard Space toggles temporary pass-through without durable writes", async () => {
+// Class-c: temporary pass-through is runtime interaction posture, not durable
+// state. This should become class-b after the shell owns keyboard subscription
+// lifetime and maps Space press/release facts through the runtime boundary.
+test("keyboard Space toggles temporary pass-through without durable writes", async () => {
   const keyboard = createKeyboardHarness();
   const storage = createDurableStorageHarness({
     durableState: durableImageState({
@@ -97,6 +92,73 @@ test("candidate: keyboard Space toggles temporary pass-through without durable w
   });
   assert.deepEqual(storage.writes, []);
 });
+
+function createBrowserHostHarness({
+  durableStatePort,
+  keyboardInputPort,
+  inputProjectionPort = null,
+}) {
+  return {
+    pageContext: {
+      kind: "supported-map-editor-page",
+    },
+    durableStatePort,
+    keyboardInputPort,
+    inputProjectionPort,
+    latestRender: null,
+    runtime: null,
+    mountOwnedRoot(ownerId, root) {
+      return {
+        ...root,
+        ownerId,
+      };
+    },
+    renderApplicationView(render) {
+      this.latestRender = render;
+    },
+    startRuntime(runtime) {
+      this.runtime = runtime;
+      return runtime;
+    },
+  };
+}
+
+function createDurableStorageHarness({ durableState }) {
+  const writes = [];
+  return {
+    writes,
+    port: {
+      async readDurableState() {
+        return durableState;
+      },
+      async writeDurableState(nextDurableState) {
+        writes.push(nextDurableState);
+      },
+    },
+  };
+}
+
+function durableImageState({
+  mode,
+  referenceImage = normalizedReferenceImage(),
+}) {
+  return {
+    session: {
+      mode,
+      referenceImage,
+    },
+  };
+}
+
+function normalizedReferenceImage() {
+  return {
+    imageDataRef: "data:image/png;base64,reference-image",
+    intrinsicSizePx: {
+      width: 640,
+      height: 480,
+    },
+  };
+}
 
 function createKeyboardHarness() {
   let listener = null;
