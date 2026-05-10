@@ -13,8 +13,8 @@ import {
 
 // Class-b, deliberately not class-a: class-a owns the durable clear-pins
 // transition; this notice is transient user feedback. Keep it here so the panel
-// can report the actual completed action without freezing notice vocabulary as
-// a non-negotiable product law.
+// can report the completed action without freezing exact notice vocabulary as a
+// non-negotiable product law.
 test("primary action clear-pins confirmation emits cleared-pins notice", () => {
   const result = handleApplicationCommand({
     state: {
