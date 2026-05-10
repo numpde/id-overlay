@@ -88,6 +88,20 @@ function activatePrimaryAction(state) {
       effects: [durableStateChangedEffect(null)],
     };
   }
+  if (
+    state.session.mode === "align"
+      && (state.session.registration?.pins ?? []).length > 0
+  ) {
+    return {
+      state: {
+        session: state.session,
+        panelIntent: {
+          kind: "confirm-clear-pins",
+        },
+      },
+      effects: [],
+    };
+  }
 
   return {
     state: {

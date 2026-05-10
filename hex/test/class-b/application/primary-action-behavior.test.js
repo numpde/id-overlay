@@ -10,6 +10,7 @@ import { assertApplicationResult } from "./application-result-assertions.js";
 import {
   awaitingReferenceImagePasteState,
   durableStateChangedEffect,
+  firstPin,
   referenceImageDurableState,
   referenceImageLoadedState,
 } from "./reference-image-fixtures.js";
@@ -77,6 +78,33 @@ test("primary action clear-image confirmation clears stale notice", () => {
       ...referenceImageLoadedState(),
       panelIntent: {
         kind: "confirm-clear-reference-image",
+      },
+    },
+    effects: [],
+  });
+});
+
+// Class-b, not class-a: the main-button ladder is product policy, but the
+// application/view-model contract must be coherent. When Align pins are visible,
+// the view model labels the primary action as Clear pins, so activation must ask
+// for clear-pins confirmation rather than jump to clear-image confirmation.
+test("primary action with visible Align pins requests clear-pins confirmation", () => {
+  const loadedWithPins = referenceImageLoadedState({
+    pins: [firstPin()],
+  });
+
+  const result = handleApplicationCommand({
+    state: loadedWithPins,
+    command: createApplicationCommand(
+      APPLICATION_COMMAND_KIND.ACTIVATE_PRIMARY_ACTION,
+    ),
+  });
+
+  assertApplicationResult(result, {
+    state: {
+      ...loadedWithPins,
+      panelIntent: {
+        kind: "confirm-clear-pins",
       },
     },
     effects: [],

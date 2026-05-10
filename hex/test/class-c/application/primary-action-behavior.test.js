@@ -15,29 +15,10 @@ import {
   referenceImageLoadedState,
 } from "./reference-image-fixtures.js";
 
-// Class-c: clear-pins-before-clear-image is plausible product behavior, but it
-// is still a policy choice for the main button rather than settled architecture.
-test("primary action with visible pins requests clear-pins confirmation", () => {
-  const result = handleApplicationCommand({
-    state: referenceImageLoadedState({ pins: [firstPin()] }),
-    command: createApplicationCommand(
-      APPLICATION_COMMAND_KIND.ACTIVATE_PRIMARY_ACTION,
-    ),
-  });
-
-  assertApplicationResult(result, {
-    state: referenceImageLoadedState({
-      pins: [firstPin()],
-      panelIntent: {
-        kind: "confirm-clear-pins",
-      },
-    }),
-    effects: [],
-  });
-});
-
-// Class-c: the second click completing clear-pins is paired with the previous
-// confirmation policy. Keep it quarantined until the main-button ladder settles.
+// Class-c: the first click asking for clear-pins confirmation was promoted
+// because the view model already labels the primary action as Clear pins. The
+// second click completing clear-pins remains quarantined until the main-button
+// ladder settles.
 test("primary action confirms clear-pins when clear-pins confirmation is active", () => {
   const result = handleApplicationCommand({
     state: referenceImageLoadedState({
