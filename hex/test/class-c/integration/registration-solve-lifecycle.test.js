@@ -5,10 +5,13 @@ import {
   bootstrapBrowserExtension,
 } from "../../../bootstrap/index.js";
 
-// Unclassified: the application already accepts a solved placement on Trace
-// selection. This candidate captures the composed shell responsibility: solve
-// registration from pins before dispatching the semantic mode change.
-test("candidate: selecting Trace with two pins solves placement, hides pins, and persists fit", async () => {
+// Class-c: the user behavior is real, but ownership is not settled. Selecting
+// Trace with enough pins should fit the overlay and hide pins. This candidate
+// makes the browser shell call `registrationSolverPort` before dispatching
+// `select-mode`; a cleaner design may instead make the pure application/domain
+// transition solve from pins it already owns. Promote only after that ownership
+// decision is made, then keep exactly one path.
+test("selecting Trace with two pins solves placement, hides pins, and persists fit", async () => {
   const storage = createDurableStorageHarness({
     durableState: durableImageState({
       mode: "align",
@@ -50,10 +53,11 @@ test("candidate: selecting Trace with two pins solves placement, hides pins, and
   }]);
 });
 
-// Unclassified: solve failure is a shell/UX policy. This candidate chooses the
-// current reducer-compatible behavior: Trace still becomes the durable native
-// map mode, but no placement is fabricated.
-test("candidate: failed registration solve switches to Trace without fabricating placement", async () => {
+// Class-c: solve failure is also an ownership/UX decision, not a missing line of
+// code. The current candidate chooses "still enter Trace, but fabricate no
+// placement"; that may be right, but it should be decided with the same
+// registration-solve boundary as the success path.
+test("failed registration solve switches to Trace without fabricating placement", async () => {
   const storage = createDurableStorageHarness({
     durableState: durableImageState({
       mode: "align",
