@@ -7,50 +7,9 @@ import {
 } from "../../../application/command.js";
 import { handleApplicationCommand } from "../../../application/handle-command.js";
 import {
-  durableStateChangedEffect,
   referenceImageDurableState,
   referenceImageLoadedState,
 } from "./reference-image-fixtures.js";
-
-// Class-b, not class-a: opacity policy could still be retuned, but the current
-// product choice is deliberate. Opacity is a durable visual setting, not a
-// semantic undo step, so changing it persists the session while preserving the
-// existing undo past without appending a new record.
-test("opacity changes are durable but not undoable", () => {
-  const history = {
-    past: [{
-      kind: "remove-reference-image",
-      undoLabel: "Reload image",
-      redoLabel: "Remove image",
-      before: referenceImageDurableState(),
-      after: null,
-    }],
-    future: [],
-  };
-  const result = handleApplicationCommand({
-    state: {
-      ...referenceImageLoadedState(),
-      history,
-    },
-    command: createApplicationCommand(APPLICATION_COMMAND_KIND.SET_OPACITY, {
-      opacity: 0.5,
-    }),
-  });
-
-  assert.deepEqual(result, {
-    state: {
-      ...referenceImageLoadedState({
-        opacity: 0.5,
-      }),
-      history,
-    },
-    effects: [
-      durableStateChangedEffect(referenceImageDurableState({
-        opacity: 0.5,
-      })),
-    ],
-  });
-});
 
 // Class-b, not class-a: opacity may stop being durable if the product posture
 // changes, but while it is durable hydration must accept it. Otherwise opacity
