@@ -5,10 +5,11 @@ import {
   bootstrapBrowserExtension,
 } from "../../../bootstrap/index.js";
 
-// Unclassified: unsupported-page UI policy may change, but host-work inertness
-// is the important candidate. An unsupported page should not read storage,
-// mount UI, start runtime, render, or bind input listeners.
-test("candidate: unsupported page performs no extension host work", async () => {
+// Class-b, deliberately not class-a: unsupported-page detection is browser-shell
+// policy. The stable contract is stricter than "no visible UI": unsupported
+// pages must not read storage, mount roots, start runtime work, render, or bind
+// input listeners.
+test("unsupported page performs no extension host work", async () => {
   const calls = [];
   const result = await bootstrapBrowserExtension({
     pageContext: {
