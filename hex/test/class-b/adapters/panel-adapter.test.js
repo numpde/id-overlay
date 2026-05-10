@@ -6,10 +6,10 @@ import {
   createPanelAdapter,
 } from "../../../adapters/ui/panel-adapter.js";
 
-// Class-b, not class-a: exact DOM markers are adapter-local test handles, but
-// the boundary is stable. The panel renders the application view model as-is:
-// labels, disabled state, history tooltips, and status copy are selected before
-// they reach the adapter.
+// Class-b, deliberately not class-a: DOM markers are adapter-local handles, and
+// the exact panel markup can change. The stable boundary is that labels,
+// disabled states, history tooltips, and status copy are selected before the
+// adapter; the panel only renders the view model it is given.
 test("panel adapter renders from the view model only", () => {
   const { window } = new JSDOM("<!doctype html><body></body>");
   const panel = createPanelAdapter({
