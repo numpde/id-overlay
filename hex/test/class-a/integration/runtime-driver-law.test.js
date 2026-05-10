@@ -255,6 +255,51 @@ test("runtime feeds plain effect results back through the application step", asy
   });
 });
 
+// Class-a: expected handler failures re-enter the app as plain diagnostic facts.
+// The runtime exposes stable failure identity without leaking stack traces or
+// thrown host objects across the application boundary.
+test("runtime converts handler failures into plain application facts", async () => {
+  const effect = {
+    kind: "read-reference-image",
+    requestId: "paste-1",
+  };
+  const applicationCommands = [];
+  const runtime = createRuntimeDriver({
+    initialState: {},
+    effectHandlers: {
+      "read-reference-image": async () => {
+        throw new Error("permission denied");
+      },
+    },
+    stepApplication({ state, command }) {
+      applicationCommands.push(command);
+      if (command.kind === "start") {
+        return {
+          state,
+          effects: [effect],
+        };
+      }
+
+      assert.equal(command.kind, "runtime-effect-failed");
+      assert.equal(command.effectKind, "read-reference-image");
+      assert.equal(command.requestId, "paste-1");
+      assert.equal(command.error.code, "effect-handler-failed");
+      assert.equal("stack" in command.error, false);
+      assertPlainData(command);
+      return {
+        state,
+        effects: [],
+      };
+    },
+  });
+
+  await runtime.dispatch({
+    kind: "start",
+  });
+
+  assert.equal(applicationCommands.length, 2);
+});
+
 function createOpaqueProductState(value) {
   const forbiddenProductFields = new Set([
     "mode",
@@ -274,4 +319,32 @@ function createOpaqueProductState(value) {
       assert.fail("runtime enumerated product state fields");
     },
   });
+}
+
+function assertPlainData(value) {
+  if (value === null) {
+    return;
+  }
+  if (Array.isArray(value)) {
+    for (const nestedValue of value) {
+      assertPlainData(nestedValue);
+    }
+    return;
+  }
+
+  const valueType = typeof value;
+  if (["string", "boolean"].includes(valueType)) {
+    return;
+  }
+  if (valueType === "number") {
+    assert.equal(Number.isFinite(value), true);
+    return;
+  }
+
+  assert.equal(valueType, "object");
+  assert.equal(Object.getPrototypeOf(value), Object.prototype);
+  for (const [key, nestedValue] of Object.entries(value)) {
+    assert.equal(typeof key, "string");
+    assertPlainData(nestedValue);
+  }
 }

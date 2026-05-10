@@ -56,50 +56,6 @@ test("runtime executes multiple effects in declared order", async () => {
   ]);
 });
 
-// Class-b: expected handler failures become plain application facts. Runtime
-// exposes stable diagnostics without leaking stack traces or thrown objects.
-test("runtime converts handler failures into plain application facts", async () => {
-  const effect = {
-    kind: "read-reference-image",
-    requestId: "paste-1",
-  };
-  const applicationCommands = [];
-  const runtime = createRuntimeDriver({
-    initialState: {},
-    effectHandlers: {
-      "read-reference-image": async () => {
-        throw new Error("permission denied");
-      },
-    },
-    stepApplication({ state, command }) {
-      applicationCommands.push(command);
-      if (command.kind === "start") {
-        return {
-          state,
-          effects: [effect],
-        };
-      }
-
-      assert.equal(command.kind, "runtime-effect-failed");
-      assert.equal(command.effectKind, "read-reference-image");
-      assert.equal(command.requestId, "paste-1");
-      assert.equal(command.error.code, "effect-handler-failed");
-      assert.equal("stack" in command.error, false);
-      assertPlainData(command);
-      return {
-        state,
-        effects: [],
-      };
-    },
-  });
-
-  await runtime.dispatch({
-    kind: "start",
-  });
-
-  assert.equal(applicationCommands.length, 2);
-});
-
 // Class-b: runtime preserves correlation identity but does not interpret it.
 // Request staleness is application policy, not driver policy.
 test("runtime preserves correlation ids and leaves staleness decisions to the application", async () => {
@@ -386,34 +342,6 @@ function createOpaqueProductState(value) {
       assert.fail("runtime enumerated product state fields");
     },
   });
-}
-
-function assertPlainData(value) {
-  if (value === null) {
-    return;
-  }
-  if (Array.isArray(value)) {
-    for (const nestedValue of value) {
-      assertPlainData(nestedValue);
-    }
-    return;
-  }
-
-  const valueType = typeof value;
-  if (["string", "boolean"].includes(valueType)) {
-    return;
-  }
-  if (valueType === "number") {
-    assert.equal(Number.isFinite(value), true);
-    return;
-  }
-
-  assert.equal(valueType, "object");
-  assert.equal(Object.getPrototypeOf(value), Object.prototype);
-  for (const [key, nestedValue] of Object.entries(value)) {
-    assert.equal(typeof key, "string");
-    assertPlainData(nestedValue);
-  }
 }
 
 function deepFreeze(value) {
