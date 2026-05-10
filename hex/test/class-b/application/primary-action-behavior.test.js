@@ -6,10 +6,7 @@ import {
   createApplicationCommand,
 } from "../../../application/command.js";
 import { handleApplicationCommand } from "../../../application/handle-command.js";
-import { createInitialApplicationState } from "../../../application/state.js";
-import { assertApplicationResult } from "./application-result-assertions.js";
 import {
-  durableStateChangedEffect,
   firstPin,
   referenceImageDurableState,
   referenceImageLoadedState,
@@ -39,10 +36,10 @@ test("primary action clear-pins confirmation emits cleared-pins notice", () => {
   });
 });
 
-// Class-b, not class-a: confirming image removal currently records a reloadable
-// undo point, clears durable state, and collapses the visible session. The exact
-// confirmation and history labels remain product/API vocabulary.
-test("primary action confirms clear-image when clear-image confirmation is active", () => {
+// Class-b, deliberately not class-a: class-a owns durable image removal. This
+// test keeps the weaker undo affordance policy visible: confirmed removal
+// records a reloadable history entry with current product labels.
+test("primary action clear-image confirmation records reloadable history", () => {
   const record = {
     kind: "remove-reference-image",
     undoLabel: "Reload image",
@@ -62,16 +59,8 @@ test("primary action confirms clear-image when clear-image confirmation is activ
     ),
   });
 
-  assertApplicationResult(result, {
-    state: {
-      ...createInitialApplicationState(),
-      history: {
-        past: [record],
-        future: [],
-      },
-    },
-    effects: [
-      durableStateChangedEffect(null),
-    ],
+  assert.deepEqual(result.state.history, {
+    past: [record],
+    future: [],
   });
 });

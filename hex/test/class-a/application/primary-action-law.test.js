@@ -153,6 +153,29 @@ test("primary action confirms clear-pins confirmation durably", () => {
   ]);
 });
 
+// Class-a: once clear-image confirmation is active, the primary action removes
+// the reference-image session and writes durable null. Undo/history affordances
+// are weaker UI policy; durable removal is the non-negotiable product law.
+test("primary action confirms clear-image confirmation durably", () => {
+  const result = handleApplicationCommand({
+    state: {
+      ...referenceImageLoadedState(),
+      panelIntent: {
+        kind: "confirm-clear-reference-image",
+      },
+    },
+    command: createApplicationCommand(
+      APPLICATION_COMMAND_KIND.ACTIVATE_PRIMARY_ACTION,
+    ),
+  });
+
+  assert.equal(result.state.session, undefined);
+  assert.equal(result.state.panelIntent, undefined);
+  assert.deepEqual(result.effects, [
+    durableStateChangedEffect(null),
+  ]);
+});
+
 function referenceImageLoadedState({ pins } = {}) {
   const session = {
     mode: "align",
