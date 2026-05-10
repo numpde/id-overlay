@@ -16,6 +16,8 @@ export const APPLICATION_COMMAND_KIND = Object.freeze({
   REPORT_REFERENCE_IMAGE_PASTE_OUTCOME: "report-reference-image-paste-outcome",
   CLEAR_REFERENCE_IMAGE: "clear-reference-image",
   CLEAR_STATUS_NOTICE: "clear-status-notice",
+  UNDO: "undo",
+  REDO: "redo",
 });
 
 const KNOWN_COMMAND_KINDS = new Set(Object.values(APPLICATION_COMMAND_KIND));

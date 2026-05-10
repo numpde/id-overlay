@@ -38,12 +38,65 @@ export function handleApplicationCommand({ state, command }) {
       return clearRegistrationPins(state);
     case APPLICATION_COMMAND_KIND.CLEAR_STATUS_NOTICE:
       return clearStatusNotice(state, command.requestId);
+    case APPLICATION_COMMAND_KIND.UNDO:
+      return undoHistory(state);
+    case APPLICATION_COMMAND_KIND.REDO:
+      return redoHistory(state);
     default:
       throwBoundary(
         APPLICATION_BOUNDARY_ERROR_CODE.UNKNOWN_APPLICATION_COMMAND,
         "Unknown application command.",
       );
   }
+}
+
+function undoHistory(state) {
+  const history = state.history ?? {};
+  const record = history.past?.at(-1);
+  if (!record) {
+    return inertResult(state);
+  }
+
+  const nextHistory = {
+    past: history.past.slice(0, -1),
+    future: [...(history.future ?? []), record],
+  };
+  return {
+    state: {
+      ...stateFromDurableState(record.before),
+      history: nextHistory,
+    },
+    effects: [durableStateChangedEffect(record.before)],
+  };
+}
+
+function redoHistory(state) {
+  const history = state.history ?? {};
+  const record = history.future?.at(-1);
+  if (!record) {
+    return inertResult(state);
+  }
+
+  const nextHistory = {
+    past: [...(history.past ?? []), record],
+    future: history.future.slice(0, -1),
+  };
+  return {
+    state: {
+      ...stateFromDurableState(record.after),
+      history: nextHistory,
+    },
+    effects: [durableStateChangedEffect(record.after)],
+  };
+}
+
+function stateFromDurableState(durableState) {
+  if (durableState === null) {
+    return createInitialApplicationState();
+  }
+  return {
+    session: durableState.session,
+  };
 }
 
 function commitPlacementEdit(state, command) {
@@ -78,9 +131,7 @@ function hydrate(durableState) {
   }
   assertSupportedDurableState(durableState);
   return {
-    state: {
-      session: durableState.session,
-    },
+    state: stateFromDurableState(durableState),
     effects: [],
   };
 }

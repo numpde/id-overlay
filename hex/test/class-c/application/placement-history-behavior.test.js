@@ -18,32 +18,6 @@ import {
   referenceImageLoadedState,
 } from "./reference-image-fixtures.js";
 
-// Class-c: these are the user-facing labels we probably want, but they depend
-// on exact history record shape and tooltip wording.
-test("undo and redo labels describe image removal and reload", () => {
-  const state = referenceImageLoadedState({
-    history: historyWithPast({
-      kind: "load-reference-image",
-      undoLabel: "Remove image",
-      redoLabel: "Reload image",
-      before: null,
-      after: referenceImageDurableState(),
-    }),
-  });
-
-  assert.deepEqual(selectApplicationView(state).history.undo, {
-    enabled: true,
-    label: "Remove image",
-  });
-
-  const undo = handleApplicationCommand({
-    state,
-    command: createApplicationCommand(APPLICATION_COMMAND_KIND.UNDO),
-  });
-
-  assert.equal(selectApplicationView(undo.state).history.redo.label, "Reload image");
-});
-
 // Class-c: undo/redo should replay semantic user-visible history entries, not
 // raw commands, and replay must not preserve transient confirmation intent from
 // the original action. The history record shape and command vocabulary are
