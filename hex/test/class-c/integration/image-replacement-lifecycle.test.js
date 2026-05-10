@@ -5,10 +5,11 @@ import {
   bootstrapBrowserExtension,
 } from "../../../bootstrap/index.js";
 
-// Class-c: replacing a screenshot must not leak old placement or registration
-// into the new image session. The target is sound, but this composed test
-// assumes browser paste effects are already wired, so it is not yet a fair
-// class-b shell contract.
+// Class-c: the invariant is stable: a newly accepted screenshot starts a fresh
+// session and must not inherit old placement or pins. This test is quarantined
+// because it expresses that behavior through a speculative clipboard port and a
+// brittle sequence of raw primary-action commands. A promotable version should
+// say "clear image, then paste a new image" through a user/browser harness.
 test("loading a new image after clear starts a fresh image session", async () => {
   const oldImage = normalizedReferenceImage("old");
   const newImage = normalizedReferenceImage("new");
