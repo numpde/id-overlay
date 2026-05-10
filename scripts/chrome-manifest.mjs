@@ -1,10 +1,8 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 
-export const WEB_ACCESSIBLE_CONTENT_ENTRYPOINT = "src/content/content.js";
-export const WEB_ACCESSIBLE_STATIC_RESOURCES = Object.freeze([
-  "src/content/content.css",
-]);
+export const WEB_ACCESSIBLE_CONTENT_ENTRYPOINT = "hex/bootstrap/extension-content.js";
+export const WEB_ACCESSIBLE_STATIC_RESOURCES = Object.freeze([]);
 
 export async function createChromeManifest({ root, sourceManifest }) {
   return {
@@ -38,13 +36,19 @@ export async function collectModuleGraph({ root, entryPath, seen = new Set() }) 
   const source = await fs.readFile(path.join(root, entryPath), "utf8");
   for (const specifier of collectRelativeModuleSpecifiers(source)) {
     const resolved = normalizeSourcePath(path.join(path.dirname(entryPath), specifier));
-    if (!resolved.startsWith("src/")) {
+    if (!isCollectableProductionResource(resolved)) {
       continue;
     }
     await collectModuleGraph({ root, entryPath: resolved, seen });
   }
 
   return seen;
+}
+
+function isCollectableProductionResource(resourcePath) {
+  return resourcePath.startsWith("hex/")
+    && !resourcePath.startsWith("hex/test/")
+    && !resourcePath.includes("/legacy/");
 }
 
 export function collectRelativeModuleSpecifiers(source) {
