@@ -8,8 +8,9 @@ import {
   invertPlacement,
 } from "../../../domain/placement.js";
 
-// Class-b: placement is pure geometry. A transform must be reversible without
-// leaking host-runtime or map-runtime concepts inward.
+// Class-a: placement is pure affine geometry. Reversibility is not a product
+// preference; without it, every adapter would have to compensate for drift or
+// hidden host/runtime facts.
 test("placement transform round-trips through its inverse", () => {
   const point = {
     x: 12.5,
@@ -31,8 +32,9 @@ test("placement transform round-trips through its inverse", () => {
   assertPointClose(roundTripped, point);
 });
 
-// Class-b: grouping the same edit facts differently must not introduce drift.
-// This keeps gesture batching from changing the resulting placement value.
+// Class-a: semantic edit facts compose deterministically. Gesture batching is
+// an adapter concern, so grouping the same facts differently must not change the
+// resulting placement value.
 test("placement edit composition is stable across batching", () => {
   const base = {
     x: 0,
@@ -68,9 +70,9 @@ test("placement edit composition is stable across batching", () => {
   assertPlacementClose(stepwise, batched);
 });
 
-// Class-b: scale/rotate wheel edits happen around the user's pointer. The
-// domain operation must preserve the screen-space anchor independent of DOM
-// wheel events or adapter gesture details.
+// Class-a: anchored scale/rotate is the product geometry, not wheel-event
+// policy. Keeping the image point fixed in screen space is the invariant that
+// lets every adapter express resize/rotate through the same domain operation.
 test("anchored placement edits keep the anchor fixed in screen space", () => {
   const base = {
     x: 80,
