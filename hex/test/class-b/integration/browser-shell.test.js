@@ -365,6 +365,43 @@ test("browser shell isolates separate hosts", async () => {
   assert.deepEqual(secondStorage.writes, []);
 });
 
+// Class-b, deliberately not class-a: the precise gesture implementation is
+// adapter/runtime work. The shell-visible invariant is that committed placement
+// remains the rendered placement when mode changes hide or restore editing UI.
+test("browser shell preserves committed overlay placement across mode switches", async () => {
+  const committedPlacement = placement({
+    x: 14,
+    y: 28,
+    scale: 1.2,
+    rotationRad: 0.25,
+  });
+  const host = createBrowserHostHarness({
+    pageContext: {
+      kind: "supported-map-editor-page",
+    },
+    durableStatePort: createDurableStorageHarness({
+      durableState: durableImageState({
+        mode: "align",
+        referenceImage: normalizedReferenceImage(),
+        placement: committedPlacement,
+      }),
+    }).port,
+  });
+
+  await bootstrapBrowserExtension(host);
+  await host.latestRender.dispatchCommand({
+    kind: "select-mode",
+    mode: "trace",
+  });
+  assert.deepEqual(host.latestRender.view.overlay.placement, committedPlacement);
+
+  await host.latestRender.dispatchCommand({
+    kind: "select-mode",
+    mode: "align",
+  });
+  assert.deepEqual(host.latestRender.view.overlay.placement, committedPlacement);
+});
+
 function createBrowserHostHarness({
   pageContext,
   durableStatePort = createDurableStorageHarness({ durableState: null }).port,
@@ -392,11 +429,19 @@ function createBrowserHostHarness({
   };
 }
 
-function durableImageState({ mode, referenceImage, pins }) {
+function durableImageState({
+  mode,
+  referenceImage,
+  placement: placementData = undefined,
+  pins,
+}) {
   const session = {
     mode,
     referenceImage,
   };
+  if (placementData !== undefined) {
+    session.placement = placementData;
+  }
   if (pins !== undefined) {
     session.registration = {
       pins,
@@ -430,6 +475,20 @@ function firstPin() {
       lat: -1.23,
       lon: 36.84,
     },
+  };
+}
+
+function placement({
+  x = 80,
+  y = 40,
+  scale = 1,
+  rotationRad = 0,
+} = {}) {
+  return {
+    x,
+    y,
+    scale,
+    rotationRad,
   };
 }
 
