@@ -22,9 +22,9 @@ test("browser shell bootstrap is idempotent over one owned UI root", async () =>
   assert.equal(first.runtime, second.runtime);
 });
 
-// Class-b, not class-a: unsupported-page UI policy might later include a small
-// notice, but it must not expose usable overlay controls or start product
-// runtime work where the page adapter cannot operate.
+// Class-b, deliberately not class-a: unsupported-page UI policy might later add
+// a small notice. The stable boundary is that unsupported pages expose no usable
+// overlay controls and start no product runtime work.
 test("browser shell does not expose usable overlay UI on unsupported pages", async () => {
   const host = createBrowserHostHarness({
     pageContext: {
