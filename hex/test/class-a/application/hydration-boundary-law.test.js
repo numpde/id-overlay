@@ -6,16 +6,13 @@ import {
   createApplicationCommand,
 } from "../../../application/command.js";
 import {
+  ApplicationBoundaryError,
   APPLICATION_BOUNDARY_ERROR_CODE,
 } from "../../../application/errors.js";
-import { assertApplicationBoundaryError } from "./application-boundary-assertions.js";
 
-// Hydration is the startup seam: durable plain data enters the application and
-// becomes canonical state. How that durable data was kept is an adapter concern.
-
-// Hydration input must still be plain data before the application can decide
-// whether the durable shape is supported. Rich values here mean the caller
-// leaked runtime data inward.
+// Class-a: hydration is the startup seam where durable plain data enters the
+// application. Non-data input is a boundary failure before migration or product
+// support policy is allowed to run.
 test("hydration rejects non-data durable state", () => {
   assert.equal(
     APPLICATION_BOUNDARY_ERROR_CODE.INVALID_DURABLE_STATE,
@@ -29,3 +26,14 @@ test("hydration rejects non-data durable state", () => {
     APPLICATION_BOUNDARY_ERROR_CODE.INVALID_DURABLE_STATE,
   );
 });
+
+function assertApplicationBoundaryError(fn, code) {
+  assert.throws(
+    fn,
+    (error) => (
+      error instanceof ApplicationBoundaryError
+        && error.name === "ApplicationBoundaryError"
+        && error.code === code
+    ),
+  );
+}
