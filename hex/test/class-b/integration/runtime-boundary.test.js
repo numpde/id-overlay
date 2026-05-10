@@ -55,38 +55,6 @@ test("runtime executes multiple effects in declared order", async () => {
   ]);
 });
 
-// Class-b: runtime owns subscription cleanup. Disposal is idempotent and calls
-// each registered disposer once.
-test("runtime disposal calls registered disposers exactly once", () => {
-  const calls = [];
-  const runtime = createRuntimeDriver({
-    initialState: {},
-    effectHandlers: {},
-    stepApplication({ state }) {
-      return {
-        state,
-        effects: [],
-      };
-    },
-    subscriptions: [
-      () => {
-        calls.push("first");
-      },
-      () => {
-        calls.push("second");
-      },
-    ],
-  });
-
-  runtime.dispose();
-  runtime.dispose();
-
-  assert.deepEqual(calls, [
-    "first",
-    "second",
-  ]);
-});
-
 // Class-b: bootstrap composes dependencies. It must not run application logic,
 // execute effects, or inspect product state while wiring the runtime.
 test("bootstrap wiring does not inspect product state or execute app behavior", () => {

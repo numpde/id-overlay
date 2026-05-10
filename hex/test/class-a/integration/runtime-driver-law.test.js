@@ -497,6 +497,38 @@ test("runtime disposal prevents late effect results from re-entering the app", a
   }]);
 });
 
+// Class-a: runtime owns subscription cleanup. Disposal is idempotent and calls
+// each registered disposer exactly once.
+test("runtime disposal calls registered disposers exactly once", () => {
+  const calls = [];
+  const runtime = createRuntimeDriver({
+    initialState: {},
+    effectHandlers: {},
+    stepApplication({ state }) {
+      return {
+        state,
+        effects: [],
+      };
+    },
+    subscriptions: [
+      () => {
+        calls.push("first");
+      },
+      () => {
+        calls.push("second");
+      },
+    ],
+  });
+
+  runtime.dispose();
+  runtime.dispose();
+
+  assert.deepEqual(calls, [
+    "first",
+    "second",
+  ]);
+});
+
 function createOpaqueProductState(value) {
   const forbiddenProductFields = new Set([
     "mode",
