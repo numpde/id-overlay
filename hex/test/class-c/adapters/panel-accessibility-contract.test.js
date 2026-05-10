@@ -3,16 +3,14 @@ import assert from "node:assert/strict";
 import { JSDOM } from "jsdom";
 
 import {
-  createExtensionUiHost,
-} from "../../../adapters/ui/extension-ui-host.js";
-import {
   createPanelAdapter,
 } from "../../../adapters/ui/panel-adapter.js";
 
-// Unclassified: exact markup is adapter-local. The user-facing standard is not:
-// icon-only controls and mode switches need accessible names derived from the
-// same view model labels/tooltips that drive the visible UI.
-test("candidate: panel controls expose accessible names and selected mode state", () => {
+// Class-c: the accessibility requirement is real, but this test is not yet a
+// class-b adapter contract because the current panel adapter does not expose the
+// needed names/states. Keep it quarantined until the panel renderer is revised;
+// then either promote this exact boundary or replace it with the stronger one.
+test("panel controls expose accessible names and selected mode state", () => {
   const { window } = new JSDOM("<!doctype html><body></body>");
   const panel = createPanelAdapter({
     document: window.document,
@@ -47,19 +45,4 @@ test("candidate: panel controls expose accessible names and selected mode state"
   assert.equal(root.querySelector("[data-control='align']").getAttribute("aria-label"), "Align mode");
   assert.equal(root.querySelector("[data-control='undo']").getAttribute("aria-label"), "Move overlay");
   assert.equal(root.querySelector("[data-control='redo']").getAttribute("aria-label"), "Redo");
-});
-
-// Unclassified: focus choreography may evolve. The non-negotiable boundary is
-// that passive startup must not steal focus from the map editor or page content.
-test("candidate: mounting the extension does not steal page focus", () => {
-  const { window } = new JSDOM("<!doctype html><body><button id='map-control'>Map</button></body>");
-  const button = window.document.getElementById("map-control");
-  button.focus();
-  const host = createExtensionUiHost({
-    document: window.document,
-  });
-
-  host.mountOwnedRoot("id-overlay");
-
-  assert.equal(window.document.activeElement, button);
 });

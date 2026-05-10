@@ -38,6 +38,22 @@ test("extension UI host does not mutate document-level style state", () => {
   assert.equal(document.body.getAttribute("class"), null);
 });
 
+// Class-b, deliberately not class-a: exact focus restoration may change if the
+// UI host gains active onboarding. The stable adapter boundary is passive
+// mounting: injecting extension chrome must not steal focus from the map editor.
+test("extension UI host does not steal focus during passive mount", () => {
+  const { window } = new JSDOM("<!doctype html><body><button id='map-control'>Map</button></body>");
+  const button = window.document.getElementById("map-control");
+  const uiHost = createExtensionUiHost({
+    document: window.document,
+  });
+
+  button.focus();
+  uiHost.mountOwnedRoot("id-overlay");
+
+  assert.equal(window.document.activeElement, button);
+});
+
 function collectAmbientStylePolicyViolations(source) {
   return [
     ...collectStyleTextViolations(source),
