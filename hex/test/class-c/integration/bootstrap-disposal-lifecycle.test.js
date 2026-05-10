@@ -5,10 +5,11 @@ import {
   bootstrapBrowserExtension,
 } from "../../../bootstrap/index.js";
 
-// Unclassified: root idempotence is class-b today. This candidate pushes the
-// same idea to listener ownership: repeated bootstrap must not duplicate input
-// bindings, and disposal must tear down shell listeners exactly once.
-test("candidate: repeated bootstrap binds input listeners once and disposal removes them", async () => {
+// Class-c: runtime disposal is already class-a, but bootstrap disposal is not
+// implemented. This test is quarantined design pressure for the shell boundary:
+// repeated bootstrap should not duplicate input listeners, and disposal should
+// tear those listener subscriptions down exactly once.
+test("repeated bootstrap binds input listeners once and disposal removes them", async () => {
   const input = createInputBindingHarness();
   const host = createBrowserHostHarness({
     inputBindingPort: input.port,
@@ -24,10 +25,10 @@ test("candidate: repeated bootstrap binds input listeners once and disposal remo
   assert.equal(input.disposeCount, 1);
 });
 
-// Unclassified: late async results after disposal should be stopped at the
-// shell/runtime boundary. They must not re-render UI or write durable state
-// after the extension instance has been torn down.
-test("candidate: disposal prevents late shell effects from rendering or persisting", async () => {
+// Class-c: late runtime effect disposal is class-a, but late shell-side effects
+// are still not wired. Promote only after clipboard/image input lives behind a
+// cancellable shell effect boundary instead of ad hoc bootstrap callbacks.
+test("disposal prevents late shell effects from rendering or persisting", async () => {
   const read = createDeferred();
   const storage = createDurableStorageHarness({
     durableState: null,
