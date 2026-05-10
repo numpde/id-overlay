@@ -42,10 +42,10 @@ test("reference image paste outcome command is correlated plain data", () => {
   });
 });
 
-// Class-b, not class-a: exact status copy for an empty paste can still change,
-// but "no image was available" is a normal user-world outcome, not a boundary
-// failure. The notice keeps the request id so delayed status clearing cannot
-// erase a newer message.
+// Class-b, not class-a: the exact notice vocabulary for an empty paste can still
+// change, but "no image was available" is a normal user-world outcome, not a
+// boundary failure. The notice keeps the request id so delayed status clearing
+// cannot erase a newer message.
 test("empty reference image paste outcome becomes a correlated notice", () => {
   assertApplicationResult(handleApplicationCommand({
     state: {
