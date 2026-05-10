@@ -34,10 +34,9 @@ test("content loader remains a dumb dynamic-import bridge", () => {
   ]), []);
 });
 
-// Class-b: this is a durable shell boundary, but the browser-shell layout is
-// still provisional. Content code may pass ambient browser handles into
-// bootstrap; it must not become the place that steps product state or selects
-// product views.
+// Class-b, deliberately not class-a: the browser-shell layout is still
+// provisional. The boundary is stable: content code may pass ambient browser
+// handles into bootstrap, but it must not step product state or select views.
 test("content source does not own product stepping", () => {
   assert.deepEqual(collectContentVocabularyViolations([
     "APPLICATION_COMMAND_KIND",
