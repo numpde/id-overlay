@@ -37,8 +37,9 @@ test("reference image paste outcome command is correlated plain data", () => {
 });
 
 // Class-b, deliberately not class-a: class-a owns the empty-paste product law
-// that no session or durable work is created. This test keeps only the current
-// transient notice vocabulary and request id used by status-clearing correlation.
+// that no session or durable work is created. This keeps only the current
+// transient notice vocabulary and the request id used by status-clearing
+// correlation.
 test("empty reference image paste outcome becomes a correlated notice", () => {
   assertApplicationResult(handleApplicationCommand({
     state: {
