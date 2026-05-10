@@ -103,11 +103,23 @@ function reportReferenceImagePasteOutcome(state, command) {
   if (state.referenceImageInput?.requestId !== command.requestId) {
     return inertResult(state);
   }
-  if (command.outcome?.kind !== "accepted") {
+  if (command.outcome?.kind === "empty") {
     return {
       state: {
         notice: {
           kind: "reference-image-paste-empty",
+          requestId: command.requestId,
+        },
+      },
+      effects: [],
+    };
+  }
+  if (command.outcome?.kind === "failed") {
+    return {
+      state: {
+        notice: {
+          kind: "reference-image-paste-failed",
+          reason: command.outcome.reason,
           requestId: command.requestId,
         },
       },

@@ -209,3 +209,36 @@ test("empty reference image paste outcome becomes a correlated notice", () => {
     effects: [],
   });
 });
+
+// Class-b, not class-a: exact status wording may still change, but a declared
+// failed paste is a product fact. The application keeps a stable reason and
+// request id; platform-specific failure objects are rejected at the boundary.
+test("failed reference image paste outcome becomes a correlated notice", () => {
+  assertApplicationResult(handleApplicationCommand({
+    state: {
+      referenceImageInput: {
+        status: "awaiting-paste",
+        requestId: 1,
+      },
+    },
+    command: createApplicationCommand(
+      APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_PASTE_OUTCOME,
+      {
+        requestId: 1,
+        outcome: {
+          kind: "failed",
+          reason: "source-unavailable",
+        },
+      },
+    ),
+  }), {
+    state: {
+      notice: {
+        kind: "reference-image-paste-failed",
+        reason: "source-unavailable",
+        requestId: 1,
+      },
+    },
+    effects: [],
+  });
+});
