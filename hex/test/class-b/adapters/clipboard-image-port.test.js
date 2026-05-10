@@ -138,8 +138,9 @@ test("clipboard image port normalizes direct clipboard and paste-event image sou
   ]);
 });
 
-// Class-b: image decoding may use browser handles internally, but normalized
-// output must contain only browser-neutral product facts.
+// Class-b, deliberately not class-a: this is the web decoder adapter boundary.
+// Browser handles may exist while decoding, but the normalized output handed
+// inward must be browser-neutral plain product data.
 test("image normalization returns only browser-neutral image facts", async () => {
   const result = await normalizeClipboardImage({
     imageHandle: {
