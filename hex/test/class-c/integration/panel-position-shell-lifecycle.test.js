@@ -5,9 +5,11 @@ import {
   bootstrapBrowserExtension,
 } from "../../../bootstrap/index.js";
 
-// Class-c: panel position is shell chrome, not product state. Adapter-local
-// dragging is class-b, but the composed bootstrap path does not yet read/write
-// panel chrome position outside application hydration.
+// Class-c: the invariant is strong, but the integration seam is not. Panel
+// position is shell chrome and must not enter product state; adapter-local drag
+// writing is already class-b. This candidate invents the composed API
+// (`panelPositionPort`, `handlePanelDrag`, render-time `panelPosition`). Promote
+// only when shell chrome persistence is a named bootstrap adapter boundary.
 test("panel drag persists shell position without changing app state", async () => {
   const durableState = durableImageState();
   const storage = createDurableStorageHarness({
@@ -39,9 +41,10 @@ test("panel drag persists shell position without changing app state", async () =
   assert.deepEqual(storage.writes, []);
 });
 
-// Class-c: this guards the clean split once implemented: startup may restore
-// panel chrome from a shell adapter, but product hydration must still receive
-// only the application durable state.
+// Class-c: startup restoration is desirable, but this should assert a real
+// chrome adapter contract, not force bootstrap itself to know a storage key or a
+// render payload shape. The product law is already covered elsewhere: hydration
+// receives only application durable state.
 test("startup restores panel chrome position outside product hydration", async () => {
   const panelPosition = createPanelPositionHarness({
     initialPosition: {
