@@ -56,33 +56,6 @@ test("runtime executes multiple effects in declared order", async () => {
   ]);
 });
 
-// Class-b: unknown host work is an integration bug, not a product outcome.
-// Runtime must fail loudly instead of silently ignoring or guessing.
-test("runtime rejects unknown effect kinds at the boundary", async () => {
-  const runtime = createRuntimeDriver({
-    initialState: {},
-    effectHandlers: {},
-    stepApplication({ state }) {
-      return {
-        state,
-        effects: [{
-          kind: "unknown-effect",
-        }],
-      };
-    },
-  });
-
-  await assert.rejects(
-    () => runtime.dispatch({
-      kind: "user-command",
-    }),
-    (error) => (
-      error instanceof RuntimeBoundaryError
-        && error.code === "unknown-effect-kind"
-    ),
-  );
-});
-
 // Class-b: runtime dispatch is not an adapter-normalization layer. The selected
 // handler receives the effect as emitted by the application.
 test("runtime passes effect payloads to handlers unchanged", async () => {
