@@ -26,9 +26,10 @@ export function handleApplicationCommand({ state, command }) {
     case APPLICATION_COMMAND_KIND.SELECT_MODE:
       return selectMode(state, command.mode);
     case APPLICATION_COMMAND_KIND.TOGGLE_REGISTRATION_PIN:
-    case APPLICATION_COMMAND_KIND.CLEAR_REGISTRATION_PINS:
     case APPLICATION_COMMAND_KIND.COMMIT_PLACEMENT_EDIT:
       return inertResult(state);
+    case APPLICATION_COMMAND_KIND.CLEAR_REGISTRATION_PINS:
+      return clearRegistrationPins(state);
     case APPLICATION_COMMAND_KIND.CLEAR_STATUS_NOTICE:
       return clearStatusNotice(state, command.requestId);
     default:
@@ -140,6 +141,41 @@ function selectMode(state, mode) {
       durableStateChangedEffect(selectDurableApplicationState(nextState)),
     ],
   };
+}
+
+function clearRegistrationPins(state) {
+  if (
+    !state.session
+      || state.session.mode !== "align"
+      || (state.session.registration?.pins ?? []).length === 0
+  ) {
+    return inertResult(state);
+  }
+
+  const pinCount = state.session.registration.pins.length;
+  const nextState = {
+    session: withoutRegistration(state.session),
+    notice: {
+      kind: "cleared-pins",
+      count: pinCount,
+    },
+  };
+  return {
+    state: nextState,
+    effects: [
+      durableStateChangedEffect(selectDurableApplicationState(nextState)),
+    ],
+  };
+}
+
+function withoutRegistration(session) {
+  const nextSession = {};
+  for (const [key, value] of Object.entries(session)) {
+    if (key !== "registration") {
+      nextSession[key] = value;
+    }
+  }
+  return nextSession;
 }
 
 function clearStatusNotice(state, requestId) {
