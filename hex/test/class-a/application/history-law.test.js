@@ -42,6 +42,41 @@ test("undo replays the latest history record before-state durably", () => {
   });
 });
 
+// Class-a: redo is the same durable-state replay in the other direction. The
+// latest future record's `after` state becomes persisted state and the record
+// moves back to the undo stack unchanged.
+test("redo replays the latest history record after-state durably", () => {
+  const record = {
+    kind: "load-reference-image",
+    undoLabel: "Remove image",
+    redoLabel: "Reload image",
+    before: null,
+    after: referenceImageDurableState(),
+  };
+  const result = handleApplicationCommand({
+    state: {
+      history: {
+        past: [],
+        future: [record],
+      },
+    },
+    command: createApplicationCommand(APPLICATION_COMMAND_KIND.REDO),
+  });
+
+  assert.deepEqual(result, {
+    state: {
+      ...referenceImageLoadedState(),
+      history: {
+        past: [record],
+        future: [],
+      },
+    },
+    effects: [
+      durableStateChangedEffect(referenceImageDurableState()),
+    ],
+  });
+});
+
 function referenceImageLoadedState() {
   return {
     session: normalizedReferenceImageSession(),
