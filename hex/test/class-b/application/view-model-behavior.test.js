@@ -60,7 +60,7 @@ test("view model exposes primary action labels for each product posture", () => 
 // Class-b, deliberately not class-a: the ideal history record may eventually
 // carry semantic descriptors instead of literal labels. What is settled is the
 // boundary: panels render application-selected undo/redo affordances and do not
-// fall back to generic Undo/Redo copy.
+// invent generic Undo/Redo copy locally.
 test("view model exposes semantic history controls", () => {
   const view = selectApplicationView({
     ...referenceImageLoadedState(),
