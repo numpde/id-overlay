@@ -14,28 +14,6 @@ import {
   referenceImageLoadedState,
 } from "./reference-image-fixtures.js";
 
-// Class-b, not class-a: with an image loaded and no visible pins, the current
-// primary-button ladder asks before removing the image. This is product policy
-// plus confirmation vocabulary, not an invariant application law.
-test("primary action without pins requests clear-image confirmation", () => {
-  const result = handleApplicationCommand({
-    state: referenceImageLoadedState(),
-    command: createApplicationCommand(
-      APPLICATION_COMMAND_KIND.ACTIVATE_PRIMARY_ACTION,
-    ),
-  });
-
-  assertApplicationResult(result, {
-    state: {
-      ...referenceImageLoadedState(),
-      panelIntent: {
-        kind: "confirm-clear-reference-image",
-      },
-    },
-    effects: [],
-  });
-});
-
 // Class-b, not class-a: a new visible clear-image intent replaces stale status,
 // but this is still tied to the current confirmation branch and vocabulary.
 // The useful harness pressure is that confirmation UI is not composed with an

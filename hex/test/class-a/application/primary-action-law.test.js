@@ -49,3 +49,41 @@ test("primary action while awaiting paste cancels transient image input", () => 
   assert.equal(result.state.referenceImageInput, undefined);
   assert.deepEqual(result.effects, []);
 });
+
+// Class-a: clearing a loaded reference image is destructive. The primary action
+// must first arm an explicit confirmation, keeping the current session intact
+// and avoiding durability work until the user confirms.
+test("primary action with a loaded image arms clear-image confirmation", () => {
+  const state = referenceImageLoadedState();
+  const result = handleApplicationCommand({
+    state,
+    command: createApplicationCommand(
+      APPLICATION_COMMAND_KIND.ACTIVATE_PRIMARY_ACTION,
+    ),
+  });
+
+  assert.deepEqual(result, {
+    state: {
+      ...state,
+      panelIntent: {
+        kind: "confirm-clear-reference-image",
+      },
+    },
+    effects: [],
+  });
+});
+
+function referenceImageLoadedState() {
+  return {
+    session: {
+      mode: "align",
+      referenceImage: {
+        imageDataRef: "reference-image-data-1",
+        intrinsicSizePx: {
+          width: 640,
+          height: 480,
+        },
+      },
+    },
+  };
+}
