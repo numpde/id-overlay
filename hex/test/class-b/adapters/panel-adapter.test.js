@@ -6,6 +6,49 @@ import {
   createPanelAdapter,
 } from "../../../adapters/ui/panel-adapter.js";
 
+// Class-b, not class-a: exact DOM markers are adapter-local test handles, but
+// the boundary is stable. The panel renders the application view model as-is:
+// labels, disabled state, history tooltips, and status copy are selected before
+// they reach the adapter.
+test("panel adapter renders from the view model only", () => {
+  const { window } = new JSDOM("<!doctype html><body></body>");
+  const panel = createPanelAdapter({
+    document: window.document,
+  });
+
+  const root = panel.render({
+    primaryAction: {
+      label: "Paste",
+      enabled: true,
+    },
+    modeSwitch: {
+      selected: "trace",
+      align: {
+        enabled: false,
+      },
+    },
+    history: {
+      undo: {
+        enabled: false,
+        label: null,
+      },
+      redo: {
+        enabled: true,
+        label: "Reload image",
+      },
+    },
+    status: "Clipboard does not contain an image.",
+  });
+
+  assert.equal(root.querySelector("[data-control='primary']").textContent, "Paste");
+  assert.equal(root.querySelector("[data-control='align']").disabled, true);
+  assert.equal(root.querySelector("[data-control='redo']").title, "Reload image");
+  assert.equal(
+    root.querySelector("[data-region='status']").textContent,
+    "Clipboard does not contain an image.",
+  );
+});
+
 // Class-b: the panel owns DOM mechanics, but product intent crosses inward as
 // semantic commands. The data-control selectors are just adapter test handles.
 test("panel adapter emits semantic commands only", () => {
