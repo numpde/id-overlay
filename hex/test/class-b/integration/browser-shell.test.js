@@ -171,6 +171,62 @@ test("browser shell persists durable-state effects through the storage port", as
   }]);
 });
 
+// Class-b, deliberately not class-a: history semantics are application law
+// elsewhere. The shell integration boundary is narrower: history commands from
+// rendered controls re-render the visible overlay and persist the replayed
+// durable projection.
+test("browser shell re-renders and persists clear-image undo and redo", async () => {
+  const referenceImage = normalizedReferenceImage();
+  const storage = createDurableStorageHarness({
+    durableState: durableImageState({
+      mode: "align",
+      referenceImage,
+    }),
+  });
+  const host = createBrowserHostHarness({
+    pageContext: {
+      kind: "supported-map-editor-page",
+    },
+    durableStatePort: storage.port,
+  });
+
+  await bootstrapBrowserExtension(host);
+  await host.latestRender.dispatchCommand({
+    kind: "activate-primary-action",
+  });
+  await host.latestRender.dispatchCommand({
+    kind: "activate-primary-action",
+  });
+
+  assert.equal(host.latestRender.view.overlay.visible, false);
+  assert.deepEqual(host.latestRender.view.history.undo, {
+    enabled: true,
+    label: "Reload image",
+  });
+
+  await host.latestRender.dispatchCommand({
+    kind: "undo",
+  });
+  assert.equal(host.latestRender.view.overlay.visible, true);
+  assert.deepEqual(host.latestRender.view.history.redo, {
+    enabled: true,
+    label: "Remove image",
+  });
+
+  await host.latestRender.dispatchCommand({
+    kind: "redo",
+  });
+  assert.equal(host.latestRender.view.overlay.visible, false);
+  assert.deepEqual(storage.writes, [
+    null,
+    durableImageState({
+      mode: "align",
+      referenceImage,
+    }),
+    null,
+  ]);
+});
+
 function createBrowserHostHarness({
   pageContext,
   durableStatePort = createDurableStorageHarness({ durableState: null }).port,
@@ -179,16 +235,40 @@ function createBrowserHostHarness({
   return {
     pageContext,
     durableStatePort,
+    latestRender: null,
     startedRuntimeCount: 0,
     mountOwnedRoot(ownerId, root) {
       ownedRoots.set(ownerId, root);
+      return root;
     },
     countOwnedRoots(ownerId) {
       return ownedRoots.has(ownerId) ? 1 : 0;
     },
+    renderApplicationView(render) {
+      this.latestRender = render;
+    },
     startRuntime(runtime) {
       this.startedRuntimeCount += 1;
       return runtime;
+    },
+  };
+}
+
+function durableImageState({ mode, referenceImage }) {
+  return {
+    session: {
+      mode,
+      referenceImage,
+    },
+  };
+}
+
+function normalizedReferenceImage() {
+  return {
+    imageDataRef: "data:image/png;base64,reference-image",
+    intrinsicSizePx: {
+      width: 640,
+      height: 480,
     },
   };
 }

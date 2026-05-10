@@ -5,62 +5,10 @@ import {
   bootstrapBrowserExtension,
 } from "../../../bootstrap/index.js";
 
-// Unclassified: history laws are class-a at the reducer. This candidate checks
-// the composed UI loop: panel history controls must advertise semantic labels,
-// undo must restore visible image state, and redo must remove it again.
-test("candidate: clear-image undo and redo re-render overlay and persist replayed durable state", async () => {
-  const referenceImage = normalizedReferenceImage();
-  const storage = createDurableStorageHarness({
-    durableState: durableImageState({
-      mode: "align",
-      referenceImage,
-    }),
-  });
-  const host = createBrowserHostHarness({
-    durableStatePort: storage.port,
-  });
-
-  await bootstrapBrowserExtension(host);
-  await host.latestRender.dispatchCommand({
-    kind: "activate-primary-action",
-  });
-  await host.latestRender.dispatchCommand({
-    kind: "activate-primary-action",
-  });
-
-  assert.equal(host.latestRender.view.overlay.visible, false);
-  assert.deepEqual(host.latestRender.view.history.undo, {
-    enabled: true,
-    label: "Reload image",
-  });
-
-  await host.latestRender.dispatchCommand({
-    kind: "undo",
-  });
-  assert.equal(host.latestRender.view.overlay.visible, true);
-  assert.deepEqual(host.latestRender.view.history.redo, {
-    enabled: true,
-    label: "Remove image",
-  });
-
-  await host.latestRender.dispatchCommand({
-    kind: "redo",
-  });
-  assert.equal(host.latestRender.view.overlay.visible, false);
-  assert.deepEqual(storage.writes, [
-    null,
-    durableImageState({
-      mode: "align",
-      referenceImage,
-    }),
-    null,
-  ]);
-});
-
-// Unclassified: status copy is currently class-b view-model policy. The
-// composed shell still needs to prove that transient notices are visible after
-// runtime results and disappear when a later successful image lifecycle starts.
-test("candidate: empty paste status is visible and successful image load clears it", async () => {
+// Class-c: status copy is already class-b at the view-model boundary. This
+// composed shell scenario should be promoted only after browser paste effects
+// exist; today it would pretend clipboard reads are wired when they are not.
+test("empty paste status is visible and successful image load clears it", async () => {
   const referenceImage = normalizedReferenceImage();
   const storage = createDurableStorageHarness({
     durableState: null,
