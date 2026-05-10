@@ -5,10 +5,10 @@ import {
   bootstrapBrowserExtension,
 } from "../../../bootstrap/index.js";
 
-// Class-c: runtime disposal is already class-a, but bootstrap disposal is not
-// implemented. This test is quarantined design pressure for the shell boundary:
-// repeated bootstrap should not duplicate input listeners, and disposal should
-// tear those listener subscriptions down exactly once.
+// Class-c: the behavior is stable, but this test is still too coupled to an
+// imagined bootstrap API. A promotable version should speak in browser-lifecycle
+// terms such as "start the extension twice" and "unload the extension once",
+// not in terms of `inputBindingPort` or the exact returned `dispose` method.
 test("repeated bootstrap binds input listeners once and disposal removes them", async () => {
   const input = createInputBindingHarness();
   const host = createBrowserHostHarness({
@@ -25,9 +25,10 @@ test("repeated bootstrap binds input listeners once and disposal removes them", 
   assert.equal(input.disposeCount, 1);
 });
 
-// Class-c: late runtime effect disposal is class-a, but late shell-side effects
-// are still not wired. Promote only after clipboard/image input lives behind a
-// cancellable shell effect boundary instead of ad hoc bootstrap callbacks.
+// Class-c: the observable contract is stable: stopping the extension must make
+// late async browser work unable to render or persist. The current test still
+// bakes in a speculative clipboard port and bootstrap `dispose` shape, so keep
+// it quarantined until a user/browser harness can express stop-and-late-result.
 test("disposal prevents late shell effects from rendering or persisting", async () => {
   const read = createDeferred();
   const storage = createDurableStorageHarness({
