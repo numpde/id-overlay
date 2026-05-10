@@ -36,8 +36,8 @@ test("hydration rejects unsupported durable reference-image data", () => {
   );
 });
 
-// Class-b, deliberately not class-a: this is a migration-policy guard. The
-// future versioning scheme may accept or transform old fields, but accepting
+// Class-b, deliberately not class-a: this is a current migration-policy guard.
+// A future versioning scheme may accept or transform old fields, but accepting
 // unknown top-level durable data today would silently choose a data-loss policy.
 test("hydration rejects unknown top-level durable fields", () => {
   const command = createApplicationCommand(APPLICATION_COMMAND_KIND.HYDRATE, {
