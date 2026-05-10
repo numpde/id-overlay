@@ -42,10 +42,9 @@ test("chrome manifest is generated from the hex extension content graph", async 
   )), []);
 });
 
-// Class-b, not class-a: exact copied resource categories may grow with browser
-// features, but build input must stay manifest-derived. The build script should
-// not maintain a second source/assets directory list that can drift from the
-// generated manifest.
+// Class-b, deliberately not class-a: copied resource categories may grow with
+// browser features. The build boundary is that copy input stays
+// manifest-derived, avoiding a second source/assets list that can drift.
 test("chrome build resources are derived from the generated manifest", () => {
   assert.deepEqual(collectBrowserResources({
     content_scripts: [{
