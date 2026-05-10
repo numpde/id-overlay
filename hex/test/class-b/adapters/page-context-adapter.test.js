@@ -5,10 +5,10 @@ import {
   createActiveMapContextAdapter,
 } from "../../../adapters/page-osm-id/active-map-context-adapter.js";
 
-// Class-b, not class-a: exact page-support policy may grow with more hosts or
-// editors, but the boundary is stable. Page context detection belongs in a page
-// adapter and produces a plain support fact; neither application state nor
-// bootstrap should parse OpenStreetMap URL details.
+// Class-b, deliberately not class-a: supported hosts/editors may grow. The
+// stable boundary is that URL/editor detection is page-adapter work that emits
+// plain support facts; neither application state nor bootstrap parses page
+// details.
 test("page context adapter accepts only OpenStreetMap iD edit pages", () => {
   const adapter = createActiveMapContextAdapter({
     readLocation: () => ({
