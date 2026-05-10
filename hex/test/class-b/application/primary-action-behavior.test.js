@@ -1,4 +1,5 @@
 import test from "node:test";
+import assert from "node:assert/strict";
 
 import {
   APPLICATION_COMMAND_KIND,
@@ -14,11 +15,10 @@ import {
   referenceImageLoadedState,
 } from "./reference-image-fixtures.js";
 
-// Class-b, not class-a: clear-pins is part of the current primary-button ladder
-// and its notice vocabulary is product policy. The durable requirement is still
-// important: confirming must persist the registration-free session and remove
-// the destructive confirmation.
-test("primary action confirms clear-pins when clear-pins confirmation is active", () => {
+// Class-b, deliberately not class-a: class-a owns the durable clear-pins
+// transition. This test keeps the weaker user-status vocabulary connected to
+// that command path so the panel can report the actual completed action.
+test("primary action clear-pins confirmation emits cleared-pins notice", () => {
   const result = handleApplicationCommand({
     state: {
       ...referenceImageLoadedState({
@@ -33,17 +33,9 @@ test("primary action confirms clear-pins when clear-pins confirmation is active"
     ),
   });
 
-  assertApplicationResult(result, {
-    state: {
-      ...referenceImageLoadedState(),
-      notice: {
-        kind: "cleared-pins",
-        count: 1,
-      },
-    },
-    effects: [
-      durableStateChangedEffect(referenceImageDurableState()),
-    ],
+  assert.deepEqual(result.state.notice, {
+    kind: "cleared-pins",
+    count: 1,
   });
 });
 

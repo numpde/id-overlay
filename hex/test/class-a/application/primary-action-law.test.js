@@ -126,6 +126,33 @@ test("primary action with visible Align pins arms clear-pins confirmation", () =
   });
 });
 
+// Class-a: once the clear-pins confirmation is active, the primary action
+// commits that destructive edit. It clears only registration facts, removes the
+// transient confirmation, and persists the surviving image session.
+test("primary action confirms clear-pins confirmation durably", () => {
+  const result = handleApplicationCommand({
+    state: {
+      ...referenceImageLoadedState({
+        pins: [firstPin()],
+      }),
+      panelIntent: {
+        kind: "confirm-clear-pins",
+      },
+    },
+    command: createApplicationCommand(
+      APPLICATION_COMMAND_KIND.ACTIVATE_PRIMARY_ACTION,
+    ),
+  });
+
+  assert.deepEqual(result.state.session, referenceImageLoadedState().session);
+  assert.equal(result.state.panelIntent, undefined);
+  assert.deepEqual(result.effects, [
+    durableStateChangedEffect({
+      session: referenceImageLoadedState().session,
+    }),
+  ]);
+});
+
 function referenceImageLoadedState({ pins } = {}) {
   const session = {
     mode: "align",
@@ -158,5 +185,12 @@ function firstPin() {
       lat: -1.23,
       lon: 36.84,
     },
+  };
+}
+
+function durableStateChangedEffect(durableState) {
+  return {
+    kind: "durable-state-changed",
+    durableState,
   };
 }
