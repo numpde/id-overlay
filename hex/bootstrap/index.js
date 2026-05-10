@@ -40,8 +40,21 @@ export async function bootstrapBrowserExtension(host) {
   const startedRuntime = host.startRuntime(runtime) ?? runtime;
   const root = host.mountOwnedRoot("id-overlay", rootDescriptor) ?? rootDescriptor;
 
-  async function dispatchAndRender(command) {
-    await startedRuntime.dispatch(command);
+  async function dispatchAndRender(command, {
+    reportApplicationBoundaryErrors = true,
+  } = {}) {
+    try {
+      await startedRuntime.dispatch(command);
+    } catch (error) {
+      if (
+        !(error instanceof ApplicationBoundaryError)
+          || !reportApplicationBoundaryErrors
+      ) {
+        throw error;
+      }
+      host.reportRuntimeError?.(error);
+      return;
+    }
     renderApplicationView({
       host,
       root,
@@ -71,7 +84,9 @@ async function hydrateFromDurableState({
   try {
     await dispatchAndRender(createApplicationCommand(APPLICATION_COMMAND_KIND.HYDRATE, {
       durableState,
-    }));
+    }), {
+      reportApplicationBoundaryErrors: false,
+    });
   } catch (error) {
     if (!(error instanceof ApplicationBoundaryError)) {
       throw error;

@@ -5,10 +5,10 @@ import {
   bootstrapBrowserExtension,
 } from "../../../bootstrap/index.js";
 
-// Class-c: startup hydration recovery is implemented, but user-command recovery
-// is not. This is the desired shell posture: bad UI/adapter commands are
-// reported at the boundary and must not poison the runtime's ability to accept
-// the next valid command.
+// Class-b, deliberately not class-a: class-a owns which commands are boundary
+// errors. The browser-shell contract is recovery posture: malformed UI/adapter
+// commands are reported at the edge and must not poison the runtime's ability to
+// accept the next valid command.
 test("user-command boundary errors are reported without killing later renders", async () => {
   const host = createBrowserHostHarness({
     durableStatePort: createDurableStorageHarness({
