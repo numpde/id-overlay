@@ -79,6 +79,58 @@ test("browser shell hydrates the real application runtime from durable storage",
   });
 });
 
+// Class-b, deliberately not class-a: recovery from old extension storage is a
+// browser-shell compatibility policy. The durable-state law still lives in the
+// application, but the content bootstrap must not let one bad stored record make
+// the extension invisible on the page.
+test("browser shell starts with empty state when stored durable state is unsupported", async () => {
+  const storage = createDurableStorageHarness({
+    durableState: {
+      session: {
+        mode: "align",
+        referenceImage: {
+          imageDataRef: "reference-image-data-1",
+        },
+        staleLegacyField: true,
+      },
+    },
+  });
+  const host = createBrowserHostHarness({
+    pageContext: {
+      kind: "supported-map-editor-page",
+    },
+    durableStatePort: storage.port,
+  });
+
+  const result = await bootstrapBrowserExtension(host);
+
+  assert.equal(host.countOwnedRoots("id-overlay"), 1);
+  assert.deepEqual(result.runtime.getState(), {});
+});
+
+// Class-b, deliberately not class-a: clearing invalid startup storage is a
+// browser-shell migration policy, not a product reducer rule. It prevents the
+// same corrupt/legacy record from breaking every future page load.
+test("browser shell clears unsupported durable state after startup recovery", async () => {
+  const storage = createDurableStorageHarness({
+    durableState: {
+      session: {
+        mode: "trace",
+      },
+    },
+  });
+  const host = createBrowserHostHarness({
+    pageContext: {
+      kind: "supported-map-editor-page",
+    },
+    durableStatePort: storage.port,
+  });
+
+  await bootstrapBrowserExtension(host);
+
+  assert.deepEqual(storage.writes, [null]);
+});
+
 // Class-b, deliberately not class-a: the concrete persistence adapter may move
 // closer to extension-specific code. The no-regret boundary is that persistence
 // remains effect-driven; bootstrap wires the handler but does not decide what

@@ -2,6 +2,9 @@ import {
   APPLICATION_COMMAND_KIND,
   createApplicationCommand,
 } from "../application/command.js";
+import {
+  ApplicationBoundaryError,
+} from "../application/errors.js";
 import { handleApplicationCommand } from "../application/handle-command.js";
 import { createInitialApplicationState } from "../application/state.js";
 import { selectApplicationView } from "../application/view-model.js";
@@ -53,10 +56,31 @@ export async function bootstrapBrowserExtension(host) {
     root,
   };
   BOOTSTRAPS_BY_HOST.set(host, bootstrap);
-  await dispatchAndRender(createApplicationCommand(APPLICATION_COMMAND_KIND.HYDRATE, {
-    durableState: await durableStatePort.readDurableState(),
-  }));
+  await hydrateFromDurableState({
+    dispatchAndRender,
+    durableStatePort,
+  });
   return bootstrap;
+}
+
+async function hydrateFromDurableState({
+  dispatchAndRender,
+  durableStatePort,
+}) {
+  const durableState = await durableStatePort.readDurableState();
+  try {
+    await dispatchAndRender(createApplicationCommand(APPLICATION_COMMAND_KIND.HYDRATE, {
+      durableState,
+    }));
+  } catch (error) {
+    if (!(error instanceof ApplicationBoundaryError)) {
+      throw error;
+    }
+    await durableStatePort.writeDurableState(null);
+    await dispatchAndRender(createApplicationCommand(APPLICATION_COMMAND_KIND.HYDRATE, {
+      durableState: null,
+    }));
+  }
 }
 
 function renderApplicationView({
