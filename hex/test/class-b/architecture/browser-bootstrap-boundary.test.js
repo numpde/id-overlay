@@ -7,12 +7,10 @@ import {
   relativeToRepo,
 } from "../../class-a/architecture/source-files.js";
 
-// Class-b, not class-a: this is a source-level architecture guard around a
-// still-thin composition layer. It promotes only the no-regret part of the old
-// candidate: bootstrap may wire ports and application functions, but it must not
-// recreate product state shape or own user-facing product copy. The deleted
-// candidate also required exact future collaborator names; that was brittle and
-// would have forced fake imports before the shell is real.
+// Class-b, deliberately not class-a: this is a source-level anti-regression
+// guard around a still-thin composition layer. The no-regret boundary is narrow:
+// bootstrap may wire ports and application functions, but it must not recreate
+// product state shape or own user-facing product copy.
 test("bootstrap source does not define product state or product copy", () => {
   assert.deepEqual(collectPatternViolations([
     {
