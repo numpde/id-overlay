@@ -13,10 +13,10 @@ import {
   assertApplicationBoundaryError,
 } from "./application-boundary-assertions.js";
 
-// Class-b, deliberately not class-a: unsupported durable data is a storage
-// boundary contract failure, not a product outcome. A future migration/version
-// policy may change what gets accepted, but silent hydration of undeclared
-// session fields would leak invalid product state.
+// Class-b, deliberately not class-a: unsupported durable data is a durable
+// storage boundary failure, not a user-facing product outcome. A future
+// migration/version policy may change what gets accepted, but silent hydration
+// of undeclared session fields would leak invalid product state.
 test("hydration rejects unsupported durable reference-image data", () => {
   const command = createApplicationCommand(APPLICATION_COMMAND_KIND.HYDRATE, {
     durableState: {
