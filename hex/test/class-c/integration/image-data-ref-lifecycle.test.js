@@ -5,10 +5,11 @@ import {
   bootstrapBrowserExtension,
 } from "../../../bootstrap/index.js";
 
-// Class-c: image refs should remain opaque to the application, but the browser
-// shell does not yet own an image-data-ref release adapter. Promote after the
-// shell can observe old/new visible image refs without putting resource cleanup
-// policy into durable state.
+// Class-c: application opacity around image refs is stable, but release
+// semantics are not. Data URLs need no release, object URLs do, and extension
+// URLs may be cache-owned. This test should be rewritten after choosing the
+// image-ref strategy; until then `imageDataRefPort.releaseImageDataRef` is a
+// speculative adapter, not a class-b shell boundary.
 test("clearing a reference image releases its runtime image data ref outside app state", async () => {
   const oldImage = normalizedReferenceImage("old-runtime-ref");
   const storage = createDurableStorageHarness({
