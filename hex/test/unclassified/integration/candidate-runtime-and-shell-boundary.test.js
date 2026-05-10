@@ -3,27 +3,6 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-// Candidate: unsupported pages should not expose a half-working overlay. The
-// shell may report why it did nothing, but it must not mount controls or start
-// runtime work for unsupported page contexts.
-test("browser shell does not expose usable overlay UI on unsupported pages", async () => {
-  const bootstrapBrowserExtension = await loadCandidateExport(
-    "../../../bootstrap/index.js",
-    "bootstrapBrowserExtension",
-  );
-  const host = createBrowserHostHarness({
-    pageContext: {
-      kind: "unsupported-page",
-    },
-  });
-
-  const result = await bootstrapBrowserExtension(host);
-
-  assert.equal(result.kind, "unsupported-page");
-  assert.equal(host.countOwnedRoots("id-overlay"), 0);
-  assert.equal(host.startedRuntimeCount, 0);
-});
-
 // Candidate: real shell integration should be composition, not product logic.
 // This source-level tripwire is intentionally broad: when the shell appears, it
 // should wire adapters/runtime/view-model and avoid reintroducing direct session
