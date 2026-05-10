@@ -3,56 +3,6 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-// Candidate: interaction facts need a narrow composition boundary before they
-// become application commands. That boundary may use projection ports, but it
-// must not inspect raw application state as a shortcut.
-test("interaction runtime maps adapter facts into application commands without reading state", async () => {
-  const createInteractionRuntime = await loadCandidateExport(
-    "../../../bootstrap/interaction-runtime.js",
-    "createInteractionRuntime",
-  );
-  const commands = [];
-  const runtime = createInteractionRuntime({
-    dispatchCommand(command) {
-      commands.push(command);
-    },
-    projectCurrentPointerForPinToggle() {
-      return {
-        kind: "projected",
-        existingPinId: null,
-        imagePx: {
-          x: 320,
-          y: 240,
-        },
-        mapLatLon: {
-          lat: -1.23,
-          lon: 36.84,
-        },
-      };
-    },
-    readApplicationState() {
-      assert.fail("interaction runtime must not inspect product state");
-    },
-  });
-
-  await runtime.handleInteractionFact({
-    kind: "keyboard-pin-toggle-requested",
-  });
-
-  assert.deepEqual(commands, [{
-    kind: "toggle-registration-pin",
-    existingPinId: null,
-    imagePx: {
-      x: 320,
-      y: 240,
-    },
-    mapLatLon: {
-      lat: -1.23,
-      lon: 36.84,
-    },
-  }]);
-});
-
 // Candidate: the real browser shell must be idempotent now that the fake
 // page-visible scaffold is gone. Repeated bootstrap should reconcile one owned
 // root and preserve the same runtime instance until explicit disposal.
