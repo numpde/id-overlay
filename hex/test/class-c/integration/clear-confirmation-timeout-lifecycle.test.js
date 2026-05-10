@@ -5,10 +5,11 @@ import {
   bootstrapBrowserExtension,
 } from "../../../bootstrap/index.js";
 
-// Class-c: destructive-confirmation expiry is a real UX need, but the current
-// test assumes a concrete timer-port callback shape that the shell has not
-// earned yet. Keep this as quarantined design pressure until confirmation
-// timing is wired through the same runtime/effect boundary as status timing.
+// Class-c: destructive-confirmation expiry is stable user behavior, but this is
+// not yet a promotable browser-shell contract because it specifies an internal
+// `timerPort.startTimer({ callback })` shape. A class-b version should drive a
+// user/browser harness clock and assert only that confirmation expires without
+// clearing the image or writing durable state.
 test("clear-image confirmation expires through a request-scoped timer port", async () => {
   const timer = createTimerHarness();
   const host = createBrowserHostHarness({
