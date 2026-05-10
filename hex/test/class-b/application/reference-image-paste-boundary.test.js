@@ -5,13 +5,7 @@ import {
   APPLICATION_COMMAND_KIND,
   createApplicationCommand,
 } from "../../../application/command.js";
-import {
-  APPLICATION_BOUNDARY_ERROR_CODE,
-} from "../../../application/errors.js";
 import { handleApplicationCommand } from "../../../application/handle-command.js";
-import {
-  assertApplicationBoundaryError,
-} from "./application-boundary-assertions.js";
 import {
   assertApplicationResult,
 } from "./application-result-assertions.js";
@@ -74,9 +68,10 @@ test("empty reference image paste outcome becomes a correlated notice", () => {
   });
 });
 
-// Class-b, not class-a: exact status wording may still change, but a declared
-// failed paste is a product fact. The application keeps a stable reason and
-// request id; platform-specific failure objects are rejected at the boundary.
+// Class-b, not class-a: the exact failed-paste notice vocabulary can still
+// change, but a declared failed paste is a product fact. The application keeps a
+// stable reason and request id; non-data failure objects are rejected at the
+// boundary by class-a tests.
 test("failed reference image paste outcome becomes a correlated notice", () => {
   assertApplicationResult(handleApplicationCommand({
     state: {
