@@ -24,52 +24,8 @@ import {
   movedPlacement,
 } from "./placement-fixtures.js";
 
-// Class-c: pin toggling belongs in the application, but exact pin IDs, notices,
-// and durable registration shape need more implementation evidence.
-test("pin toggle adds and removes projected registration facts in Align mode", () => {
-  const add = handleApplicationCommand({
-    state: referenceImageLoadedState(),
-    command: createApplicationCommand(
-      APPLICATION_COMMAND_KIND.TOGGLE_REGISTRATION_PIN,
-      pinTogglePayload(),
-    ),
-  });
-
-  assertApplicationResult(add, {
-    state: referenceImageLoadedState({
-      pins: [firstPin()],
-      notice: {
-        kind: "added-pin",
-        pinId: 1,
-      },
-    }),
-    effects: [
-      durableStateChangedEffect(referenceImageDurableState({
-        pins: [firstPin()],
-      })),
-    ],
-  });
-
-  const remove = handleApplicationCommand({
-    state: add.state,
-    command: createApplicationCommand(
-      APPLICATION_COMMAND_KIND.TOGGLE_REGISTRATION_PIN,
-      pinTogglePayload({ existingPinId: 1 }),
-    ),
-  });
-
-  assertApplicationResult(remove, {
-    state: referenceImageLoadedState({
-      notice: {
-        kind: "removed-pin",
-        pinId: 1,
-      },
-    }),
-    effects: [
-      durableStateChangedEffect(referenceImageDurableState()),
-    ],
-  });
-});
+// Class-c: pin toggling was promoted as core Align-mode behavior. The remaining
+// tests cover registration/placement coupling and Trace auto-fit policy.
 
 // Class-c: registration edits after a fit should not make the overlay jump, but
 // the exact placement/registration coupling is still proposal-level shape.

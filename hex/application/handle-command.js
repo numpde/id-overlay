@@ -30,6 +30,7 @@ export function handleApplicationCommand({ state, command }) {
     case APPLICATION_COMMAND_KIND.SELECT_MODE:
       return selectMode(state, command.mode);
     case APPLICATION_COMMAND_KIND.TOGGLE_REGISTRATION_PIN:
+      return toggleRegistrationPin(state, command);
     case APPLICATION_COMMAND_KIND.COMMIT_PLACEMENT_EDIT:
       return inertResult(state);
     case APPLICATION_COMMAND_KIND.CLEAR_REGISTRATION_PINS:
@@ -199,6 +200,68 @@ function clearRegistrationPins(state) {
       durableStateChangedEffect(selectDurableApplicationState(nextState)),
     ],
   };
+}
+
+function toggleRegistrationPin(state, command) {
+  if (!state.session || state.session.mode !== "align") {
+    return inertResult(state);
+  }
+
+  const pins = state.session.registration?.pins ?? [];
+  if (command.existingPinId !== null && command.existingPinId !== undefined) {
+    const nextPins = pins.filter((pin) => pin.id !== command.existingPinId);
+    if (nextPins.length === pins.length) {
+      return inertResult(state);
+    }
+    const nextState = {
+      session: withRegistrationPins(state.session, nextPins),
+      notice: {
+        kind: "removed-pin",
+        pinId: command.existingPinId,
+      },
+    };
+    return {
+      state: nextState,
+      effects: [
+        durableStateChangedEffect(selectDurableApplicationState(nextState)),
+      ],
+    };
+  }
+
+  const pin = {
+    id: nextPinId(pins),
+    imagePx: command.imagePx,
+    mapLatLon: command.mapLatLon,
+  };
+  const nextState = {
+    session: withRegistrationPins(state.session, [...pins, pin]),
+    notice: {
+      kind: "added-pin",
+      pinId: pin.id,
+    },
+  };
+  return {
+    state: nextState,
+    effects: [
+      durableStateChangedEffect(selectDurableApplicationState(nextState)),
+    ],
+  };
+}
+
+function withRegistrationPins(session, pins) {
+  if (pins.length === 0) {
+    return withoutRegistration(session);
+  }
+  return {
+    ...session,
+    registration: {
+      pins,
+    },
+  };
+}
+
+function nextPinId(pins) {
+  return Math.max(0, ...pins.map((pin) => pin.id)) + 1;
 }
 
 function withoutRegistration(session) {
