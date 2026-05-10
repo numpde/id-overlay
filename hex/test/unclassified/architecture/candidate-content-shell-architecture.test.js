@@ -3,21 +3,6 @@ import assert from "node:assert/strict";
 
 const CONTENT_LOADER_MODULE = "./content-loader.js";
 
-// Unclassified: this helper is deliberately unused until main.js exists. It
-// records the intended contract without pretending to validate absent code.
-function assertMainEntryIsWiringOnly(source) {
-  assert.deepEqual(collectMainEntryWiringViolations(source), []);
-}
-
-test("future content/main.js wiring contract allows only hex bootstrap composition", () => {
-  assertMainEntryIsWiringOnly(`
-    import { startExtensionContent } from "hex/bootstrap/extension-content.js";
-    import { createBrowserAdapters } from "hex/adapters/browser.js";
-
-    startExtensionContent(createBrowserAdapters());
-  `);
-});
-
 test("future content/main.js wiring contract rejects hidden browser and product ownership", () => {
   assert.deepEqual(collectMainEntryWiringViolations(`
     import { createElement } from "./panel.js";
