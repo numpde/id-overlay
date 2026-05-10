@@ -4,17 +4,12 @@ import assert from "node:assert/strict";
 import {
   bootstrapBrowserExtension,
 } from "../../../bootstrap/index.js";
-import {
-  createBrowserHostHarness,
-  createClipboardImageHarness,
-  createDurableStorageHarness,
-} from "./candidate-browser-harness.js";
 
-// Unclassified: the exact clipboard adapter vocabulary is not promoted yet.
-// The high-value contract is the failure taxonomy: "API unavailable" is a
-// recoverable manual-paste path, while "missing image" and "unreadable image"
-// are distinct user-facing outcomes that must not create durable image state.
-test("candidate: clipboard-api unavailable starts manual paste capture instead of failing", async () => {
+// Class-c: this encodes the desired clipboard failure taxonomy, but the shell
+// does not yet have the manual-paste effect boundary needed to make the test a
+// fair class-b integration contract. Keep it quarantined until direct clipboard
+// failure, manual fallback, and status copy are wired as one flow.
+test("clipboard-api unavailable starts manual paste capture instead of failing", async () => {
   const storage = createDurableStorageHarness({
     durableState: null,
   });
@@ -41,10 +36,9 @@ test("candidate: clipboard-api unavailable starts manual paste capture instead o
   assert.deepEqual(storage.writes, []);
 });
 
-// Unclassified: this is stricter than the current reducer. It says failure
-// reasons are not free-form debug strings once they reach the user boundary;
-// each supported outcome has one canonical product message.
-test("candidate: missing and unreadable clipboard images render distinct notices", async () => {
+// Class-c: failure reason strings are too loose to promote. The final version
+// should probably use a closed failure vocabulary before this becomes class-b.
+test("missing and unreadable clipboard images render distinct notices", async () => {
   assert.equal(
     await readPasteFailureStatus({
       reason: "missing-image",
@@ -79,6 +73,72 @@ async function readPasteFailureStatus({ reason, source }) {
   });
 
   return host.latestRender.view.status;
+}
+
+function createBrowserHostHarness({
+  durableStatePort = createDurableStorageHarness({
+    durableState: null,
+  }).port,
+  clipboardImagePort = createClipboardImageHarness().port,
+  manualPasteCapturePort = null,
+} = {}) {
+  return {
+    pageContext: {
+      kind: "supported-map-editor-page",
+    },
+    durableStatePort,
+    clipboardImagePort,
+    manualPasteCapturePort,
+    latestRender: null,
+    mountOwnedRoot(ownerId, root) {
+      return {
+        ...root,
+        ownerId,
+      };
+    },
+    renderApplicationView(render) {
+      this.latestRender = render;
+    },
+    startRuntime(runtime) {
+      return runtime;
+    },
+  };
+}
+
+function createDurableStorageHarness({ durableState }) {
+  const writes = [];
+  return {
+    writes,
+    port: {
+      async readDurableState() {
+        return durableState;
+      },
+      async writeDurableState(nextDurableState) {
+        writes.push(nextDurableState);
+      },
+    },
+  };
+}
+
+function createClipboardImageHarness({
+  readReferenceImageResults = [{
+    kind: "empty",
+  }],
+} = {}) {
+  let readReferenceImageCount = 0;
+  return {
+    get readReferenceImageCount() {
+      return readReferenceImageCount;
+    },
+    port: {
+      async readReferenceImage() {
+        const result = readReferenceImageResults[readReferenceImageCount]
+          ?? readReferenceImageResults.at(-1);
+        readReferenceImageCount += 1;
+        return result;
+      },
+    },
+  };
 }
 
 function createManualPasteCaptureHarness() {
