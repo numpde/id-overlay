@@ -15,9 +15,10 @@ import {
   referenceImageLoadedState,
 } from "./reference-image-fixtures.js";
 
-// Class-b: while paste is armed, the same semantic button cancels the prompt
-// instead of starting an overlapping input flow. Exact notice vocabulary remains
-// application API shape.
+// Class-b, not class-a: while paste is armed, the same semantic button cancels
+// the prompt instead of starting an overlapping input flow. Class-a owns the
+// request-correlation consequence; this test keeps the current cancellation
+// notice vocabulary coherent with the button behavior.
 test("primary action while awaiting paste cancels the pending paste prompt", () => {
   const result = handleApplicationCommand({
     state: awaitingReferenceImagePasteState(),
