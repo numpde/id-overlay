@@ -131,6 +131,74 @@ test("accepted paste outcome requires normalized reference image data", () => {
   }
 });
 
+// Class-a: known command names do not make arbitrary payloads product events.
+// Undeclared paste outcomes and runtime-object failure reasons are boundary
+// failures at both entry points: command construction and reducer handling.
+test("malformed reference image paste outcome commands are boundary errors", () => {
+  assertApplicationBoundaryError(
+    () => createApplicationCommand(
+      APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_PASTE_OUTCOME,
+      {
+        requestId: 1,
+        outcome: {
+          kind: "mystery-outcome",
+        },
+      },
+    ),
+    APPLICATION_BOUNDARY_ERROR_CODE.INVALID_APPLICATION_COMMAND,
+  );
+  assertApplicationBoundaryError(
+    () => createApplicationCommand(
+      APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_PASTE_OUTCOME,
+      {
+        requestId: 1,
+        outcome: {
+          kind: "failed",
+          reason: new Error("caller leaked a runtime object"),
+        },
+      },
+    ),
+    APPLICATION_BOUNDARY_ERROR_CODE.INVALID_APPLICATION_COMMAND,
+  );
+  assertApplicationBoundaryError(
+    () => handleApplicationCommand({
+      state: {
+        referenceImageInput: {
+          status: "awaiting-paste",
+          requestId: 1,
+        },
+      },
+      command: {
+        kind: APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_PASTE_OUTCOME,
+        requestId: 1,
+        outcome: {
+          kind: "failed",
+          reason: new Error("caller leaked a runtime object"),
+        },
+      },
+    }),
+    APPLICATION_BOUNDARY_ERROR_CODE.INVALID_APPLICATION_COMMAND,
+  );
+  assertApplicationBoundaryError(
+    () => handleApplicationCommand({
+      state: {
+        referenceImageInput: {
+          status: "awaiting-paste",
+          requestId: 1,
+        },
+      },
+      command: {
+        kind: APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_PASTE_OUTCOME,
+        requestId: 1,
+        outcome: {
+          kind: "mystery-outcome",
+        },
+      },
+    }),
+    APPLICATION_BOUNDARY_ERROR_CODE.INVALID_APPLICATION_COMMAND,
+  );
+});
+
 // State validation belongs at the command boundary. This prevents runtime
 // objects from becoming product state through command handling.
 test("invalid application state throws ApplicationBoundaryError", () => {
