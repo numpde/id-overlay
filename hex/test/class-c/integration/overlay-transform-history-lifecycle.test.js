@@ -5,9 +5,13 @@ import {
   bootstrapBrowserExtension,
 } from "../../../bootstrap/index.js";
 
-// Class-c: move/rotate/scale are committed visible edits, but placement edits
-// are not yet history records. Keep this quarantined until placement history is
-// deliberately modeled rather than accidentally restored from a session snapshot.
+// Class-c: overlay move/rotate/scale should probably be undoable, but this
+// candidate also chooses a subtle mode posture: undoing a placement edit after a
+// later Trace switch keeps Trace selected while changing placement. That is not
+// a mere missing implementation; it conflicts with the current class-a snapshot
+// replay law, where history records restore their durable before/after states.
+// Promote only after deciding whether placement history is snapshot replay,
+// semantic patch replay, or a mode-aware hybrid.
 test("committed overlay transform edit is durable and undoable", async () => {
   const beforePlacement = placement({
     x: 10,
