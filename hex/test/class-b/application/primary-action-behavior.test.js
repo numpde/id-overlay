@@ -111,6 +111,39 @@ test("primary action with visible Align pins requests clear-pins confirmation", 
   });
 });
 
+// Class-b, not class-a: this completes the same product-policy ladder as the
+// previous test. Once the primary action has armed clear-pins confirmation, the
+// second activation must clear visible pins, persist the registration-free
+// session, and remove the destructive confirmation.
+test("primary action confirms clear-pins when clear-pins confirmation is active", () => {
+  const result = handleApplicationCommand({
+    state: {
+      ...referenceImageLoadedState({
+        pins: [firstPin()],
+      }),
+      panelIntent: {
+        kind: "confirm-clear-pins",
+      },
+    },
+    command: createApplicationCommand(
+      APPLICATION_COMMAND_KIND.ACTIVATE_PRIMARY_ACTION,
+    ),
+  });
+
+  assertApplicationResult(result, {
+    state: {
+      ...referenceImageLoadedState(),
+      notice: {
+        kind: "cleared-pins",
+        count: 1,
+      },
+    },
+    effects: [
+      durableStateChangedEffect(referenceImageDurableState()),
+    ],
+  });
+});
+
 // Class-b: confirming image removal collapses the whole session back to startup
 // posture and requests durable clearing. Exact confirmation/effect vocabulary is
 // still application API shape.

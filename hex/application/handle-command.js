@@ -82,6 +82,9 @@ function activatePrimaryAction(state) {
       effects: [],
     };
   }
+  if (state.panelIntent?.kind === "confirm-clear-pins") {
+    return clearRegistrationPins(state);
+  }
   if (state.panelIntent?.kind === "confirm-clear-reference-image") {
     return {
       state: createInitialApplicationState(),
