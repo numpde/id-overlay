@@ -13,8 +13,9 @@ import {
 } from "./reference-image-fixtures.js";
 
 // Class-b, deliberately not class-a: class-a owns the durable clear-pins
-// transition. This test keeps the weaker user-status vocabulary connected to
-// that command path so the panel can report the actual completed action.
+// transition; this notice is transient user feedback. Keep it here so the panel
+// can report the actual completed action without freezing notice vocabulary as
+// a non-negotiable product law.
 test("primary action clear-pins confirmation emits cleared-pins notice", () => {
   const result = handleApplicationCommand({
     state: {
