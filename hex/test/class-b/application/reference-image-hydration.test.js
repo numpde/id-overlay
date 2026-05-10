@@ -57,32 +57,3 @@ test("hydration rejects unknown top-level durable fields", () => {
     APPLICATION_BOUNDARY_ERROR_CODE.UNSUPPORTED_DURABLE_STATE,
   );
 });
-
-// Class-b, not class-a: exact durable session schema may still grow, but plain
-// data is not automatically supported durable data. Hydration must reject
-// impossible reference-image geometry instead of constructing an unusable
-// session and letting invalid product state leak forward.
-test("hydration rejects malformed durable reference-image session", () => {
-  const command = createApplicationCommand(APPLICATION_COMMAND_KIND.HYDRATE, {
-    durableState: {
-      session: {
-        mode: "align",
-        referenceImage: {
-          imageDataRef: "reference-image-data-1",
-          intrinsicSizePx: {
-            width: 0,
-            height: 480,
-          },
-        },
-      },
-    },
-  });
-
-  assertApplicationBoundaryError(
-    () => handleApplicationCommand({
-      state: createInitialApplicationState(),
-      command,
-    }),
-    APPLICATION_BOUNDARY_ERROR_CODE.UNSUPPORTED_DURABLE_STATE,
-  );
-});

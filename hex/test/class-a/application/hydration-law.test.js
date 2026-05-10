@@ -5,6 +5,10 @@ import {
   APPLICATION_COMMAND_KIND,
   createApplicationCommand,
 } from "../../../application/command.js";
+import {
+  ApplicationBoundaryError,
+  APPLICATION_BOUNDARY_ERROR_CODE,
+} from "../../../application/errors.js";
 import { handleApplicationCommand } from "../../../application/handle-command.js";
 import { createInitialApplicationState } from "../../../application/state.js";
 
@@ -94,4 +98,35 @@ test("hydration replaces transient state from durable input", () => {
     },
     effects: [],
   });
+});
+
+// Class-a: durable data is allowed to restore only valid product state. An
+// impossible saved reference-image geometry is a boundary failure, not a session
+// the app should partially hydrate and repair later.
+test("hydration rejects malformed durable reference-image session", () => {
+  const command = createApplicationCommand(APPLICATION_COMMAND_KIND.HYDRATE, {
+    durableState: {
+      session: {
+        mode: "align",
+        referenceImage: {
+          imageDataRef: "reference-image-data-1",
+          intrinsicSizePx: {
+            width: 0,
+            height: 480,
+          },
+        },
+      },
+    },
+  });
+
+  assert.throws(
+    () => handleApplicationCommand({
+      state: createInitialApplicationState(),
+      command,
+    }),
+    (error) => (
+      error instanceof ApplicationBoundaryError
+        && error.code === APPLICATION_BOUNDARY_ERROR_CODE.UNSUPPORTED_DURABLE_STATE
+    ),
+  );
 });
