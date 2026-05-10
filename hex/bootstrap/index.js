@@ -35,6 +35,7 @@ export async function bootstrapBrowserExtension(host) {
     stepApplication: handleApplicationCommand,
     effectHandlers: createEffectHandlers({
       durableStatePort,
+      host,
     }),
   });
   const startedRuntime = host.startRuntime(runtime) ?? runtime;
@@ -72,6 +73,7 @@ export async function bootstrapBrowserExtension(host) {
   await hydrateFromDurableState({
     dispatchAndRender,
     durableStatePort,
+    host,
   });
   return bootstrap;
 }
@@ -79,8 +81,15 @@ export async function bootstrapBrowserExtension(host) {
 async function hydrateFromDurableState({
   dispatchAndRender,
   durableStatePort,
+  host,
 }) {
-  const durableState = await durableStatePort.readDurableState();
+  let durableState;
+  try {
+    durableState = await durableStatePort.readDurableState();
+  } catch (error) {
+    host.reportRuntimeError?.(error);
+    durableState = null;
+  }
   try {
     await dispatchAndRender(createApplicationCommand(APPLICATION_COMMAND_KIND.HYDRATE, {
       durableState,
@@ -111,10 +120,14 @@ function renderApplicationView({
   });
 }
 
-function createEffectHandlers({ durableStatePort }) {
+function createEffectHandlers({ durableStatePort, host }) {
   return {
     async "durable-state-changed"(effect) {
-      await durableStatePort.writeDurableState(effect.durableState);
+      try {
+        await durableStatePort.writeDurableState(effect.durableState);
+      } catch (error) {
+        host.reportRuntimeError?.(error);
+      }
       return null;
     },
   };
