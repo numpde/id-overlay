@@ -7,6 +7,47 @@ import {
 } from "../../../application/command.js";
 import { handleApplicationCommand } from "../../../application/handle-command.js";
 
+// Class-a: Align pins are stored projected facts, not adapter-local gestures.
+// Adding a pin must persist the image/map coordinate pair with a stable identity;
+// removing that identity must erase the registration facts without unloading.
+test("Align pin toggle adds and removes registration facts durably", () => {
+  const add = handleApplicationCommand({
+    state: referenceImageLoadedState(),
+    command: createApplicationCommand(
+      APPLICATION_COMMAND_KIND.TOGGLE_REGISTRATION_PIN,
+      pinTogglePayload(),
+    ),
+  });
+  const [addedPin] = add.state.session.registration.pins;
+
+  assert.equal(Number.isInteger(addedPin.id), true);
+  assert.deepEqual(addedPin.imagePx, firstPin().imagePx);
+  assert.deepEqual(addedPin.mapLatLon, firstPin().mapLatLon);
+  assert.deepEqual(add.effects, [
+    durableStateChangedEffect({
+      session: add.state.session,
+    }),
+  ]);
+
+  const remove = handleApplicationCommand({
+    state: add.state,
+    command: createApplicationCommand(
+      APPLICATION_COMMAND_KIND.TOGGLE_REGISTRATION_PIN,
+      pinTogglePayload({ existingPinId: addedPin.id }),
+    ),
+  });
+
+  assert.deepEqual(remove.state.session, {
+    mode: "align",
+    referenceImage: normalizedReferenceImage(),
+  });
+  assert.deepEqual(remove.effects, [
+    durableStateChangedEffect({
+      session: remove.state.session,
+    }),
+  ]);
+});
+
 // Class-a: editing registration pins must not disturb an explicitly placed
 // overlay. Registration and placement are coupled facts, but pin edits carry
 // current placement through state and durability instead of recomputing it.
@@ -94,7 +135,7 @@ test("clearing Align registration pins keeps the image and clears registration d
   ]);
 });
 
-function referenceImageLoadedState({ mode = "align", placement, pins }) {
+function referenceImageLoadedState({ mode = "align", placement, pins } = {}) {
   const session = {
     mode,
     referenceImage: normalizedReferenceImage(),
@@ -154,6 +195,18 @@ function solvedPlacement() {
     y: 200,
     scale: 1,
     rotationRad: 0,
+  };
+}
+
+function pinTogglePayload({
+  existingPinId = null,
+  imagePx = firstPin().imagePx,
+  mapLatLon = firstPin().mapLatLon,
+} = {}) {
+  return {
+    existingPinId,
+    imagePx,
+    mapLatLon,
   };
 }
 
