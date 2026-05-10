@@ -5,9 +5,11 @@ import {
   bootstrapBrowserExtension,
 } from "../../../bootstrap/index.js";
 
-// Class-c: hit testing may be DOM geometry, canvas math, or page projection,
-// but the product boundary is higher-level. Pointer facts should be projected
-// at the shell edge, and the app should receive only semantic pin toggles.
+// Class-c: the product boundary is strong, but this integration seam is not.
+// Hit testing may use DOM geometry, canvas math, or page projection; the
+// application must receive only semantic pin-toggle commands. This candidate
+// invents `overlayInputPort.bindInput` and `inputProjectionPort.projectOverlayPointer`.
+// Promote only after pointer projection is a named shell adapter contract.
 test("overlay pointer hit-test removes an existing pin through semantic dispatch", async () => {
   const overlayInput = createOverlayInputHarness();
   const projection = createProjectionHarness({
@@ -46,8 +48,9 @@ test("overlay pointer hit-test removes an existing pin through semantic dispatch
   assert.equal(host.latestRender.view.overlay.pins.length, 0);
 });
 
-// Class-c: projection miss is a normal runtime fact. It must be inert: no
-// fallback pin at (0,0), no durable write, and no accidental map event leak.
+// Class-c: projection miss should be inert, but the assertion belongs at the
+// eventual projection-to-command boundary. Until that boundary is real, this
+// test risks freezing a fake port shape rather than the user-facing no-op.
 test("overlay pointer projection miss is inert", async () => {
   const overlayInput = createOverlayInputHarness();
   const projection = createProjectionHarness({
