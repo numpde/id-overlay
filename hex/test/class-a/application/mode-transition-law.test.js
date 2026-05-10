@@ -90,18 +90,53 @@ test("interrupted placement edit drops preview without changing durable session"
   });
 });
 
-function referenceImageLoadedState({ mode }) {
-  return {
-    session: {
-      mode,
-      referenceImage: {
-        imageDataRef: "reference-image-data-1",
-        intrinsicSizePx: {
-          width: 640,
-          height: 480,
-        },
+// Class-a: selecting Trace must never fabricate a placement. Fitting is a
+// separate semantic consequence of a successful registration solve; with only
+// unsolved pins, Trace changes durable mode and preserves registration for a
+// later return to Align.
+test("switching to Trace without a solved registration changes mode only", () => {
+  const state = referenceImageLoadedState({
+    mode: "align",
+    pins: [firstPin()],
+  });
+  const expectedState = referenceImageLoadedState({
+    mode: "trace",
+    pins: [firstPin()],
+  });
+
+  assert.deepEqual(handleApplicationCommand({
+    state,
+    command: createApplicationCommand(APPLICATION_COMMAND_KIND.SELECT_MODE, {
+      mode: "trace",
+    }),
+  }), {
+    state: expectedState,
+    effects: [
+      durableStateChangedEffect({
+        session: expectedState.session,
+      }),
+    ],
+  });
+});
+
+function referenceImageLoadedState({ mode, pins = [] }) {
+  const session = {
+    mode,
+    referenceImage: {
+      imageDataRef: "reference-image-data-1",
+      intrinsicSizePx: {
+        width: 640,
+        height: 480,
       },
     },
+  };
+  if (pins.length > 0) {
+    session.registration = {
+      pins,
+    };
+  }
+  return {
+    session,
   };
 }
 
@@ -115,5 +150,19 @@ function durableStateChangedEffect(durableState) {
   return {
     kind: "durable-state-changed",
     durableState,
+  };
+}
+
+function firstPin() {
+  return {
+    id: 1,
+    imagePx: {
+      x: 320,
+      y: 240,
+    },
+    mapLatLon: {
+      lat: -1.23,
+      lon: 36.84,
+    },
   };
 }
