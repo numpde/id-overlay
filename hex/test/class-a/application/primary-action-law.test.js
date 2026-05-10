@@ -73,17 +73,51 @@ test("primary action with a loaded image arms clear-image confirmation", () => {
   });
 });
 
-function referenceImageLoadedState() {
-  return {
-    session: {
-      mode: "align",
-      referenceImage: {
-        imageDataRef: "reference-image-data-1",
-        intrinsicSizePx: {
-          width: 640,
-          height: 480,
-        },
+// Class-a: a destructive confirmation is the current panel intent. Arming it
+// must replace stale status notices so the user is not shown two competing
+// meanings for the same next click.
+test("arming clear-image confirmation clears stale notices", () => {
+  const state = {
+    ...referenceImageLoadedState(),
+    notice: {
+      kind: "stale-notice",
+    },
+  };
+  const result = handleApplicationCommand({
+    state,
+    command: createApplicationCommand(
+      APPLICATION_COMMAND_KIND.ACTIVATE_PRIMARY_ACTION,
+    ),
+  });
+
+  assert.deepEqual(result, {
+    state: {
+      ...referenceImageLoadedState(),
+      panelIntent: {
+        kind: "confirm-clear-reference-image",
       },
     },
+    effects: [],
+  });
+});
+
+function referenceImageLoadedState({ pins } = {}) {
+  const session = {
+    mode: "align",
+    referenceImage: {
+      imageDataRef: "reference-image-data-1",
+      intrinsicSizePx: {
+        width: 640,
+        height: 480,
+      },
+    },
+  };
+  if (pins !== undefined) {
+    session.registration = {
+      pins,
+    };
+  }
+  return {
+    session,
   };
 }

@@ -14,34 +14,6 @@ import {
   referenceImageLoadedState,
 } from "./reference-image-fixtures.js";
 
-// Class-b, not class-a: a new visible clear-image intent replaces stale status,
-// but this is still tied to the current confirmation branch and vocabulary.
-// The useful harness pressure is that confirmation UI is not composed with an
-// old notice from an earlier action.
-test("primary action clear-image confirmation clears stale notice", () => {
-  const result = handleApplicationCommand({
-    state: {
-      ...referenceImageLoadedState(),
-      notice: {
-        kind: "reference-image-paste-empty",
-      },
-    },
-    command: createApplicationCommand(
-      APPLICATION_COMMAND_KIND.ACTIVATE_PRIMARY_ACTION,
-    ),
-  });
-
-  assertApplicationResult(result, {
-    state: {
-      ...referenceImageLoadedState(),
-      panelIntent: {
-        kind: "confirm-clear-reference-image",
-      },
-    },
-    effects: [],
-  });
-});
-
 // Class-b, not class-a: the main-button ladder is product policy, but the
 // application/view-model contract must be coherent. When Align pins are visible,
 // the view model labels the primary action as Clear pins, so activation must ask
