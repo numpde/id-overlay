@@ -5,8 +5,10 @@ import {
   generateWebAccessibleResources,
 } from "../../../bootstrap/web-accessible-resources.js";
 
-// Class-b: extension-loadable resources are derived from the content import
-// graph. The manifest must not become a stale manually maintained parallel list.
+// Class-b, not class-a: deriving extension-loadable resources from the import
+// graph is the right architecture, but the returned manifest shape is still
+// browser packaging policy. This harness prevents a stale parallel resource
+// list without freezing every browser-manifest detail forever.
 test("web accessible resources match the content import graph", () => {
   assert.deepEqual(generateWebAccessibleResources({
     contentEntrypoint: "hex/adapters/extension/content.js",
