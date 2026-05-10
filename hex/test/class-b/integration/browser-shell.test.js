@@ -5,9 +5,9 @@ import {
   bootstrapBrowserExtension,
 } from "../../../bootstrap/index.js";
 
-// Class-b, not class-a: the browser host harness is still provisional. The
-// lifecycle invariant is stable enough: repeated content bootstrap must reuse
-// one owned root/runtime instead of duplicating visible extension UI.
+// Class-b, deliberately not class-a: the browser host harness is still
+// provisional. The integration invariant is stable: repeated content bootstrap
+// reuses one owned root/runtime instead of duplicating visible extension UI.
 test("browser shell bootstrap is idempotent over one owned UI root", async () => {
   const host = createBrowserHostHarness({
     pageContext: {
