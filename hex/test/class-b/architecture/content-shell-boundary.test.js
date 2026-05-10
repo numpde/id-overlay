@@ -6,6 +6,33 @@ import { fileURLToPath } from "node:url";
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../..");
 const CONTENT_DIR = repoPath("src/content");
+const CONTENT_LOADER = repoPath("src/content/content-loader.js");
+
+// Class-b, not class-a: Chrome's classic content-script loader shape is browser
+// shell policy, but the direction is settled. The loader may bridge into the
+// hex bootstrap module; it must not become a second place for product state,
+// DOM ownership, image decoding, or durable host work.
+test("content loader remains a dumb dynamic-import bridge", () => {
+  assert.equal(fs.existsSync(CONTENT_LOADER), true);
+  const source = fs.readFileSync(CONTENT_LOADER, "utf8");
+
+  assert.match(source, /\bimport\s*\(/);
+  assert.match(source, /hex\/bootstrap\/extension-content\.js/);
+  assert.deepEqual(collectPatternViolations(CONTENT_LOADER, [
+    {
+      label: "product vocabulary",
+      pattern: /\bsession\b|\breferenceImage\b|\bmode\b|\bpin\b|\bplacement\b/,
+    },
+    {
+      label: "DOM ownership",
+      pattern: /\bquerySelector\b|\bcreateElement\b|\baddEventListener\b/,
+    },
+    {
+      label: "host work",
+      pattern: /\bstorage\b|\bclipboard\b|\bFileReader\b|\bnew\s+Image\b/,
+    },
+  ]), []);
+});
 
 // Class-b: this is a durable shell boundary, but the browser-shell layout is
 // still provisional. Content code may pass ambient browser handles into
@@ -82,11 +109,17 @@ function collectContentVocabularyViolations(words) {
 function collectContentPatternViolations(forbiddenPatterns) {
   const violations = [];
   for (const filePath of listJavaScriptFiles(CONTENT_DIR)) {
-    const source = fs.readFileSync(filePath, "utf8");
-    for (const { label, pattern } of forbiddenPatterns) {
-      if (pattern.test(source)) {
-        violations.push(`${relativeToRepo(filePath)} uses ${label}`);
-      }
+    violations.push(...collectPatternViolations(filePath, forbiddenPatterns));
+  }
+  return violations;
+}
+
+function collectPatternViolations(filePath, forbiddenPatterns) {
+  const source = fs.readFileSync(filePath, "utf8");
+  const violations = [];
+  for (const { label, pattern } of forbiddenPatterns) {
+    if (pattern.test(source)) {
+      violations.push(`${relativeToRepo(filePath)} uses ${label}`);
     }
   }
   return violations;
