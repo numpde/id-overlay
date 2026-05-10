@@ -5,10 +5,10 @@ import {
   bootstrapBrowserExtension,
 } from "../../../bootstrap/index.js";
 
-// Class-c: key choices are UI vocabulary, but the missing piece is architectural:
-// bootstrap does not yet bind keyboard facts into the interaction runtime. Keep
-// this quarantined until keyboard input is composed through projection before
-// any application pin/pass-through command is emitted.
+// Class-c: the user behavior is stable, but this test is over-coupled to
+// proposed shell mechanics. A class-b version should say "press P while Align is
+// active" and assert the visible/durable pin result, not name `keyboardInputPort`
+// or `inputProjectionPort`.
 test("keyboard pin shortcut is bound by the shell and resolved through projection", async () => {
   const keyboard = createKeyboardHarness();
   const projection = createProjectionHarness({
@@ -57,8 +57,8 @@ test("keyboard pin shortcut is bound by the shell and resolved through projectio
 });
 
 // Class-c: temporary pass-through is runtime interaction posture, not durable
-// state. This should become class-b after the shell owns keyboard subscription
-// lifetime and maps Space press/release facts through the runtime boundary.
+// state. The stable contract is user-level "hold Space, then release Space";
+// this version still speaks adapter fact names and binding lifetime directly.
 test("keyboard Space toggles temporary pass-through without durable writes", async () => {
   const keyboard = createKeyboardHarness();
   const storage = createDurableStorageHarness({
