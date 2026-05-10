@@ -54,6 +54,29 @@ test("extension UI host does not steal focus during passive mount", () => {
   assert.equal(window.document.activeElement, button);
 });
 
+// Class-b, deliberately not class-a: exact CSS can change with the renderer.
+// The stable host behavior is layering and isolation: overlay image input stays
+// below the panel, the panel stays clickable, and host-level CSS does not force
+// a page theme.
+test("extension UI host layers panel above overlay without page-theme policy", () => {
+  const { window } = new JSDOM("<!doctype html><html><body></body></html>");
+  const uiHost = createExtensionUiHost({
+    document: window.document,
+  });
+
+  const root = uiHost.mountOwnedRoot("id-overlay");
+  const css = root.hostElement.shadowRoot.querySelector("style").textContent;
+
+  assert.match(css, /:host\s*\{[\s\S]*\ball:\s*initial\b/);
+  assert.match(css, /\[data-region="overlay"\]\s*\{[\s\S]*\bpointer-events:\s*none\b/);
+  assert.ok(
+    readZIndex(css, "panel") > readZIndex(css, "overlay"),
+    "panel must layer above overlay",
+  );
+  assert.doesNotMatch(css, /(^|[,{]\s*)(html|body|:root)\b/m);
+  assert.doesNotMatch(readCssBlock(css, ":host"), /\bcolor-scheme\s*:/);
+});
+
 function collectAmbientStylePolicyViolations(source) {
   return [
     ...collectStyleTextViolations(source),
@@ -98,4 +121,17 @@ function collectSourceMutationViolations(source) {
     }
   }
   return violations;
+}
+
+function readZIndex(css, region) {
+  const match = new RegExp(`\\[data-region="${region}"\\]\\s*\\{[\\s\\S]*?\\bz-index:\\s*(?<zIndex>\\d+)`, "u")
+    .exec(css);
+  assert.ok(match, `missing z-index for ${region}`);
+  return Number(match.groups.zIndex);
+}
+
+function readCssBlock(css, selector) {
+  const escapedSelector = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`${escapedSelector}\\s*\\{(?<body>[^}]*)\\}`, "u")
+    .exec(css)?.groups.body ?? "";
 }
