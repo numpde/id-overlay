@@ -40,17 +40,51 @@ test("registration pin edits preserve current visible placement", () => {
   ]);
 });
 
-function referenceImageLoadedState({ placement, pins }) {
-  return {
-    session: {
+// Class-a: a solved registration is the semantic bridge from Align pins to a
+// Trace placement. Selecting Trace with a solved placement applies that product
+// fact durably instead of treating the solved transform as adapter-local data.
+test("switching to Trace applies solved registration placement durably", () => {
+  const result = handleApplicationCommand({
+    state: referenceImageLoadedState({
       mode: "align",
-      referenceImage: normalizedReferenceImage(),
-      placement,
-      registration: {
-        pins,
-      },
+      pins: [firstPin(), secondPin()],
+    }),
+    command: createApplicationCommand(APPLICATION_COMMAND_KIND.SELECT_MODE, {
+      mode: "trace",
+      solvedPlacement: solvedPlacement(),
+    }),
+  });
+
+  assert.deepEqual(result.state.session, {
+    mode: "trace",
+    referenceImage: normalizedReferenceImage(),
+    placement: solvedPlacement(),
+    registration: {
+      pins: [firstPin(), secondPin()],
+      solvedPlacement: solvedPlacement(),
     },
+  });
+  assert.deepEqual(result.effects, [
+    durableStateChangedEffect({
+      session: result.state.session,
+    }),
+  ]);
+});
+
+function referenceImageLoadedState({ mode = "align", placement, pins }) {
+  const session = {
+    mode,
+    referenceImage: normalizedReferenceImage(),
   };
+  if (placement !== undefined) {
+    session.placement = placement;
+  }
+  if (pins !== undefined) {
+    session.registration = {
+      pins,
+    };
+  }
+  return { session };
 }
 
 function normalizedReferenceImage() {
@@ -88,6 +122,15 @@ function secondPin() {
       lat: -1.23,
       lon: 38.84,
     },
+  };
+}
+
+function solvedPlacement() {
+  return {
+    x: 100,
+    y: 200,
+    scale: 1,
+    rotationRad: 0,
   };
 }
 

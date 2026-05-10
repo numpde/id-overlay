@@ -13,8 +13,6 @@ import {
   pinTogglePayload,
   referenceImageLoadedState,
   secondPin,
-  solvedPlacement,
-  twoPins,
 } from "./reference-image-fixtures.js";
 
 // Class-b, not class-a: exact notice vocabulary and pin id allocation can still
@@ -81,54 +79,6 @@ test("pin toggle adds and removes projected registration facts in Align mode", (
         session: {
           mode: "align",
           referenceImage: normalizedReferenceImage(),
-        },
-      }),
-    ],
-  });
-});
-
-// Class-b, not class-a: the exact notice vocabulary and solved-placement field
-// may still evolve, but this transition is user-visible. When Trace selection
-// arrives with a solved placement for visible pins, the application accepts that
-// solved product fact, fits the overlay, and persists the fitted Trace session.
-test("switching to Trace with solved pins fits the overlay from registration", () => {
-  const result = handleApplicationCommand({
-    state: referenceImageLoadedState({
-      mode: "align",
-      pins: twoPins(),
-    }),
-    command: createApplicationCommand(APPLICATION_COMMAND_KIND.SELECT_MODE, {
-      mode: "trace",
-      solvedPlacement: solvedPlacement(),
-    }),
-  });
-
-  assert.deepEqual(result, {
-    state: {
-      session: {
-        mode: "trace",
-        referenceImage: normalizedReferenceImage(),
-        placement: solvedPlacement(),
-        registration: {
-          pins: twoPins(),
-          solvedPlacement: solvedPlacement(),
-        },
-      },
-      notice: {
-        kind: "fit-reference-image-from-pins",
-        pinCount: 2,
-      },
-    },
-    effects: [
-      durableStateChangedEffect({
-        session: {
-          mode: "trace",
-          referenceImage: normalizedReferenceImage(),
-          placement: solvedPlacement(),
-          registration: {
-            pins: twoPins(),
-            solvedPlacement: solvedPlacement(),
-          },
         },
       }),
     ],
