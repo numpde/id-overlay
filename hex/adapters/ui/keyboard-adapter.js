@@ -2,11 +2,17 @@ export function createKeyboardAdapter({ document, emitInteractionFact }) {
   return {
     bindInput() {
       document.addEventListener("keydown", (event) => {
-        if (!isSpaceKey(event)) {
+        if (isSpaceKey(event)) {
+          emitInteractionFact({
+            kind: "temporary-pass-through-pressed",
+          });
+          return;
+        }
+        if (!isPinToggleKey(event)) {
           return;
         }
         emitInteractionFact({
-          kind: "temporary-pass-through-pressed",
+          kind: "keyboard-pin-toggle-requested",
         });
       });
       document.addEventListener("keyup", (event) => {
@@ -23,4 +29,8 @@ export function createKeyboardAdapter({ document, emitInteractionFact }) {
 
 function isSpaceKey(event) {
   return event.code === "Space" || event.key === " ";
+}
+
+function isPinToggleKey(event) {
+  return event.code === "KeyP" || event.key?.toLowerCase() === "p";
 }

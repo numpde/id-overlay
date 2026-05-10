@@ -40,6 +40,32 @@ test("keyboard adapter emits temporary pass-through facts for Space press and re
   ]);
 });
 
+// Class-b, not class-a: P is a plausible efficient shortcut, not a settled
+// product law. The important boundary is that the adapter emits a request fact
+// only; it does not project coordinates, inspect pins, or mutate registration.
+test("keyboard adapter emits pin-toggle intent for P without product data", () => {
+  const { window } = new JSDOM("<!doctype html><body></body>");
+  const facts = [];
+  const keyboard = createKeyboardAdapter({
+    document: window.document,
+    emitInteractionFact(fact) {
+      facts.push(fact);
+    },
+  });
+
+  keyboard.bindInput();
+  window.document.dispatchEvent(keyboardEvent(window, "keydown", {
+    key: "p",
+    code: "KeyP",
+  }));
+
+  assert.deepEqual(facts, [
+    {
+      kind: "keyboard-pin-toggle-requested",
+    },
+  ]);
+});
+
 function keyboardEvent(window, type, options) {
   return new window.KeyboardEvent(type, {
     ...options,
