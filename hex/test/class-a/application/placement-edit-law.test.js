@@ -42,6 +42,27 @@ test("committed Align placement edits update placement durably", () => {
   }
 });
 
+// Class-a: committed placement is durable overlay state. Hydration must restore
+// it into the visible session rather than treating placement as write-only
+// storage.
+test("durable committed placement hydrates into the session", () => {
+  const durableState = referenceImageDurableState({
+    placement: movedPlacement(),
+  });
+
+  assert.deepEqual(handleApplicationCommand({
+    state: {},
+    command: createApplicationCommand(APPLICATION_COMMAND_KIND.HYDRATE, {
+      durableState,
+    }),
+  }), {
+    state: referenceImageLoadedState({
+      placement: movedPlacement(),
+    }),
+    effects: [],
+  });
+});
+
 function movedPlacement() {
   return {
     x: 80,

@@ -11,31 +11,8 @@ import {
   placementEditPayload,
 } from "./placement-fixtures.js";
 import {
-  referenceImageDurableState,
   referenceImageLoadedState,
 } from "./reference-image-fixtures.js";
-
-// Class-b, not class-a: exact placement fields may move if the geometry model
-// evolves, but durability is not optional. A persisted committed placement must
-// hydrate back into the visible session instead of becoming a write-only storage
-// fact.
-test("durable committed placement hydrates into the session", () => {
-  const durableState = referenceImageDurableState({
-    placement: movedPlacement(),
-  });
-
-  assert.deepEqual(handleApplicationCommand({
-    state: {},
-    command: createApplicationCommand(APPLICATION_COMMAND_KIND.HYDRATE, {
-      durableState,
-    }),
-  }), {
-    state: referenceImageLoadedState({
-      placement: movedPlacement(),
-    }),
-    effects: [],
-  });
-});
 
 // Class-b, not class-a: equality details may grow if placement gains fields or
 // tolerances, but duplicate commits are not user-visible edits. They must not
