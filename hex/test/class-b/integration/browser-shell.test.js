@@ -402,6 +402,48 @@ test("browser shell preserves committed overlay placement across mode switches",
   assert.deepEqual(host.latestRender.view.overlay.placement, committedPlacement);
 });
 
+// Class-b, deliberately not class-a: durable opacity/placement semantics are
+// application laws elsewhere. The shell boundary here is that a fresh bootstrap
+// from durable storage renders the same overlay facts without replaying any old
+// interaction.
+test("browser shell renders durable placement and opacity on fresh bootstrap", async () => {
+  const durableState = durableImageState({
+    mode: "align",
+    referenceImage: normalizedReferenceImage(),
+    placement: placement({
+      x: 80,
+      y: 40,
+      scale: 1,
+      rotationRad: 0,
+    }),
+    opacity: 0.5,
+  });
+  const host = createBrowserHostHarness({
+    pageContext: {
+      kind: "supported-map-editor-page",
+    },
+    durableStatePort: createDurableStorageHarness({
+      durableState,
+    }).port,
+  });
+
+  await bootstrapBrowserExtension(host);
+
+  assert.deepEqual(host.latestRender.view.overlay, {
+    visible: true,
+    imageDataRef: normalizedReferenceImage().imageDataRef,
+    intrinsicSizePx: normalizedReferenceImage().intrinsicSizePx,
+    placement: placement({
+      x: 80,
+      y: 40,
+      scale: 1,
+      rotationRad: 0,
+    }),
+    opacity: 0.5,
+    pins: [],
+  });
+});
+
 function createBrowserHostHarness({
   pageContext,
   durableStatePort = createDurableStorageHarness({ durableState: null }).port,
@@ -433,6 +475,7 @@ function durableImageState({
   mode,
   referenceImage,
   placement: placementData = undefined,
+  opacity = undefined,
   pins,
 }) {
   const session = {
@@ -441,6 +484,9 @@ function durableImageState({
   };
   if (placementData !== undefined) {
     session.placement = placementData;
+  }
+  if (opacity !== undefined) {
+    session.opacity = opacity;
   }
   if (pins !== undefined) {
     session.registration = {

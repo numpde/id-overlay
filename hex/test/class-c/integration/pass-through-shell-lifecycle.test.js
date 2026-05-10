@@ -5,11 +5,11 @@ import {
   bootstrapBrowserExtension,
 } from "../../../bootstrap/index.js";
 
-// Unclassified: pass-through is transient interaction posture, not durable app
-// mode. This candidate captures the composed browser loop: keyboard facts should
-// temporarily make Align behave like native map interaction, then restore Align
-// editing without storage writes.
-test("candidate: temporary pass-through changes visible interaction posture without durability", async () => {
+// Class-c: pass-through is transient interaction posture, not durable app mode.
+// The view law exists, but the shell still lacks an interaction-fact dispatcher
+// that can make Align temporarily behave like native map interaction and then
+// restore editing without storage writes.
+test("temporary pass-through changes visible interaction posture without durability", async () => {
   const storage = createDurableStorageHarness({
     durableState: durableImageState({
       mode: "align",
@@ -46,34 +46,6 @@ test("candidate: temporary pass-through changes visible interaction posture with
     arePinsVisible: true,
   });
   assert.deepEqual(storage.writes, []);
-});
-
-// Unclassified: reload continuity is the user-visible consequence of durable
-// writes. After a shell edit writes placement and opacity, a fresh bootstrap
-// from that durable state should render the same overlay facts without replaying
-// the old interaction.
-test("candidate: fresh bootstrap renders the latest durable placement and opacity", async () => {
-  const durableState = durableImageState({
-    mode: "align",
-    placement: movedPlacement(),
-    opacity: 0.5,
-  });
-  const host = createBrowserHostHarness({
-    durableStatePort: createDurableStorageHarness({
-      durableState,
-    }).port,
-  });
-
-  await bootstrapBrowserExtension(host);
-
-  assert.deepEqual(host.latestRender.view.overlay, {
-    visible: true,
-    imageDataRef: normalizedReferenceImage().imageDataRef,
-    intrinsicSizePx: normalizedReferenceImage().intrinsicSizePx,
-    placement: movedPlacement(),
-    opacity: 0.5,
-    pins: [],
-  });
 });
 
 function createBrowserHostHarness({ durableStatePort }) {
@@ -119,34 +91,24 @@ function createDurableStorageHarness({ durableState }) {
   };
 }
 
-function durableImageState({ mode, pins, placement, opacity }) {
+function durableImageState({ mode, pins }) {
   const session = {
     mode,
-    referenceImage: normalizedReferenceImage(),
+    referenceImage: {
+      imageDataRef: "data:image/png;base64,reference-image",
+      intrinsicSizePx: {
+        width: 640,
+        height: 480,
+      },
+    },
   };
   if (pins !== undefined) {
     session.registration = {
       pins,
     };
   }
-  if (placement !== undefined) {
-    session.placement = placement;
-  }
-  if (opacity !== undefined) {
-    session.opacity = opacity;
-  }
   return {
     session,
-  };
-}
-
-function normalizedReferenceImage() {
-  return {
-    imageDataRef: "data:image/png;base64,reference-image",
-    intrinsicSizePx: {
-      width: 640,
-      height: 480,
-    },
   };
 }
 
@@ -161,14 +123,5 @@ function firstPin() {
       lat: -1.23,
       lon: 36.84,
     },
-  };
-}
-
-function movedPlacement() {
-  return {
-    x: 80,
-    y: 40,
-    scale: 1,
-    rotationRad: 0,
   };
 }
