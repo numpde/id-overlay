@@ -57,8 +57,9 @@ test("overlay adapter renders from overlay view facts only", () => {
   );
 });
 
-// Class-b: raw pointer input is adapter-local. The application receives a
-// plain interaction fact, not the DOM event.
+// Class-b, deliberately not class-a: pointer-down semantics depend on the
+// current product posture elsewhere. This adapter boundary only promises to
+// translate DOM pointer input into a plain screen-coordinate interaction fact.
 test("overlay input adapter emits pointer facts only", () => {
   const { window } = new JSDOM("<!doctype html><body><div id='surface'></div></body>");
   const facts = [];
