@@ -5,9 +5,10 @@ import {
   constrainImageSize,
 } from "../../../domain/image-policy.js";
 
-// Class-b: pasted images may be larger than the overlay needs, but the app
-// should have one canonical working size derived by a pure, aspect-preserving
-// policy. Exact product limits remain caller configuration.
+// Class-b: pasted-image normalization should be pure and platform-neutral, but
+// the exact sizing policy is still a product choice. This harness protects the
+// current aspect-preserving longest-side rule without pretending it is a
+// permanent architecture law.
 test("image policy constrains oversized images by longest side", () => {
   assert.deepEqual(constrainImageSize({
     width: 5000,
