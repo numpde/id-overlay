@@ -46,6 +46,27 @@ test("opacity changes are durable but not undoable", () => {
   });
 });
 
+// Class-a: because opacity is durable visual state, hydration must restore it.
+// Otherwise opacity would be a write-only setting that disappears across
+// extension restarts.
+test("durable opacity hydrates into the session", () => {
+  const durableState = referenceImageDurableState({
+    opacity: 0.5,
+  });
+
+  assert.deepEqual(handleApplicationCommand({
+    state: {},
+    command: createApplicationCommand(APPLICATION_COMMAND_KIND.HYDRATE, {
+      durableState,
+    }),
+  }), {
+    state: referenceImageLoadedState({
+      opacity: 0.5,
+    }),
+    effects: [],
+  });
+});
+
 function referenceImageLoadedState({ opacity } = {}) {
   const session = normalizedReferenceImageSession();
   if (opacity !== undefined) {
