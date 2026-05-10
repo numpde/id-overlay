@@ -15,10 +15,10 @@ import {
   normalizedReferenceImage,
 } from "./reference-image-fixtures.js";
 
-// Class-b, not class-a: this is command-factory API shape. Class-a already owns
-// the non-negotiable behavior: async paste outcomes are request-correlated and
-// stale results are ignored. This harness only keeps the current factory from
-// accidentally dropping that correlation before the command reaches the app.
+// Class-b, deliberately not class-a: this is command-factory API shape. Class-a
+// owns the behavior: async paste outcomes are request-correlated and stale
+// results are ignored. This harness only keeps the current factory from
+// dropping correlation before the command reaches the app.
 test("reference image paste outcome command is correlated plain data", () => {
   const command = createApplicationCommand(
     APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_PASTE_OUTCOME,
