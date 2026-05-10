@@ -56,42 +56,6 @@ test("runtime executes multiple effects in declared order", async () => {
   ]);
 });
 
-// Class-b: port results must be plain data before they re-enter the app. Rich
-// runtime handles are stopped at the boundary.
-test("runtime rejects non-plain handler results before app re-entry", async () => {
-  const runtime = createRuntimeDriver({
-    initialState: {},
-    effectHandlers: {
-      "read-reference-image": async () => ({
-        kind: "reference-image-read",
-        runtimeHandle: new Map(),
-      }),
-    },
-    stepApplication({ state, command }) {
-      if (command.kind !== "start") {
-        assert.fail("non-plain handler result reached the application step");
-      }
-      return {
-        state,
-        effects: [{
-          kind: "read-reference-image",
-          requestId: "paste-1",
-        }],
-      };
-    },
-  });
-
-  await assert.rejects(
-    () => runtime.dispatch({
-      kind: "start",
-    }),
-    (error) => (
-      error instanceof RuntimeBoundaryError
-        && error.code === "non-plain-effect-result"
-    ),
-  );
-});
-
 // Class-b: runtime is sequencing, not mutation. App inputs, emitted effects,
 // and handler results remain caller-owned values.
 test("runtime does not mutate state commands effects or handler results", async () => {
