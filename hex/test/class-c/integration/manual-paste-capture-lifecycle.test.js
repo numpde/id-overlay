@@ -5,10 +5,11 @@ import {
   bootstrapBrowserExtension,
 } from "../../../bootstrap/index.js";
 
-// Class-c: legacy supported manual paste capture when direct Clipboard API
-// reads were unavailable. The target boundary is request ownership: fallback
-// capture belongs to the shell, while accepted image data re-enters through the
-// same application paste-outcome command as direct clipboard reads.
+// Class-c: the fallback behavior is stable, but this test specifies the
+// implementation too closely: `manualPasteCapturePort`, `completePasteImageHandle`,
+// and clipboard image handles are proposed shell mechanics. A class-b version
+// should drive "direct paste unavailable, user presses Ctrl/Cmd+V with image"
+// and assert only the rendered/persisted session.
 test("Clipboard API unavailable starts request-bound manual paste capture", async () => {
   const referenceImage = normalizedReferenceImage();
   const storage = createDurableStorageHarness({
@@ -60,9 +61,9 @@ test("Clipboard API unavailable starts request-bound manual paste capture", asyn
   }]);
 });
 
-// Class-c: cancellation must be request-bound. A late paste event from a
-// cancelled manual capture must not resurrect an image session or write durable
-// state after the user has explicitly cancelled Paste.
+// Class-c: cancellation must be request-bound, but this version talks to a fake
+// capture callback directly. Promote after the scenario can be phrased as
+// "click Paste, click Cancel, then a late paste event arrives".
 test("cancelling Paste cancels manual capture and ignores late paste event", async () => {
   const storage = createDurableStorageHarness({
     durableState: null,
