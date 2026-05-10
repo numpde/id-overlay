@@ -10,11 +10,10 @@ import {
   APPLICATION_BOUNDARY_ERROR_CODE,
 } from "../../../application/errors.js";
 import { handleApplicationCommand } from "../../../application/handle-command.js";
-import { assertApplicationBoundaryError } from "./application-boundary-assertions.js";
 
-// Boundary errors are first-class application contract failures. They are stable
-// enough for diagnostics, but they are not product facts and must never be
-// converted into application state.
+// Class-a: boundary errors are first-class application contract failures. API
+// misuse is not a recoverable product event and must not be converted into
+// application state.
 
 test("application boundary error exposes stable identity and code", () => {
   assert.equal(Object.isFrozen(APPLICATION_BOUNDARY_ERROR_CODE), true);
@@ -90,3 +89,14 @@ test("invalid application state throws ApplicationBoundaryError", () => {
     APPLICATION_BOUNDARY_ERROR_CODE.INVALID_APPLICATION_STATE,
   );
 });
+
+function assertApplicationBoundaryError(fn, code) {
+  assert.throws(
+    fn,
+    (error) => (
+      error instanceof ApplicationBoundaryError
+        && error.name === "ApplicationBoundaryError"
+        && error.code === code
+    ),
+  );
+}
