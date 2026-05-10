@@ -40,9 +40,9 @@ test("keyboard adapter emits temporary pass-through facts for Space press and re
   ]);
 });
 
-// Class-b, not class-a: P is a plausible efficient shortcut, not a settled
-// product law. The important boundary is that the adapter emits a request fact
-// only; it does not project coordinates, inspect pins, or mutate registration.
+// Class-b, deliberately not class-a: P is shortcut vocabulary, not product law.
+// The adapter emits a plain request fact only; projection, pin matching, and
+// registration mutation belong outside the keyboard listener.
 test("keyboard adapter emits pin-toggle intent for P without product data", () => {
   const { window } = new JSDOM("<!doctype html><body></body>");
   const facts = [];
