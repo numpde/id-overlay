@@ -70,6 +70,67 @@ test("known commands with malformed payloads throw ApplicationBoundaryError", ()
   );
 });
 
+// Class-a: an accepted paste result must already be usable application data.
+// Missing image facts, host handles, and impossible dimensions are boundary
+// failures, not product states for the reducer to patch up later.
+test("accepted paste outcome requires normalized reference image data", () => {
+  for (const { description, outcome } of [
+    {
+      description: "missing reference image",
+      outcome: {
+        kind: "accepted",
+      },
+    },
+    {
+      description: "runtime data reference",
+      outcome: {
+        kind: "accepted",
+        referenceImage: {
+          imageDataRef: new Map(),
+          intrinsicSizePx: {
+            width: 640,
+            height: 480,
+          },
+        },
+      },
+    },
+    {
+      description: "missing intrinsic size",
+      outcome: {
+        kind: "accepted",
+        referenceImage: {
+          imageDataRef: "reference-image-data-1",
+        },
+      },
+    },
+    {
+      description: "impossible intrinsic size",
+      outcome: {
+        kind: "accepted",
+        referenceImage: {
+          imageDataRef: "reference-image-data-1",
+          intrinsicSizePx: {
+            width: 0,
+            height: 480,
+          },
+        },
+      },
+    },
+  ]) {
+    assertApplicationBoundaryError(
+      () => createApplicationCommand(
+        APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_PASTE_OUTCOME,
+        {
+          requestId: 1,
+          outcome,
+        },
+      ),
+      APPLICATION_BOUNDARY_ERROR_CODE.INVALID_APPLICATION_COMMAND,
+      description,
+    );
+  }
+});
+
 // State validation belongs at the command boundary. This prevents runtime
 // objects from becoming product state through command handling.
 test("invalid application state throws ApplicationBoundaryError", () => {
@@ -90,7 +151,7 @@ test("invalid application state throws ApplicationBoundaryError", () => {
   );
 });
 
-function assertApplicationBoundaryError(fn, code) {
+function assertApplicationBoundaryError(fn, code, message) {
   assert.throws(
     fn,
     (error) => (
@@ -98,5 +159,6 @@ function assertApplicationBoundaryError(fn, code) {
         && error.name === "ApplicationBoundaryError"
         && error.code === code
     ),
+    message,
   );
 }
