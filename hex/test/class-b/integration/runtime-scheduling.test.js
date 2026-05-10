@@ -5,10 +5,9 @@ import {
   createRuntimeDriver,
 } from "../../../bootstrap/runtime.js";
 
-// Class-b, not class-a: serial effect scheduling is a deliberate current driver
-// policy, not an inevitable hexagonal law. A future runtime could expose
-// explicit parallelism, but this harness protects today's deterministic
-// sequencing contract.
+// Class-b, deliberately not class-a: serial effect scheduling is a current
+// driver policy, not an inevitable hexagonal law. A future runtime could expose
+// explicit parallelism; this protects today's deterministic sequencing contract.
 test("runtime executes multiple effects in declared order", async () => {
   const order = [];
   let firstFinished = false;
