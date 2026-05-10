@@ -37,8 +37,9 @@ test("primary action clear-pins confirmation emits cleared-pins notice", () => {
 });
 
 // Class-b, deliberately not class-a: class-a owns the undoable before/after
-// history record for image removal. This test keeps only the weaker current
-// product copy for the history affordance: Undo should say what it will do.
+// history record for image removal. This keeps only the weaker affordance
+// vocabulary: history controls should describe the visible action they would
+// perform without making exact copy a product law.
 test("primary action clear-image confirmation labels reloadable history", () => {
   const result = handleApplicationCommand({
     state: {
