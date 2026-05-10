@@ -1,5 +1,4 @@
 import test from "node:test";
-import assert from "node:assert/strict";
 
 import {
   APPLICATION_COMMAND_KIND,
@@ -15,7 +14,6 @@ import {
 import {
   assertApplicationResult,
 } from "../../class-b/application/application-result-assertions.js";
-import { assertPlainData } from "../../class-b/application/plain-data-assertions.js";
 import { durableStateChangedEffect } from "./durable-state-fixtures.js";
 import {
   awaitingReferenceImagePasteState,
@@ -24,30 +22,10 @@ import {
   referenceImageSessionState,
 } from "./reference-image-fixtures.js";
 
-// Class-c: this is useful product pressure, not authoritative shape. The exact
-// reference-image input state, command name, and first-session fields may change
-// when the application model is implemented.
-// Accepted paste is the positive counterpart to empty/failed paste. Input has
-// already been normalized into a stable data reference plus intrinsic size; the
-// application accepts only that product-shaped data.
-
-test("application command vocabulary includes reference image paste outcome", () => {
-  assert.equal(
-    APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_PASTE_OUTCOME,
-    "report-reference-image-paste-outcome",
-  );
-
-  const command = acceptedReferenceImagePasteCommand();
-
-  assertPlainData(command);
-  assert.deepEqual(command, {
-    kind: "report-reference-image-paste-outcome",
-    outcome: {
-      kind: "accepted",
-      referenceImage: normalizedReferenceImage(),
-    },
-  });
-});
+// Class-c: these remaining tests are useful product pressure, not authoritative
+// shape. The command vocabulary check was promoted separately after correcting
+// it to require request correlation; these tests still encode unsettled payload
+// validation and first-session details.
 
 // The command boundary rejects data that has not been normalized into the
 // declared reference-image shape. This keeps platform handles, missing data, and
