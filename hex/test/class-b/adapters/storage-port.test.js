@@ -37,8 +37,9 @@ test("storage port stores exactly durable state", async () => {
   ]);
 });
 
-// Class-b: absent extension-storage data is a platform detail. The adapter
-// presents the application with explicit no-durable-state instead.
+// Class-b, deliberately not class-a: absent extension-storage records are
+// platform noise. The adapter normalizes that noise to the application's single
+// no-durable-state value before hydration sees it.
 test("storage port normalizes missing state to null", async () => {
   for (const record of [undefined, null, {}, { "id-overlay/state": undefined }]) {
     const storage = createStoragePortAdapter({
