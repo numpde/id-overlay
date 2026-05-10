@@ -5,10 +5,11 @@ import {
   bootstrapBrowserExtension,
 } from "../../../bootstrap/index.js";
 
-// Class-c: this encodes the desired clipboard failure taxonomy, but the shell
-// does not yet have the manual-paste effect boundary needed to make the test a
-// fair class-b integration contract. Keep it quarantined until direct clipboard
-// failure, manual fallback, and status copy are wired as one flow.
+// Class-c: the user behavior is stable, but this test still combines three
+// unsettled boundary choices: `manualPasteCapturePort`, a direct clipboard
+// `unavailable` outcome, and request ids owned by bootstrap. A class-b version
+// should say "Paste cannot read directly, then manual paste remains armed" via
+// a browser/user harness rather than naming the shell port shape.
 test("clipboard-api unavailable starts manual paste capture instead of failing", async () => {
   const storage = createDurableStorageHarness({
     durableState: null,
@@ -36,8 +37,9 @@ test("clipboard-api unavailable starts manual paste capture instead of failing",
   assert.deepEqual(storage.writes, []);
 });
 
-// Class-c: failure reason strings are too loose to promote. The final version
-// should probably use a closed failure vocabulary before this becomes class-b.
+// Class-c: distinct user notices are stable, but stringly failure reasons and
+// the ad hoc `source` field are not. Promote after paste failure crosses the app
+// boundary as closed plain-data vocabulary selected by a tested adapter.
 test("missing and unreadable clipboard images render distinct notices", async () => {
   assert.equal(
     await readPasteFailureStatus({
