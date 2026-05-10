@@ -8,16 +8,21 @@ const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..
 const CONTENT_DIR = repoPath("src/content");
 const CONTENT_LOADER = repoPath("src/content/content-loader.js");
 
-// Class-b, deliberately not class-a: Chrome's classic content-script loader
-// shape is browser-shell policy. The no-regret boundary is that the loader only
-// bridges into hex bootstrap; it must not become a second home for product
-// state, DOM ownership, image decoding, or durable host work.
+// Class-b, deliberately not class-a: Chrome's classic content-script loader is
+// browser packaging policy, not product law. The settled boundary is narrower:
+// the manifest-loaded script performs one dynamic import into hex bootstrap and
+// must not become a second home for product state, DOM ownership, image
+// decoding, or durable host work.
 test("content loader remains a dumb dynamic-import bridge", () => {
   assert.equal(fs.existsSync(CONTENT_LOADER), true);
   const source = fs.readFileSync(CONTENT_LOADER, "utf8");
 
-  assert.match(source, /\bimport\s*\(/);
-  assert.match(source, /hex\/bootstrap\/extension-content\.js/);
+  assert.deepEqual(collectImportSources(source), []);
+  assert.equal(countMatches(source, /\bimport\s*\(/g), 1);
+  assert.match(source, /const EXTENSION_CONTENT_MODULE\s*=\s*"hex\/bootstrap\/extension-content\.js";/);
+  assert.match(source, /void\s+import\(chrome\.runtime\.getURL\(EXTENSION_CONTENT_MODULE\)\)/);
+  assert.match(source, /module\.startExtensionContent\(\{/);
+  assert.match(source, /location:\s*window\.location/);
   assert.deepEqual(collectPatternViolations(CONTENT_LOADER, [
     {
       label: "product vocabulary",
@@ -121,6 +126,20 @@ function collectPatternViolations(filePath, forbiddenPatterns) {
     }
   }
   return violations;
+}
+
+function collectImportSources(source) {
+  const imports = [];
+  const importRegex = /import\s+[^;]*?from\s+["']([^"']+)["']/g;
+  let match;
+  while ((match = importRegex.exec(source)) !== null) {
+    imports.push(match[1]);
+  }
+  return imports;
+}
+
+function countMatches(source, pattern) {
+  return Array.from(source.matchAll(pattern)).length;
 }
 
 function listJavaScriptFiles(rootDir) {
