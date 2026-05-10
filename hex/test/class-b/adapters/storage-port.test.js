@@ -5,8 +5,9 @@ import {
   createStoragePortAdapter,
 } from "../../../adapters/extension/storage-port.js";
 
-// Class-b: persistence is an adapter concern, but the adapter must store only
-// the durable projection selected by the application.
+// Class-b, deliberately not class-a: browser storage is an outbound adapter, not
+// the durable-state authority. It stores exactly the durable projection the
+// application hands it and does not select, reshape, or supplement that data.
 test("storage port stores exactly durable state", async () => {
   const writes = [];
   const storage = createStoragePortAdapter({
