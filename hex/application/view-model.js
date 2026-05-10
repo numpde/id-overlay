@@ -24,6 +24,7 @@ export function selectApplicationView(state) {
       label: primaryActionLabel(state),
       enabled: true,
     },
+    status: statusText(state),
   };
 }
 
@@ -78,6 +79,28 @@ function primaryActionLabel(state) {
     return "Clear pins";
   }
   return "Clear image";
+}
+
+function statusText(state) {
+  if (state.panelIntent?.kind === "confirm-clear-pins") {
+    const pinCount = state.session?.registration?.pins?.length ?? 0;
+    return `Click Clear pins? again to remove ${pinCount} ${pluralizePin(pinCount)}.`;
+  }
+  if (state.notice?.kind === "cleared-pins") {
+    return `Cleared ${state.notice.count} ${pluralizePin(state.notice.count)}.`;
+  }
+  if (state.notice?.kind === "reference-image-paste-empty") {
+    return "Clipboard does not contain an image.";
+  }
+  if (state.session) {
+    const { width, height } = state.session.referenceImage.intrinsicSizePx;
+    return `Loaded screenshot ${width}x${height}.`;
+  }
+  return "";
+}
+
+function pluralizePin(count) {
+  return count === 1 ? "pin" : "pins";
 }
 
 function overlayInputForState(state, mode) {

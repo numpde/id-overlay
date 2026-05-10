@@ -139,12 +139,53 @@ test("view model exposes temporary pass-through as interaction posture", () => {
   });
 });
 
+// Class-b, not class-a: exact prose can be tuned, but ownership is settled.
+// The view model composes user-visible status from product state and notices;
+// panel adapters render that string instead of inventing status copy.
+test("view model exposes user-visible status copy", () => {
+  for (const { state, status } of [
+    {
+      state: referenceImageLoadedState(),
+      status: "Loaded screenshot 640x480.",
+    },
+    {
+      state: referenceImageLoadedState({
+        notice: {
+          kind: "cleared-pins",
+          count: 1,
+        },
+      }),
+      status: "Cleared 1 pin.",
+    },
+    {
+      state: referenceImageLoadedState({
+        pins: [firstPin()],
+        panelIntent: {
+          kind: "confirm-clear-pins",
+        },
+      }),
+      status: "Click Clear pins? again to remove 1 pin.",
+    },
+    {
+      state: {
+        notice: {
+          kind: "reference-image-paste-empty",
+        },
+      },
+      status: "Clipboard does not contain an image.",
+    },
+  ]) {
+    assert.equal(selectApplicationView(state).status, status);
+  }
+});
+
 function referenceImageLoadedState({
   mode = "align",
   placement,
   opacity,
   pins = [],
   panelIntent = null,
+  notice = null,
 } = {}) {
   const session = {
     mode,
@@ -170,6 +211,7 @@ function referenceImageLoadedState({
   return {
     session,
     ...(panelIntent === null ? {} : { panelIntent }),
+    ...(notice === null ? {} : { notice }),
   };
 }
 
