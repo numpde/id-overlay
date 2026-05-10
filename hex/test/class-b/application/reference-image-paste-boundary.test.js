@@ -67,10 +67,9 @@ test("empty reference image paste outcome becomes a correlated notice", () => {
   });
 });
 
-// Class-b, not class-a: the exact failed-paste notice vocabulary can still
-// change, but a declared failed paste is a product fact. The application keeps a
-// stable reason and request id; non-data failure objects are rejected at the
-// boundary by class-a tests.
+// Class-b, deliberately not class-a: class-a owns failed paste as a normal
+// non-durable outcome. This test keeps the current transient notice vocabulary,
+// including the data-only reason and request id used by status correlation.
 test("failed reference image paste outcome becomes a correlated notice", () => {
   assertApplicationResult(handleApplicationCommand({
     state: {

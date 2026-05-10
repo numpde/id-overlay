@@ -118,6 +118,34 @@ test("empty reference image paste outcome ends input without durability", () => 
   assert.deepEqual(result.effects, []);
 });
 
+// Class-a: a declared paste failure is also a normal user-world outcome. It
+// ends the transient input flow without creating an image session or durable
+// work; the exact failure notice vocabulary is weaker UI policy.
+test("failed reference image paste outcome ends input without durability", () => {
+  const result = handleApplicationCommand({
+    state: {
+      referenceImageInput: {
+        status: "awaiting-paste",
+        requestId: 1,
+      },
+    },
+    command: createApplicationCommand(
+      APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_PASTE_OUTCOME,
+      {
+        requestId: 1,
+        outcome: {
+          kind: "failed",
+          reason: "source-unavailable",
+        },
+      },
+    ),
+  });
+
+  assert.equal(result.state.session, undefined);
+  assert.equal(result.state.referenceImageInput, undefined);
+  assert.deepEqual(result.effects, []);
+});
+
 // Class-a: clearing the reference image collapses the app back to no session
 // and emits durable clearing. There is no hidden overlay state after removal.
 test("clearing the reference image returns to no-session Trace", () => {
