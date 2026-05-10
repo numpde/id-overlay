@@ -162,10 +162,7 @@ function activatePrimaryAction(state) {
     return clearRegistrationPins(state);
   }
   if (state.panelIntent?.kind === "confirm-clear-reference-image") {
-    return {
-      state: createInitialApplicationState(),
-      effects: [durableStateChangedEffect(null)],
-    };
+    return clearReferenceImageWithHistory(state);
   }
   if (
     state.session.mode === "align"
@@ -190,6 +187,29 @@ function activatePrimaryAction(state) {
       },
     },
     effects: [],
+  };
+}
+
+function clearReferenceImageWithHistory(state) {
+  const record = {
+    kind: "remove-reference-image",
+    undoLabel: "Reload image",
+    redoLabel: "Remove image",
+    before: selectDurableApplicationState(state),
+    after: null,
+  };
+  return {
+    state: {
+      history: pushHistory(state.history, record),
+    },
+    effects: [durableStateChangedEffect(null)],
+  };
+}
+
+function pushHistory(history, record) {
+  return {
+    past: [...(history?.past ?? []), record],
+    future: [],
   };
 }
 

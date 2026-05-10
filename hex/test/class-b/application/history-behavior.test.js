@@ -59,3 +59,84 @@ test("undoing a load-image history record removes the image and exposes reload",
     label: "Reload image",
   });
 });
+
+// Class-b, not class-a: the exact labels are product copy, but the action
+// boundary is settled. A confirmed image removal is a user-visible durable edit,
+// so the application records the before/after durable states once and generic
+// undo/redo replay them without carrying transient confirmation state forward.
+test("confirmed image removal records reloadable undo history", () => {
+  const record = {
+    kind: "remove-reference-image",
+    undoLabel: "Reload image",
+    redoLabel: "Remove image",
+    before: referenceImageDurableState(),
+    after: null,
+  };
+  const clear = handleApplicationCommand({
+    state: {
+      ...referenceImageLoadedState(),
+      panelIntent: {
+        kind: "confirm-clear-reference-image",
+      },
+    },
+    command: createApplicationCommand(
+      APPLICATION_COMMAND_KIND.ACTIVATE_PRIMARY_ACTION,
+    ),
+  });
+
+  assert.deepEqual(clear, {
+    state: {
+      history: {
+        past: [record],
+        future: [],
+      },
+    },
+    effects: [
+      durableStateChangedEffect(null),
+    ],
+  });
+
+  const undo = handleApplicationCommand({
+    state: clear.state,
+    command: createApplicationCommand(APPLICATION_COMMAND_KIND.UNDO),
+  });
+
+  assert.deepEqual(undo, {
+    state: {
+      ...referenceImageLoadedState(),
+      history: {
+        past: [],
+        future: [record],
+      },
+    },
+    effects: [
+      durableStateChangedEffect(referenceImageDurableState()),
+    ],
+  });
+  assert.equal(undo.state.panelIntent, undefined);
+  assert.deepEqual(selectApplicationView(undo.state).history.redo, {
+    enabled: true,
+    label: "Remove image",
+  });
+
+  const redo = handleApplicationCommand({
+    state: undo.state,
+    command: createApplicationCommand(APPLICATION_COMMAND_KIND.REDO),
+  });
+
+  assert.deepEqual(redo, {
+    state: {
+      history: {
+        past: [record],
+        future: [],
+      },
+    },
+    effects: [
+      durableStateChangedEffect(null),
+    ],
+  });
+  assert.deepEqual(selectApplicationView(redo.state).history.undo, {
+    enabled: true,
+    label: "Reload image",
+  });
+});

@@ -144,10 +144,18 @@ test("primary action confirms clear-pins when clear-pins confirmation is active"
   });
 });
 
-// Class-b: confirming image removal collapses the whole session back to startup
-// posture and requests durable clearing. Exact confirmation/effect vocabulary is
-// still application API shape.
+// Class-b: confirming image removal collapses the visible session back to
+// startup posture, records a reloadable undo point, and requests durable
+// clearing. Exact confirmation/history/effect vocabulary is still application
+// API shape.
 test("primary action confirms clear-image when clear-image confirmation is active", () => {
+  const record = {
+    kind: "remove-reference-image",
+    undoLabel: "Reload image",
+    redoLabel: "Remove image",
+    before: referenceImageDurableState(),
+    after: null,
+  };
   const result = handleApplicationCommand({
     state: {
       ...referenceImageLoadedState(),
@@ -161,7 +169,13 @@ test("primary action confirms clear-image when clear-image confirmation is activ
   });
 
   assertApplicationResult(result, {
-    state: createInitialApplicationState(),
+    state: {
+      ...createInitialApplicationState(),
+      history: {
+        past: [record],
+        future: [],
+      },
+    },
     effects: [
       durableStateChangedEffect(null),
     ],
