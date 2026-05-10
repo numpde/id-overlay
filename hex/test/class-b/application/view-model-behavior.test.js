@@ -5,8 +5,8 @@ import { selectApplicationView } from "../../../application/view-model.js";
 
 // Class-b, deliberately not class-a: class-a owns the no-session Paste law and
 // the command transitions behind each action. This test protects the current
-// panel vocabulary and the ownership boundary: adapters render the primary
-// action chosen by the view model instead of inventing button copy locally.
+// panel vocabulary plus one ownership boundary: adapters render the primary
+// action selected by the view model instead of inventing button copy locally.
 test("view model exposes primary action labels for each product posture", () => {
   const cases = [
     {
