@@ -7,8 +7,9 @@ import {
   createProjectionAdapter,
 } from "../../../adapters/page-osm-id/page-adapter.js";
 
-// Class-b: the page adapter is allowed to inspect dirty page handles, but its
-// snapshot output must be browser-neutral plain map data.
+// Class-b, deliberately not class-a: OSM/iD page scraping is an adapter
+// strategy, not product law. The durable boundary is that dirty page handles
+// are translated into browser-neutral plain map facts before entering the app.
 test("page snapshot adapter emits plain map facts", () => {
   const adapter = createPageSnapshotAdapter({
     readPage() {
