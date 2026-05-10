@@ -48,10 +48,9 @@ test("content source does not own product stepping", () => {
   ]), []);
 });
 
-// Class-b: adapter mechanics belong in adapters, not in the browser content
-// composition edge. This is not class-a yet because the exact browser-shell
-// folder is still provisional, but leaking DOM, image decoding, or storage
-// execution into src/content would recreate the rushed shell design.
+// Class-b, deliberately not class-a: the exact browser-shell folder is still
+// provisional. The stable boundary is that DOM ownership, image decoding, and
+// storage execution stay in adapters, not the content composition edge.
 test("content source does not own adapter mechanics", () => {
   assert.deepEqual(collectContentPatternViolations([
     {
