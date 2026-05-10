@@ -316,6 +316,55 @@ test("browser shell keeps no-session Align selection inert", async () => {
   assert.deepEqual(storage.writes, []);
 });
 
+// Class-b, deliberately not class-a: this is browser-shell lifecycle, not
+// product state. The stable integration boundary is per-host isolation: two
+// extension hosts must not share runtime state, roots, or storage writes through
+// an accidental global singleton.
+test("browser shell isolates separate hosts", async () => {
+  const firstStorage = createDurableStorageHarness({
+    durableState: durableImageState({
+      mode: "align",
+      referenceImage: normalizedReferenceImage(),
+    }),
+  });
+  const secondStorage = createDurableStorageHarness({
+    durableState: durableImageState({
+      mode: "align",
+      referenceImage: normalizedReferenceImage(),
+    }),
+  });
+  const firstHost = createBrowserHostHarness({
+    pageContext: {
+      kind: "supported-map-editor-page",
+    },
+    durableStatePort: firstStorage.port,
+  });
+  const secondHost = createBrowserHostHarness({
+    pageContext: {
+      kind: "supported-map-editor-page",
+    },
+    durableStatePort: secondStorage.port,
+  });
+
+  const first = await bootstrapBrowserExtension(firstHost);
+  const second = await bootstrapBrowserExtension(secondHost);
+  await firstHost.latestRender.dispatchCommand({
+    kind: "select-mode",
+    mode: "trace",
+  });
+
+  assert.notEqual(first.runtime, second.runtime);
+  assert.equal(firstHost.countOwnedRoots("id-overlay"), 1);
+  assert.equal(secondHost.countOwnedRoots("id-overlay"), 1);
+  assert.equal(firstHost.latestRender.view.mode, "trace");
+  assert.equal(secondHost.latestRender.view.mode, "align");
+  assert.deepEqual(firstStorage.writes, [durableImageState({
+    mode: "trace",
+    referenceImage: normalizedReferenceImage(),
+  })]);
+  assert.deepEqual(secondStorage.writes, []);
+});
+
 function createBrowserHostHarness({
   pageContext,
   durableStatePort = createDurableStorageHarness({ durableState: null }).port,
