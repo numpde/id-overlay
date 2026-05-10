@@ -7,6 +7,7 @@ import {
   APPLICATION_BOUNDARY_ERROR_CODE,
 } from "./errors.js";
 import { isPlainData } from "./plain-data.js";
+import { isReferenceImageData } from "./reference-image.js";
 import { createInitialApplicationState } from "./state.js";
 import { selectDurableApplicationState } from "./view-model.js";
 
@@ -289,6 +290,20 @@ function assertSupportedDurableState(durableState) {
       );
     }
   }
+  if (!isSupportedSession(durableState.session)) {
+    throwBoundary(
+      APPLICATION_BOUNDARY_ERROR_CODE.UNSUPPORTED_DURABLE_STATE,
+      "Unsupported durable state.",
+    );
+  }
+}
+
+function isSupportedSession(session) {
+  return session
+    && typeof session === "object"
+    && !Array.isArray(session)
+    && ["align", "trace"].includes(session.mode)
+    && isReferenceImageData(session.referenceImage);
 }
 
 function isEmptyObject(value) {

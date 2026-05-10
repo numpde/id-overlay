@@ -3,6 +3,7 @@ import {
   APPLICATION_BOUNDARY_ERROR_CODE,
 } from "./errors.js";
 import { isPlainData } from "./plain-data.js";
+import { isReferenceImageData } from "./reference-image.js";
 
 export const APPLICATION_COMMAND_KIND = Object.freeze({
   HYDRATE: "hydrate",
@@ -87,23 +88,13 @@ function assertValidReferenceImagePasteOutcomePayload(payload) {
 }
 
 function assertValidReferenceImage(referenceImage) {
-  if (
-    !referenceImage
-      || typeof referenceImage.imageDataRef !== "string"
-      || referenceImage.imageDataRef.length === 0
-      || !isPositiveFiniteNumber(referenceImage.intrinsicSizePx?.width)
-      || !isPositiveFiniteNumber(referenceImage.intrinsicSizePx?.height)
-  ) {
+  if (!isReferenceImageData(referenceImage)) {
     throwInvalidApplicationCommand();
   }
 }
 
 function isPositiveInteger(value) {
   return Number.isInteger(value) && value > 0;
-}
-
-function isPositiveFiniteNumber(value) {
-  return Number.isFinite(value) && value > 0;
 }
 
 function throwInvalidApplicationCommand() {
