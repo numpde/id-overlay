@@ -547,8 +547,59 @@ function isSupportedSession(session) {
     && !Array.isArray(session)
     && ["align", "trace"].includes(session.mode)
     && isReferenceImageData(session.referenceImage)
+    && (session.registration === undefined || isRegistrationData(session.registration))
     && (session.placement === undefined || isPlacementData(session.placement))
     && (session.opacity === undefined || isOpacityData(session.opacity));
+}
+
+function isRegistrationData(registration) {
+  if (
+    !registration
+      || typeof registration !== "object"
+      || Array.isArray(registration)
+  ) {
+    return false;
+  }
+  for (const key of Object.keys(registration)) {
+    if (!["pins", "solvedPlacement"].includes(key)) {
+      return false;
+    }
+  }
+  return Array.isArray(registration.pins)
+    && registration.pins.every(isRegistrationPinData)
+    && (
+      registration.solvedPlacement === undefined
+        || isPlacementData(registration.solvedPlacement)
+    );
+}
+
+function isRegistrationPinData(pin) {
+  return pin
+    && typeof pin === "object"
+    && !Array.isArray(pin)
+    && isPositiveInteger(pin.id)
+    && isPointData(pin.imagePx)
+    && isLatLonData(pin.mapLatLon);
+}
+
+function isPositiveInteger(value) {
+  return Number.isInteger(value) && value > 0;
+}
+
+function isPointData(value) {
+  return value
+    && typeof value === "object"
+    && !Array.isArray(value)
+    && Number.isFinite(value.x)
+    && Number.isFinite(value.y);
+}
+
+function isLatLonData(value) {
+  return value
+    && typeof value === "object"
+    && !Array.isArray(value)
+    && Number.isFinite(value.lat)
+    && Number.isFinite(value.lon);
 }
 
 function isOpacityData(value) {

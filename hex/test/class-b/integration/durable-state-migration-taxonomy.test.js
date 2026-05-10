@@ -5,10 +5,10 @@ import {
   bootstrapBrowserExtension,
 } from "../../../bootstrap/index.js";
 
-// Class-c: startup recovery itself is class-b, but this exhaustive taxonomy is
-// not yet implemented because malformed registration pins still hydrate. Keep
-// the matrix quarantined until durable-session validation is a single closed
-// boundary rather than piecemeal checks for only the fields currently rendered.
+// Class-b, deliberately not class-a: exact migration policy may change, but the
+// browser-shell boundary is stable. Unsupported stored product shapes must be
+// quarantined and cleared as one startup recovery path, including nested fields
+// that are not currently visible in the panel.
 test("unsupported durable-state variants all recover to empty startup state", async (t) => {
   for (const { name, durableState } of unsupportedDurableStates()) {
     await t.test(name, async () => {
