@@ -5,10 +5,10 @@ import {
   bootstrapBrowserExtension,
 } from "../../../bootstrap/index.js";
 
-// Unclassified: panel position is shell chrome, not product state. Dragging the
-// panel should write through a panel-position adapter while leaving application
-// state and durable image state untouched.
-test("candidate: panel drag persists shell position without changing app state", async () => {
+// Class-c: panel position is shell chrome, not product state. Adapter-local
+// dragging is class-b, but the composed bootstrap path does not yet read/write
+// panel chrome position outside application hydration.
+test("panel drag persists shell position without changing app state", async () => {
   const durableState = durableImageState();
   const storage = createDurableStorageHarness({
     durableState,
@@ -39,10 +39,10 @@ test("candidate: panel drag persists shell position without changing app state",
   assert.deepEqual(storage.writes, []);
 });
 
-// Unclassified: if panel chrome position becomes durable, it must stay outside
-// application durable state. Startup may read shell position, but hydration must
-// still see only product durable state.
-test("candidate: startup restores panel chrome position outside product hydration", async () => {
+// Class-c: this guards the clean split once implemented: startup may restore
+// panel chrome from a shell adapter, but product hydration must still receive
+// only the application durable state.
+test("startup restores panel chrome position outside product hydration", async () => {
   const panelPosition = createPanelPositionHarness({
     initialPosition: {
       x: 24,
