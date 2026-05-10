@@ -5,10 +5,10 @@ import {
   bootstrapBrowserExtension,
 } from "../../../bootstrap/index.js";
 
-// Class-c: adapter-level wheel containment is class-b, but this composed policy
-// needs the not-yet-built interaction-fact dispatcher. Promote only when Align
-// overlay gestures and Trace/native-map forwarding are routed through one shell
-// boundary instead of separate DOM event paths.
+// Class-c: adapter-level wheel containment is class-b and the user posture is
+// stable, but this test is still mechanics-first. A class-b version should say
+// "wheel the overlay in Align/Trace" and assert whether the page receives the
+// gesture, without naming `handleInteractionFact` or `pageGesturePort`.
 test("Align contains overlay wheel gestures while Trace forwards them to the page", async () => {
   const alignHost = createBrowserHostHarness({
     durableStatePort: createDurableStorageHarness({
@@ -43,9 +43,9 @@ test("Align contains overlay wheel gestures while Trace forwards them to the pag
   }]);
 });
 
-// Class-c: no-session is native map. Even if a stale overlay emits a gesture
-// fact, the shell should forward it rather than translating it into an overlay
-// edit when no image session exists.
+// Class-c: no-session is native map, but this stale-gesture scenario needs the
+// same user/browser harness. The desired assertion is page-visible forwarding,
+// not the current fake interaction dispatcher.
 test("no-session overlay gestures pass through without extension edits", async () => {
   const host = createBrowserHostHarness({
     durableStatePort: createDurableStorageHarness({
