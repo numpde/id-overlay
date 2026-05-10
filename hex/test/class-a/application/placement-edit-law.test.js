@@ -63,6 +63,29 @@ test("durable committed placement hydrates into the session", () => {
   });
 });
 
+// Class-a: committing the placement already in state is not a user-visible edit.
+// Adapters may report a final pointer-up even when the transform did not change;
+// the application must not emit persistence work for that duplicate commit.
+test("unchanged placement edit is inert", () => {
+  const state = referenceImageLoadedState({
+    placement: movedPlacement(),
+  });
+
+  assert.deepEqual(handleApplicationCommand({
+    state,
+    command: createApplicationCommand(
+      APPLICATION_COMMAND_KIND.COMMIT_PLACEMENT_EDIT,
+      placementEditPayload({
+        editKind: "move",
+        placement: movedPlacement(),
+      }),
+    ),
+  }), {
+    state,
+    effects: [],
+  });
+});
+
 function movedPlacement() {
   return {
     x: 80,
