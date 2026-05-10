@@ -52,9 +52,9 @@ test("opacity changes are durable but not undoable", () => {
   });
 });
 
-// Class-b for the same reason: if opacity is persisted, hydration must accept
-// it as part of the durable reference-image session. Otherwise opacity would be
-// a write-only setting that breaks on the next extension start.
+// Class-b, not class-a: opacity may stop being durable if the product posture
+// changes, but while it is durable hydration must accept it. Otherwise opacity
+// would be a write-only setting that breaks on the next extension start.
 test("durable opacity hydrates into the session", () => {
   const durableState = referenceImageDurableState({
     opacity: 0.5,
