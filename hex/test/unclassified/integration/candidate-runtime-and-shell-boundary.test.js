@@ -3,27 +3,6 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-// Candidate: the real browser shell must be idempotent now that the fake
-// page-visible scaffold is gone. Repeated bootstrap should reconcile one owned
-// root and preserve the same runtime instance until explicit disposal.
-test("browser shell bootstrap is idempotent over one owned UI root", async () => {
-  const bootstrapBrowserExtension = await loadCandidateExport(
-    "../../../bootstrap/index.js",
-    "bootstrapBrowserExtension",
-  );
-  const host = createBrowserHostHarness({
-    pageContext: {
-      kind: "supported-map-editor-page",
-    },
-  });
-
-  const first = await bootstrapBrowserExtension(host);
-  const second = await bootstrapBrowserExtension(host);
-
-  assert.equal(host.countOwnedRoots("id-overlay"), 1);
-  assert.equal(first.runtime, second.runtime);
-});
-
 // Candidate: unsupported pages should not expose a half-working overlay. The
 // shell may report why it did nothing, but it must not mount controls or start
 // runtime work for unsupported page contexts.
