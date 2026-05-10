@@ -12,10 +12,10 @@ import {
   referenceImageLoadedState,
 } from "./reference-image-fixtures.js";
 
-// Class-b, not class-a: opacity is currently a durable visual setting rather
-// than a user-history action. The durable branch rule is the important part:
-// once a new durable edit happens, redo no longer describes the visible future
-// and must be discarded even when the edit itself is not pushed onto undo.
+// Class-b, deliberately not class-a: redo invalidation is a strong history
+// principle, but this test proves it through opacity, whose durability and
+// non-undoability remain product policy. If a pure history branch primitive
+// appears, that primitive should carry the class-a law instead.
 test("non-undoable opacity edits clear redo history", () => {
   const redoRecord = {
     kind: "move-overlay",
