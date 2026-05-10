@@ -71,6 +71,29 @@ test("switching to Trace applies solved registration placement durably", () => {
   ]);
 });
 
+// Class-a: Clear pins is destructive only to registration facts. It must not
+// unload the reference image or leave hidden empty-registration state behind,
+// and the durable effect must describe exactly the surviving session.
+test("clearing Align registration pins keeps the image and clears registration durably", () => {
+  const result = handleApplicationCommand({
+    state: referenceImageLoadedState({
+      mode: "align",
+      pins: [firstPin(), secondPin()],
+    }),
+    command: createApplicationCommand(APPLICATION_COMMAND_KIND.CLEAR_REGISTRATION_PINS),
+  });
+
+  assert.deepEqual(result.state.session, {
+    mode: "align",
+    referenceImage: normalizedReferenceImage(),
+  });
+  assert.deepEqual(result.effects, [
+    durableStateChangedEffect({
+      session: result.state.session,
+    }),
+  ]);
+});
+
 function referenceImageLoadedState({ mode = "align", placement, pins }) {
   const session = {
     mode,
