@@ -5,9 +5,10 @@ import {
   createInteractionRuntime,
 } from "../../../bootstrap/interaction-runtime.js";
 
-// Class-b, not class-a: this names a composition seam, not the final complete
-// interaction vocabulary. Adapter facts must become application commands at a
-// boundary that may call projection ports, but must not inspect product state.
+// Class-b, deliberately not class-a: this names today's composition seam, not a
+// complete future interaction vocabulary. Adapter facts may call projection
+// ports while becoming application commands, but they must not inspect product
+// state.
 test("interaction runtime maps adapter facts into application commands without reading state", async () => {
   const commands = [];
   const runtime = createInteractionRuntime({
