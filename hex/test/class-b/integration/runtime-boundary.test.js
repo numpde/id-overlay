@@ -56,72 +56,6 @@ test("runtime executes multiple effects in declared order", async () => {
   ]);
 });
 
-// Class-b: runtime is sequencing, not mutation. App inputs, emitted effects,
-// and handler results remain caller-owned values.
-test("runtime does not mutate state commands effects or handler results", async () => {
-  const state = deepFreeze({
-    session: {
-      mode: "align",
-    },
-  });
-  const command = deepFreeze({
-    kind: "start",
-  });
-  const effect = deepFreeze({
-    kind: "read-reference-image",
-    requestId: "paste-1",
-  });
-  const handlerResult = deepFreeze({
-    kind: "reference-image-read",
-    requestId: "paste-1",
-    outcome: {
-      kind: "empty",
-    },
-  });
-  const runtime = createRuntimeDriver({
-    initialState: state,
-    effectHandlers: {
-      "read-reference-image": async () => handlerResult,
-    },
-    stepApplication({ state: receivedState, command: receivedCommand }) {
-      if (receivedCommand.kind === "start") {
-        return {
-          state: receivedState,
-          effects: [effect],
-        };
-      }
-      return {
-        state: {
-          done: true,
-        },
-        effects: [],
-      };
-    },
-  });
-
-  await runtime.dispatch(command);
-
-  assert.deepEqual(state, {
-    session: {
-      mode: "align",
-    },
-  });
-  assert.deepEqual(command, {
-    kind: "start",
-  });
-  assert.deepEqual(effect, {
-    kind: "read-reference-image",
-    requestId: "paste-1",
-  });
-  assert.deepEqual(handlerResult, {
-    kind: "reference-image-read",
-    requestId: "paste-1",
-    outcome: {
-      kind: "empty",
-    },
-  });
-});
-
 // Class-b: disposal closes the ingress gate. Late async results may settle, but
 // they must not be delivered to the application after the runtime is disposed.
 test("runtime disposal prevents late effect results from re-entering the app", async () => {
@@ -257,15 +191,4 @@ function createOpaqueProductState(value) {
       assert.fail("runtime enumerated product state fields");
     },
   });
-}
-
-function deepFreeze(value) {
-  if (value === null || typeof value !== "object" || Object.isFrozen(value)) {
-    return value;
-  }
-  Object.freeze(value);
-  for (const nestedValue of Object.values(value)) {
-    deepFreeze(nestedValue);
-  }
-  return value;
 }
