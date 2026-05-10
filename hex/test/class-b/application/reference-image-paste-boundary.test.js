@@ -12,6 +12,9 @@ import { handleApplicationCommand } from "../../../application/handle-command.js
 import {
   assertApplicationBoundaryError,
 } from "./application-boundary-assertions.js";
+import {
+  assertApplicationResult,
+} from "./application-result-assertions.js";
 import { assertPlainData } from "./plain-data-assertions.js";
 import {
   acceptedReferenceImagePastePayload,
@@ -173,4 +176,36 @@ test("malformed reference image paste outcome commands are boundary errors", () 
     }),
     APPLICATION_BOUNDARY_ERROR_CODE.INVALID_APPLICATION_COMMAND,
   );
+});
+
+// Class-b, not class-a: exact status copy for an empty paste can still change,
+// but "no image was available" is a normal user-world outcome, not a boundary
+// failure. The notice keeps the request id so delayed status clearing cannot
+// erase a newer message.
+test("empty reference image paste outcome becomes a correlated notice", () => {
+  assertApplicationResult(handleApplicationCommand({
+    state: {
+      referenceImageInput: {
+        status: "awaiting-paste",
+        requestId: 1,
+      },
+    },
+    command: createApplicationCommand(
+      APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_PASTE_OUTCOME,
+      {
+        requestId: 1,
+        outcome: {
+          kind: "empty",
+        },
+      },
+    ),
+  }), {
+    state: {
+      notice: {
+        kind: "reference-image-paste-empty",
+        requestId: 1,
+      },
+    },
+    effects: [],
+  });
 });
