@@ -98,6 +98,73 @@ Application code must not:
 - receive raw PointerEvent, KeyboardEvent, WheelEvent, Blob, File, Element,
   Window, Document, or chrome/browser objects
 
+Product causality and browser mechanics
+
+The clean boundary is not "fat application" and not "smart shell". The clean
+boundary is:
+
+  command + application state -> next application state + declared effects
+
+The application owns product causality. Browser adapters own browser mechanics.
+
+If a future replay or plain-data test needs to know why something happened, that
+cause belongs in the application as state, transition logic, or an effect
+request. If the detail only describes how the browser performs the work, it
+belongs in an adapter.
+
+Examples of application-owned causality:
+
+- activating Paste requests reference-image input
+- an empty image input result becomes a status notice
+- a status notice asks for an expiry timer
+- confirming Clear image records undoable removal and requests durable clearing
+- Trace ignores placement and pin-edit commands
+- selecting Trace with enough registration facts may request or perform a fit
+- undo and redo replay declared product history
+
+Examples of adapter-owned mechanics:
+
+- whether reference-image input comes from navigator.clipboard or a paste event
+- how a paste listener is installed, focused, cancelled, or disposed
+- setTimeout handles and timer cancellation mechanics
+- object URL creation and revocation mechanics
+- pointer capture, wheel event containment, and DOM event propagation
+- page DOM observation, iD map heuristics, and synthetic gesture forwarding
+- chrome.storage or browser.storage API details
+
+The shell must not become a hidden second state machine. In particular, avoid
+state watchers such as:
+
+- "paste is armed, so the shell should read the clipboard"
+- "a notice appeared, so the shell should start a timer"
+- "the image disappeared, so the shell should release an image ref"
+- "mode changed to Trace, so the shell should solve registration"
+
+Those may be valid outcomes, but the product reason must be declared by the
+application as plain state/effect causality. The runtime may then interpret the
+effect through ports and feed plain outcome commands back into the application.
+
+For browser input, do not push raw DOM into the application. DOM adapters should
+emit normalized, browser-neutral facts. A thin interaction boundary may project
+those facts into semantic commands, such as toggle-registration-pin or
+commit-placement-edit. The application still decides whether each semantic
+command is valid in the current state.
+
+Canonical runtime flow:
+
+  browser event
+  -> normalized adapter fact
+  -> semantic application command
+  -> application state and effects
+  -> runtime executes effects through ports
+  -> plain outcome command
+  -> application state and effects
+
+This flow keeps causality explicit, replayable, browser-independent, and
+testable. It also gives shell lifecycle a narrow job: mount, dispose, observe
+supported-page context, execute declared effects, normalize ambient input, and
+own non-product chrome such as panel position.
+
 Ports
 
 Ports describe what the application needs from the outside world without naming
