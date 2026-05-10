@@ -13,6 +13,8 @@ export function createOverlayAdapter({
       const image = document.createElement("div");
       image.dataset.overlayImage = "";
       image.dataset.imageDataRef = overlayView.imageDataRef;
+      image.style.backgroundImage = `url("${escapeCssString(overlayView.imageDataRef)}")`;
+      image.style.backgroundSize = "100% 100%";
       image.style.width = `${overlayView.intrinsicSizePx.width}px`;
       image.style.height = `${overlayView.intrinsicSizePx.height}px`;
       image.style.opacity = String(overlayView.opacity ?? 1);
@@ -61,6 +63,21 @@ export function createOverlayAdapter({
       });
     },
   };
+}
+
+function escapeCssString(value) {
+  return String(value).replace(/["\\\n\r\f]/g, (character) => {
+    if (character === "\n") {
+      return "\\a ";
+    }
+    if (character === "\r") {
+      return "\\d ";
+    }
+    if (character === "\f") {
+      return "\\c ";
+    }
+    return `\\${character}`;
+  });
 }
 
 function placementTransform(placement) {

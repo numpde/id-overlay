@@ -4,6 +4,7 @@ import {
 } from "../application/command.js";
 import { handleApplicationCommand } from "../application/handle-command.js";
 import { createInitialApplicationState } from "../application/state.js";
+import { selectApplicationView } from "../application/view-model.js";
 import { wireRuntime } from "./runtime.js";
 
 // Bootstrap is the composition edge: concrete adapters are assembled here and
@@ -22,7 +23,7 @@ export async function bootstrapBrowserExtension(host) {
     return existingBootstrap;
   }
 
-  const root = {
+  const rootDescriptor = {
     ownerId: "id-overlay",
   };
   const durableStatePort = host.durableStatePort ?? createNoopDurableStatePort();
@@ -34,7 +35,17 @@ export async function bootstrapBrowserExtension(host) {
     }),
   });
   const startedRuntime = host.startRuntime(runtime) ?? runtime;
-  host.mountOwnedRoot("id-overlay", root);
+  const root = host.mountOwnedRoot("id-overlay", rootDescriptor) ?? rootDescriptor;
+
+  async function dispatchAndRender(command) {
+    await startedRuntime.dispatch(command);
+    renderApplicationView({
+      host,
+      root,
+      runtime: startedRuntime,
+      dispatchCommand: dispatchAndRender,
+    });
+  }
 
   const bootstrap = {
     kind: "bootstrapped",
@@ -42,10 +53,23 @@ export async function bootstrapBrowserExtension(host) {
     root,
   };
   BOOTSTRAPS_BY_HOST.set(host, bootstrap);
-  await startedRuntime.dispatch(createApplicationCommand(APPLICATION_COMMAND_KIND.HYDRATE, {
+  await dispatchAndRender(createApplicationCommand(APPLICATION_COMMAND_KIND.HYDRATE, {
     durableState: await durableStatePort.readDurableState(),
   }));
   return bootstrap;
+}
+
+function renderApplicationView({
+  host,
+  root,
+  runtime,
+  dispatchCommand,
+}) {
+  host.renderApplicationView?.({
+    root,
+    view: selectApplicationView(runtime.getState()),
+    dispatchCommand,
+  });
 }
 
 function createEffectHandlers({ durableStatePort }) {
