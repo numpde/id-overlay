@@ -147,10 +147,9 @@ test("primary action confirms clear-pins when clear-pins confirmation is active"
   });
 });
 
-// Class-b: confirming image removal collapses the visible session back to
-// startup posture, records a reloadable undo point, and requests durable
-// clearing. Exact confirmation/history/effect vocabulary is still application
-// API shape.
+// Class-b, not class-a: confirming image removal currently records a reloadable
+// undo point, clears durable state, and collapses the visible session. The exact
+// confirmation and history labels remain product/API vocabulary.
 test("primary action confirms clear-image when clear-image confirmation is active", () => {
   const record = {
     kind: "remove-reference-image",
