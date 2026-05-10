@@ -21,16 +21,11 @@ import {
   normalizedReferenceImage,
 } from "./reference-image-fixtures.js";
 
-// Class-b, not class-a: the exact command vocabulary is still application API
-// shape, but paste outcomes crossing the boundary must be request-correlated.
-// This promotes the non-regret part of the class-c candidate and rejects its
-// older no-request-id shape, which contradicted the promoted correlation law.
+// Class-b, not class-a: this is command-factory API shape. Class-a already owns
+// the non-negotiable behavior: async paste outcomes are request-correlated and
+// stale results are ignored. This harness only keeps the current factory from
+// accidentally dropping that correlation before the command reaches the app.
 test("reference image paste outcome command is correlated plain data", () => {
-  assert.equal(
-    APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_PASTE_OUTCOME,
-    "report-reference-image-paste-outcome",
-  );
-
   const command = createApplicationCommand(
     APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_PASTE_OUTCOME,
     acceptedReferenceImagePastePayload(),
@@ -38,7 +33,7 @@ test("reference image paste outcome command is correlated plain data", () => {
 
   assertPlainData(command);
   assert.deepEqual(command, {
-    kind: "report-reference-image-paste-outcome",
+    kind: APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_PASTE_OUTCOME,
     requestId: 1,
     outcome: {
       kind: "accepted",
