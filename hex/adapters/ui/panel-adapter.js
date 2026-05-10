@@ -10,6 +10,7 @@ export function createPanelAdapter({
       const primary = document.createElement("button");
       primary.dataset.control = "primary";
       primary.textContent = viewModel.primaryAction.label;
+      primary.setAttribute("aria-label", viewModel.primaryAction.label);
       primary.disabled = !viewModel.primaryAction.enabled;
       primary.addEventListener("click", () => {
         emitCommand({
@@ -20,6 +21,8 @@ export function createPanelAdapter({
 
       const align = document.createElement("button");
       align.dataset.control = "align";
+      align.setAttribute("aria-label", "Align mode");
+      align.setAttribute("aria-pressed", String(viewModel.modeSwitch.selected === "align"));
       align.disabled = !viewModel.modeSwitch.align.enabled;
       align.addEventListener("click", () => {
         emitCommand({
@@ -33,6 +36,7 @@ export function createPanelAdapter({
       undo.dataset.control = "undo";
       undo.disabled = !viewModel.history.undo.enabled;
       undo.title = viewModel.history.undo.label ?? "";
+      undo.setAttribute("aria-label", viewModel.history.undo.label ?? "Undo");
       undo.addEventListener("click", () => {
         emitCommand({
           kind: "undo",
@@ -44,6 +48,7 @@ export function createPanelAdapter({
       redo.dataset.control = "redo";
       redo.disabled = !viewModel.history.redo.enabled;
       redo.title = viewModel.history.redo.label ?? "";
+      redo.setAttribute("aria-label", viewModel.history.redo.label ?? "Redo");
       redo.addEventListener("click", () => {
         emitCommand({
           kind: "redo",

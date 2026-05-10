@@ -141,3 +141,44 @@ test("panel drag is adapter-local", () => {
     y: 35,
   }]);
 });
+
+// Class-b, deliberately not class-a: exact markup remains adapter-local. The
+// stable accessibility boundary is that semantic labels selected by the view
+// model also name the controls for assistive technology, and mode selection is
+// exposed as state instead of only as color or position.
+test("panel adapter exposes accessible control names and selected mode state", () => {
+  const { window } = new JSDOM("<!doctype html><body></body>");
+  const panel = createPanelAdapter({
+    document: window.document,
+  });
+
+  const root = panel.render({
+    primaryAction: {
+      label: "Clear image",
+      enabled: true,
+    },
+    modeSwitch: {
+      selected: "align",
+      align: {
+        enabled: true,
+      },
+    },
+    history: {
+      undo: {
+        enabled: true,
+        label: "Move overlay",
+      },
+      redo: {
+        enabled: false,
+        label: null,
+      },
+    },
+    status: "Loaded screenshot 640x480.",
+  });
+
+  assert.equal(root.querySelector("[data-control='primary']").getAttribute("aria-label"), "Clear image");
+  assert.equal(root.querySelector("[data-control='align']").getAttribute("aria-pressed"), "true");
+  assert.equal(root.querySelector("[data-control='align']").getAttribute("aria-label"), "Align mode");
+  assert.equal(root.querySelector("[data-control='undo']").getAttribute("aria-label"), "Move overlay");
+  assert.equal(root.querySelector("[data-control='redo']").getAttribute("aria-label"), "Redo");
+});
