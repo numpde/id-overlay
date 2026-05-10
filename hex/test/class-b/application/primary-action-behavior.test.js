@@ -114,10 +114,10 @@ test("primary action with visible Align pins requests clear-pins confirmation", 
   });
 });
 
-// Class-b, not class-a: this completes the same product-policy ladder as the
-// previous test. Once the primary action has armed clear-pins confirmation, the
-// second activation must clear visible pins, persist the registration-free
-// session, and remove the destructive confirmation.
+// Class-b, not class-a: clear-pins is part of the current primary-button ladder
+// and its notice vocabulary is product policy. The durable requirement is still
+// important: confirming must persist the registration-free session and remove
+// the destructive confirmation.
 test("primary action confirms clear-pins when clear-pins confirmation is active", () => {
   const result = handleApplicationCommand({
     state: {
