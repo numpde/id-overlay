@@ -77,20 +77,69 @@ test("redo replays the latest history record after-state durably", () => {
   });
 });
 
-function referenceImageLoadedState() {
+// Class-a: a new durable edit creates a new timeline branch. Even when that
+// edit is not itself pushed onto undo history, the previous redo future is no
+// longer reachable and must be discarded.
+test("new durable edits clear redo future", () => {
+  const redoRecord = {
+    kind: "move-overlay",
+    undoLabel: "Undo move overlay",
+    redoLabel: "Redo move overlay",
+    before: referenceImageDurableState(),
+    after: referenceImageDurableState({
+      placement: {
+        x: 80,
+        y: 40,
+        scale: 1,
+        rotationRad: 0,
+      },
+    }),
+  };
+  const result = handleApplicationCommand({
+    state: {
+      ...referenceImageLoadedState(),
+      history: {
+        past: [],
+        future: [redoRecord],
+      },
+    },
+    command: createApplicationCommand(APPLICATION_COMMAND_KIND.SET_OPACITY, {
+      opacity: 0.5,
+    }),
+  });
+
+  assert.deepEqual(result, {
+    state: {
+      ...referenceImageLoadedState({
+        opacity: 0.5,
+      }),
+      history: {
+        past: [],
+        future: [],
+      },
+    },
+    effects: [
+      durableStateChangedEffect(referenceImageDurableState({
+        opacity: 0.5,
+      })),
+    ],
+  });
+});
+
+function referenceImageLoadedState({ opacity, placement } = {}) {
   return {
-    session: normalizedReferenceImageSession(),
+    session: normalizedReferenceImageSession({ opacity, placement }),
   };
 }
 
-function referenceImageDurableState() {
+function referenceImageDurableState({ opacity, placement } = {}) {
   return {
-    session: normalizedReferenceImageSession(),
+    session: normalizedReferenceImageSession({ opacity, placement }),
   };
 }
 
-function normalizedReferenceImageSession() {
-  return {
+function normalizedReferenceImageSession({ opacity, placement } = {}) {
+  const session = {
     mode: "align",
     referenceImage: {
       imageDataRef: "reference-image-data-1",
@@ -100,6 +149,13 @@ function normalizedReferenceImageSession() {
       },
     },
   };
+  if (opacity !== undefined) {
+    session.opacity = opacity;
+  }
+  if (placement !== undefined) {
+    session.placement = placement;
+  }
+  return session;
 }
 
 function durableStateChangedEffect(durableState) {
