@@ -5,10 +5,12 @@ import {
   bootstrapBrowserExtension,
 } from "../../../bootstrap/index.js";
 
-// Class-c: request correlation is class-a in the reducer, but the browser shell
-// still lacks the async clipboard/manual-paste effect boundary. Promote only
-// when starting a new paste request actually cancels older shell work and routes
-// only the newest result back into the application.
+// Class-c: this candidate currently conflicts with product law, not just
+// implementation. Request correlation is class-a, but primary action while
+// awaiting paste is also class-a as "Cancel paste"; this test assumes the same
+// click starts request #2. Promote only if a distinct "replace pending paste"
+// user action exists, and then route it through the real clipboard/manual-paste
+// shell boundary rather than this invented port pair.
 test("starting a second paste request cancels the first and commits only the second result", async () => {
   const firstRead = createDeferred();
   const secondRead = createDeferred();
