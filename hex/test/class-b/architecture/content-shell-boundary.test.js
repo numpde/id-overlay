@@ -8,10 +8,10 @@ const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..
 const CONTENT_DIR = repoPath("src/content");
 const CONTENT_LOADER = repoPath("src/content/content-loader.js");
 
-// Class-b, not class-a: Chrome's classic content-script loader shape is browser
-// shell policy, but the direction is settled. The loader may bridge into the
-// hex bootstrap module; it must not become a second place for product state,
-// DOM ownership, image decoding, or durable host work.
+// Class-b, deliberately not class-a: Chrome's classic content-script loader
+// shape is browser-shell policy. The no-regret boundary is that the loader only
+// bridges into hex bootstrap; it must not become a second home for product
+// state, DOM ownership, image decoding, or durable host work.
 test("content loader remains a dumb dynamic-import bridge", () => {
   assert.equal(fs.existsSync(CONTENT_LOADER), true);
   const source = fs.readFileSync(CONTENT_LOADER, "utf8");
