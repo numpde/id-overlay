@@ -8,34 +8,11 @@ import { handleApplicationCommand } from "../../../application/handle-command.js
 import { createInitialApplicationState } from "../../../application/state.js";
 import { assertApplicationResult } from "./application-result-assertions.js";
 import {
-  awaitingReferenceImagePasteState,
   durableStateChangedEffect,
   firstPin,
   referenceImageDurableState,
   referenceImageLoadedState,
 } from "./reference-image-fixtures.js";
-
-// Class-b, not class-a: while paste is armed, the same semantic button cancels
-// the prompt instead of starting an overlapping input flow. Class-a owns the
-// request-correlation consequence; this test keeps the current cancellation
-// notice vocabulary coherent with the button behavior.
-test("primary action while awaiting paste cancels the pending paste prompt", () => {
-  const result = handleApplicationCommand({
-    state: awaitingReferenceImagePasteState(),
-    command: createApplicationCommand(
-      APPLICATION_COMMAND_KIND.ACTIVATE_PRIMARY_ACTION,
-    ),
-  });
-
-  assertApplicationResult(result, {
-    state: {
-      notice: {
-        kind: "reference-image-paste-cancelled",
-      },
-    },
-    effects: [],
-  });
-});
 
 // Class-b, not class-a: with an image loaded and no visible pins, the current
 // primary-button ladder asks before removing the image. This is product policy

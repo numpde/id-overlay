@@ -28,3 +28,24 @@ test("primary action with no session waits for a pasted reference image", () => 
     effects: [],
   });
 });
+
+// Class-a: while paste is armed, activating the same primary action cancels that
+// transient input flow. Cancellation must not create a session or write durable
+// state; any user-facing cancellation notice is weaker copy policy.
+test("primary action while awaiting paste cancels transient image input", () => {
+  const result = handleApplicationCommand({
+    state: {
+      referenceImageInput: {
+        status: "awaiting-paste",
+        requestId: 1,
+      },
+    },
+    command: createApplicationCommand(
+      APPLICATION_COMMAND_KIND.ACTIVATE_PRIMARY_ACTION,
+    ),
+  });
+
+  assert.equal(result.state.session, undefined);
+  assert.equal(result.state.referenceImageInput, undefined);
+  assert.deepEqual(result.effects, []);
+});
