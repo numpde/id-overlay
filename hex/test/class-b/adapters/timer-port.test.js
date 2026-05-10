@@ -5,8 +5,9 @@ import {
   createTimerPortAdapter,
 } from "../../../adapters/web/timer-port.js";
 
-// Class-b: timer handles are runtime capabilities. The durable app-facing fact
-// is only that a previously requested timer fired.
+// Class-b, deliberately not class-a: timer handles are runtime capabilities,
+// not application data. The app-facing fact preserves only the request identity
+// and timer purpose needed for the application to decide staleness.
 test("timer port preserves request identity", async () => {
   const scheduled = [];
   const timerPort = createTimerPortAdapter({
