@@ -69,8 +69,8 @@ test("empty reference image paste outcome becomes a correlated notice", () => {
 });
 
 // Class-b, deliberately not class-a: class-a owns failed paste as a normal
-// non-durable outcome. This test keeps the current transient notice vocabulary,
-// including the data-only reason and request id used by status correlation.
+// non-durable outcome. This keeps only the current transient notice vocabulary,
+// including the data-only reason and the request id used by status correlation.
 test("failed reference image paste outcome becomes a correlated notice", () => {
   assertApplicationResult(handleApplicationCommand({
     state: {
