@@ -33,3 +33,25 @@ test("hydration rejects unsupported durable reference-image data", () => {
     APPLICATION_BOUNDARY_ERROR_CODE.UNSUPPORTED_DURABLE_STATE,
   );
 });
+
+// Class-b, not class-a: this is a migration-policy guard. The exact future
+// versioning scheme is not settled, but silently accepting unknown non-empty
+// durable fields would choose an implicit data-loss policy.
+test("hydration rejects unknown top-level durable fields", () => {
+  const command = createApplicationCommand(APPLICATION_COMMAND_KIND.HYDRATE, {
+    durableState: {
+      futureField: true,
+      nested: {
+        value: 1,
+      },
+    },
+  });
+
+  assertApplicationBoundaryError(
+    () => handleApplicationCommand({
+      state: createInitialApplicationState(),
+      command,
+    }),
+    APPLICATION_BOUNDARY_ERROR_CODE.UNSUPPORTED_DURABLE_STATE,
+  );
+});

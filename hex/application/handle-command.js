@@ -271,6 +271,15 @@ function assertSupportedDurableState(durableState) {
       "Invalid durable state.",
     );
   }
+  const durableKeys = Object.keys(durableState);
+  for (const key of durableKeys) {
+    if (key !== "session") {
+      throwBoundary(
+        APPLICATION_BOUNDARY_ERROR_CODE.UNSUPPORTED_DURABLE_STATE,
+        "Unsupported durable state.",
+      );
+    }
+  }
   const sessionKeys = durableState.session ? Object.keys(durableState.session) : [];
   for (const key of sessionKeys) {
     if (!["mode", "referenceImage", "registration"].includes(key)) {

@@ -13,29 +13,9 @@ import {
   assertApplicationBoundaryError,
 } from "../../class-b/application/application-boundary-assertions.js";
 
-// Class-c: these remaining tests push for stricter durable-state schema
-// rejection. The happy-path durable reference-image hydration duplicate was
-// deleted because class-a already covers it authoritatively.
-
-// Unknown durable fields are not a migration problem yet; there is no durable
-// vocabulary beyond the current session shape. Rejecting them avoids silently
-// choosing a data-loss or forward-compatibility policy.
-test("hydrating unknown durable fields rejects non-empty durable data", () => {
-  const state = createInitialApplicationState();
-  const command = createApplicationCommand(APPLICATION_COMMAND_KIND.HYDRATE, {
-    durableState: {
-      futureField: true,
-      nested: {
-        value: 1,
-      },
-    },
-  });
-
-  assertApplicationBoundaryError(
-    () => handleApplicationCommand({ state, command }),
-    APPLICATION_BOUNDARY_ERROR_CODE.UNSUPPORTED_DURABLE_STATE,
-  );
-});
+// Class-c: this remaining test pushes for stricter durable session schema
+// validation. Top-level unknown durable fields were promoted separately as a
+// migration-policy guard.
 
 // Plain data can still be outside the declared durable schema. That is an
 // unsupported durable shape, not a caller data-shape leak.
