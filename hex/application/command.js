@@ -2,6 +2,7 @@ import {
   ApplicationBoundaryError,
   APPLICATION_BOUNDARY_ERROR_CODE,
 } from "./errors.js";
+import { normalizeOpacity } from "../domain/opacity.js";
 import { isPlacementData } from "./placement.js";
 import { isPlainData } from "./plain-data.js";
 import { isReferenceImageData } from "./reference-image.js";
@@ -18,6 +19,7 @@ export const APPLICATION_COMMAND_KIND = Object.freeze({
   CLEAR_STATUS_NOTICE: "clear-status-notice",
   UNDO: "undo",
   REDO: "redo",
+  SET_OPACITY: "set-opacity",
 });
 
 const KNOWN_COMMAND_KINDS = new Set(Object.values(APPLICATION_COMMAND_KIND));
@@ -54,9 +56,24 @@ export function createApplicationCommand(kind, payload = {}) {
     return createPlacementEditCommand(payload);
   }
 
+  if (kind === APPLICATION_COMMAND_KIND.SET_OPACITY) {
+    return createSetOpacityCommand(payload);
+  }
+
   return {
     ...payload,
     kind,
+  };
+}
+
+function createSetOpacityCommand(payload) {
+  if (!Number.isFinite(payload.opacity)) {
+    throwInvalidApplicationCommand();
+  }
+
+  return {
+    kind: APPLICATION_COMMAND_KIND.SET_OPACITY,
+    opacity: normalizeOpacity(payload.opacity),
   };
 }
 

@@ -42,12 +42,46 @@ export function handleApplicationCommand({ state, command }) {
       return undoHistory(state);
     case APPLICATION_COMMAND_KIND.REDO:
       return redoHistory(state);
+    case APPLICATION_COMMAND_KIND.SET_OPACITY:
+      return setOpacity(state, command);
     default:
       throwBoundary(
         APPLICATION_BOUNDARY_ERROR_CODE.UNKNOWN_APPLICATION_COMMAND,
         "Unknown application command.",
       );
   }
+}
+
+function setOpacity(state, command) {
+  if (!state.session || (state.session.opacity ?? 1) === command.opacity) {
+    return inertResult(state);
+  }
+
+  const nextState = {
+    session: {
+      ...state.session,
+      opacity: command.opacity,
+    },
+    ...withoutRedoHistory(state.history),
+  };
+  return {
+    state: nextState,
+    effects: [
+      durableStateChangedEffect(selectDurableApplicationState(nextState)),
+    ],
+  };
+}
+
+function withoutRedoHistory(history) {
+  if (!history) {
+    return {};
+  }
+  return {
+    history: {
+      past: history.past ?? [],
+      future: [],
+    },
+  };
 }
 
 function undoHistory(state) {
@@ -492,7 +526,7 @@ function assertSupportedDurableState(durableState) {
   }
   const sessionKeys = durableState.session ? Object.keys(durableState.session) : [];
   for (const key of sessionKeys) {
-    if (!["mode", "referenceImage", "registration", "placement"].includes(key)) {
+    if (!["mode", "referenceImage", "registration", "placement", "opacity"].includes(key)) {
       throwBoundary(
         APPLICATION_BOUNDARY_ERROR_CODE.UNSUPPORTED_DURABLE_STATE,
         "Unsupported durable state.",
@@ -513,7 +547,12 @@ function isSupportedSession(session) {
     && !Array.isArray(session)
     && ["align", "trace"].includes(session.mode)
     && isReferenceImageData(session.referenceImage)
-    && (session.placement === undefined || isPlacementData(session.placement));
+    && (session.placement === undefined || isPlacementData(session.placement))
+    && (session.opacity === undefined || isOpacityData(session.opacity));
+}
+
+function isOpacityData(value) {
+  return Number.isFinite(value) && value >= 0 && value <= 1;
 }
 
 function isEmptyObject(value) {

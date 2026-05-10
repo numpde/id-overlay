@@ -21,13 +21,21 @@ export function awaitingReferenceImagePasteState({ requestId = 1 } = {}) {
   };
 }
 
-export function referenceImageLoadedState({ mode = "align", placement, pins } = {}) {
+export function referenceImageLoadedState({
+  mode = "align",
+  placement,
+  opacity,
+  pins,
+} = {}) {
   const session = {
     mode,
     referenceImage: normalizedReferenceImage(),
   };
   if (placement !== undefined) {
     session.placement = placement;
+  }
+  if (opacity !== undefined) {
+    session.opacity = opacity;
   }
   if (pins !== undefined) {
     session.registration = {
@@ -39,9 +47,14 @@ export function referenceImageLoadedState({ mode = "align", placement, pins } = 
   };
 }
 
-export function referenceImageDurableState({ mode = "align", placement, pins } = {}) {
+export function referenceImageDurableState({
+  mode = "align",
+  placement,
+  opacity,
+  pins,
+} = {}) {
   return {
-    session: referenceImageLoadedState({ mode, placement, pins }).session,
+    session: referenceImageLoadedState({ mode, placement, opacity, pins }).session,
   };
 }
 
