@@ -6,10 +6,10 @@ import {
   createKeyboardAdapter,
 } from "../../../adapters/ui/keyboard-adapter.js";
 
-// Class-b, not class-a: Space-as-temporary-pass-through is a useful loaded-map
-// workflow, but the shortcut vocabulary may evolve. The durable boundary is
-// stronger: keyboard DOM events are adapter-local and become plain interaction
-// facts; they do not mutate application state or inspect product mode.
+// Class-b, deliberately not class-a: Space-as-temporary-pass-through is useful
+// UI vocabulary, not a settled product law. The boundary is the important part:
+// keyboard DOM events stay adapter-local and become plain interaction facts
+// without mutating app state or inspecting product mode.
 test("keyboard adapter emits temporary pass-through facts for Space press and release", () => {
   const { window } = new JSDOM("<!doctype html><body></body>");
   const facts = [];
