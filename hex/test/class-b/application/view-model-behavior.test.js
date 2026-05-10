@@ -143,8 +143,8 @@ test("view model exposes temporary pass-through as interaction posture", () => {
 
 // Class-b, deliberately not class-a: these are user-facing strings and status
 // precedence choices, so they may be tuned. The settled boundary is ownership:
-// the view model composes status copy from application facts; panel adapters
-// render the selected string rather than inventing status locally.
+// the view model composes status copy from application facts, and panel adapters
+// render that selected string rather than inventing status locally.
 test("view model exposes user-visible status copy", () => {
   for (const { state, status } of [
     {
