@@ -5,9 +5,11 @@ import {
   bootstrapBrowserExtension,
 } from "../../../bootstrap/index.js";
 
-// Class-c: placement app laws are class-a, but the composed interaction path is
-// not implemented. Overlay drag should become a committed placement edit through
-// one interaction boundary, then render and persist as a single lifecycle.
+// Class-c: placement command laws are class-a; this candidate is about the
+// still-unsettled interaction projection layer. It invents a `placementEditPort`
+// that turns drag facts into committed placement values. Promote only after
+// overlay gesture composition has one named boundary between DOM facts,
+// projection geometry, and application commands.
 test("overlay move interaction updates placement render and persistence in Align", async () => {
   const storage = createDurableStorageHarness({
     durableState: durableImageState({
@@ -37,8 +39,9 @@ test("overlay move interaction updates placement render and persistence in Align
   })]);
 });
 
-// Class-c: rotate/scale are separate gestures but should converge on committed
-// placement facts before persistence and rendering.
+// Class-c: rotate/scale should converge on the same placement command shape, but
+// this test currently chooses the wheel-fact vocabulary and projection port.
+// Keep it quarantined until those are adapter facts, not product assumptions.
 test("overlay rotate and scale interactions converge on committed placement facts", async () => {
   const storage = createDurableStorageHarness({
     durableState: durableImageState({
@@ -76,9 +79,10 @@ test("overlay rotate and scale interactions converge on committed placement fact
   ]);
 });
 
-// Class-c: opacity is durable but not undoable at the application layer. The
-// shell still needs a user interaction path that changes visible opacity and
-// writes durable state without creating history controls.
+// Class-c: opacity durability and non-history posture are class-a. This composed
+// scenario should become promotable only when the UI input that selects opacity
+// is real and routes through `set-opacity`; this guessed `opacityEditPort` is
+// not an architecture decision.
 test("opacity interaction updates overlay opacity durably without history", async () => {
   const storage = createDurableStorageHarness({
     durableState: durableImageState({
@@ -116,9 +120,10 @@ test("opacity interaction updates overlay opacity durably without history", asyn
   })]);
 });
 
-// Class-c: Trace is native-map posture. If stale overlay interactions leak
-// through, the composed shell must keep placement and opacity durable state
-// inert just like the application laws require.
+// Class-c: Trace/native-map posture is class-a for placement input, but this
+// stale-fact bundle mixes three questions: overlay event containment, projection
+// ports, and whether opacity input is available in Trace. Split and promote only
+// after those interaction boundaries are named separately.
 test("Trace ignores overlay placement and opacity interactions", async () => {
   const storage = createDurableStorageHarness({
     durableState: durableImageState({
