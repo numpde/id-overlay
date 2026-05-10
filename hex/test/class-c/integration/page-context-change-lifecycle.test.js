@@ -4,16 +4,12 @@ import assert from "node:assert/strict";
 import {
   bootstrapBrowserExtension,
 } from "../../../bootstrap/index.js";
-import {
-  createBrowserHostHarness,
-  createDurableStorageHarness,
-  durableImageState,
-} from "./candidate-browser-harness.js";
 
-// Unclassified: page-context observation may be polling, mutation-driven, or
-// routed through the editor frame. The shell contract is stable: support
-// changes are lifecycle facts, not a reason to leave stale overlay UI mounted.
-test("candidate: becoming unsupported disposes the owned UI root and runtime listeners", async () => {
+// Class-c: initial page support detection is class-b, but dynamic page-context
+// subscription is not implemented. Keep this target quarantined until route/
+// frame support changes are shell lifecycle facts that mount or dispose one
+// owned runtime cleanly.
+test("becoming unsupported disposes the owned UI root and runtime listeners", async () => {
   const pageContext = createPageContextHarness({
     initialContext: {
       kind: "supported-map-editor-page",
@@ -38,10 +34,9 @@ test("candidate: becoming unsupported disposes the owned UI root and runtime lis
   assert.equal(pageContext.disposeCount, 1);
 });
 
-// Unclassified: startup on an unsupported route should not permanently poison
-// the tab. If the page later enters the supported iD editor route, bootstrap
-// should mount exactly one extension instance.
-test("candidate: becoming supported after unsupported startup mounts the extension once", async () => {
+// Class-c: unsupported startup currently returns without mounting. This target
+// says the tab should still recover if client-side routing later enters iD.
+test("becoming supported after unsupported startup mounts the extension once", async () => {
   const pageContext = createPageContextHarness({
     initialContext: {
       kind: "unsupported-page",
@@ -65,6 +60,68 @@ test("candidate: becoming supported after unsupported startup mounts the extensi
   assert.equal(host.countOwnedRoots("id-overlay"), 1);
   assert.equal(host.latestRender.view.primaryAction.label, "Paste");
 });
+
+function createBrowserHostHarness({
+  pageContext = {
+    kind: "supported-map-editor-page",
+  },
+  durableStatePort,
+  pageContextPort,
+}) {
+  const ownedRoots = new Map();
+  return {
+    pageContext,
+    durableStatePort,
+    pageContextPort,
+    latestRender: null,
+    mountOwnedRoot(ownerId, root) {
+      const ownedRoot = {
+        ...root,
+        ownerId,
+      };
+      ownedRoots.set(ownerId, ownedRoot);
+      return ownedRoot;
+    },
+    removeOwnedRoot(ownerId) {
+      ownedRoots.delete(ownerId);
+    },
+    countOwnedRoots(ownerId) {
+      return ownedRoots.has(ownerId) ? 1 : 0;
+    },
+    renderApplicationView(render) {
+      this.latestRender = render;
+    },
+    startRuntime(runtime) {
+      return runtime;
+    },
+  };
+}
+
+function createDurableStorageHarness({ durableState }) {
+  return {
+    port: {
+      async readDurableState() {
+        return durableState;
+      },
+      async writeDurableState() {},
+    },
+  };
+}
+
+function durableImageState() {
+  return {
+    session: {
+      mode: "align",
+      referenceImage: {
+        imageDataRef: "data:image/png;base64,reference-image",
+        intrinsicSizePx: {
+          width: 640,
+          height: 480,
+        },
+      },
+    },
+  };
+}
 
 function createPageContextHarness({ initialContext }) {
   let listener = null;
