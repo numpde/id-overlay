@@ -12,7 +12,7 @@ export function selectApplicationView(state) {
   return {
     mode,
     overlay: overlayRenderFacts(state, mode),
-    overlayInput: overlayInputForMode(mode, Boolean(state.session)),
+    overlayInput: overlayInputForState(state, mode),
     modeSwitch: {
       selected: mode,
       align: {
@@ -80,8 +80,16 @@ function primaryActionLabel(state) {
   return "Clear image";
 }
 
-function overlayInputForMode(mode, hasSession) {
-  if (!hasSession || mode === "trace") {
+function overlayInputForState(state, mode) {
+  if (state.inputOverride?.kind === "temporary-pass-through") {
+    return {
+      kind: "native-map",
+      canEditOverlay: false,
+      arePinsVisible: false,
+      reason: "temporary-pass-through",
+    };
+  }
+  if (!state.session || mode === "trace") {
     return {
       kind: "native-map",
       canEditOverlay: false,

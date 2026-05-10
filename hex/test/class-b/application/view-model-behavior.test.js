@@ -118,6 +118,27 @@ test("view model exposes overlay render facts", () => {
   });
 });
 
+// Class-b, not class-a: temporary pass-through is intentionally transient, so
+// its state spelling may change when input handling is finalized. The product
+// boundary is important now: temporary map ownership is derived in the view
+// model, not by teaching adapters to inspect Align mode internals.
+test("view model exposes temporary pass-through as interaction posture", () => {
+  assert.deepEqual(selectApplicationView({
+    ...referenceImageLoadedState({
+      mode: "align",
+      pins: [firstPin()],
+    }),
+    inputOverride: {
+      kind: "temporary-pass-through",
+    },
+  }).overlayInput, {
+    kind: "native-map",
+    canEditOverlay: false,
+    arePinsVisible: false,
+    reason: "temporary-pass-through",
+  });
+});
+
 function referenceImageLoadedState({
   mode = "align",
   placement,
