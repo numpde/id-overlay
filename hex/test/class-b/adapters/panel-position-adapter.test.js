@@ -5,9 +5,9 @@ import {
   resolvePanelPosition,
 } from "../../../adapters/ui/panel-position-adapter.js";
 
-// Class-b: panel position is adapter-local chrome, but persisted/restored
-// coordinates must be normalized at the UI boundary so a user cannot strand the
-// panel offscreen across reloads.
+// Class-b, deliberately not class-a: panel position is adapter-local chrome,
+// not product state. The UI boundary still normalizes persisted/restored
+// coordinates so a user cannot strand the panel offscreen across reloads.
 test("panel position adapter clamps finite panel coordinates to viewport", () => {
   assert.deepEqual(resolvePanelPosition({
     requestedScreenPx: {
