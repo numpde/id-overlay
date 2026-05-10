@@ -5,10 +5,10 @@ import {
   constrainImageSize,
 } from "../../../domain/image-policy.js";
 
-// Class-b: pasted-image normalization should be pure and platform-neutral, but
-// the exact sizing policy is still a product choice. This harness protects the
-// current aspect-preserving longest-side rule without pretending it is a
-// permanent architecture law.
+// Class-b, deliberately not class-a: pasted-image normalization must stay pure
+// and platform-neutral, but the exact sizing policy is product-tunable. This
+// protects the current aspect-preserving longest-side rule without making it a
+// permanent product law.
 test("image policy constrains oversized images by longest side", () => {
   assert.deepEqual(constrainImageSize({
     width: 5000,
