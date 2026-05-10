@@ -5,10 +5,10 @@ import {
   bootstrapBrowserExtension,
 } from "../../../bootstrap/index.js";
 
-// Unclassified: placement app laws are class-a, but the composed user path is
-// not settled. Overlay drag should become a committed placement edit through an
-// interaction boundary, then render and persist as one lifecycle.
-test("candidate: overlay move interaction updates placement render and persistence in Align", async () => {
+// Class-c: placement app laws are class-a, but the composed interaction path is
+// not implemented. Overlay drag should become a committed placement edit through
+// one interaction boundary, then render and persist as a single lifecycle.
+test("overlay move interaction updates placement render and persistence in Align", async () => {
   const storage = createDurableStorageHarness({
     durableState: durableImageState({
       mode: "align",
@@ -37,10 +37,9 @@ test("candidate: overlay move interaction updates placement render and persisten
   })]);
 });
 
-// Unclassified: rotate/scale are different gestures but not different product
-// concepts after composition. They should converge on committed placement facts
-// before persistence and rendering.
-test("candidate: overlay rotate and scale interactions converge on committed placement facts", async () => {
+// Class-c: rotate/scale are separate gestures but should converge on committed
+// placement facts before persistence and rendering.
+test("overlay rotate and scale interactions converge on committed placement facts", async () => {
   const storage = createDurableStorageHarness({
     durableState: durableImageState({
       mode: "align",
@@ -77,10 +76,10 @@ test("candidate: overlay rotate and scale interactions converge on committed pla
   ]);
 });
 
-// Unclassified: opacity is durable but not undoable at the application layer.
-// The composed shell still needs a user interaction path that changes visible
-// opacity and writes durable state without creating history controls.
-test("candidate: opacity interaction updates overlay opacity durably without history", async () => {
+// Class-c: opacity is durable but not undoable at the application layer. The
+// shell still needs a user interaction path that changes visible opacity and
+// writes durable state without creating history controls.
+test("opacity interaction updates overlay opacity durably without history", async () => {
   const storage = createDurableStorageHarness({
     durableState: durableImageState({
       mode: "align",
@@ -117,10 +116,10 @@ test("candidate: opacity interaction updates overlay opacity durably without his
   })]);
 });
 
-// Unclassified: Trace is native-map posture. If stale overlay interactions leak
+// Class-c: Trace is native-map posture. If stale overlay interactions leak
 // through, the composed shell must keep placement and opacity durable state
 // inert just like the application laws require.
-test("candidate: Trace ignores overlay placement and opacity interactions", async () => {
+test("Trace ignores overlay placement and opacity interactions", async () => {
   const storage = createDurableStorageHarness({
     durableState: durableImageState({
       mode: "trace",
