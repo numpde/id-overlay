@@ -7,11 +7,11 @@ import { fileURLToPath } from "node:url";
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../..");
 const CONTENT_LOADER = path.join(REPO_ROOT, "src/content/content-loader.js");
 
-// Unclassified: a dynamic-import bridge is a Chrome packaging tactic. The user
-// visible requirement is firmer: if web_accessible_resources or module loading
-// breaks, the loader must report a clear bootstrap failure and remain retryable
-// instead of throwing an unhandled promise into the page.
-test("candidate: content loader reports dynamic import/bootstrap failure without rethrowing", () => {
+// Class-b, deliberately not class-a: dynamic import is a Chrome packaging tactic.
+// The stable shell boundary is failure posture: if web_accessible_resources or
+// bootstrap loading breaks, the loader reports a clear error and leaves the page
+// alive instead of throwing an unhandled promise into the host page.
+test("content loader reports dynamic import/bootstrap failure without rethrowing", () => {
   const source = fs.readFileSync(CONTENT_LOADER, "utf8");
 
   assert.match(source, /\bimport\s*\(\s*chrome\.runtime\.getURL\(EXTENSION_CONTENT_MODULE\)\s*\)/);
