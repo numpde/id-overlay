@@ -7,6 +7,9 @@ import { fileURLToPath } from "node:url";
 import {
   createChromeManifest,
 } from "../../../../scripts/chrome-manifest.mjs";
+import {
+  collectBrowserResources,
+} from "../../../../scripts/build-chrome.mjs";
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../..");
 const EXTENSION_CONTENT_MODULE = "hex/bootstrap/extension-content.js";
@@ -37,6 +40,31 @@ test("chrome manifest is generated from the hex extension content graph", async 
       || resource.startsWith("legacy/")
       || resource.includes("/legacy/")
   )), []);
+});
+
+// Class-b, not class-a: exact copied resource categories may grow with browser
+// features, but build input must stay manifest-derived. The build script should
+// not maintain a second source/assets directory list that can drift from the
+// generated manifest.
+test("chrome build resources are derived from the generated manifest", () => {
+  assert.deepEqual(collectBrowserResources({
+    content_scripts: [{
+      js: ["src/content/content-loader.js"],
+      css: ["src/content/content.css"],
+    }],
+    web_accessible_resources: [{
+      resources: [
+        "hex/bootstrap/extension-content.js",
+        "hex/bootstrap/runtime.js",
+        "src/content/content-loader.js",
+      ],
+    }],
+  }), [
+    "hex/bootstrap/extension-content.js",
+    "hex/bootstrap/runtime.js",
+    "src/content/content-loader.js",
+    "src/content/content.css",
+  ].sort());
 });
 
 function readSource(filePath) {
