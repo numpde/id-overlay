@@ -120,10 +120,10 @@ test("view model exposes overlay render facts", () => {
   });
 });
 
-// Class-b, deliberately not class-a: temporary pass-through is user-visible,
-// but it is not yet a first-class application command/transition. Until that
-// seam exists, this test protects only the current view-model boundary: adapters
-// render a derived interaction posture instead of inspecting Align internals.
+// Class-b, deliberately not class-a: temporary pass-through is transient input
+// posture, not durable product mode. This protects the view-model boundary:
+// adapters render derived interaction facts instead of inspecting Align
+// internals.
 test("view model exposes temporary pass-through as interaction posture", () => {
   assert.deepEqual(selectApplicationView({
     ...referenceImageLoadedState({
