@@ -59,8 +59,10 @@ test("primary action without pins requests clear-image confirmation", () => {
   });
 });
 
-// Class-b: a new visible user intent replaces stale status. Confirmation copy
-// must not be composed with an old notice from an earlier action.
+// Class-b, not class-a: a new visible clear-image intent replaces stale status,
+// but this is still tied to the current confirmation branch and vocabulary.
+// The useful harness pressure is that confirmation UI is not composed with an
+// old notice from an earlier action.
 test("primary action clear-image confirmation clears stale notice", () => {
   const result = handleApplicationCommand({
     state: {
