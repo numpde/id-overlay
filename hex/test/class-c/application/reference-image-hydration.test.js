@@ -12,29 +12,10 @@ import { createInitialApplicationState } from "../../../application/state.js";
 import {
   assertApplicationBoundaryError,
 } from "../../class-b/application/application-boundary-assertions.js";
-import {
-  assertApplicationResult,
-} from "../../class-b/application/application-result-assertions.js";
-import { referenceImageSessionState } from "./reference-image-fixtures.js";
 
-// Class-c: durable reference-image session shape is useful pressure, but not
-// settled enough to make the startup boundary depend on this exact schema yet.
-
-// The first durable session shape must round-trip through hydration. Otherwise
-// accepted paste would create state that a later application run cannot restore.
-test("hydrating durable reference image session restores application state", () => {
-  const state = createInitialApplicationState();
-  const command = createApplicationCommand(APPLICATION_COMMAND_KIND.HYDRATE, {
-    durableState: referenceImageSessionState(),
-  });
-
-  const result = handleApplicationCommand({ state, command });
-
-  assertApplicationResult(result, {
-    state: referenceImageSessionState(),
-    effects: [],
-  });
-});
+// Class-c: these remaining tests push for stricter durable-state schema
+// rejection. The happy-path durable reference-image hydration duplicate was
+// deleted because class-a already covers it authoritatively.
 
 // Unknown durable fields are not a migration problem yet; there is no durable
 // vocabulary beyond the current session shape. Rejecting them avoids silently
