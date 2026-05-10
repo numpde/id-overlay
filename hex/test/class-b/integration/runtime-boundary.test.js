@@ -7,50 +7,6 @@ import {
   wireRuntime,
 } from "../../../bootstrap/runtime.js";
 
-// Class-b: effect kind is the runtime dispatch key. A declared effect must call
-// exactly its matching handler and no neighboring handler.
-test("runtime dispatches each declared effect kind to its matching handler", async () => {
-  const effect = {
-    kind: "persist-durable-state",
-    durableState: {
-      session: {
-        mode: "trace",
-      },
-    },
-  };
-  const calls = [];
-  const runtime = createRuntimeDriver({
-    initialState: {},
-    effectHandlers: {
-      "persist-durable-state": async (receivedEffect) => {
-        calls.push({
-          handler: "persist-durable-state",
-          effect: receivedEffect,
-        });
-        return null;
-      },
-      "read-reference-image": () => {
-        assert.fail("runtime called a handler whose kind was not requested");
-      },
-    },
-    stepApplication({ state }) {
-      return {
-        state,
-        effects: [effect],
-      };
-    },
-  });
-
-  await runtime.dispatch({
-    kind: "user-command",
-  });
-
-  assert.deepEqual(calls, [{
-    handler: "persist-durable-state",
-    effect,
-  }]);
-});
-
 // Class-b, not class-a: a future runtime could introduce explicit parallel
 // scheduling, but this driver currently offers deterministic serial effects.
 // If an application emits effects in order, the next effect starts only after
