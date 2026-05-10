@@ -14,33 +14,6 @@ import {
   referenceImageLoadedState,
 } from "./reference-image-fixtures.js";
 
-// Class-b, not class-a: the main-button ladder is product policy, but the
-// application/view-model contract must be coherent. When Align pins are visible,
-// the view model labels the primary action as Clear pins, so activation must ask
-// for clear-pins confirmation rather than jump to clear-image confirmation.
-test("primary action with visible Align pins requests clear-pins confirmation", () => {
-  const loadedWithPins = referenceImageLoadedState({
-    pins: [firstPin()],
-  });
-
-  const result = handleApplicationCommand({
-    state: loadedWithPins,
-    command: createApplicationCommand(
-      APPLICATION_COMMAND_KIND.ACTIVATE_PRIMARY_ACTION,
-    ),
-  });
-
-  assertApplicationResult(result, {
-    state: {
-      ...loadedWithPins,
-      panelIntent: {
-        kind: "confirm-clear-pins",
-      },
-    },
-    effects: [],
-  });
-});
-
 // Class-b, not class-a: clear-pins is part of the current primary-button ladder
 // and its notice vocabulary is product policy. The durable requirement is still
 // important: confirming must persist the registration-free session and remove

@@ -101,6 +101,31 @@ test("arming clear-image confirmation clears stale notices", () => {
   });
 });
 
+// Class-a: visible Align pins are the narrower destructive target. The primary
+// action must ask to clear pins before it asks to remove the whole image, which
+// keeps the button behavior coherent with the visible editing state.
+test("primary action with visible Align pins arms clear-pins confirmation", () => {
+  const state = referenceImageLoadedState({
+    pins: [firstPin()],
+  });
+  const result = handleApplicationCommand({
+    state,
+    command: createApplicationCommand(
+      APPLICATION_COMMAND_KIND.ACTIVATE_PRIMARY_ACTION,
+    ),
+  });
+
+  assert.deepEqual(result, {
+    state: {
+      ...state,
+      panelIntent: {
+        kind: "confirm-clear-pins",
+      },
+    },
+    effects: [],
+  });
+});
+
 function referenceImageLoadedState({ pins } = {}) {
   const session = {
     mode: "align",
@@ -119,5 +144,19 @@ function referenceImageLoadedState({ pins } = {}) {
   }
   return {
     session,
+  };
+}
+
+function firstPin() {
+  return {
+    id: 1,
+    imagePx: {
+      x: 320,
+      y: 240,
+    },
+    mapLatLon: {
+      lat: -1.23,
+      lon: 36.84,
+    },
   };
 }
