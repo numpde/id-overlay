@@ -11,6 +11,7 @@ export function selectApplicationView(state) {
   const mode = state.session?.mode ?? "trace";
   return {
     mode,
+    overlay: overlayRenderFacts(state, mode),
     overlayInput: overlayInputForMode(mode, Boolean(state.session)),
     modeSwitch: {
       selected: mode,
@@ -23,6 +24,22 @@ export function selectApplicationView(state) {
       label: primaryActionLabel(state),
       enabled: true,
     },
+  };
+}
+
+function overlayRenderFacts(state, mode) {
+  if (!state.session) {
+    return {
+      visible: false,
+    };
+  }
+  return {
+    visible: true,
+    imageDataRef: state.session.referenceImage.imageDataRef,
+    intrinsicSizePx: state.session.referenceImage.intrinsicSizePx,
+    placement: state.session.placement ?? null,
+    opacity: state.session.opacity ?? 1,
+    pins: mode === "align" ? state.session.registration?.pins ?? [] : [],
   };
 }
 

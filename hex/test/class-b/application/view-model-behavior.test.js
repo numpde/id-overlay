@@ -90,8 +90,38 @@ test("view model exposes semantic history controls", () => {
   assert.notEqual(view.history.redo.label, "Redo");
 });
 
+// Class-b, not class-a: overlay rendering needs a stable plain-data projection,
+// but the final renderer may rename individual fields. The key boundary is
+// that adapters receive render facts instead of reading session internals.
+test("view model exposes overlay render facts", () => {
+  const placement = {
+    x: 80,
+    y: 40,
+    scale: 1.5,
+    rotationRad: 0.2,
+  };
+
+  assert.deepEqual(selectApplicationView(referenceImageLoadedState({
+    placement,
+    opacity: 0.6,
+    pins: [firstPin()],
+  })).overlay, {
+    visible: true,
+    imageDataRef: "reference-image-data-1",
+    intrinsicSizePx: {
+      width: 640,
+      height: 480,
+    },
+    placement,
+    opacity: 0.6,
+    pins: [firstPin()],
+  });
+});
+
 function referenceImageLoadedState({
   mode = "align",
+  placement,
+  opacity,
   pins = [],
   panelIntent = null,
 } = {}) {
@@ -105,6 +135,12 @@ function referenceImageLoadedState({
       },
     },
   };
+  if (placement !== undefined) {
+    session.placement = placement;
+  }
+  if (opacity !== undefined) {
+    session.opacity = opacity;
+  }
   if (pins.length > 0) {
     session.registration = {
       pins,
