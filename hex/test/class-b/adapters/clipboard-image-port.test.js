@@ -8,8 +8,9 @@ import {
   normalizeClipboardImage,
 } from "../../../adapters/web/image-normalization.js";
 
-// Class-b: the clipboard adapter translates browser-world outcomes into the
-// small plain-data paste vocabulary consumed by the application.
+// Class-b, deliberately not class-a: this is browser-adapter translation. The
+// application owns paste outcome semantics; the adapter only converts clipboard
+// handles and browser failure cases into the app's plain paste vocabulary.
 test("clipboard image port reports normalized paste outcomes", async () => {
   for (const { clipboardResult, normalizedImage, expected } of [
     {
