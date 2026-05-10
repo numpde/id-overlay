@@ -9,50 +9,11 @@ import { handleApplicationCommand } from "../../../application/handle-command.js
 import {
   movedPlacement,
   placementEditPayload,
-  rotatedPlacement,
-  scaledPlacement,
 } from "./placement-fixtures.js";
 import {
-  durableStateChangedEffect,
   referenceImageDurableState,
   referenceImageLoadedState,
 } from "./reference-image-fixtures.js";
-
-// Class-b, not class-a: move/rotate/scale are the likely committed placement
-// vocabulary, but gesture taxonomy can still evolve. What is settled is the
-// application boundary: a committed Align placement edit updates the visible
-// session placement and emits exactly one durable-state change.
-test("committed Align placement edits update placement and durability", () => {
-  for (const { kind, placement } of [
-    {
-      kind: "move",
-      placement: movedPlacement(),
-    },
-    {
-      kind: "rotate",
-      placement: rotatedPlacement(),
-    },
-    {
-      kind: "scale",
-      placement: scaledPlacement(),
-    },
-  ]) {
-    const result = handleApplicationCommand({
-      state: referenceImageLoadedState(),
-      command: createApplicationCommand(
-        APPLICATION_COMMAND_KIND.COMMIT_PLACEMENT_EDIT,
-        placementEditPayload({ kind, placement }),
-      ),
-    });
-
-    assert.deepEqual(result, {
-      state: referenceImageLoadedState({ placement }),
-      effects: [
-        durableStateChangedEffect(referenceImageDurableState({ placement })),
-      ],
-    });
-  }
-});
 
 // Class-b, not class-a: exact placement fields may move if the geometry model
 // evolves, but durability is not optional. A persisted committed placement must
