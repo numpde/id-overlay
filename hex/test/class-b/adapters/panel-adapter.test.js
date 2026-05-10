@@ -49,8 +49,9 @@ test("panel adapter renders from the view model only", () => {
   );
 });
 
-// Class-b: the panel owns DOM mechanics, but product intent crosses inward as
-// semantic commands. The data-control selectors are just adapter test handles.
+// Class-b, deliberately not class-a: button markup and click wiring are
+// adapter vocabulary. The stable boundary is that DOM events cross inward only
+// as semantic commands, never as elements, labels, or view-model fragments.
 test("panel adapter emits semantic commands only", () => {
   const { window } = new JSDOM("<!doctype html><body></body>");
   const commands = [];
