@@ -37,9 +37,9 @@ test("primary action while awaiting paste cancels the pending paste prompt", () 
   });
 });
 
-// Class-b: with an image loaded and no visible pins, the primary action should
-// ask before removing the image. The confirmation payload is application API
-// vocabulary, so this is not class-a.
+// Class-b, not class-a: with an image loaded and no visible pins, the current
+// primary-button ladder asks before removing the image. This is product policy
+// plus confirmation vocabulary, not an invariant application law.
 test("primary action without pins requests clear-image confirmation", () => {
   const result = handleApplicationCommand({
     state: referenceImageLoadedState(),
