@@ -4,17 +4,11 @@ import assert from "node:assert/strict";
 import {
   bootstrapBrowserExtension,
 } from "../../../bootstrap/index.js";
-import {
-  createBrowserHostHarness,
-  createDurableStorageHarness,
-  durableImageState,
-  firstPin,
-} from "./candidate-browser-harness.js";
 
-// Unclassified: hit testing can be implemented by DOM geometry, canvas math, or
-// page projection. The invariant is higher-level: pointer facts are projected at
-// the shell boundary and the app receives only semantic pin toggles.
-test("candidate: overlay pointer hit-test removes an existing pin through semantic dispatch", async () => {
+// Class-c: hit testing may be DOM geometry, canvas math, or page projection,
+// but the product boundary is higher-level. Pointer facts should be projected
+// at the shell edge, and the app should receive only semantic pin toggles.
+test("overlay pointer hit-test removes an existing pin through semantic dispatch", async () => {
   const overlayInput = createOverlayInputHarness();
   const projection = createProjectionHarness({
     hit: {
@@ -52,9 +46,9 @@ test("candidate: overlay pointer hit-test removes an existing pin through semant
   assert.equal(host.latestRender.view.overlay.pins.length, 0);
 });
 
-// Unclassified: projection miss is a normal runtime fact. It must be inert:
-// no fallback pin at (0,0), no durable write, and no accidental map event leak.
-test("candidate: overlay pointer projection miss is inert", async () => {
+// Class-c: projection miss is a normal runtime fact. It must be inert: no
+// fallback pin at (0,0), no durable write, and no accidental map event leak.
+test("overlay pointer projection miss is inert", async () => {
   const overlayInput = createOverlayInputHarness();
   const projection = createProjectionHarness({
     hit: null,
@@ -86,6 +80,72 @@ test("candidate: overlay pointer projection miss is inert", async () => {
   assert.deepEqual(storage.writes, []);
 });
 
+function createBrowserHostHarness({
+  durableStatePort,
+  overlayInputPort,
+  inputProjectionPort,
+}) {
+  return {
+    pageContext: {
+      kind: "supported-map-editor-page",
+    },
+    durableStatePort,
+    overlayInputPort,
+    inputProjectionPort,
+    latestRender: null,
+    runtime: null,
+    mountOwnedRoot(ownerId, root) {
+      return {
+        ...root,
+        ownerId,
+      };
+    },
+    renderApplicationView(render) {
+      this.latestRender = render;
+    },
+    startRuntime(runtime) {
+      this.runtime = runtime;
+      return runtime;
+    },
+  };
+}
+
+function createDurableStorageHarness({ durableState }) {
+  const writes = [];
+  return {
+    writes,
+    port: {
+      async readDurableState() {
+        return durableState;
+      },
+      async writeDurableState(nextDurableState) {
+        writes.push(nextDurableState);
+      },
+    },
+  };
+}
+
+function durableImageState({ mode, pins }) {
+  const session = {
+    mode,
+    referenceImage: {
+      imageDataRef: "data:image/png;base64,reference-image",
+      intrinsicSizePx: {
+        width: 640,
+        height: 480,
+      },
+    },
+  };
+  if (pins !== undefined) {
+    session.registration = {
+      pins,
+    };
+  }
+  return {
+    session,
+  };
+}
+
 function createOverlayInputHarness() {
   let listener = null;
   return {
@@ -111,6 +171,20 @@ function createProjectionHarness({ hit }) {
         projectedScreenPx.push(screenPx);
         return hit;
       },
+    },
+  };
+}
+
+function firstPin() {
+  return {
+    id: 1,
+    imagePx: {
+      x: 320,
+      y: 240,
+    },
+    mapLatLon: {
+      lat: -1.23,
+      lon: 36.84,
     },
   };
 }
