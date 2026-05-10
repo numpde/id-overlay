@@ -5,10 +5,11 @@ import {
   bootstrapBrowserExtension,
 } from "../../../bootstrap/index.js";
 
-// Class-c: pass-through is transient interaction posture, not durable app mode.
-// The view law exists, but the shell still lacks an interaction-fact dispatcher
-// that can make Align temporarily behave like native map interaction and then
-// restore editing without storage writes.
+// Class-c: the pieces are stable, but the composed seam is not. Keyboard facts
+// and the derived view posture are tested elsewhere; this candidate requires the
+// browser shell to wire interaction facts into transient application state and
+// re-render without durability. Promote only after that shell interaction
+// runtime is the single path for Space/temporary-pass-through behavior.
 test("temporary pass-through changes visible interaction posture without durability", async () => {
   const storage = createDurableStorageHarness({
     durableState: durableImageState({
