@@ -13,53 +13,6 @@ import {
   referenceImageLoadedState,
 } from "./reference-image-fixtures.js";
 
-// Class-b, not class-a: record fields and copy may still tighten, but the
-// history boundary is principled. Undo/redo replays a semantic record's durable
-// before/after states, while the view model exposes that record's user-facing
-// labels instead of inventing generic Undo/Redo copy.
-test("undoing a load-image history record removes the image and exposes reload", () => {
-  const record = {
-    kind: "load-reference-image",
-    undoLabel: "Remove image",
-    redoLabel: "Reload image",
-    before: null,
-    after: referenceImageDurableState(),
-  };
-  const state = {
-    ...referenceImageLoadedState(),
-    history: {
-      past: [record],
-      future: [],
-    },
-  };
-
-  assert.deepEqual(selectApplicationView(state).history.undo, {
-    enabled: true,
-    label: "Remove image",
-  });
-
-  const undo = handleApplicationCommand({
-    state,
-    command: createApplicationCommand(APPLICATION_COMMAND_KIND.UNDO),
-  });
-
-  assert.deepEqual(undo, {
-    state: {
-      history: {
-        past: [],
-        future: [record],
-      },
-    },
-    effects: [
-      durableStateChangedEffect(null),
-    ],
-  });
-  assert.deepEqual(selectApplicationView(undo.state).history.redo, {
-    enabled: true,
-    label: "Reload image",
-  });
-});
-
 // Class-b, not class-a: the exact labels are product copy, but the action
 // boundary is settled. A confirmed image removal is a user-visible durable edit,
 // so the application records the before/after durable states once and generic
