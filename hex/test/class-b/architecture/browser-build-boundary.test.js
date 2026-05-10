@@ -14,10 +14,10 @@ import {
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../..");
 const EXTENSION_CONTENT_MODULE = "hex/bootstrap/extension-content.js";
 
-// Class-b, not class-a: the exact browser packaging pipeline may still change,
-// but the architectural direction is settled. Generated manifests derive
-// loadable resources from the hex extension content graph and must not make
-// tests or legacy code browser-loadable.
+// Class-b, deliberately not class-a: browser packaging mechanics may still
+// change. The stable build boundary is that generated manifests derive loadable
+// resources from the hex extension content graph and never expose tests or
+// legacy code to the browser.
 test("chrome manifest is generated from the hex extension content graph", async () => {
   assert.equal(
     fs.existsSync(repoPath(EXTENSION_CONTENT_MODULE)),
