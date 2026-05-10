@@ -4,19 +4,12 @@ import assert from "node:assert/strict";
 import {
   bootstrapBrowserExtension,
 } from "../../../bootstrap/index.js";
-import {
-  createBrowserHostHarness,
-  createDurableStorageHarness,
-  durableImageState,
-  normalizedReferenceImage,
-  placement,
-} from "./candidate-browser-harness.js";
 
-// Unclassified: startup recovery exists in class-b, but the taxonomy is still
-// candidate-level. The intended cut is uncompromising: every unsupported stored
-// product shape is quarantined at hydration and cleared, instead of being
-// partially accepted because one nested member happens to be unused today.
-test("candidate: unsupported durable-state variants all recover to empty startup state", async (t) => {
+// Class-c: startup recovery itself is class-b, but this exhaustive taxonomy is
+// not yet implemented because malformed registration pins still hydrate. Keep
+// the matrix quarantined until durable-session validation is a single closed
+// boundary rather than piecemeal checks for only the fields currently rendered.
+test("unsupported durable-state variants all recover to empty startup state", async (t) => {
   for (const { name, durableState } of unsupportedDurableStates()) {
     await t.test(name, async () => {
       const storage = createDurableStorageHarness({
@@ -92,4 +85,85 @@ function unsupportedDurableStates() {
       },
     },
   ];
+}
+
+function createBrowserHostHarness({ durableStatePort }) {
+  return {
+    pageContext: {
+      kind: "supported-map-editor-page",
+    },
+    durableStatePort,
+    latestRender: null,
+    mountOwnedRoot(ownerId, root) {
+      return {
+        ...root,
+        ownerId,
+      };
+    },
+    renderApplicationView(render) {
+      this.latestRender = render;
+    },
+    startRuntime(runtime) {
+      return runtime;
+    },
+  };
+}
+
+function createDurableStorageHarness({ durableState }) {
+  const writes = [];
+  return {
+    writes,
+    port: {
+      async readDurableState() {
+        return durableState;
+      },
+      async writeDurableState(nextDurableState) {
+        writes.push(nextDurableState);
+      },
+    },
+  };
+}
+
+function durableImageState({
+  referenceImage,
+  placement: placementData = undefined,
+  opacity = undefined,
+}) {
+  const session = {
+    mode: "align",
+    referenceImage,
+  };
+  if (placementData !== undefined) {
+    session.placement = placementData;
+  }
+  if (opacity !== undefined) {
+    session.opacity = opacity;
+  }
+  return {
+    session,
+  };
+}
+
+function normalizedReferenceImage() {
+  return {
+    imageDataRef: "data:image/png;base64,reference-image",
+    intrinsicSizePx: {
+      width: 640,
+      height: 480,
+    },
+  };
+}
+
+function placement({
+  x = 80,
+  y = 40,
+  scale = 1,
+  rotationRad = 0,
+} = {}) {
+  return {
+    x,
+    y,
+    scale,
+    rotationRad,
+  };
 }
