@@ -5,18 +5,12 @@ import {
   APPLICATION_COMMAND_KIND,
   createApplicationCommand,
 } from "../../../application/command.js";
-import { handleApplicationCommand } from "../../../application/handle-command.js";
-import { createInitialApplicationState } from "../../../application/state.js";
-import {
-  assertApplicationResult,
-} from "../../class-b/application/application-result-assertions.js";
 import { assertPlainData } from "../../class-b/application/plain-data-assertions.js";
 
-// Class-c: the primary action itself is likely real, but this exact no-session
-// interpretation as "awaiting pasted reference image" is product-flow detail.
-// First real use case: with no session, the primary action starts the smallest
-// observable product flow. The caller reports "primary action activated"; the
-// application decides that this means waiting for a pasted reference image.
+// Class-c: this remaining command-vocabulary check is probably redundant with
+// class-a primary-action behavior, but it needs its own promote/delete decision.
+// The stale no-session behavior duplicate was deleted because class-a already
+// covers the correlated awaiting-paste state authoritatively.
 
 test("application command vocabulary includes primary action activation", () => {
   assert.equal(
@@ -31,25 +25,5 @@ test("application command vocabulary includes primary action activation", () => 
   assertPlainData(command);
   assert.deepEqual(command, {
     kind: "activate-primary-action",
-  });
-});
-
-// Starting this flow is state, not an effect. The caller can observe the state
-// and translate a later paste into another application command.
-test("activating the primary action with no session waits for a pasted reference image", () => {
-  const state = createInitialApplicationState();
-  const command = createApplicationCommand(
-    APPLICATION_COMMAND_KIND.ACTIVATE_PRIMARY_ACTION,
-  );
-
-  const result = handleApplicationCommand({ state, command });
-
-  assertApplicationResult(result, {
-    state: {
-      referenceImageInput: {
-        status: "awaiting-paste",
-      },
-    },
-    effects: [],
   });
 });
