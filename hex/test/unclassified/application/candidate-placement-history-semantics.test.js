@@ -54,45 +54,6 @@ const FORBIDDEN_HISTORY_SOURCE_PATTERNS = Object.freeze([
   },
 ]);
 
-// Candidate: duplicate commit facts are adapter noise, not user edits. They
-// must neither persist nor create empty history records.
-test("candidate: unchanged placement edit is inert and leaves history untouched", () => {
-  const state = {
-    session: referenceImageSession({
-      mode: "align",
-      placement: movedPlacement(),
-    }),
-    history: {
-      past: [placementHistoryRecord({
-        editKind: "move",
-        before: placementRevision({
-          placement: originalPlacement(),
-          solvedRegistration: null,
-        }),
-        after: placementRevision({
-          placement: movedPlacement(),
-          solvedRegistration: null,
-        }),
-      })],
-      future: [],
-    },
-  };
-
-  assert.deepEqual(handleApplicationCommand({
-    state,
-    command: createApplicationCommand(
-      APPLICATION_COMMAND_KIND.COMMIT_PLACEMENT_EDIT,
-      {
-        editKind: "move",
-        placement: movedPlacement(),
-      },
-    ),
-  }), {
-    state,
-    effects: [],
-  });
-});
-
 // Candidate: Trace/native-map mode is not an overlay editing mode. Stale
 // placement commands cannot mutate placement, persistence, or history.
 test("candidate: Trace placement edit is inert and leaves history untouched", () => {
