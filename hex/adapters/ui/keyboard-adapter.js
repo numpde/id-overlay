@@ -4,7 +4,7 @@ export function createKeyboardAdapter({ document, emitInteractionFact }) {
       document.addEventListener("keydown", (event) => {
         if (isSpaceKey(event)) {
           emitInteractionFact({
-            kind: "temporary-pass-through-pressed",
+            kind: "temporary-native-map-access-started",
           });
           return;
         }
@@ -13,7 +13,6 @@ export function createKeyboardAdapter({ document, emitInteractionFact }) {
         }
         emitInteractionFact({
           kind: "registration-pin-toggle-requested",
-          source: "shortcut",
         });
       });
       document.addEventListener("keyup", (event) => {
@@ -21,7 +20,7 @@ export function createKeyboardAdapter({ document, emitInteractionFact }) {
           return;
         }
         emitInteractionFact({
-          kind: "temporary-pass-through-released",
+          kind: "temporary-native-map-access-ended",
         });
       });
     },

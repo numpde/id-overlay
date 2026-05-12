@@ -11,6 +11,7 @@ import {
 import { handleApplicationCommand } from "../application/handle-command.js";
 import { createInitialApplicationState } from "../application/state.js";
 import { selectApplicationView } from "../application/view-model.js";
+import { createInteractionRuntime } from "./interaction-runtime.js";
 import { wireRuntime } from "./runtime.js";
 
 // Bootstrap is the composition edge: concrete adapters are assembled here and
@@ -51,6 +52,9 @@ export async function bootstrapBrowserExtension(host) {
   });
   const startedRuntime = host.startRuntime(runtime) ?? runtime;
   const root = host.mountOwnedRoot("id-overlay", rootDescriptor) ?? rootDescriptor;
+  const interactionRuntime = createInteractionRuntime({
+    dispatchApplicationCommand: dispatchAndRender,
+  });
 
   async function dispatchAndRender(command, {
     reportApplicationBoundaryErrors = true,
@@ -82,6 +86,7 @@ export async function bootstrapBrowserExtension(host) {
     root,
   };
   BOOTSTRAPS_BY_HOST.set(host, bootstrap);
+  host.handleInteractionFact = interactionRuntime.handleInteractionFact;
   host.handlePanelChromeChange = async (change) => {
     panelChrome = normalizePanelChrome(panelChromeFromChange(change), {
       ...host,

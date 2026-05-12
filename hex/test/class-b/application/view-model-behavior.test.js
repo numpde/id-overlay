@@ -176,18 +176,18 @@ test("view model exposes overlay render facts", () => {
   assert.equal(JSON.stringify(view).includes("blob:"), false);
 });
 
-// Class-b, deliberately not class-a: temporary pass-through is transient input
-// posture, not durable product mode. The view model is the SSoT for visible
-// posture, so overlay interactivity and rendered pins must agree; adapters must
-// not reconcile contradictory view facts.
-test("view model exposes temporary pass-through as interaction posture", () => {
+// Class-b, deliberately not class-a: this is view-model projection of a class-a
+// app state law. The view model is the SSoT for visible posture, so overlay
+// interactivity and rendered pins must agree; adapters must not reconcile
+// contradictory view facts.
+test("view model exposes temporary native-map access as interaction posture", () => {
   const view = selectApplicationView({
     ...referenceImageLoadedState({
       mode: "align",
       pins: [firstPin()],
     }),
     inputOverride: {
-      kind: "temporary-pass-through",
+      kind: "temporary-native-map-access",
     },
   });
 
@@ -197,7 +197,7 @@ test("view model exposes temporary pass-through as interaction posture", () => {
     kind: "native-map",
     canEditOverlay: false,
     arePinsVisible: false,
-    reason: "temporary-pass-through",
+    reason: "temporary-native-map-access",
   });
   assert.deepEqual(view.overlay.pins, []);
 });

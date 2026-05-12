@@ -60,6 +60,39 @@ test("interaction runtime maps adapter facts into application commands without r
   assertNoAdapterVocabulary(commands);
 });
 
+// Class-b: this is the composition seam for source-neutral transient input
+// facts. The application owns the resulting visible posture; the mapper only
+// translates interaction facts into replayable semantic commands.
+test("interaction runtime maps temporary native-map access facts to posture commands", async () => {
+  const commands = [];
+  const runtime = createInteractionRuntime({
+    dispatchApplicationCommand(command) {
+      commands.push(command);
+    },
+  });
+
+  await runtime.handleInteractionFact({
+    kind: "temporary-native-map-access-started",
+  });
+  await runtime.handleInteractionFact({
+    kind: "temporary-native-map-access-ended",
+  });
+
+  assert.deepEqual(commands, [
+    {
+      kind: "set-temporary-input-posture",
+      posture: "native-map",
+    },
+    {
+      kind: "set-temporary-input-posture",
+      posture: "normal",
+    },
+  ]);
+  assert.equal(JSON.stringify(commands).includes("Space"), false);
+  assert.equal(JSON.stringify(commands).includes("keyboard"), false);
+  assert.equal(JSON.stringify(commands).includes("pass-through"), false);
+});
+
 // Class-b: projection misses are inert at the interaction seam. They are not
 // application errors and the mapper must not guess a fallback command or forward
 // a page gesture when it cannot form semantic product input.

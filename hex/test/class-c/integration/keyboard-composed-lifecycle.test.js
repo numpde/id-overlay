@@ -56,43 +56,6 @@ test("keyboard pin shortcut is bound by the shell and resolved through projectio
   }]);
 });
 
-// Class-c: temporary pass-through is runtime interaction posture, not durable
-// state. The stable contract is user-level "hold Space, then release Space";
-// this version still speaks adapter fact names and binding lifetime directly.
-test("keyboard Space toggles temporary pass-through without durable writes", async () => {
-  const keyboard = createKeyboardHarness();
-  const storage = createDurableStorageHarness({
-    durableState: durableImageState({
-      mode: "align",
-    }),
-  });
-  const host = createBrowserHostHarness({
-    durableStatePort: storage.port,
-    keyboardInputPort: keyboard.port,
-  });
-
-  await bootstrapBrowserExtension(host);
-  await keyboard.emit({
-    kind: "temporary-pass-through-pressed",
-  });
-  assert.deepEqual(host.latestRender.view.overlayInput, {
-    kind: "native-map",
-    canEditOverlay: false,
-    arePinsVisible: false,
-    reason: "temporary-pass-through",
-  });
-
-  await keyboard.emit({
-    kind: "temporary-pass-through-released",
-  });
-  assert.deepEqual(host.latestRender.view.overlayInput, {
-    kind: "overlay-editing",
-    canEditOverlay: true,
-    arePinsVisible: true,
-  });
-  assert.deepEqual(storage.writes, []);
-});
-
 function createBrowserHostHarness({
   durableStatePort,
   keyboardInputPort,

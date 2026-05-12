@@ -22,6 +22,7 @@ export const APPLICATION_COMMAND_KIND = Object.freeze({
   UNDO: "undo",
   REDO: "redo",
   SET_OPACITY: "set-opacity",
+  SET_TEMPORARY_INPUT_POSTURE: "set-temporary-input-posture",
 });
 
 const KNOWN_COMMAND_KINDS = new Set(Object.values(APPLICATION_COMMAND_KIND));
@@ -56,6 +57,10 @@ export function createApplicationCommand(kind, payload = {}) {
     return createSetOpacityCommand(payload);
   }
 
+  if (kind === APPLICATION_COMMAND_KIND.SET_TEMPORARY_INPUT_POSTURE) {
+    return createSetTemporaryInputPostureCommand(payload);
+  }
+
   return {
     ...payload,
     kind,
@@ -84,6 +89,20 @@ function createSetOpacityCommand(payload) {
   return {
     kind: APPLICATION_COMMAND_KIND.SET_OPACITY,
     opacity: normalizeOpacity(payload.opacity),
+  };
+}
+
+function createSetTemporaryInputPostureCommand(payload) {
+  if (
+    Object.keys(payload).length !== 1
+      || !["native-map", "normal"].includes(payload.posture)
+  ) {
+    throwInvalidApplicationCommand();
+  }
+
+  return {
+    kind: APPLICATION_COMMAND_KIND.SET_TEMPORARY_INPUT_POSTURE,
+    posture: payload.posture,
   };
 }
 

@@ -48,12 +48,45 @@ export function handleApplicationCommand({ state, command }) {
       return redoHistory(state);
     case APPLICATION_COMMAND_KIND.SET_OPACITY:
       return setOpacity(state, command);
+    case APPLICATION_COMMAND_KIND.SET_TEMPORARY_INPUT_POSTURE:
+      return setTemporaryInputPosture(state, command);
     default:
       throwBoundary(
         APPLICATION_BOUNDARY_ERROR_CODE.UNKNOWN_APPLICATION_COMMAND,
         "Unknown application command.",
       );
   }
+}
+
+function setTemporaryInputPosture(state, command) {
+  if (command.posture === "native-map") {
+    if (state.inputOverride?.kind === "temporary-native-map-access") {
+      return inertResult(state);
+    }
+    return {
+      state: {
+        ...state,
+        inputOverride: {
+          kind: "temporary-native-map-access",
+        },
+      },
+      effects: [],
+    };
+  }
+
+  if (state.inputOverride?.kind !== "temporary-native-map-access") {
+    return inertResult(state);
+  }
+  const nextState = {};
+  for (const [key, value] of Object.entries(state)) {
+    if (key !== "inputOverride") {
+      nextState[key] = value;
+    }
+  }
+  return {
+    state: nextState,
+    effects: [],
+  };
 }
 
 function setOpacity(state, command) {

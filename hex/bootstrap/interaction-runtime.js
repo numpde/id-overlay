@@ -11,7 +11,26 @@ export function createInteractionRuntime({
 }) {
   return {
     async handleInteractionFact(fact) {
-      if (fact.kind === "registration-pin-toggle-requested") {
+      if (fact.kind === "temporary-native-map-access-started") {
+        await dispatchApplicationCommand(createApplicationCommand(
+          APPLICATION_COMMAND_KIND.SET_TEMPORARY_INPUT_POSTURE,
+          { posture: "native-map" },
+        ));
+        return;
+      }
+
+      if (fact.kind === "temporary-native-map-access-ended") {
+        await dispatchApplicationCommand(createApplicationCommand(
+          APPLICATION_COMMAND_KIND.SET_TEMPORARY_INPUT_POSTURE,
+          { posture: "normal" },
+        ));
+        return;
+      }
+
+      if (
+        fact.kind === "registration-pin-toggle-requested"
+          && typeof projectRegistrationPinToggle === "function"
+      ) {
         const projection = projectRegistrationPinToggle(fact);
         if (projection.kind !== "projected") {
           return;

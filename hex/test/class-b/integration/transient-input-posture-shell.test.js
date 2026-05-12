@@ -5,10 +5,9 @@ import {
   bootstrapBrowserExtension,
 } from "../../../bootstrap/index.js";
 
-// Class-c: the pieces are stable, but the composed seam is not. Input adapters
-// observe mechanics; the app owns visible posture; persistence owns only durable
-// session facts. Promote only after the shell wires source-neutral interaction
-// facts into transient application state and re-renders without durability.
+// Class-b: this names today's shell seam, not the final browser lifecycle
+// controller. The stable boundary is that source-neutral interaction facts can
+// enter the app, re-render visible posture, and leave durable storage untouched.
 test("temporary native-map access changes visible interaction posture without durability", async () => {
   const storage = createDurableStorageHarness({
     durableState: durableImageState({

@@ -29,6 +29,7 @@ const REQUIRED_PRODUCT_COMMAND_KINDS = Object.freeze([
   "toggle-registration-pin",
   "commit-placement-edit",
   "set-opacity",
+  "set-temporary-input-posture",
   "report-reference-image-input-outcome",
   "clear-status-notice",
   "clear-panel-intent",

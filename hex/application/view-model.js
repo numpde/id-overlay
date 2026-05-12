@@ -122,16 +122,16 @@ function pluralizePin(count) {
 }
 
 function areRegistrationPinsVisible(state, mode) {
-  return mode === "align" && state.inputOverride?.kind !== "temporary-pass-through";
+  return mode === "align" && state.inputOverride?.kind !== "temporary-native-map-access";
 }
 
 function overlayInputForState(state, mode) {
-  if (state.inputOverride?.kind === "temporary-pass-through") {
+  if (state.inputOverride?.kind === "temporary-native-map-access") {
     return {
       kind: "native-map",
       canEditOverlay: false,
       arePinsVisible: false,
-      reason: "temporary-pass-through",
+      reason: "temporary-native-map-access",
     };
   }
   if (!state.session || mode === "trace") {
