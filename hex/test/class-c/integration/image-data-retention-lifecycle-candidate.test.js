@@ -5,10 +5,14 @@ import {
   bootstrapBrowserExtension,
 } from "../../../bootstrap/index.js";
 
-// Unclassified candidate: stored image bytes are browser-shell resources, but
-// cleanup cannot follow only the durable projection. Clear image writes durable
-// `null`, yet undo history still references the old ref, so the shell must keep
-// the old stored image data live until no runtime or durable edge can use it.
+// Class-c: stored image bytes are browser-shell resources, but cleanup cannot
+// follow only the durable projection. Clear image writes durable `null`, yet
+// undo history still references the old ref. This requires a reference-image
+// store port and live-ref graph that are not implemented yet.
+//
+// Decision: keep quarantined. The retention policy is important, but it must
+// land with the broader runtime resource ownership layer rather than as an
+// isolated bootstrap expectation.
 test("clearing a reference image keeps stored image data live while undo can reload it", async () => {
   const oldImage = normalizedReferenceImage("old");
   const storage = createDurableStorageHarness({
@@ -33,10 +37,8 @@ test("clearing a reference image keeps stored image data live while undo can rel
   assert.deepEqual(imageStore.releases, []);
 });
 
-// Unclassified candidate: failed persistence is an even stronger retention
-// case. The old durable state may still be restored on reload, and runtime
-// history can still reload it immediately, so the image store must keep the old
-// ref live instead of treating the user's clear intent as deletion authority.
+// Class-c: failed persistence is an even stronger retention case, but the same
+// unimplemented store/live-ref graph is required.
 test("failed durable write keeps stored image data live", async () => {
   const oldImage = normalizedReferenceImage("old");
   const storage = createDurableStorageHarness({
@@ -61,9 +63,8 @@ test("failed durable write keeps stored image data live", async () => {
   assert.deepEqual(imageStore.releases, []);
 });
 
-// Unclassified candidate: replacement creates two live image refs, not one old
-// ref to delete. The new session needs the new ref, and undo history needs the
-// previous ref so "Restore previous image" remains truthful.
+// Class-c: replacement creates two live image refs, but release/acquire
+// semantics are not settled until the resource layer exists.
 test("accepted replacement keeps previous and new stored image data live", async () => {
   const oldImage = normalizedReferenceImage("old");
   const newImage = normalizedReferenceImage("new");
