@@ -2,7 +2,6 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  createGestureForwardingAdapter,
   createPageSnapshotAdapter,
   createProjectionAdapter,
 } from "../../../adapters/page-osm-id/page-adapter.js";
@@ -74,33 +73,6 @@ test("projection adapter reports explicit failure facts", () => {
     kind: "failed",
     reason: "missing-viewport",
   });
-});
-
-// Class-b, deliberately not class-a: the exact gesture transport is adapter
-// plumbing. The boundary matters: mode policy stays outside this adapter, which
-// forwards only explicit gesture facts it was handed.
-test("gesture forwarding adapter is mode-agnostic", async () => {
-  const forwarded = [];
-  const adapter = createGestureForwardingAdapter({
-    async forwardGesture(gestureFact) {
-      forwarded.push(gestureFact);
-      return {
-        kind: "forwarded",
-      };
-    },
-  });
-  const gesture = {
-    kind: "map-pan",
-    deltaScreenPx: {
-      x: 12,
-      y: -8,
-    },
-  };
-
-  assert.deepEqual(await adapter.forward(gesture), {
-    kind: "forwarded",
-  });
-  assert.deepEqual(forwarded, [gesture]);
 });
 
 function assertPlainData(value) {

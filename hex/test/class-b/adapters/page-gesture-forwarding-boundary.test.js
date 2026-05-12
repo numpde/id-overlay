@@ -5,9 +5,10 @@ import {
   createGestureForwardingAdapter,
 } from "../../../adapters/page-osm-id/page-adapter.js";
 
-// Unclassified candidate: forwarding is transport, not mode policy. The shell
-// decides when a native-map gesture fact should be forwarded; the page adapter
-// receives that fact and performs no application-state lookup of its own.
+// Class-b, deliberately not class-a: exact OSM/iD event transport is adapter
+// mechanics. The stable boundary is that forwarding is transport, not mode
+// policy: the shell decides when to forward, and the page adapter receives one
+// explicit native-map gesture fact without reading product state.
 test("gesture forwarding adapter transports explicit native-map gesture facts unchanged", async () => {
   const forwarded = [];
   const adapter = createGestureForwardingAdapter({
