@@ -33,9 +33,10 @@ test("primary action with no session requests reference-image input", () => {
   });
 });
 
-// Class-a: while image input is armed, activating the same primary action cancels that
-// transient input flow. Cancellation must not create a session or write durable
-// state; any user-facing cancellation notice is weaker copy policy.
+// Class-a: while image input is armed, activating the same primary action
+// cancels that transient input flow. Cancellation must not create a session or
+// write durable state, and the cancellation notice is request-correlated so
+// late host results remain stale.
 test("primary action while awaiting input cancels transient image input", () => {
   const result = handleApplicationCommand({
     state: {
@@ -49,9 +50,17 @@ test("primary action while awaiting input cancels transient image input", () => 
     ),
   });
 
-  assert.equal(result.state.session, undefined);
-  assert.equal(result.state.referenceImageInput, undefined);
-  assert.deepEqual(result.effects, []);
+  assert.deepEqual(result, {
+    state: {
+      notice: {
+        kind: "reference-image-input-cancelled",
+        requestId: 1,
+      },
+    },
+    effects: [
+      scheduleClearStatusNoticeEffect(1),
+    ],
+  });
 });
 
 // Class-a: clearing a loaded reference image is destructive. The primary action
@@ -268,6 +277,14 @@ function requestReferenceImageInputEffect(requestId) {
   return {
     kind: "request-reference-image-input",
     requestId,
+  };
+}
+
+function scheduleClearStatusNoticeEffect(requestId) {
+  return {
+    kind: "schedule-clear-status-notice",
+    requestId,
+    delayMs: 2500,
   };
 }
 

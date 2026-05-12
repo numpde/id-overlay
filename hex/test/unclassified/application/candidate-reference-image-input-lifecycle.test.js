@@ -49,47 +49,6 @@ const FAILURE_REASON = Object.freeze({
   UNSUPPORTED_IMAGE: "unsupported-image",
 });
 
-// Candidate: cancellation is product-owned. The adapter may clean up listeners
-// or abort in-flight reads, but late outcomes are ignored because the request id
-// no longer belongs to an active application request.
-test("candidate: cancelling reference-image input ignores late outcomes", () => {
-  const cancelled = handleApplicationCommand({
-    state: awaitingInputState({ requestId: 1 }),
-    command: createApplicationCommand(APPLICATION_COMMAND_KIND.ACTIVATE_PRIMARY_ACTION),
-  });
-
-  assert.deepEqual(cancelled, {
-    state: {
-      notice: {
-        kind: "reference-image-input-cancelled",
-        requestId: 1,
-      },
-    },
-    effects: [{
-      kind: EFFECT_KIND.SCHEDULE_CLEAR_STATUS_NOTICE,
-      requestId: 1,
-      delayMs: STATUS_NOTICE_DELAY_MS,
-    }],
-  });
-
-  assert.deepEqual(handleApplicationCommand({
-    state: cancelled.state,
-    command: createApplicationCommand(
-      APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_INPUT_OUTCOME,
-      {
-        requestId: 1,
-        outcome: {
-          kind: ACCEPTED_OUTCOME.ACCEPTED,
-          referenceImage: normalizedReferenceImage(),
-        },
-      },
-    ),
-  }), {
-    state: cancelled.state,
-    effects: [],
-  });
-});
-
 // Candidate: the app supports one active reference-image input request. "Click
 // Paste while awaiting input" is Cancel. Retry/Replace would require a distinct
 // product command, not another implicit primary-action branch.

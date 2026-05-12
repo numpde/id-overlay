@@ -81,7 +81,8 @@ test("hydration replaces transient state from durable input", () => {
         requestId: 1,
       },
       notice: {
-        kind: "reference-image-paste-cancelled",
+        kind: "reference-image-input-cancelled",
+        requestId: 1,
       },
       panelIntent: {
         kind: "confirm-clear-reference-image",

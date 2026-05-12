@@ -292,10 +292,11 @@ function activatePrimaryAction(state) {
     return {
       state: {
         notice: {
-          kind: "reference-image-paste-cancelled",
+          kind: "reference-image-input-cancelled",
+          requestId: state.referenceImageInput.requestId,
         },
       },
-      effects: [],
+      effects: [scheduleClearStatusNoticeEffect(state.referenceImageInput.requestId)],
     };
   }
   if (!state.session) {
