@@ -50,63 +50,6 @@ const FORBIDDEN_HISTORY_SOURCE_PATTERNS = Object.freeze([
   },
 ]);
 
-// Candidate: registration fit metadata is part of the placement revision, but
-// only with its pin context. Manual placement clears solved metadata; undo
-// restores it only while the current pins still match the recorded fit.
-test("candidate: undoing manual placement restores solved registration placement metadata", () => {
-  const record = placementHistoryRecord({
-    editKind: "move",
-    before: placementRevision({
-      placement: originalPlacement(),
-      solvedRegistration: solvedRegistration({
-        pinIds: [1, 2],
-        placement: originalPlacement(),
-      }),
-    }),
-    after: placementRevision({
-      placement: movedPlacement(),
-      solvedRegistration: null,
-    }),
-  });
-
-  assert.deepEqual(handleApplicationCommand({
-    state: {
-      session: referenceImageSession({
-        mode: "align",
-        pins: [firstPin(), secondPin()],
-        placement: movedPlacement(),
-      }),
-      history: {
-        past: [record],
-        future: [],
-      },
-    },
-    command: createApplicationCommand(APPLICATION_COMMAND_KIND.UNDO),
-  }), {
-    state: {
-      session: referenceImageSession({
-        mode: "align",
-        pins: [firstPin(), secondPin()],
-        placement: originalPlacement(),
-        solvedPlacement: originalPlacement(),
-      }),
-      history: {
-        past: [],
-        future: [record],
-      },
-    },
-    effects: [{
-      kind: EFFECT_KIND.PERSIST_DURABLE_STATE,
-      durableState: durableImageState({
-        mode: "align",
-        pins: [firstPin(), secondPin()],
-        placement: originalPlacement(),
-        solvedPlacement: originalPlacement(),
-      }),
-    }],
-  });
-});
-
 // Candidate: if the pin context changed after manual placement, undo still
 // restores the visible placement but must not resurrect stale solved metadata.
 // The user asked to undo a transform edit, not to assert that changed pins still

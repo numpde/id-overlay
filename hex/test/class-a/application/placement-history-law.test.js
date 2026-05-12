@@ -116,6 +116,63 @@ test("redoing placement preserves unrelated current durable state", () => {
   });
 });
 
+// Class-a: solved registration placement is part of a placement revision, but
+// only with its pin context. Undo can restore solved metadata when the current
+// pins still match the recorded fit.
+test("undoing manual placement restores solved registration placement metadata", () => {
+  const record = placementHistoryRecord({
+    editKind: "move",
+    before: placementRevision({
+      placement: originalPlacement(),
+      solvedRegistration: solvedRegistration({
+        pinIds: [1, 2],
+        placement: originalPlacement(),
+      }),
+    }),
+    after: placementRevision({
+      placement: movedPlacement(),
+      solvedRegistration: null,
+    }),
+  });
+
+  assert.deepEqual(handleApplicationCommand({
+    state: {
+      session: referenceImageSession({
+        mode: "align",
+        pins: [firstPin(), secondPin()],
+        placement: movedPlacement(),
+      }),
+      history: {
+        past: [record],
+        future: [],
+      },
+    },
+    command: createApplicationCommand(APPLICATION_COMMAND_KIND.UNDO),
+  }), {
+    state: {
+      session: referenceImageSession({
+        mode: "align",
+        pins: [firstPin(), secondPin()],
+        placement: originalPlacement(),
+        solvedPlacement: originalPlacement(),
+      }),
+      history: {
+        past: [],
+        future: [record],
+      },
+    },
+    effects: [{
+      kind: "persist-durable-state",
+      durableState: durableImageState({
+        mode: "align",
+        pins: [firstPin(), secondPin()],
+        placement: originalPlacement(),
+        solvedPlacement: originalPlacement(),
+      }),
+    }],
+  });
+});
+
 function placementHistoryRecord({ editKind, before, after }) {
   return {
     kind: "overlay-placement-edit",
@@ -132,11 +189,19 @@ function placementRevision({ placement, solvedRegistration }) {
   };
 }
 
+function solvedRegistration({ pinIds, placement }) {
+  return {
+    pinIds,
+    placement,
+  };
+}
+
 function durableImageState({
   mode,
   placement,
   opacity,
   pins,
+  solvedPlacement,
 }) {
   return {
     session: referenceImageSession({
@@ -144,6 +209,7 @@ function durableImageState({
       placement,
       opacity,
       pins,
+      solvedPlacement,
     }),
   };
 }
@@ -153,6 +219,7 @@ function referenceImageSession({
   placement = undefined,
   opacity = undefined,
   pins = [],
+  solvedPlacement = undefined,
 }) {
   const session = {
     mode,
@@ -170,10 +237,13 @@ function referenceImageSession({
   if (opacity !== undefined) {
     session.opacity = opacity;
   }
-  if (pins.length > 0) {
+  if (pins.length > 0 || solvedPlacement !== undefined) {
     session.registration = {
       pins,
     };
+    if (solvedPlacement !== undefined) {
+      session.registration.solvedPlacement = solvedPlacement;
+    }
   }
   return session;
 }
@@ -188,6 +258,20 @@ function firstPin() {
     mapLatLon: {
       lat: -1.23,
       lon: 36.84,
+    },
+  };
+}
+
+function secondPin() {
+  return {
+    id: 2,
+    imagePx: {
+      x: 500,
+      y: 260,
+    },
+    mapLatLon: {
+      lat: -1.22,
+      lon: 36.85,
     },
   };
 }
