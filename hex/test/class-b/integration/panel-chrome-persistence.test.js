@@ -5,6 +5,16 @@ import {
   bootstrapBrowserExtension,
 } from "../../../bootstrap/index.js";
 
+const VIEWPORT_PX = Object.freeze({
+  width: 800,
+  height: 600,
+});
+
+const PANEL_SIZE_PX = Object.freeze({
+  width: 240,
+  height: 120,
+});
+
 // Class-b: panel chrome is browser-shell preference, not product state. The
 // exact port/render payload may evolve, but startup must keep durable product
 // hydration and panel chrome restoration as separate streams.
@@ -46,6 +56,40 @@ test("browser shell restores panel chrome outside product hydration", async () =
   assert.equal(JSON.stringify(result.runtime.getState()).includes("panel"), false);
 });
 
+// Class-b: restored panel chrome must be visible on the current page, but a
+// viewport-specific clamp is render normalization, not a reason to rewrite the
+// stored preference during startup.
+test("browser shell clamps restored panel chrome for render without startup writeback", async () => {
+  const panelChrome = createPanelChromeHarness({
+    storedChrome: {
+      position: {
+        screenPx: {
+          x: 9999,
+          y: -40,
+        },
+      },
+    },
+  });
+  const host = createBrowserHostHarness({
+    durableStatePort: createDurableStorageHarness({
+      durableState: null,
+    }).port,
+    panelChromePort: panelChrome.port,
+  });
+
+  await bootstrapBrowserExtension(host);
+
+  assert.deepEqual(host.latestRender.panelChrome, {
+    position: {
+      screenPx: {
+        x: 560,
+        y: 0,
+      },
+    },
+  });
+  assert.deepEqual(panelChrome.writes, []);
+});
+
 function createBrowserHostHarness({
   pageContext = {
     kind: "supported-map-editor-page",
@@ -57,6 +101,8 @@ function createBrowserHostHarness({
     pageContext,
     durableStatePort,
     panelChromePort,
+    pageViewportPx: VIEWPORT_PX,
+    panelSizePx: PANEL_SIZE_PX,
     latestRender: null,
     mountOwnedRoot(ownerId, root) {
       return {
@@ -90,17 +136,21 @@ function createDurableStorageHarness({ durableState }) {
 }
 
 function createPanelChromeHarness({ storedChrome = null } = {}) {
+  const writes = [];
   let readCount = 0;
   return {
     get readCount() {
       return readCount;
     },
+    writes,
     port: {
       async readPanelChrome() {
         readCount += 1;
         return storedChrome;
       },
-      async writePanelChrome() {},
+      async writePanelChrome(panelChrome) {
+        writes.push(panelChrome);
+      },
     },
   };
 }

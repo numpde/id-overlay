@@ -57,40 +57,6 @@ const FORBIDDEN_APPLICATION_PANEL_CHROME_PATTERNS = Object.freeze([
   /\bid-overlay\/panel\b/,
 ]);
 
-// Candidate: restored chrome is normalized for the current viewport before it
-// reaches rendering. Startup normalization should not immediately rewrite the
-// stored preference, because viewport and panel size can vary between pages.
-test("candidate: restored panel chrome is clamped for render without startup writeback", async () => {
-  const panelChrome = createPanelChromeHarness({
-    storedChrome: {
-      position: {
-        screenPx: {
-          x: 9999,
-          y: -40,
-        },
-      },
-    },
-  });
-  const host = createBrowserHostHarness({
-    durableStatePort: createDurableStorageHarness({
-      durableState: null,
-    }).port,
-    panelChromePort: panelChrome.port,
-  });
-
-  await bootstrapBrowserExtension(host);
-
-  assert.deepEqual(host.latestRender.panelChrome, {
-    position: {
-      screenPx: {
-        x: 560,
-        y: 0,
-      },
-    },
-  });
-  assert.deepEqual(panelChrome.writes, []);
-});
-
 // Candidate: malformed or absent panel chrome is browser preference noise. It
 // should normalize to safe visible chrome without becoming an application
 // hydration failure or clearing image/session storage.

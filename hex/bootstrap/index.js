@@ -5,6 +5,9 @@ import {
 import {
   ApplicationBoundaryError,
 } from "../application/errors.js";
+import {
+  resolvePanelPosition,
+} from "../adapters/ui/panel-position-adapter.js";
 import { handleApplicationCommand } from "../application/handle-command.js";
 import { createInitialApplicationState } from "../application/state.js";
 import { selectApplicationView } from "../application/view-model.js";
@@ -31,7 +34,7 @@ export async function bootstrapBrowserExtension(host) {
   };
   const durableStatePort = host.durableStatePort ?? createNoopDurableStatePort();
   const panelChromePort = host.panelChromePort ?? createNoopPanelChromePort();
-  const panelChrome = await panelChromePort.readPanelChrome();
+  const panelChrome = normalizePanelChrome(await panelChromePort.readPanelChrome(), host);
   const runtime = wireRuntime({
     initialState: createInitialApplicationState(),
     stepApplication: handleApplicationCommand,
@@ -163,4 +166,50 @@ function createNoopPanelChromePort() {
     },
     async writePanelChrome() {},
   };
+}
+
+function normalizePanelChrome(panelChrome, host) {
+  const screenPx = panelChrome?.position?.screenPx;
+  if (!isFiniteScreenPoint(screenPx)) {
+    return createDefaultPanelChrome();
+  }
+  if (!isFinitePanelSize(host.panelSizePx) || !isFiniteViewport(host.pageViewportPx)) {
+    return {
+      position: {
+        screenPx,
+      },
+    };
+  }
+  return {
+    position: {
+      screenPx: resolvePanelPosition({
+        requestedScreenPx: screenPx,
+        panelSizePx: host.panelSizePx,
+        viewportPx: host.pageViewportPx,
+      }),
+    },
+  };
+}
+
+function createDefaultPanelChrome() {
+  return {
+    position: {
+      screenPx: {
+        x: 16,
+        y: 16,
+      },
+    },
+  };
+}
+
+function isFiniteScreenPoint(screenPx) {
+  return Number.isFinite(screenPx?.x) && Number.isFinite(screenPx?.y);
+}
+
+function isFinitePanelSize(panelSizePx) {
+  return Number.isFinite(panelSizePx?.width) && Number.isFinite(panelSizePx?.height);
+}
+
+function isFiniteViewport(viewportPx) {
+  return Number.isFinite(viewportPx?.width) && Number.isFinite(viewportPx?.height);
 }
