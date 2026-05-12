@@ -51,42 +51,6 @@ const EFFECT_KIND = Object.freeze({
 
 const STATUS_NOTICE_DELAY_MS = 2500;
 
-// Candidate: request correlation matters more during replacement because a late
-// accepted image could otherwise overwrite a visible session the user chose to
-// keep. Stale outcomes are inert.
-test("candidate: stale replacement outcome cannot replace current image", () => {
-  const state = {
-    ...loadedImageState({
-      mode: "align",
-      placement: oldPlacement(),
-    }),
-    referenceImageInput: {
-      status: "awaiting-input",
-      requestId: 9,
-      intent: {
-        kind: "replace-reference-image",
-      },
-    },
-  };
-
-  assert.deepEqual(handleApplicationCommand({
-    state,
-    command: createApplicationCommand(
-      APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_INPUT_OUTCOME,
-      {
-        requestId: 8,
-        outcome: {
-          kind: "accepted",
-          referenceImage: newReferenceImage(),
-        },
-      },
-    ),
-  }), {
-    state,
-    effects: [],
-  });
-});
-
 // Candidate: replacement and removal have different history descriptions. The
 // view should describe undoing a replacement as restoring the previous image,
 // not as generic Undo or as Clear/Reload copy borrowed from image removal.

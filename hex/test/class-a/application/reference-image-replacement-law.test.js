@@ -329,6 +329,42 @@ test("cancelling replacement leaves old image intact", () => {
   });
 });
 
+// Class-a: stale replacement results are ignored before outcome semantics. A
+// late accepted input must not overwrite the visible old session after the user
+// has moved on to a newer request or cancellation.
+test("stale replacement outcome cannot replace current image", () => {
+  const state = {
+    ...loadedImageState({
+      mode: "align",
+      placement: oldPlacement(),
+    }),
+    referenceImageInput: {
+      status: "awaiting-input",
+      requestId: 9,
+      intent: {
+        kind: "replace-reference-image",
+      },
+    },
+  };
+
+  assert.deepEqual(handleApplicationCommand({
+    state,
+    command: createApplicationCommand(
+      APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_INPUT_OUTCOME,
+      {
+        requestId: 8,
+        outcome: {
+          kind: "accepted",
+          referenceImage: newReferenceImage(),
+        },
+      },
+    ),
+  }), {
+    state,
+    effects: [],
+  });
+});
+
 function loadedImageState({
   mode = "align",
   referenceImage = oldReferenceImage(),
