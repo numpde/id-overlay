@@ -57,48 +57,6 @@ const FORBIDDEN_APPLICATION_PANEL_CHROME_PATTERNS = Object.freeze([
   /\bid-overlay\/panel\b/,
 ]);
 
-// Candidate: dragging panel chrome is not an application command. It writes
-// normalized shell chrome only, leaving app runtime state and durable session
-// persistence untouched.
-test("candidate: panel drag writes only panel chrome", async () => {
-  const durableState = durableImageState();
-  const storage = createDurableStorageHarness({
-    durableState,
-  });
-  const panelChrome = createPanelChromeHarness({
-    storedChrome: SAMPLE_PANEL_CHROME,
-  });
-  const host = createBrowserHostHarness({
-    durableStatePort: storage.port,
-    panelChromePort: panelChrome.port,
-  });
-
-  const result = await bootstrapBrowserExtension(host);
-  await host.dispatchPanelChromeChange({
-    position: {
-      requestedScreenPx: {
-        x: 700,
-        y: 580,
-      },
-      panelSizePx: PANEL_SIZE_PX,
-      viewportPx: VIEWPORT_PX,
-    },
-  });
-
-  assert.deepEqual(panelChrome.writes, [{
-    position: {
-      screenPx: {
-        x: 560,
-        y: 480,
-      },
-    },
-  }]);
-  assert.deepEqual(result.runtime.getState(), {
-    session: durableState.session,
-  });
-  assert.deepEqual(storage.writes, []);
-});
-
 // Candidate: product commands can re-render the panel, but they must not reset
 // or rewrite persisted panel chrome. Chrome preference survives product session
 // changes because it belongs to the browser-shell lifecycle.

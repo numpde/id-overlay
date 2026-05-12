@@ -131,6 +131,55 @@ test("browser shell normalizes unsupported panel chrome without touching durable
   }
 });
 
+// Class-b: panel dragging is shell chrome persistence, not an application
+// command. The browser shell may re-render after the drag, but the product
+// runtime and durable session storage must remain unchanged.
+test("browser shell panel drag writes only panel chrome", async () => {
+  const durableState = durableImageState();
+  const storage = createDurableStorageHarness({
+    durableState,
+  });
+  const panelChrome = createPanelChromeHarness({
+    storedChrome: {
+      position: {
+        screenPx: {
+          x: 16,
+          y: 16,
+        },
+      },
+    },
+  });
+  const host = createBrowserHostHarness({
+    durableStatePort: storage.port,
+    panelChromePort: panelChrome.port,
+  });
+
+  const result = await bootstrapBrowserExtension(host);
+  await host.dispatchPanelChromeChange({
+    position: {
+      requestedScreenPx: {
+        x: 700,
+        y: 580,
+      },
+      panelSizePx: PANEL_SIZE_PX,
+      viewportPx: VIEWPORT_PX,
+    },
+  });
+
+  assert.deepEqual(panelChrome.writes, [{
+    position: {
+      screenPx: {
+        x: 560,
+        y: 480,
+      },
+    },
+  }]);
+  assert.deepEqual(result.runtime.getState(), {
+    session: durableState.session,
+  });
+  assert.deepEqual(storage.writes, []);
+});
+
 function createBrowserHostHarness({
   pageContext = {
     kind: "supported-map-editor-page",
@@ -156,6 +205,12 @@ function createBrowserHostHarness({
     },
     startRuntime(runtime) {
       return runtime;
+    },
+    async dispatchPanelChromeChange(change) {
+      if (typeof this.handlePanelChromeChange !== "function") {
+        throw new TypeError("browser shell did not expose panel chrome change dispatch");
+      }
+      await this.handlePanelChromeChange(change);
     },
   };
 }
