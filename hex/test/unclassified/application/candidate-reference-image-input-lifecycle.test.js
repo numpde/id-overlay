@@ -21,6 +21,9 @@ import { handleApplicationCommand } from "../../../application/handle-command.js
 //
 // Classification note: the accepted-input candidate was deleted as a duplicate
 // of the stronger class-a reference-image lifecycle law.
+//
+// Classification note: the empty-input candidate was deleted as a duplicate of
+// the stronger class-a lifecycle law plus class-b notice-shape boundary.
 
 const COMMAND_KIND = Object.freeze({
   REPORT_REFERENCE_IMAGE_INPUT_OUTCOME: "report-reference-image-input-outcome",
@@ -44,35 +47,6 @@ const FAILURE_REASON = Object.freeze({
   SOURCE_UNAVAILABLE: "source-unavailable",
   DECODE_FAILED: "decode-failed",
   UNSUPPORTED_IMAGE: "unsupported-image",
-});
-
-// Candidate: empty input is a normal user-world outcome. It ends the request,
-// leaves no hidden session, and uses source-neutral status vocabulary.
-test("candidate: empty reference-image input ends request and schedules status expiry", () => {
-  assert.deepEqual(handleApplicationCommand({
-    state: awaitingInputState({ requestId: 1 }),
-    command: createApplicationCommand(
-      APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_INPUT_OUTCOME,
-      {
-        requestId: 1,
-        outcome: {
-          kind: ACCEPTED_OUTCOME.EMPTY,
-        },
-      },
-    ),
-  }), {
-    state: {
-      notice: {
-        kind: "reference-image-input-empty",
-        requestId: 1,
-      },
-    },
-    effects: [{
-      kind: EFFECT_KIND.SCHEDULE_CLEAR_STATUS_NOTICE,
-      requestId: 1,
-      delayMs: STATUS_NOTICE_DELAY_MS,
-    }],
-  });
 });
 
 // Candidate: failed input has a small product taxonomy. Browser-specific causes
