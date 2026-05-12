@@ -30,32 +30,6 @@ import {
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../..");
 const BOOTSTRAP_INDEX = path.join(REPO_ROOT, "hex/bootstrap/index.js");
 
-// Candidate: stale UI callbacks are a lifecycle concern. Once the page instance
-// is stopped, callbacks captured by an old render must not dispatch product
-// commands, persist effects, or re-render a root that has been disposed.
-test("candidate: stale rendered dispatch is inert after dispose", async () => {
-  const host = createLifecycleHostHarness({
-    pageContext: {
-      kind: "supported-map-editor-page",
-    },
-    durableState: durableImageState({
-      mode: "align",
-    }),
-  });
-
-  const bootstrap = await bootstrapBrowserExtension(host);
-  const staleDispatch = host.latestRender.dispatchCommand;
-  bootstrap.dispose();
-
-  await staleDispatch({
-    kind: "select-mode",
-    mode: "trace",
-  });
-
-  assert.deepEqual(host.storageWrites, []);
-  assert.equal(host.renderCount, 1);
-});
-
 // Candidate: lifecycle should be explicit in source structure. A hidden global
 // host registry can make repeated start look correct while leaving stop/restart,
 // page unload, and late async callback behavior underspecified.
@@ -126,21 +100,6 @@ function createLifecycleHostHarness({
           originalDispose?.();
         },
       };
-    },
-  };
-}
-
-function durableImageState({ mode }) {
-  return {
-    session: {
-      mode,
-      referenceImage: {
-        imageDataRef: "data:image/png;base64,reference-image",
-        intrinsicSizePx: {
-          width: 640,
-          height: 480,
-        },
-      },
     },
   };
 }

@@ -65,6 +65,47 @@ test("dispose is idempotent and allows a fresh later start", async () => {
   });
 });
 
+// Class-c: stale UI callbacks must become inert after stop, but the exact
+// callback invalidation mechanism belongs to the future lifecycle controller.
+// This should be promoted only with the controller, not as a bootstrap accident.
+test("stale rendered dispatch is inert after dispose", async () => {
+  const host = createLifecycleHostHarness({
+    pageContext: {
+      kind: "supported-map-editor-page",
+    },
+    durableState: durableImageState({
+      mode: "align",
+    }),
+  });
+
+  const bootstrap = await bootstrapBrowserExtension(host);
+  const staleDispatch = host.latestRender.dispatchCommand;
+  bootstrap.dispose();
+
+  await staleDispatch({
+    kind: "select-mode",
+    mode: "trace",
+  });
+
+  assert.deepEqual(host.storageWrites, []);
+  assert.equal(host.renderCount, 1);
+});
+
+function durableImageState({ mode }) {
+  return {
+    session: {
+      mode,
+      referenceImage: {
+        imageDataRef: "data:image/png;base64,reference-image",
+        intrinsicSizePx: {
+          width: 640,
+          height: 480,
+        },
+      },
+    },
+  };
+}
+
 function createLifecycleHostHarness({
   pageContext,
   durableState = null,
