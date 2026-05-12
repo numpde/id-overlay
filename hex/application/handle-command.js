@@ -517,35 +517,6 @@ function selectMode(state, command) {
     return inertResult(state);
   }
 
-  if (
-    mode === "trace"
-      && commandHasSolvedPlacement(command)
-      && (state.session.registration?.pins ?? []).length >= 2
-  ) {
-    const solvedPlacement = command.solvedPlacement;
-    const nextState = {
-      session: {
-        ...state.session,
-        mode,
-        placement: solvedPlacement,
-        registration: {
-          ...state.session.registration,
-          solvedPlacement,
-        },
-      },
-      notice: {
-        kind: "fit-reference-image-from-pins",
-        pinCount: state.session.registration.pins.length,
-      },
-    };
-    return {
-      state: nextState,
-      effects: [
-        persistDurableStateEffect(selectDurableApplicationState(nextState)),
-      ],
-    };
-  }
-
   const nextState = {
     session: {
       ...state.session,
@@ -558,10 +529,6 @@ function selectMode(state, command) {
       persistDurableStateEffect(selectDurableApplicationState(nextState)),
     ],
   };
-}
-
-function commandHasSolvedPlacement(command) {
-  return command?.solvedPlacement !== undefined;
 }
 
 function clearRegistrationPins(state) {

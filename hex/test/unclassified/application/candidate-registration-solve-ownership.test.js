@@ -8,10 +8,6 @@ import {
   APPLICATION_COMMAND_KIND,
   createApplicationCommand,
 } from "../../../application/command.js";
-import {
-  ApplicationBoundaryError,
-  APPLICATION_BOUNDARY_ERROR_CODE,
-} from "../../../application/errors.js";
 import { handleApplicationCommand } from "../../../application/handle-command.js";
 
 // Unclassified: candidate product law for registration solve ownership.
@@ -35,19 +31,6 @@ const EFFECT_KIND = Object.freeze({
 });
 
 const STATUS_NOTICE_DELAY_MS = 2500;
-
-// Candidate: shell-solved placement payloads are forbidden. They are a second
-// product decision path because the shell would choose when the fit happens and
-// which placement enters history/durability.
-test("candidate: select-mode rejects shell-supplied solved placement", () => {
-  assertApplicationBoundaryError(() => createApplicationCommand(
-    APPLICATION_COMMAND_KIND.SELECT_MODE,
-    {
-      mode: "trace",
-      solvedPlacement: solvedPlacement(),
-    },
-  ), APPLICATION_BOUNDARY_ERROR_CODE.INVALID_APPLICATION_COMMAND);
-});
 
 // Candidate: solve failure is also product-owned. If the user asks for Trace as
 // the fitted overlay mode but pins cannot produce a transform, stay in Align and
@@ -312,17 +295,6 @@ function solvedPlacement() {
     scale: 1,
     rotationRad: 0,
   };
-}
-
-function assertApplicationBoundaryError(run, expectedCode) {
-  assert.throws(
-    run,
-    (error) => (
-      error instanceof ApplicationBoundaryError
-        && error.name === "ApplicationBoundaryError"
-        && error.code === expectedCode
-    ),
-  );
 }
 
 function listJavaScriptFiles(directoryPath) {

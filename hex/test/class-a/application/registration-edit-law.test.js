@@ -81,37 +81,6 @@ test("registration pin edits preserve current visible placement", () => {
   ]);
 });
 
-// Class-a: a solved registration is the semantic bridge from Align pins to a
-// Trace placement. Selecting Trace with a solved placement applies that product
-// fact durably instead of treating the solved transform as adapter-local data.
-test("switching to Trace applies solved registration placement durably", () => {
-  const result = handleApplicationCommand({
-    state: referenceImageLoadedState({
-      mode: "align",
-      pins: [firstPin(), secondPin()],
-    }),
-    command: createApplicationCommand(APPLICATION_COMMAND_KIND.SELECT_MODE, {
-      mode: "trace",
-      solvedPlacement: solvedPlacement(),
-    }),
-  });
-
-  assert.deepEqual(result.state.session, {
-    mode: "trace",
-    referenceImage: normalizedReferenceImage(),
-    placement: solvedPlacement(),
-    registration: {
-      pins: [firstPin(), secondPin()],
-      solvedPlacement: solvedPlacement(),
-    },
-  });
-  assert.deepEqual(result.effects, [
-    persistDurableStateEffect({
-      session: result.state.session,
-    }),
-  ]);
-});
-
 // Class-a: Clear pins is destructive only to registration facts. It must not
 // unload the reference image or leave hidden empty-registration state behind,
 // and the durable effect must describe exactly the surviving session.
@@ -186,15 +155,6 @@ function secondPin() {
       lat: -1.23,
       lon: 38.84,
     },
-  };
-}
-
-function solvedPlacement() {
-  return {
-    x: 100,
-    y: 200,
-    scale: 1,
-    rotationRad: 0,
   };
 }
 

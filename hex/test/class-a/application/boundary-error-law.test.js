@@ -70,6 +70,24 @@ test("known commands with malformed payloads throw ApplicationBoundaryError", ()
   );
 });
 
+// Class-a: `select-mode` carries only the user's mode intent. A fitted placement
+// is a separate product consequence, not a payload smuggled through the mode
+// command by an outer layer that would then choose product causality itself.
+test("select-mode rejects caller-supplied solved placement", () => {
+  assertApplicationBoundaryError(
+    () => createApplicationCommand(APPLICATION_COMMAND_KIND.SELECT_MODE, {
+      mode: "trace",
+      solvedPlacement: {
+        x: 100,
+        y: 200,
+        scale: 1,
+        rotationRad: 0,
+      },
+    }),
+    APPLICATION_BOUNDARY_ERROR_CODE.INVALID_APPLICATION_COMMAND,
+  );
+});
+
 // Class-a: an accepted reference-image input result must already be usable
 // application data.
 // Missing image facts, runtime-scoped refs, host handles, and impossible

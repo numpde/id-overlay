@@ -40,14 +40,8 @@ export function createApplicationCommand(kind, payload = {}) {
       message: "Invalid application command payload.",
     });
   }
-  if (
-    kind === APPLICATION_COMMAND_KIND.SELECT_MODE
-      && !["align", "trace"].includes(payload.mode)
-  ) {
-    throw new ApplicationBoundaryError({
-      code: APPLICATION_BOUNDARY_ERROR_CODE.INVALID_APPLICATION_COMMAND,
-      message: "Invalid mode command.",
-    });
+  if (kind === APPLICATION_COMMAND_KIND.SELECT_MODE) {
+    return createSelectModeCommand(payload);
   }
   if (kind === APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_INPUT_OUTCOME) {
     assertValidReferenceImageInputOutcomePayload(payload);
@@ -64,6 +58,20 @@ export function createApplicationCommand(kind, payload = {}) {
   return {
     ...payload,
     kind,
+  };
+}
+
+function createSelectModeCommand(payload) {
+  if (
+    Object.keys(payload).length !== 1
+      || !["align", "trace"].includes(payload.mode)
+  ) {
+    throwInvalidApplicationCommand();
+  }
+
+  return {
+    kind: APPLICATION_COMMAND_KIND.SELECT_MODE,
+    mode: payload.mode,
   };
 }
 
