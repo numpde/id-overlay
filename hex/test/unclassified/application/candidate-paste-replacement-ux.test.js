@@ -51,21 +51,6 @@ const EFFECT_KIND = Object.freeze({
 
 const STATUS_NOTICE_DELAY_MS = 2500;
 
-// Candidate: replacement is only meaningful when there is an image to replace.
-// Stale or synthetic replacement commands in no-session must not start a hidden
-// special flow; no-session already has the ordinary Paste action.
-test("candidate: replacement request with no image is inert", () => {
-  assert.deepEqual(handleApplicationCommand({
-    state: {},
-    command: createApplicationCommand(
-      APPLICATION_COMMAND_KIND.REQUEST_REFERENCE_IMAGE_REPLACEMENT,
-    ),
-  }), {
-    state: {},
-    effects: [],
-  });
-});
-
 // Candidate: while replacement is awaiting input, the existing overlay remains
 // the visible/editable product state. The user should not see the image vanish
 // because an asynchronous paste/read operation is in flight.

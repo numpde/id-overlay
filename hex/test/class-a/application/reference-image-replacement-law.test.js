@@ -50,6 +50,21 @@ test("requesting replacement keeps the current image while awaiting input", () =
   });
 });
 
+// Class-a: no-session replacement must not create a hidden alternate input
+// path. With no image loaded, the product has only the ordinary initial input
+// action; synthetic replacement commands are stale and therefore inert.
+test("replacement request with no image is inert", () => {
+  assert.deepEqual(handleApplicationCommand({
+    state: {},
+    command: createApplicationCommand(
+      APPLICATION_COMMAND_KIND.REQUEST_REFERENCE_IMAGE_REPLACEMENT,
+    ),
+  }), {
+    state: {},
+    effects: [],
+  });
+});
+
 function loadedImageState({
   mode = "align",
   referenceImage = oldReferenceImage(),
