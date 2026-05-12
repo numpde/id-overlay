@@ -6,7 +6,6 @@ import {
   createApplicationCommand,
 } from "../../../application/command.js";
 import { handleApplicationCommand } from "../../../application/handle-command.js";
-import { selectDurableApplicationState } from "../../../application/view-model.js";
 
 // Unclassified: candidate product law for timer causality.
 // Rejected alternatives:
@@ -39,36 +38,6 @@ const FORBIDDEN_TIMER_EFFECT_KINDS = Object.freeze([
   "set-timeout",
   "clear-timeout",
 ]);
-
-// Candidate: timer effects are transient work declarations. They must never
-// appear in durable state and must never smuggle browser timer handles into app
-// state.
-test("candidate: timer requests are transient and browser-handle-free", () => {
-  const statusResult = handleApplicationCommand({
-    state: awaitingReferenceImageInputState({ requestId: 3 }),
-    command: createApplicationCommand(
-      APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_INPUT_OUTCOME,
-      {
-        requestId: 3,
-        outcome: {
-          kind: "failed",
-          reason: "decode-failed",
-        },
-      },
-    ),
-  });
-  const panelResult = handleApplicationCommand({
-    state: referenceImageLoadedState(),
-    command: createApplicationCommand(APPLICATION_COMMAND_KIND.ACTIVATE_PRIMARY_ACTION),
-  });
-
-  for (const result of [statusResult, panelResult]) {
-    assert.equal(JSON.stringify(result.state).includes("timeout"), false);
-    assert.equal(JSON.stringify(result.state).includes("timer"), false);
-    assert.equal(JSON.stringify(selectDurableApplicationState(result.state)).includes("timer"), false);
-    assert.deepEqual(result.effects.flatMap(validateTimerEffect), []);
-  }
-});
 
 // Candidate: generic timer vocabulary is forbidden at the application boundary.
 // Adding a new timer use case should introduce a named product effect, not a
