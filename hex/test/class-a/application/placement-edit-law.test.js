@@ -121,10 +121,74 @@ test("unchanged placement edit is inert", () => {
   });
 });
 
+// Class-a: a manual placement commit supersedes any solved-registration claim.
+// The visible placement is preserved as the user's direct edit, while pins stay
+// available for a future fit and the history record keeps enough before-data to
+// undo without treating stale solved metadata as current truth.
+test("manual placement edits invalidate solved placement metadata", () => {
+  const result = handleApplicationCommand({
+    state: referenceImageLoadedState({
+      placement: solvedPlacement(),
+      pins: [firstPin(), secondPin()],
+      solvedPlacement: solvedPlacement(),
+    }),
+    command: createApplicationCommand(
+      APPLICATION_COMMAND_KIND.COMMIT_PLACEMENT_EDIT,
+      placementEditPayload({
+        editKind: "move",
+        placement: movedPlacement(),
+      }),
+    ),
+  });
+
+  assert.deepEqual(result, {
+    state: {
+      session: {
+        ...normalizedReferenceImageSession(),
+        placement: movedPlacement(),
+        registration: {
+          pins: [firstPin(), secondPin()],
+        },
+      },
+      history: {
+        past: [placementHistoryRecord({
+          editKind: "move",
+          before: placementRevision({
+            placement: solvedPlacement(),
+            solvedRegistration: {
+              pinIds: [1, 2],
+              placement: solvedPlacement(),
+            },
+          }),
+          after: placementRevision({
+            placement: movedPlacement(),
+            solvedRegistration: null,
+          }),
+        })],
+        future: [],
+      },
+    },
+    effects: [
+      persistDurableStateEffect({
+        session: result.state.session,
+      }),
+    ],
+  });
+});
+
 function movedPlacement() {
   return {
     x: 80,
     y: 40,
+    scale: 1,
+    rotationRad: 0,
+  };
+}
+
+function solvedPlacement() {
+  return {
+    x: 100,
+    y: 200,
     scale: 1,
     rotationRad: 0,
   };
@@ -171,10 +235,22 @@ function placementRevision({ placement, solvedRegistration }) {
   };
 }
 
-function referenceImageLoadedState({ placement } = {}) {
+function referenceImageLoadedState({
+  placement,
+  pins,
+  solvedPlacement: solvedPlacementData,
+} = {}) {
   const session = normalizedReferenceImageSession();
   if (placement !== undefined) {
     session.placement = placement;
+  }
+  if (pins !== undefined) {
+    session.registration = {
+      pins,
+    };
+    if (solvedPlacementData !== undefined) {
+      session.registration.solvedPlacement = solvedPlacementData;
+    }
   }
   return {
     session,
@@ -196,6 +272,34 @@ function normalizedReferenceImageSession() {
         width: 640,
         height: 480,
       },
+    },
+  };
+}
+
+function firstPin() {
+  return {
+    id: 1,
+    imagePx: {
+      x: 320,
+      y: 240,
+    },
+    mapLatLon: {
+      lat: -1.23,
+      lon: 36.84,
+    },
+  };
+}
+
+function secondPin() {
+  return {
+    id: 2,
+    imagePx: {
+      x: 520,
+      y: 240,
+    },
+    mapLatLon: {
+      lat: -1.23,
+      lon: 38.84,
     },
   };
 }

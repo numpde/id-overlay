@@ -4,12 +4,6 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import {
-  APPLICATION_COMMAND_KIND,
-  createApplicationCommand,
-} from "../../../application/command.js";
-import { handleApplicationCommand } from "../../../application/handle-command.js";
-
 // Unclassified: candidate product law for registration solve ownership.
 // Rejected alternatives:
 // - shell pre-solves placement and passes `solvedPlacement` into select-mode;
@@ -24,52 +18,6 @@ import { handleApplicationCommand } from "../../../application/handle-command.js
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../..");
 const HEX_ROOT = path.join(REPO_ROOT, "hex");
-
-const EFFECT_KIND = Object.freeze({
-  PERSIST_DURABLE_STATE: "persist-durable-state",
-});
-
-// Candidate: manual overlay placement is the current visible placement, not a
-// solved registration fact. Committing a manual placement should clear stale
-// solved metadata while preserving pins for future fit attempts.
-test("candidate: manual placement edits invalidate solved placement metadata", () => {
-  const manualPlacement = {
-    x: 40,
-    y: 50,
-    scale: 2,
-    rotationRad: 0.5,
-  };
-  const result = handleApplicationCommand({
-    state: referenceImageLoadedState({
-      mode: "align",
-      placement: solvedPlacement(),
-      pins: [firstPin(), secondPin()],
-      solvedPlacement: solvedPlacement(),
-    }),
-    command: createApplicationCommand(
-      APPLICATION_COMMAND_KIND.COMMIT_PLACEMENT_EDIT,
-      {
-        editKind: "move",
-        placement: manualPlacement,
-      },
-    ),
-  });
-
-  assert.deepEqual(result.state.session, {
-    mode: "align",
-    referenceImage: normalizedReferenceImage(),
-    placement: manualPlacement,
-    registration: {
-      pins: [firstPin(), secondPin()],
-    },
-  });
-  assert.deepEqual(result.effects, [{
-    kind: EFFECT_KIND.PERSIST_DURABLE_STATE,
-    durableState: {
-      session: result.state.session,
-    },
-  }]);
-});
 
 // Candidate: the codebase should have no registration solver port or solve
 // effect. Pure solve belongs in domain/application imports, not at the browser
@@ -92,79 +40,6 @@ test("candidate: registration solve has no shell port or effect vocabulary", () 
 
   assert.deepEqual(violations, []);
 });
-
-function referenceImageLoadedState({
-  mode,
-  placement = undefined,
-  pins = undefined,
-  solvedPlacement: solvedPlacementData = undefined,
-}) {
-  const session = {
-    mode,
-    referenceImage: normalizedReferenceImage(),
-  };
-  if (placement !== undefined) {
-    session.placement = placement;
-  }
-  if (pins !== undefined) {
-    session.registration = {
-      pins,
-    };
-    if (solvedPlacementData !== undefined) {
-      session.registration.solvedPlacement = solvedPlacementData;
-    }
-  }
-  return {
-    session,
-  };
-}
-
-function normalizedReferenceImage() {
-  return {
-    imageDataRef: "data:image/png;base64,reference-image",
-    intrinsicSizePx: {
-      width: 640,
-      height: 480,
-    },
-  };
-}
-
-function firstPin() {
-  return {
-    id: 1,
-    imagePx: {
-      x: 0,
-      y: 0,
-    },
-    mapPx: {
-      x: 100,
-      y: 200,
-    },
-  };
-}
-
-function secondPin() {
-  return {
-    id: 2,
-    imagePx: {
-      x: 100,
-      y: 0,
-    },
-    mapPx: {
-      x: 200,
-      y: 200,
-    },
-  };
-}
-
-function solvedPlacement() {
-  return {
-    x: 100,
-    y: 200,
-    scale: 1,
-    rotationRad: 0,
-  };
-}
 
 function listJavaScriptFiles(directoryPath) {
   const files = [];
