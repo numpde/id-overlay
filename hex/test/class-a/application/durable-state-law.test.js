@@ -52,7 +52,7 @@ test("durable state excludes transient application context", () => {
       requestId: 1,
     },
     notice: {
-      kind: "reference-image-paste-empty",
+      kind: "reference-image-input-empty",
     },
     panelIntent: {
       kind: "confirm-clear-reference-image",

@@ -50,40 +50,7 @@ const FORBIDDEN_EFFECT_KINDS = Object.freeze([
   "release-image-data-ref",
 ]);
 
-const DEFAULT_STATUS_NOTICE_DELAY_MS = 2500;
 const DEFAULT_PANEL_INTENT_DELAY_MS = 2500;
-
-// Candidate: status expiry is product causality because request correlation and
-// stale-timeout rejection are application rules. The app should declare the
-// timeout; the shell should not watch notices and start timers on its own.
-test("candidate: empty reference-image input schedules status notice expiry", () => {
-  assertApplicationResult(handleApplicationCommand({
-    state: awaitingReferenceImageInputState({ requestId: 1 }),
-    command: createApplicationCommand(
-      APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_INPUT_OUTCOME,
-      {
-        requestId: 1,
-        outcome: {
-          kind: "empty",
-        },
-      },
-    ),
-  }), {
-    state: {
-      notice: {
-        kind: "reference-image-input-empty",
-        requestId: 1,
-      },
-    },
-    effects: [
-      effect({
-        kind: EFFECT_KIND.SCHEDULE_CLEAR_STATUS_NOTICE,
-        requestId: 1,
-        delayMs: DEFAULT_STATUS_NOTICE_DELAY_MS,
-      }),
-    ],
-  });
-});
 
 // Candidate: destructive confirmation expiry is product causality. Arming the
 // confirmation and scheduling its expiry must be one application transition so

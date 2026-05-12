@@ -133,6 +133,9 @@ function createEffectHandlers({ durableStatePort, host }) {
     async "request-reference-image-input"() {
       return null;
     },
+    async "schedule-clear-status-notice"() {
+      return null;
+    },
   };
 }
 

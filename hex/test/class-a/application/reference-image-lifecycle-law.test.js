@@ -63,7 +63,7 @@ test("accepted reference image clears pending input notice and panel intent", ()
         requestId: 1,
       },
       notice: {
-        kind: "reference-image-paste-empty",
+        kind: "reference-image-input-empty",
       },
       panelIntent: {
         kind: "confirm-clear-reference-image",
@@ -93,7 +93,8 @@ test("accepted reference image clears pending input notice and panel intent", ()
 
 // Class-a: empty reference-image input is a normal user-world outcome, not a
 // boundary failure. It must end the transient input without creating a session
-// or durable work; exact notice vocabulary is weaker UI policy.
+// or durable work, and the application must declare the correlated status
+// expiry rather than making the shell infer timers from notice shape.
 test("empty reference-image input outcome ends input without durability", () => {
   const result = handleApplicationCommand({
     state: {
@@ -115,7 +116,9 @@ test("empty reference-image input outcome ends input without durability", () => 
 
   assert.equal(result.state.session, undefined);
   assert.equal(result.state.referenceImageInput, undefined);
-  assert.deepEqual(result.effects, []);
+  assert.deepEqual(result.effects, [
+    scheduleClearStatusNoticeEffect(1),
+  ]);
 });
 
 // Class-a: a declared input failure is also a normal user-world outcome. It
@@ -185,5 +188,13 @@ function persistDurableStateEffect(durableState) {
   return {
     kind: "persist-durable-state",
     durableState,
+  };
+}
+
+function scheduleClearStatusNoticeEffect(requestId) {
+  return {
+    kind: "schedule-clear-status-notice",
+    requestId,
+    delayMs: 2500,
   };
 }

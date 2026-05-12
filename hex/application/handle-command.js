@@ -255,11 +255,11 @@ function reportReferenceImageInputOutcome(state, command) {
     return {
       state: {
         notice: {
-          kind: "reference-image-paste-empty",
+          kind: "reference-image-input-empty",
           requestId: command.requestId,
         },
       },
-      effects: [],
+      effects: [scheduleClearStatusNoticeEffect(command.requestId)],
     };
   }
   if (command.outcome?.kind === "failed") {
@@ -472,6 +472,14 @@ function requestReferenceImageInputEffect(requestId) {
   return {
     kind: "request-reference-image-input",
     requestId,
+  };
+}
+
+function scheduleClearStatusNoticeEffect(requestId) {
+  return {
+    kind: "schedule-clear-status-notice",
+    requestId,
+    delayMs: 2500,
   };
 }
 

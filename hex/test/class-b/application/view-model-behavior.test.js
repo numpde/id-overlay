@@ -171,9 +171,9 @@ test("view model exposes user-visible status copy", () => {
     },
     {
       state: {
-        notice: {
-          kind: "reference-image-paste-empty",
-        },
+      notice: {
+        kind: "reference-image-input-empty",
+      },
       },
       status: "Clipboard does not contain an image.",
     },

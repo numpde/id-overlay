@@ -96,7 +96,7 @@ test("stale status clear requests are ignored", () => {
       },
     },
     notice: {
-      kind: "reference-image-paste-empty",
+      kind: "reference-image-input-empty",
       requestId: 2,
     },
   };

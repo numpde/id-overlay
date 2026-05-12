@@ -89,7 +89,7 @@ function statusText(state) {
   if (state.notice?.kind === "cleared-pins") {
     return `Cleared ${state.notice.count} ${pluralizePin(state.notice.count)}.`;
   }
-  if (state.notice?.kind === "reference-image-paste-empty") {
+  if (state.notice?.kind === "reference-image-input-empty") {
     return "Clipboard does not contain an image.";
   }
   if (state.session) {

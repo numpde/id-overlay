@@ -36,10 +36,9 @@ test("reference-image input outcome command is correlated plain data", () => {
   });
 });
 
-// Class-b, deliberately not class-a: class-a owns the empty-input product law
-// that no session or durable work is created. This keeps only the current
-// transient notice vocabulary and the request id used by status-clearing
-// correlation.
+// Class-b, deliberately not class-a: class-a owns the empty-input product law.
+// This keeps only the current transient notice vocabulary, status-expiry
+// request, and correlation id shape used by the panel/status boundary.
 test("empty reference-image input outcome becomes a correlated notice", () => {
   assertApplicationResult(handleApplicationCommand({
     state: {
@@ -60,13 +59,23 @@ test("empty reference-image input outcome becomes a correlated notice", () => {
   }), {
     state: {
       notice: {
-        kind: "reference-image-paste-empty",
+        kind: "reference-image-input-empty",
         requestId: 1,
       },
     },
-    effects: [],
+    effects: [
+      scheduleClearStatusNoticeEffect(1),
+    ],
   });
 });
+
+function scheduleClearStatusNoticeEffect(requestId) {
+  return {
+    kind: "schedule-clear-status-notice",
+    requestId,
+    delayMs: 2500,
+  };
+}
 
 // Class-b, deliberately not class-a: class-a owns failed input as a normal
 // non-durable outcome. This keeps only the current transient notice vocabulary,
