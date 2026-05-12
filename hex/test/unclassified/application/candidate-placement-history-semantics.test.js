@@ -50,62 +50,6 @@ const FORBIDDEN_HISTORY_SOURCE_PATTERNS = Object.freeze([
   },
 ]);
 
-// Candidate: if the pin context changed after manual placement, undo still
-// restores the visible placement but must not resurrect stale solved metadata.
-// The user asked to undo a transform edit, not to assert that changed pins still
-// solve to the old transform.
-test("candidate: undoing placement does not restore solved metadata for changed pins", () => {
-  const record = placementHistoryRecord({
-    editKind: "move",
-    before: placementRevision({
-      placement: originalPlacement(),
-      solvedRegistration: solvedRegistration({
-        pinIds: [1, 2],
-        placement: originalPlacement(),
-      }),
-    }),
-    after: placementRevision({
-      placement: movedPlacement(),
-      solvedRegistration: null,
-    }),
-  });
-
-  assert.deepEqual(handleApplicationCommand({
-    state: {
-      session: referenceImageSession({
-        mode: "align",
-        pins: [firstPin(), thirdPin()],
-        placement: movedPlacement(),
-      }),
-      history: {
-        past: [record],
-        future: [],
-      },
-    },
-    command: createApplicationCommand(APPLICATION_COMMAND_KIND.UNDO),
-  }), {
-    state: {
-      session: referenceImageSession({
-        mode: "align",
-        pins: [firstPin(), thirdPin()],
-        placement: originalPlacement(),
-      }),
-      history: {
-        past: [],
-        future: [record],
-      },
-    },
-    effects: [{
-      kind: EFFECT_KIND.PERSIST_DURABLE_STATE,
-      durableState: durableImageState({
-        mode: "align",
-        pins: [firstPin(), thirdPin()],
-        placement: originalPlacement(),
-      }),
-    }],
-  });
-});
-
 // Candidate: same-session non-placement edits create a new branch but should
 // not erase still-valid past placement history. They clear redo future because
 // future records no longer follow the current durable timeline.

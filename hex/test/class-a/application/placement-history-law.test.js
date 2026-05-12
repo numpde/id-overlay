@@ -173,6 +173,61 @@ test("undoing manual placement restores solved registration placement metadata",
   });
 });
 
+// Class-a: solved metadata is valid only for the pins that produced it. If pins
+// changed after the manual placement, undo restores visible placement but not a
+// stale solved-registration claim.
+test("undoing placement does not restore solved metadata for changed pins", () => {
+  const record = placementHistoryRecord({
+    editKind: "move",
+    before: placementRevision({
+      placement: originalPlacement(),
+      solvedRegistration: solvedRegistration({
+        pinIds: [1, 2],
+        placement: originalPlacement(),
+      }),
+    }),
+    after: placementRevision({
+      placement: movedPlacement(),
+      solvedRegistration: null,
+    }),
+  });
+
+  assert.deepEqual(handleApplicationCommand({
+    state: {
+      session: referenceImageSession({
+        mode: "align",
+        pins: [firstPin(), thirdPin()],
+        placement: movedPlacement(),
+      }),
+      history: {
+        past: [record],
+        future: [],
+      },
+    },
+    command: createApplicationCommand(APPLICATION_COMMAND_KIND.UNDO),
+  }), {
+    state: {
+      session: referenceImageSession({
+        mode: "align",
+        pins: [firstPin(), thirdPin()],
+        placement: originalPlacement(),
+      }),
+      history: {
+        past: [],
+        future: [record],
+      },
+    },
+    effects: [{
+      kind: "persist-durable-state",
+      durableState: durableImageState({
+        mode: "align",
+        pins: [firstPin(), thirdPin()],
+        placement: originalPlacement(),
+      }),
+    }],
+  });
+});
+
 function placementHistoryRecord({ editKind, before, after }) {
   return {
     kind: "overlay-placement-edit",
@@ -272,6 +327,20 @@ function secondPin() {
     mapLatLon: {
       lat: -1.22,
       lon: 36.85,
+    },
+  };
+}
+
+function thirdPin() {
+  return {
+    id: 3,
+    imagePx: {
+      x: 420,
+      y: 300,
+    },
+    mapLatLon: {
+      lat: -1.21,
+      lon: 36.86,
     },
   };
 }
