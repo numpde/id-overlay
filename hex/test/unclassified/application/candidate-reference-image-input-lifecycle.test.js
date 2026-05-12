@@ -15,6 +15,9 @@ import { handleApplicationCommand } from "../../../application/handle-command.js
 // The desired shape is intentionally source-agnostic: the application requests a
 // reference image and receives a normalized outcome. Clipboard API, paste-event
 // fallback, focus management, and listener cleanup are adapter mechanics.
+//
+// Classification note: the no-session input request candidate was deleted as a
+// duplicate of the stronger class-a primary-action law.
 
 const COMMAND_KIND = Object.freeze({
   REPORT_REFERENCE_IMAGE_INPUT_OUTCOME: "report-reference-image-input-outcome",
@@ -38,27 +41,6 @@ const FAILURE_REASON = Object.freeze({
   SOURCE_UNAVAILABLE: "source-unavailable",
   DECODE_FAILED: "decode-failed",
   UNSUPPORTED_IMAGE: "unsupported-image",
-});
-
-// Candidate: Paste is a product request for a reference image, not a clipboard
-// operation. The state says "awaiting input"; the effect asks the outside world
-// for input. The shell must not infer this work by watching state.
-test("candidate: Paste starts one abstract reference-image input request", () => {
-  assert.deepEqual(handleApplicationCommand({
-    state: {},
-    command: createApplicationCommand(APPLICATION_COMMAND_KIND.ACTIVATE_PRIMARY_ACTION),
-  }), {
-    state: {
-      referenceImageInput: {
-        status: "awaiting-input",
-        requestId: 1,
-      },
-    },
-    effects: [{
-      kind: EFFECT_KIND.REQUEST_REFERENCE_IMAGE_INPUT,
-      requestId: 1,
-    }],
-  });
 });
 
 // Candidate: accepted input is source-neutral. Whether the adapter got the image
