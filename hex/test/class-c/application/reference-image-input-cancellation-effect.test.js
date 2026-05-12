@@ -7,10 +7,14 @@ import {
 } from "../../../application/command.js";
 import { handleApplicationCommand } from "../../../application/handle-command.js";
 
-// Unclassified candidate: app correlation already makes late outcomes inert,
-// but that is not enough for browser resources. Manual paste listeners, file
-// pickers, and pending decoder work need an explicit product-named cancellation
-// effect instead of a shell that infers cleanup by watching state disappear.
+// Class-c: app correlation already makes late outcomes inert, but host input
+// resources may still need an explicit cancellation protocol. This test assumes
+// that protocol is a new `cancel-reference-image-input` application effect,
+// which currently conflicts with the class-a effect vocabulary.
+//
+// Decision: keep quarantined. The cleanup problem is real, but promotion needs
+// a deliberate effect-vocabulary revision, not a local assertion inside input
+// cancellation behavior.
 test("cancelling initial reference-image input emits a correlated cancel effect", () => {
   assert.deepEqual(handleApplicationCommand({
     state: awaitingInputState({
@@ -36,10 +40,9 @@ test("cancelling initial reference-image input emits a correlated cancel effect"
   });
 });
 
-// Unclassified candidate: replacement cancellation has the same resource
-// boundary as initial input, but a different product result: keep the old image.
-// The cancel effect is still source-neutral; it cancels reference-image input,
-// not a clipboard or paste implementation detail.
+// Class-c: replacement cancellation has the same unresolved resource boundary
+// as initial input. The product result is settled, but the host cleanup effect
+// shape is not.
 test("cancelling replacement input preserves the old image and cancels host input", () => {
   const state = {
     session: {
