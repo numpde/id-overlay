@@ -90,6 +90,47 @@ test("browser shell clamps restored panel chrome for render without startup writ
   assert.deepEqual(panelChrome.writes, []);
 });
 
+// Class-b: malformed panel chrome is preference noise. It should recover to
+// visible chrome without becoming an application hydration failure or causing a
+// defensive rewrite of the user's product session.
+test("browser shell normalizes unsupported panel chrome without touching durable state", async () => {
+  for (const storedChrome of [
+    null,
+    {},
+    {
+      position: {
+        screenPx: {
+          x: Number.NaN,
+          y: 20,
+        },
+      },
+    },
+    {
+      position: {
+        screenPx: {
+          x: 20,
+          y: Infinity,
+        },
+      },
+    },
+  ]) {
+    const storage = createDurableStorageHarness({
+      durableState: durableImageState(),
+    });
+    const host = createBrowserHostHarness({
+      durableStatePort: storage.port,
+      panelChromePort: createPanelChromeHarness({
+        storedChrome,
+      }).port,
+    });
+
+    await bootstrapBrowserExtension(host);
+
+    assertSafeRenderedPanelChrome(host.latestRender.panelChrome);
+    assert.deepEqual(storage.writes, []);
+  }
+});
+
 function createBrowserHostHarness({
   pageContext = {
     kind: "supported-map-editor-page",
@@ -120,17 +161,21 @@ function createBrowserHostHarness({
 }
 
 function createDurableStorageHarness({ durableState }) {
+  const writes = [];
   let readCount = 0;
   return {
     get readCount() {
       return readCount;
     },
+    writes,
     port: {
       async readDurableState() {
         readCount += 1;
         return durableState;
       },
-      async writeDurableState() {},
+      async writeDurableState(nextDurableState) {
+        writes.push(nextDurableState);
+      },
     },
   };
 }
@@ -168,4 +213,14 @@ function durableImageState() {
       },
     },
   };
+}
+
+function assertSafeRenderedPanelChrome(panelChrome) {
+  const screenPx = panelChrome?.position?.screenPx;
+  assert.equal(Number.isFinite(screenPx?.x), true);
+  assert.equal(Number.isFinite(screenPx?.y), true);
+  assert.equal(screenPx.x >= 0, true);
+  assert.equal(screenPx.y >= 0, true);
+  assert.equal(screenPx.x <= VIEWPORT_PX.width - PANEL_SIZE_PX.width, true);
+  assert.equal(screenPx.y <= VIEWPORT_PX.height - PANEL_SIZE_PX.height, true);
 }

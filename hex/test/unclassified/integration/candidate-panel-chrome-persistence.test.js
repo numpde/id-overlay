@@ -57,47 +57,6 @@ const FORBIDDEN_APPLICATION_PANEL_CHROME_PATTERNS = Object.freeze([
   /\bid-overlay\/panel\b/,
 ]);
 
-// Candidate: malformed or absent panel chrome is browser preference noise. It
-// should normalize to safe visible chrome without becoming an application
-// hydration failure or clearing image/session storage.
-test("candidate: unsupported panel chrome normalizes without touching durable state", async () => {
-  for (const storedChrome of [
-    null,
-    {},
-    {
-      position: {
-        screenPx: {
-          x: Number.NaN,
-          y: 20,
-        },
-      },
-    },
-    {
-      position: {
-        screenPx: {
-          x: 20,
-          y: Infinity,
-        },
-      },
-    },
-  ]) {
-    const storage = createDurableStorageHarness({
-      durableState: durableImageState(),
-    });
-    const host = createBrowserHostHarness({
-      durableStatePort: storage.port,
-      panelChromePort: createPanelChromeHarness({
-        storedChrome,
-      }).port,
-    });
-
-    await bootstrapBrowserExtension(host);
-
-    assertSafeRenderedPanelChrome(host.latestRender.panelChrome);
-    assert.deepEqual(storage.writes, []);
-  }
-});
-
 // Candidate: dragging panel chrome is not an application command. It writes
 // normalized shell chrome only, leaving app runtime state and durable session
 // persistence untouched.
