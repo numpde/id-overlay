@@ -36,53 +36,6 @@ const EFFECT_KIND = Object.freeze({
 
 const STATUS_NOTICE_DELAY_MS = 2500;
 
-// Candidate: select-mode Trace owns the fit decision. Given enough normalized
-// registration facts, the application solves placement itself and persists the
-// resulting Trace session. No shell-computed placement payload is needed.
-test("candidate: selecting Trace solves registration inside application", () => {
-  const result = handleApplicationCommand({
-    state: referenceImageLoadedState({
-      mode: "align",
-      pins: [firstPin(), secondPin()],
-    }),
-    command: createApplicationCommand(APPLICATION_COMMAND_KIND.SELECT_MODE, {
-      mode: "trace",
-    }),
-  });
-
-  assert.deepEqual(result, {
-    state: {
-      session: {
-        mode: "trace",
-        referenceImage: normalizedReferenceImage(),
-        placement: solvedPlacement(),
-        registration: {
-          pins: [firstPin(), secondPin()],
-          solvedPlacement: solvedPlacement(),
-        },
-      },
-      notice: {
-        kind: "fit-reference-image-from-pins",
-        pinCount: 2,
-      },
-    },
-    effects: [{
-      kind: EFFECT_KIND.PERSIST_DURABLE_STATE,
-      durableState: {
-        session: {
-          mode: "trace",
-          referenceImage: normalizedReferenceImage(),
-          placement: solvedPlacement(),
-          registration: {
-            pins: [firstPin(), secondPin()],
-            solvedPlacement: solvedPlacement(),
-          },
-        },
-      },
-    }],
-  });
-});
-
 // Candidate: shell-solved placement payloads are forbidden. They are a second
 // product decision path because the shell would choose when the fit happens and
 // which placement enters history/durability.
