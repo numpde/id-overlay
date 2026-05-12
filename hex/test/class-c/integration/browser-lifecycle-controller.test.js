@@ -1,9 +1,15 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 import {
   bootstrapBrowserExtension,
 } from "../../../bootstrap/index.js";
+
+const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
+const BOOTSTRAP_INDEX = path.join(REPO_ROOT, "bootstrap/index.js");
 
 // Class-c: explicit lifecycle ownership is likely the right direction, but this
 // test chooses concrete API shape too early: returned `dispose`, host
@@ -89,6 +95,16 @@ test("stale rendered dispatch is inert after dispose", async () => {
 
   assert.deepEqual(host.storageWrites, []);
   assert.equal(host.renderCount, 1);
+});
+
+// Class-c: this is the desired lifecycle cut-over, but source-name assertions
+// are not authority. Keep it quarantined until an explicit lifecycle controller
+// is real and behavior tests, not a magic function name, define the boundary.
+test("bootstrap delegates lifecycle to an explicit controller instead of a hidden registry", () => {
+  const source = fs.readFileSync(BOOTSTRAP_INDEX, "utf8");
+
+  assert.equal(source.includes("WeakMap"), false);
+  assert.match(source, /createBrowserLifecycleController/);
 });
 
 function durableImageState({ mode }) {
