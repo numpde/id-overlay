@@ -50,13 +50,25 @@ function historyControls(state) {
   return {
     undo: {
       enabled: undoRecord !== null,
-      label: undoRecord?.undoLabel ?? null,
+      label: historyLabel(undoRecord, "undo"),
     },
     redo: {
       enabled: redoRecord !== null,
-      label: redoRecord?.redoLabel ?? null,
+      label: historyLabel(redoRecord, "redo"),
     },
   };
+}
+
+function historyLabel(record, direction) {
+  if (!record) {
+    return null;
+  }
+  if (record.kind === "overlay-placement-edit") {
+    return `${direction === "undo" ? "Undo" : "Redo"} ${record.editKind} overlay`;
+  }
+  return direction === "undo"
+    ? record.undoLabel ?? null
+    : record.redoLabel ?? null;
 }
 
 function primaryActionLabel(state) {

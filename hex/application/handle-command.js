@@ -97,12 +97,13 @@ function undoHistory(state) {
     past: history.past.slice(0, -1),
     future: [...(history.future ?? []), record],
   };
+  const durableState = applyHistoryRecord(state, record, "before");
   return {
     state: {
-      ...stateFromDurableState(record.before),
+      ...stateFromDurableState(durableState),
       history: nextHistory,
     },
-    effects: [persistDurableStateEffect(record.before)],
+    effects: [persistDurableStateEffect(durableState)],
   };
 }
 
@@ -117,12 +118,30 @@ function redoHistory(state) {
     past: [...(history.past ?? []), record],
     future: history.future.slice(0, -1),
   };
+  const durableState = applyHistoryRecord(state, record, "after");
   return {
     state: {
-      ...stateFromDurableState(record.after),
+      ...stateFromDurableState(durableState),
       history: nextHistory,
     },
-    effects: [persistDurableStateEffect(record.after)],
+    effects: [persistDurableStateEffect(durableState)],
+  };
+}
+
+function applyHistoryRecord(state, record, side) {
+  if (record.kind === "overlay-placement-edit") {
+    return applyPlacementHistoryRevision(state, record[side]);
+  }
+  return record[side];
+}
+
+function applyPlacementHistoryRevision(state, revision) {
+  const durableState = selectDurableApplicationState(state);
+  if (!durableState?.session) {
+    return durableState;
+  }
+  return {
+    session: applyPlacementRevision(durableState.session, revision),
   };
 }
 
@@ -144,11 +163,19 @@ function commitPlacementEdit(state, command) {
     return inertResult(state);
   }
 
+  const before = placementRevisionFromSession(state.session);
+  const after = {
+    placement: command.placement,
+    solvedRegistration: null,
+  };
   const nextState = {
-    session: {
-      ...state.session,
-      placement: command.placement,
-    },
+    session: applyPlacementRevision(state.session, after),
+    history: pushHistory(state.history, {
+      kind: "overlay-placement-edit",
+      editKind: command.editKind,
+      before,
+      after,
+    }),
   };
   return {
     state: nextState,
@@ -156,6 +183,84 @@ function commitPlacementEdit(state, command) {
       persistDurableStateEffect(selectDurableApplicationState(nextState)),
     ],
   };
+}
+
+function placementRevisionFromSession(session) {
+  return {
+    placement: session.placement ?? null,
+    solvedRegistration: solvedRegistrationRevisionFromSession(session),
+  };
+}
+
+function solvedRegistrationRevisionFromSession(session) {
+  if (!session.registration?.solvedPlacement) {
+    return null;
+  }
+  return {
+    pinIds: (session.registration.pins ?? []).map((pin) => pin.id),
+    placement: session.registration.solvedPlacement,
+  };
+}
+
+function applyPlacementRevision(session, revision) {
+  return withSolvedRegistrationRevision(
+    withPlacementRevision(session, revision.placement),
+    revision.solvedRegistration,
+  );
+}
+
+function withPlacementRevision(session, placement) {
+  if (placement === null) {
+    return withoutSessionKeys(session, ["placement"]);
+  }
+  return {
+    ...session,
+    placement,
+  };
+}
+
+function withSolvedRegistrationRevision(session, solvedRegistration) {
+  const pins = session.registration?.pins ?? [];
+  if (!solvedRegistration || !pinIdsEqual(pins, solvedRegistration.pinIds)) {
+    return withoutSolvedRegistration(session);
+  }
+  return {
+    ...session,
+    registration: {
+      pins,
+      solvedPlacement: solvedRegistration.placement,
+    },
+  };
+}
+
+function withoutSolvedRegistration(session) {
+  if (!session.registration) {
+    return session;
+  }
+  if ((session.registration.pins ?? []).length === 0) {
+    return withoutSessionKeys(session, ["registration"]);
+  }
+  return {
+    ...session,
+    registration: {
+      pins: session.registration.pins,
+    },
+  };
+}
+
+function withoutSessionKeys(session, keys) {
+  const nextSession = {};
+  for (const [key, value] of Object.entries(session)) {
+    if (!keys.includes(key)) {
+      nextSession[key] = value;
+    }
+  }
+  return nextSession;
+}
+
+function pinIdsEqual(pins, pinIds) {
+  return pins.length === pinIds.length
+    && pins.every((pin, index) => pin.id === pinIds[index]);
 }
 
 function hydrate(durableState) {

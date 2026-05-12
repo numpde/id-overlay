@@ -50,55 +50,6 @@ const FORBIDDEN_HISTORY_SOURCE_PATTERNS = Object.freeze([
   },
 ]);
 
-// Candidate: a committed placement edit is the single durable user action for a
-// gesture. It pushes one scoped record with semantic editKind and before/after
-// placement revisions; it does not store a full durable snapshot or literal UI
-// copy in the record.
-test("candidate: committed Align placement edit creates semantic scoped history", () => {
-  const result = handleApplicationCommand({
-    state: referenceImageLoadedState({
-      mode: "align",
-    }),
-    command: createApplicationCommand(
-      APPLICATION_COMMAND_KIND.COMMIT_PLACEMENT_EDIT,
-      {
-        editKind: "move",
-        placement: movedPlacement(),
-      },
-    ),
-  });
-
-  assert.deepEqual(result, {
-    state: {
-      session: referenceImageSession({
-        mode: "align",
-        placement: movedPlacement(),
-      }),
-      history: {
-        past: [placementHistoryRecord({
-          editKind: "move",
-          before: placementRevision({
-            placement: null,
-            solvedRegistration: null,
-          }),
-          after: placementRevision({
-            placement: movedPlacement(),
-            solvedRegistration: null,
-          }),
-        })],
-        future: [],
-      },
-    },
-    effects: [{
-      kind: EFFECT_KIND.PERSIST_DURABLE_STATE,
-      durableState: durableImageState({
-        mode: "align",
-        placement: movedPlacement(),
-      }),
-    }],
-  });
-});
-
 // Candidate: placement undo applies the placement scope over the current
 // session. Mode, opacity, reference image, and pins are not part of a move
 // record, so they must survive even when the user switched mode after editing.

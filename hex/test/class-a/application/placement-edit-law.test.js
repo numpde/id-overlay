@@ -7,9 +7,10 @@ import {
 } from "../../../application/command.js";
 import { handleApplicationCommand } from "../../../application/handle-command.js";
 
-// Class-a: committed Align placement edits are the durable overlay transform.
-// Move, rotate, and scale may originate from different gestures, but once
-// committed they all update session placement and persist exactly that session.
+// Class-a: committed Align placement edits are durable, undoable overlay
+// transforms. Move, rotate, and scale may originate from different gestures, but
+// once committed they update placement, persist the session, and push exactly
+// one scoped history record for that gesture.
 test("committed Align placement edits update placement durably", () => {
   for (const { editKind, placement } of [
     {
@@ -33,8 +34,25 @@ test("committed Align placement edits update placement durably", () => {
       ),
     });
 
+    const expectedState = referenceImageLoadedState({ placement });
     assert.deepEqual(result, {
-      state: referenceImageLoadedState({ placement }),
+      state: {
+        ...expectedState,
+        history: {
+          past: [placementHistoryRecord({
+            editKind,
+            before: placementRevision({
+              placement: null,
+              solvedRegistration: null,
+            }),
+            after: placementRevision({
+              placement,
+              solvedRegistration: null,
+            }),
+          })],
+          future: [],
+        },
+      },
       effects: [
         persistDurableStateEffect(referenceImageDurableState({ placement })),
       ],
@@ -117,6 +135,22 @@ function placementEditPayload({ editKind, placement }) {
   return {
     editKind,
     placement,
+  };
+}
+
+function placementHistoryRecord({ editKind, before, after }) {
+  return {
+    kind: "overlay-placement-edit",
+    editKind,
+    before,
+    after,
+  };
+}
+
+function placementRevision({ placement, solvedRegistration }) {
+  return {
+    placement,
+    solvedRegistration,
   };
 }
 
