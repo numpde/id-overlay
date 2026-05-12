@@ -365,6 +365,23 @@ test("stale replacement outcome cannot replace current image", () => {
   });
 });
 
+// Class-a: replacement state names the product intent, not a particular input
+// source. Paste and clipboard are adapter tactics; they must not leak into the
+// application state that survives command handling or request correlation.
+test("replacement state is source-agnostic", () => {
+  const state = handleApplicationCommand({
+    state: loadedImageState(),
+    command: createApplicationCommand(
+      APPLICATION_COMMAND_KIND.REQUEST_REFERENCE_IMAGE_REPLACEMENT,
+    ),
+  }).state;
+
+  const serialized = JSON.stringify(state);
+  assert.equal(serialized.includes("paste"), false);
+  assert.equal(serialized.includes("clipboard"), false);
+  assert.equal(serialized.includes("replace-reference-image"), true);
+});
+
 function loadedImageState({
   mode = "align",
   referenceImage = oldReferenceImage(),
