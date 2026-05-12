@@ -6,6 +6,7 @@ import {
   createApplicationCommand,
 } from "../../../application/command.js";
 import { handleApplicationCommand } from "../../../application/handle-command.js";
+import { selectApplicationView } from "../../../application/view-model.js";
 import {
   firstPin,
   referenceImageLoadedState,
@@ -53,6 +54,8 @@ test("primary action clear-image confirmation labels reloadable history", () => 
     ),
   });
 
-  assert.equal(result.state.history.past[0].undoLabel, "Reload image");
-  assert.equal(result.state.history.past[0].redoLabel, "Remove image");
+  assert.deepEqual(selectApplicationView(result.state).history.undo, {
+    enabled: true,
+    label: "Reload image",
+  });
 });

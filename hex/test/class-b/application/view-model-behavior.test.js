@@ -68,13 +68,21 @@ test("view model exposes semantic history controls", () => {
     history: {
       past: [{
         kind: "remove-reference-image",
-        undoLabel: "Reload image",
-        redoLabel: "Remove image",
+        before: {
+          session: referenceImageLoadedState().session,
+        },
+        after: null,
       }],
       future: [{
-        kind: "move-overlay",
-        undoLabel: "Undo move overlay",
-        redoLabel: "Redo move overlay",
+        kind: "replace-reference-image",
+        before: {
+          session: referenceImageLoadedState().session,
+        },
+        after: {
+          session: referenceImageLoadedState({
+            referenceImageId: "replacement-image-data",
+          }).session,
+        },
       }],
     },
   });
@@ -86,7 +94,7 @@ test("view model exposes semantic history controls", () => {
     },
     redo: {
       enabled: true,
-      label: "Redo move overlay",
+      label: "Replace image",
     },
   });
   assert.notEqual(view.history.undo.label, "Undo");
@@ -232,6 +240,7 @@ test("view model exposes user-visible status copy", () => {
 
 function referenceImageLoadedState({
   mode = "align",
+  referenceImageId = "reference-image-data-1",
   placement,
   opacity,
   pins = [],
@@ -241,7 +250,7 @@ function referenceImageLoadedState({
   const session = {
     mode,
     referenceImage: {
-      imageDataRef: "reference-image-data-1",
+      imageDataRef: referenceImageId,
       intrinsicSizePx: {
         width: 640,
         height: 480,

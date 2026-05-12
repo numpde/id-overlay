@@ -66,9 +66,13 @@ function historyLabel(record, direction) {
   if (record.kind === "overlay-placement-edit") {
     return `${direction === "undo" ? "Undo" : "Redo"} ${record.editKind} overlay`;
   }
-  return direction === "undo"
-    ? record.undoLabel ?? null
-    : record.redoLabel ?? null;
+  if (record.kind === "remove-reference-image") {
+    return direction === "undo" ? "Reload image" : "Remove image";
+  }
+  if (record.kind === "replace-reference-image") {
+    return direction === "undo" ? "Restore previous image" : "Replace image";
+  }
+  return null;
 }
 
 function primaryActionLabel(state) {

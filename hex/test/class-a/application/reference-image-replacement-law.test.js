@@ -418,8 +418,6 @@ function durableStateFromLoadedState(state) {
 function replacementHistoryRecord({ before, after }) {
   return {
     kind: "replace-reference-image",
-    undoLabel: "Restore previous image",
-    redoLabel: "Replace image",
     before,
     after,
   };

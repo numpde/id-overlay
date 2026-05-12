@@ -389,8 +389,6 @@ function historyState(state) {
 function clearReferenceImageWithHistory(state) {
   const record = {
     kind: "remove-reference-image",
-    undoLabel: "Reload image",
-    redoLabel: "Remove image",
     before: selectDurableApplicationState(state),
     after: null,
   };
@@ -489,8 +487,6 @@ function reportReferenceImageReplacementOutcome(state, command) {
   const nextDurableState = { session };
   const record = {
     kind: "replace-reference-image",
-    undoLabel: "Restore previous image",
-    redoLabel: "Replace image",
     before: selectDurableApplicationState(state),
     after: nextDurableState,
   };
