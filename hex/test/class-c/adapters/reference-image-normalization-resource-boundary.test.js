@@ -5,9 +5,14 @@ import {
   normalizeClipboardImage,
 } from "../../../adapters/web/image-normalization.js";
 
-// Unclassified candidate: decoding may create browser-only handles and object
-// URLs, but the accepted application fact must contain only the durable
-// `imageDataRef` allocated by a shell-owned image store plus intrinsic size.
+// Class-c: this is the target image-resource boundary, but it depends on a
+// shell-owned durable image store and decoded-handle cleanup that do not exist
+// yet. Current normalization trusts the decoder to return `imageDataRef`
+// directly, so this test must stay out of stable classes.
+//
+// Decision: keep. The boundary is important, but promoting it before the
+// storage/resource port exists would over-specify a single adapter while the
+// surrounding lifecycle is still absent.
 test("image normalization stores decoded image data behind a durable ref", async () => {
   const calls = {
     stored: [],
