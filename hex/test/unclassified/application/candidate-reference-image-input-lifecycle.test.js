@@ -24,6 +24,9 @@ import { handleApplicationCommand } from "../../../application/handle-command.js
 //
 // Classification note: the empty-input candidate was deleted as a duplicate of
 // the stronger class-a lifecycle law plus class-b notice-shape boundary.
+//
+// Classification note: the awaiting-input primary-action candidate was deleted
+// as a duplicate of the class-a correlated cancellation law.
 
 const COMMAND_KIND = Object.freeze({
   REPORT_REFERENCE_IMAGE_INPUT_OUTCOME: "report-reference-image-input-outcome",
@@ -47,22 +50,6 @@ const FAILURE_REASON = Object.freeze({
   SOURCE_UNAVAILABLE: "source-unavailable",
   DECODE_FAILED: "decode-failed",
   UNSUPPORTED_IMAGE: "unsupported-image",
-});
-
-// Candidate: the app supports one active reference-image input request. "Click
-// Paste while awaiting input" is Cancel. Retry/Replace would require a distinct
-// product command, not another implicit primary-action branch.
-test("candidate: primary action while awaiting input cancels instead of replacing", () => {
-  const result = handleApplicationCommand({
-    state: awaitingInputState({ requestId: 7 }),
-    command: createApplicationCommand(APPLICATION_COMMAND_KIND.ACTIVATE_PRIMARY_ACTION),
-  });
-
-  assert.equal(result.state.referenceImageInput, undefined);
-  assert.equal(result.state.notice.kind, "reference-image-input-cancelled");
-  assert.equal(result.state.notice.requestId, 7);
-  assert.equal(result.effects[0].kind, EFFECT_KIND.SCHEDULE_CLEAR_STATUS_NOTICE);
-  assert.equal(result.effects[0].requestId, 7);
 });
 
 // Candidate: reject source-specific browser failure vocabulary at the application
