@@ -51,39 +51,6 @@ const EFFECT_KIND = Object.freeze({
 
 const STATUS_NOTICE_DELAY_MS = 2500;
 
-// Candidate: while replacement is awaiting input, the existing overlay remains
-// the visible/editable product state. The user should not see the image vanish
-// because an asynchronous paste/read operation is in flight.
-test("candidate: replacement-pending view still renders the old image", () => {
-  const state = {
-    ...loadedImageState({
-      mode: "align",
-      placement: oldPlacement(),
-      pins: [firstPin()],
-    }),
-    referenceImageInput: {
-      status: "awaiting-input",
-      requestId: 1,
-      intent: {
-        kind: "replace-reference-image",
-      },
-    },
-  };
-
-  const view = selectApplicationView(state);
-
-  assert.deepEqual(view.overlay, {
-    visible: true,
-    imageDataRef: oldReferenceImage().imageDataRef,
-    intrinsicSizePx: oldReferenceImage().intrinsicSizePx,
-    placement: oldPlacement(),
-    opacity: 1,
-    pins: [firstPin()],
-  });
-  assert.match(view.primaryAction.label, /cancel/i);
-  assert.doesNotMatch(view.primaryAction.label, /clear/i);
-});
-
 // Candidate: accepted replacement starts a fresh image session. Image-specific
 // alignment state from the old image is intentionally not inherited by the new
 // image.

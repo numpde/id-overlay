@@ -6,6 +6,7 @@ import {
   createApplicationCommand,
 } from "../../../application/command.js";
 import { handleApplicationCommand } from "../../../application/handle-command.js";
+import { selectApplicationView } from "../../../application/view-model.js";
 
 // Class-a: replacing a loaded reference image is not "clear, then paste".
 // The old session remains the visible durable product fact until a new
@@ -63,6 +64,39 @@ test("replacement request with no image is inert", () => {
     state: {},
     effects: [],
   });
+});
+
+// Class-a: pending replacement is a transient input state layered over the old
+// session. The view must still render the old overlay facts; otherwise a failed
+// or cancelled replacement would already have behaved like removal.
+test("replacement-pending view still renders the old image", () => {
+  const state = {
+    ...loadedImageState({
+      mode: "align",
+      placement: oldPlacement(),
+      pins: [firstPin()],
+    }),
+    referenceImageInput: {
+      status: "awaiting-input",
+      requestId: 1,
+      intent: {
+        kind: "replace-reference-image",
+      },
+    },
+  };
+
+  const view = selectApplicationView(state);
+
+  assert.deepEqual(view.overlay, {
+    visible: true,
+    imageDataRef: oldReferenceImage().imageDataRef,
+    intrinsicSizePx: oldReferenceImage().intrinsicSizePx,
+    placement: oldPlacement(),
+    opacity: 1,
+    pins: [firstPin()],
+  });
+  assert.match(view.primaryAction.label, /cancel/i);
+  assert.doesNotMatch(view.primaryAction.label, /clear/i);
 });
 
 function loadedImageState({
