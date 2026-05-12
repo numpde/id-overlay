@@ -157,6 +157,70 @@ test("accepted replacement creates fresh Align session and persists it", () => {
   });
 });
 
+// Class-a: replacement is a normal undoable durable edit. It appends to the
+// existing past and clears redo because accepting a new image creates a new
+// timeline branch.
+test("accepted replacement appends history and clears redo future", () => {
+  const oldState = loadedImageState({
+    mode: "align",
+    placement: oldPlacement(),
+  });
+  const pastRecord = placementHistoryRecord();
+  const futureRecord = placementHistoryRecord({
+    editKind: "scale",
+  });
+  const newSession = {
+    mode: "align",
+    referenceImage: newReferenceImage(),
+  };
+
+  const result = handleApplicationCommand({
+    state: {
+      ...oldState,
+      history: {
+        past: [pastRecord],
+        future: [futureRecord],
+      },
+      referenceImageInput: {
+        status: "awaiting-input",
+        requestId: 5,
+        intent: {
+          kind: "replace-reference-image",
+        },
+      },
+    },
+    command: createApplicationCommand(
+      APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_INPUT_OUTCOME,
+      {
+        requestId: 5,
+        outcome: {
+          kind: "accepted",
+          referenceImage: newReferenceImage(),
+        },
+      },
+    ),
+  });
+
+  assert.deepEqual(result.state.history, {
+    past: [
+      pastRecord,
+      replacementHistoryRecord({
+        before: durableStateFromLoadedState(oldState),
+        after: {
+          session: newSession,
+        },
+      }),
+    ],
+    future: [],
+  });
+  assert.deepEqual(result.effects, [{
+    kind: "persist-durable-state",
+    durableState: {
+      session: newSession,
+    },
+  }]);
+});
+
 function loadedImageState({
   mode = "align",
   referenceImage = oldReferenceImage(),
@@ -197,6 +261,21 @@ function replacementHistoryRecord({ before, after }) {
     redoLabel: "Replace image",
     before,
     after,
+  };
+}
+
+function placementHistoryRecord({ editKind = "move" } = {}) {
+  return {
+    kind: "overlay-placement-edit",
+    editKind,
+    before: {
+      placement: null,
+      solvedRegistration: null,
+    },
+    after: {
+      placement: oldPlacement(),
+      solvedRegistration: null,
+    },
   };
 }
 
