@@ -37,6 +37,10 @@ import { selectApplicationView } from "../../../application/view-model.js";
 // shape was deleted. Replacement causality should be settled before button or
 // view-model surface area; otherwise the UI harness becomes the design source of
 // truth instead of the application behavior.
+//
+// Classification note: a replacement-history-label candidate was deleted as
+// redundant. The replacement history record now owns the semantic label in
+// class-a, and the generic view-model history projection is already class-b.
 
 const COMMAND_KIND = Object.freeze({
   REQUEST_REFERENCE_IMAGE_REPLACEMENT: "request-reference-image-replacement",
@@ -50,36 +54,6 @@ const EFFECT_KIND = Object.freeze({
 });
 
 const STATUS_NOTICE_DELAY_MS = 2500;
-
-// Candidate: replacement and removal have different history descriptions. The
-// view should describe undoing a replacement as restoring the previous image,
-// not as generic Undo or as Clear/Reload copy borrowed from image removal.
-test("candidate: replacement history has specific non-clear labels", () => {
-  const view = selectApplicationView({
-    session: {
-      mode: "align",
-      referenceImage: newReferenceImage(),
-    },
-    history: {
-      past: [replacementHistoryRecord({
-        before: durableStateFromLoadedState(loadedImageState()),
-        after: {
-          session: {
-            mode: "align",
-            referenceImage: newReferenceImage(),
-          },
-        },
-      })],
-      future: [],
-    },
-  });
-
-  assert.equal(view.history.undo.enabled, true);
-  assertSemanticLabel(view.history.undo.label, ["image"]);
-  assert.match(view.history.undo.label, /previous|old|restore/i);
-  assert.doesNotMatch(view.history.undo.label, /^undo(?: change)?$/i);
-  assert.doesNotMatch(view.history.undo.label, /clear/i);
-});
 
 // Candidate: source-specific "paste" vocabulary must not be the product name of
 // replacement state. Paste is one browser input route; replacement is the user
