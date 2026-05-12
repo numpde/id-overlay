@@ -38,6 +38,16 @@ const FORBIDDEN_BROWSER_VOCABULARY = [
   "sessionStorage",
 ];
 
+const CORE_ONLY_FORBIDDEN_BROWSER_VOCABULARY = [
+  "clipboard",
+  "ClipboardItem",
+  "ImageBitmap",
+  "canvas",
+  "objectURL",
+  "createObjectURL",
+  "revokeObjectURL",
+];
+
 const PLAIN_DATA_TEST_DIRECTORIES = [
   hexPath("test/class-a/domain"),
   hexPath("test/class-a/application"),
@@ -50,6 +60,9 @@ test("domain, application, and ports do not mention browser or platform objects"
     hexPath("domain"),
     hexPath("application"),
     hexPath("ports"),
+  ], [
+    ...FORBIDDEN_BROWSER_VOCABULARY,
+    ...CORE_ONLY_FORBIDDEN_BROWSER_VOCABULARY,
   ]);
 
   assert.deepEqual(violations, []);
@@ -71,12 +84,15 @@ test("domain and application tests stay plain-data tests", () => {
   assert.deepEqual(violations, []);
 });
 
-function collectForbiddenVocabularyViolations(directoryPaths) {
+function collectForbiddenVocabularyViolations(
+  directoryPaths,
+  forbiddenVocabulary = FORBIDDEN_BROWSER_VOCABULARY,
+) {
   const violations = [];
   for (const directoryPath of directoryPaths) {
     for (const filePath of listJavaScriptFiles(directoryPath, { includeTests: true })) {
       const source = readSource(filePath);
-      for (const word of FORBIDDEN_BROWSER_VOCABULARY) {
+      for (const word of forbiddenVocabulary) {
         if (new RegExp(`\\b${word}\\b`).test(source)) {
           violations.push(`${relativeToRepo(filePath)} mentions ${word}`);
         }

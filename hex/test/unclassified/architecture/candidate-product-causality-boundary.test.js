@@ -18,39 +18,8 @@ import {
 // or the application starts naming browser mechanics as product concepts.
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../..");
-const APPLICATION_DIR = path.join(REPO_ROOT, "hex/application");
 const BOOTSTRAP_DIR = path.join(REPO_ROOT, "hex/bootstrap");
 const CONTENT_DIR = path.join(REPO_ROOT, "src/content");
-
-const APPLICATION_BROWSER_MECHANICS = Object.freeze([
-  "navigator",
-  "clipboard",
-  "ClipboardItem",
-  "addEventListener",
-  "removeEventListener",
-  "PointerEvent",
-  "KeyboardEvent",
-  "WheelEvent",
-  "MouseEvent",
-  "setTimeout",
-  "clearTimeout",
-  "requestAnimationFrame",
-  "Blob",
-  "File",
-  "new Image",
-  "ImageBitmap",
-  "createImageBitmap",
-  "canvas",
-  "HTML",
-  "Element",
-  "Document",
-  "Window",
-  "chrome.",
-  "browser.",
-  "objectURL",
-  "createObjectURL",
-  "revokeObjectURL",
-]);
 
 const SHELL_WATCHED_PRODUCT_FIELDS = Object.freeze([
   "referenceImageInput",
@@ -73,24 +42,6 @@ const SHELL_WATCHER_ACTIONS = Object.freeze([
   "releaseImageDataRef",
   "solveRegistrationPlacement",
 ]);
-
-// Candidate: application code may declare effects, but it must not name the
-// physical browser mechanisms that adapters use to satisfy those effects. This
-// is stronger than "no chrome.* in core": it also rejects source-specific
-// vocabulary that would turn a browser tactic into product language.
-test("candidate: application source does not mention browser mechanics", () => {
-  const violations = [];
-  for (const filePath of listJavaScriptFiles(APPLICATION_DIR)) {
-    const source = readSource(filePath);
-    for (const mechanic of APPLICATION_BROWSER_MECHANICS) {
-      if (source.includes(mechanic)) {
-        violations.push(`${relativeToRepo(filePath)} mentions ${mechanic}`);
-      }
-    }
-  }
-
-  assert.deepEqual(violations, []);
-});
 
 // Candidate: the runtime interprets declared effects only. Product-looking state
 // must never trigger browser work by shape. This is the executable form of "no
