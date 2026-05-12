@@ -5,10 +5,14 @@ import {
   solveRegistrationPlacement,
 } from "../../../domain/registration.js";
 
-// Unclassified candidate: registration solving is pure product geometry. Pins
-// are durable image/map facts, so the solver should consume `mapLatLon` and
-// produce a stable image-to-map-world transform. Viewport pixels, map zoom, and
-// object lifetimes are render/page concerns, not solve inputs or outputs.
+// Class-c: serious alternative to current class-a registration law. This says
+// pins are durable image/map facts, so the solver should consume `mapLatLon`
+// and produce a stable image-to-map-world transform. Current class-a law solves
+// from projected `mapPx` into a placement, so this cannot be promoted locally.
+//
+// Decision: keep quarantined until the registration model is deliberately
+// re-opened. If promoted, it replaces the class-a solver contract rather than
+// merely extending it.
 test("registration solve returns a stable image-to-map-world transform", () => {
   const result = solveRegistrationPlacement({
     pins: [
@@ -53,9 +57,8 @@ test("registration solve returns a stable image-to-map-world transform", () => {
   assert.equal(/\b(screen|viewport|zoom|dom|browser)\b/i.test(JSON.stringify(result)), false);
 });
 
-// Unclassified candidate: geometric impossibility is a normal solve result.
-// It should not throw and it should not create a partial solved transform that
-// the application or renderer then has to second-guess.
+// Class-c: explicit failure is already class-a; this version additionally
+// includes pin ids and belongs to the alternate transform contract.
 test("registration solve failure is explicit source-neutral data", () => {
   assert.deepEqual(solveRegistrationPlacement({
     pins: [
