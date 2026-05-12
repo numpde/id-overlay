@@ -32,6 +32,11 @@ import { selectApplicationView } from "../../../application/view-model.js";
 // Command names are not independent product behavior; promoting the name alone
 // would create a dangling API surface. The replacement behavior candidates below
 // should own whatever command vocabulary they require.
+//
+// Classification note: a candidate requiring a `referenceImageActions` view
+// shape was deleted. Replacement causality should be settled before button or
+// view-model surface area; otherwise the UI harness becomes the design source of
+// truth instead of the application behavior.
 
 const COMMAND_KIND = Object.freeze({
   REQUEST_REFERENCE_IMAGE_REPLACEMENT: "request-reference-image-replacement",
@@ -45,28 +50,6 @@ const EFFECT_KIND = Object.freeze({
 });
 
 const STATUS_NOTICE_DELAY_MS = 2500;
-
-// Candidate: a loaded image exposes replacement as an explicit image action.
-// This does not prescribe button placement; it only forbids burying replacement
-// behind destructive Clear image confirmation or shell-only behavior.
-test("candidate: loaded-image view exposes replacement separately from clear", () => {
-  const view = selectApplicationView(loadedImageState({
-    pins: [firstPin()],
-  }));
-
-  assert.equal(view.referenceImageActions.replace.enabled, true);
-  assertSemanticLabel(view.referenceImageActions.replace.label, ["image"]);
-  assert.match(view.referenceImageActions.replace.label, /replace|paste/i);
-  assert.deepEqual(view.referenceImageActions.replace.command, {
-    kind: COMMAND_KIND.REQUEST_REFERENCE_IMAGE_REPLACEMENT,
-  });
-  assert.equal(view.referenceImageActions.clear.enabled, true);
-  assert.match(view.referenceImageActions.clear.label, /clear|remove/i);
-  assert.notDeepEqual(
-    view.referenceImageActions.replace.command,
-    view.referenceImageActions.clear.command,
-  );
-});
 
 // Candidate: loaded-image replacement is not the primary clear flow. Starting
 // replacement keeps the existing session and asks the outside world for a new
