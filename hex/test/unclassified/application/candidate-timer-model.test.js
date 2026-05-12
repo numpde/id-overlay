@@ -43,45 +43,6 @@ const FORBIDDEN_TIMER_EFFECT_KINDS = Object.freeze([
   "clear-timeout",
 ]);
 
-// Candidate: timer completion re-enters as an ordinary application command.
-// Staleness belongs to the application because the request id is product state.
-test("candidate: clear-status timer outcome clears only the matching notice", () => {
-  assert.deepEqual(handleApplicationCommand({
-    state: {
-      notice: {
-        kind: "reference-image-input-empty",
-        requestId: 2,
-      },
-    },
-    command: createApplicationCommand(APPLICATION_COMMAND_KIND.CLEAR_STATUS_NOTICE, {
-      requestId: 1,
-    }),
-  }), {
-    state: {
-      notice: {
-        kind: "reference-image-input-empty",
-        requestId: 2,
-      },
-    },
-    effects: [],
-  });
-
-  assert.deepEqual(handleApplicationCommand({
-    state: {
-      notice: {
-        kind: "reference-image-input-empty",
-        requestId: 2,
-      },
-    },
-    command: createApplicationCommand(APPLICATION_COMMAND_KIND.CLEAR_STATUS_NOTICE, {
-      requestId: 2,
-    }),
-  }), {
-    state: {},
-    effects: [],
-  });
-});
-
 // Candidate: destructive confirmation expiry is also product causality. Arming
 // the confirmation and scheduling expiry must happen in the same transition, so
 // the shell cannot watch `panelIntent` and start timers on its own.

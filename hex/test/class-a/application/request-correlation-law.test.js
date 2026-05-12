@@ -112,3 +112,24 @@ test("stale status clear requests are ignored", () => {
     effects: [],
   });
 });
+
+// Class-a: the matching delayed clear is an ordinary application command, not
+// runtime cleanup. The app owns the request id comparison and removes only the
+// product notice it can prove the timer was scheduled for.
+test("matching status clear request removes the current notice", () => {
+  assert.deepEqual(handleApplicationCommand({
+    state: {
+      notice: {
+        kind: "reference-image-input-empty",
+        requestId: 2,
+      },
+    },
+    command: createApplicationCommand(
+      APPLICATION_COMMAND_KIND.CLEAR_STATUS_NOTICE,
+      { requestId: 2 },
+    ),
+  }), {
+    state: {},
+    effects: [],
+  });
+});
