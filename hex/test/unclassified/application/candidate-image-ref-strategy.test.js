@@ -42,10 +42,6 @@ import {
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../..");
 const APPLICATION_DIR = path.join(REPO_ROOT, "hex/application");
 
-const COMMAND_KIND = Object.freeze({
-  REPORT_REFERENCE_IMAGE_INPUT_OUTCOME: "report-reference-image-input-outcome",
-});
-
 const EFFECT_KIND = Object.freeze({
   PERSIST_DURABLE_STATE: "persist-durable-state",
 });
@@ -71,16 +67,6 @@ const FORBIDDEN_APPLICATION_IMAGE_MECHANICS = Object.freeze([
   "dataTransfer",
 ]);
 
-// Candidate: image input has the same source-agnostic command name regardless
-// of whether a browser adapter used clipboard, a paste event, or a future file
-// picker. The image-ref law depends on that normalization already being done.
-test("candidate: image ref enters through source-agnostic input outcome command", () => {
-  assert.equal(
-    APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_INPUT_OUTCOME,
-    COMMAND_KIND.REPORT_REFERENCE_IMAGE_INPUT_OUTCOME,
-  );
-});
-
 // Candidate: accepting an image should persist the same durable image ref that
 // the input adapter normalized. The app does not decode, copy, resolve, or
 // allocate a render resource; it commits the already-normalized product fact.
@@ -94,7 +80,7 @@ test("candidate: accepted reference-image input commits a durable image ref unch
   assert.deepEqual(handleApplicationCommand({
     state: awaitingReferenceImageInputState({ requestId: 1 }),
     command: createApplicationCommand(
-      COMMAND_KIND.REPORT_REFERENCE_IMAGE_INPUT_OUTCOME,
+      APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_INPUT_OUTCOME,
       {
         requestId: 1,
         outcome: {
@@ -123,7 +109,7 @@ test("candidate: reference-image input rejects runtime-scoped image refs", () =>
   for (const imageDataRef of FORBIDDEN_RUNTIME_IMAGE_REFS) {
     assertApplicationBoundaryError(
       () => createApplicationCommand(
-        COMMAND_KIND.REPORT_REFERENCE_IMAGE_INPUT_OUTCOME,
+        APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_INPUT_OUTCOME,
         {
           requestId: 1,
           outcome: {
@@ -151,7 +137,7 @@ test("candidate: reference-image input rejects extra runtime image handles", () 
   ]) {
     assertApplicationBoundaryError(
       () => createApplicationCommand(
-        COMMAND_KIND.REPORT_REFERENCE_IMAGE_INPUT_OUTCOME,
+        APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_INPUT_OUTCOME,
         {
           requestId: 1,
           outcome: {
