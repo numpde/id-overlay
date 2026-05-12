@@ -66,45 +66,6 @@ const FORBIDDEN_INTERACTION_RUNTIME_STATE_READS = Object.freeze([
   ".history",
 ]);
 
-// Candidate: opacity adjustment is a semantic product command, but the browser
-// mechanics that choose the next value are not. A selector/projection port may
-// clamp or step the value before dispatch; history policy remains application
-// owned by the set-opacity transition.
-test("candidate: opacity interaction maps through selection to set-opacity", async () => {
-  const commands = [];
-  const facts = [];
-  const runtime = createInteractionRuntime({
-    dispatchApplicationCommand(command) {
-      commands.push(command);
-    },
-    selectOpacity(fact) {
-      facts.push(fact);
-      return {
-        kind: "selected",
-        opacity: 0.5,
-      };
-    },
-  });
-
-  await runtime.handleInteractionFact({
-    kind: "opacity-adjustment-requested",
-    inputDelta: {
-      y: 100,
-    },
-  });
-
-  assert.deepEqual(facts, [{
-    kind: "opacity-adjustment-requested",
-    inputDelta: {
-      y: 100,
-    },
-  }]);
-  assert.deepEqual(commands, [{
-    kind: INTERACTION_COMMAND_KIND.SET_OPACITY,
-    opacity: 0.5,
-  }]);
-});
-
 // Candidate: the command vocabulary needed by interaction mapping is exact and
 // semantic. Adding keyboard/pointer/wheel-flavored commands would be a boundary
 // regression, because those words describe how the browser observed input, not

@@ -127,6 +127,44 @@ test("interaction runtime maps placement facts through projection to committed e
   }]);
 });
 
+// Class-b: opacity changes are product commands, but the browser interaction
+// that chooses the next opacity is not. The mapper may ask a selection port for
+// the semantic value; history/durability policy stays inside `set-opacity`.
+test("interaction runtime maps opacity facts through selection to set-opacity", async () => {
+  const commands = [];
+  const facts = [];
+  const runtime = createInteractionRuntime({
+    dispatchApplicationCommand(command) {
+      commands.push(command);
+    },
+    selectOpacity(fact) {
+      facts.push(fact);
+      return {
+        kind: "selected",
+        opacity: 0.5,
+      };
+    },
+  });
+
+  await runtime.handleInteractionFact({
+    kind: "opacity-adjustment-requested",
+    inputDelta: {
+      y: 100,
+    },
+  });
+
+  assert.deepEqual(facts, [{
+    kind: "opacity-adjustment-requested",
+    inputDelta: {
+      y: 100,
+    },
+  }]);
+  assert.deepEqual(commands, [{
+    kind: "set-opacity",
+    opacity: 0.5,
+  }]);
+});
+
 function rotatedPlacement() {
   return {
     x: 10,

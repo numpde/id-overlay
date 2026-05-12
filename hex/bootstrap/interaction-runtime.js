@@ -7,6 +7,7 @@ export function createInteractionRuntime({
   dispatchApplicationCommand,
   projectRegistrationPinToggle,
   projectPlacementEdit,
+  selectOpacity,
 }) {
   return {
     async handleInteractionFact(fact) {
@@ -23,17 +24,30 @@ export function createInteractionRuntime({
         return;
       }
 
-      if (fact.kind !== "placement-edit-requested" || typeof projectPlacementEdit !== "function") {
+      if (fact.kind === "placement-edit-requested" && typeof projectPlacementEdit === "function") {
+        const projection = projectPlacementEdit(fact);
+        if (projection.kind !== "committed") {
+          return;
+        }
+        const { kind, ...placementEditPayload } = projection;
+        await dispatchApplicationCommand(createApplicationCommand(
+          APPLICATION_COMMAND_KIND.COMMIT_PLACEMENT_EDIT,
+          placementEditPayload,
+        ));
         return;
       }
-      const projection = projectPlacementEdit(fact);
-      if (projection.kind !== "committed") {
+
+      if (fact.kind !== "opacity-adjustment-requested" || typeof selectOpacity !== "function") {
         return;
       }
-      const { kind, ...placementEditPayload } = projection;
+      const selection = selectOpacity(fact);
+      if (selection.kind !== "selected") {
+        return;
+      }
+      const { kind, ...opacityPayload } = selection;
       await dispatchApplicationCommand(createApplicationCommand(
-        APPLICATION_COMMAND_KIND.COMMIT_PLACEMENT_EDIT,
-        placementEditPayload,
+        APPLICATION_COMMAND_KIND.SET_OPACITY,
+        opacityPayload,
       ));
     },
   };
