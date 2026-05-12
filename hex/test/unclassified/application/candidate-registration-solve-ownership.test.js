@@ -29,40 +29,6 @@ const EFFECT_KIND = Object.freeze({
   PERSIST_DURABLE_STATE: "persist-durable-state",
 });
 
-// Candidate: solved placement is derived from the current pin set. Editing pins
-// preserves current visible placement but clears stale solved metadata so a later
-// Trace transition recomputes instead of trusting old fit facts.
-test("candidate: registration pin edits invalidate solved placement metadata", () => {
-  const placement = solvedPlacement();
-  const result = handleApplicationCommand({
-    state: referenceImageLoadedState({
-      mode: "align",
-      placement,
-      pins: [firstPin(), secondPin()],
-      solvedPlacement: placement,
-    }),
-    command: createApplicationCommand(
-      APPLICATION_COMMAND_KIND.TOGGLE_REGISTRATION_PIN,
-      {
-        existingPinId: null,
-        imagePx: thirdPin().imagePx,
-        mapPx: thirdPin().mapPx,
-      },
-    ),
-  });
-
-  assert.deepEqual(result.state.session.placement, placement);
-  assert.deepEqual(result.state.session.registration, {
-    pins: [firstPin(), secondPin(), thirdPin()],
-  });
-  assert.deepEqual(result.effects, [{
-    kind: EFFECT_KIND.PERSIST_DURABLE_STATE,
-    durableState: {
-      session: result.state.session,
-    },
-  }]);
-});
-
 // Candidate: manual overlay placement is the current visible placement, not a
 // solved registration fact. Committing a manual placement should clear stale
 // solved metadata while preserving pins for future fit attempts.
@@ -187,20 +153,6 @@ function secondPin() {
     mapPx: {
       x: 200,
       y: 200,
-    },
-  };
-}
-
-function thirdPin() {
-  return {
-    id: 3,
-    imagePx: {
-      x: 50,
-      y: 100,
-    },
-    mapPx: {
-      x: 150,
-      y: 300,
     },
   };
 }

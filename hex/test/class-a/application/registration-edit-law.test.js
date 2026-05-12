@@ -81,6 +81,48 @@ test("registration pin edits preserve current visible placement", () => {
   ]);
 });
 
+// Class-a: solved registration metadata is valid only for the pin set that
+// produced it. Editing pins must preserve the visible placement, but it must
+// clear the solved claim so future fit/history behavior cannot trust stale
+// derived facts.
+test("registration pin edits invalidate solved placement metadata", () => {
+  const placement = {
+    x: 80,
+    y: 40,
+    scale: 1,
+    rotationRad: 0,
+  };
+  const result = handleApplicationCommand({
+    state: referenceImageLoadedState({
+      placement,
+      pins: [firstPin(), secondPin()],
+      solvedPlacement: placement,
+    }),
+    command: createApplicationCommand(
+      APPLICATION_COMMAND_KIND.TOGGLE_REGISTRATION_PIN,
+      {
+        existingPinId: null,
+        imagePx: thirdPin().imagePx,
+        mapLatLon: thirdPin().mapLatLon,
+      },
+    ),
+  });
+
+  assert.deepEqual(result.state.session, {
+    mode: "align",
+    referenceImage: normalizedReferenceImage(),
+    placement,
+    registration: {
+      pins: [firstPin(), secondPin(), thirdPin()],
+    },
+  });
+  assert.deepEqual(result.effects, [
+    persistDurableStateEffect({
+      session: result.state.session,
+    }),
+  ]);
+});
+
 // Class-a: Clear pins is destructive only to registration facts. It must not
 // unload the reference image or leave hidden empty-registration state behind,
 // and the durable effect must describe exactly the surviving session.
@@ -104,7 +146,12 @@ test("clearing Align registration pins keeps the image and clears registration d
   ]);
 });
 
-function referenceImageLoadedState({ mode = "align", placement, pins } = {}) {
+function referenceImageLoadedState({
+  mode = "align",
+  placement,
+  pins,
+  solvedPlacement,
+} = {}) {
   const session = {
     mode,
     referenceImage: normalizedReferenceImage(),
@@ -116,6 +163,9 @@ function referenceImageLoadedState({ mode = "align", placement, pins } = {}) {
     session.registration = {
       pins,
     };
+    if (solvedPlacement !== undefined) {
+      session.registration.solvedPlacement = solvedPlacement;
+    }
   }
   return { session };
 }
@@ -154,6 +204,20 @@ function secondPin() {
     mapLatLon: {
       lat: -1.23,
       lon: 38.84,
+    },
+  };
+}
+
+function thirdPin() {
+  return {
+    id: 3,
+    imagePx: {
+      x: 420,
+      y: 340,
+    },
+    mapLatLon: {
+      lat: -1.24,
+      lon: 37.84,
     },
   };
 }
