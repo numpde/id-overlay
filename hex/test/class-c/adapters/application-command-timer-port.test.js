@@ -5,9 +5,14 @@ import {
   createTimerPortAdapter,
 } from "../../../adapters/web/timer-port.js";
 
-// Unclassified candidate: a timer port is a clock adapter, not product logic.
-// It receives an app-supplied schedule slot and an app command, returns
-// immediately, and later dispatches that command unchanged.
+// Class-c: this is the preferred timer-port destination, but it is not yet a
+// satisfied contract. Current stable code still exposes `startTimer` returning
+// a `timer-fired` fact; this quarantine keeps the no-regret direction visible
+// without pretending the cut-over has happened.
+//
+// Decision: keep, but do not promote. The test is valuable only after the
+// application emits scheduled commands and the shell stops translating
+// `timer-fired` facts into product meaning.
 test("timer port dispatches the scheduled application command unchanged", () => {
   const scheduled = [];
   const dispatched = [];
@@ -44,9 +49,9 @@ test("timer port dispatches the scheduled application command unchanged", () => 
   }]);
 });
 
-// Unclassified candidate: replacement is a clock concern keyed by a
-// product-supplied schedule slot. If the app schedules a newer status expiry,
-// the port cancels the old clock without knowing what a status notice is.
+// Class-c: replacement by schedule slot is the clean timer ownership model, but
+// the current adapter is keyed by request id. This remains quarantined until the
+// effect vocabulary is changed instead of locally adapting this one test.
 test("timer port replaces older clock for the same schedule slot", () => {
   const scheduled = [];
   const cleared = [];
