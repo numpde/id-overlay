@@ -5,10 +5,14 @@ import {
   selectApplicationView,
 } from "../../../application/view-model.js";
 
-// Unclassified candidate: registration fit is not a stored screen placement.
-// The application view may derive a stable map-world transform from the fit
-// source and pins; a page render adapter combines that with the current map
-// snapshot to derive pixels.
+// Class-c: this proposes the map-world registration presentation boundary, not
+// current application law. Today registration solve metadata is represented as
+// `solvedPlacement`; this candidate uses stale `registration.fit` vocabulary and
+// a future transform shape.
+//
+// Decision: keep quarantined. The "no screen/viewport facts in the app view"
+// pressure is useful, but the solve model must be settled before this can
+// become a stable view-model contract.
 test("application view exposes solved registration without screen placement", () => {
   const view = selectApplicationView({
     session: {
