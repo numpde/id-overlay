@@ -30,38 +30,6 @@ import {
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../..");
 const BOOTSTRAP_INDEX = path.join(REPO_ROOT, "hex/bootstrap/index.js");
 
-// Candidate: stop is part of the contract, not an implementation detail. It
-// disposes every browser-owned resource exactly once and removes the running
-// session so a future start is a fresh lifecycle, not a stale WeakMap hit.
-test("candidate: dispose is idempotent and allows a fresh later start", async () => {
-  const host = createLifecycleHostHarness({
-    pageContext: {
-      kind: "supported-map-editor-page",
-    },
-  });
-
-  const first = await bootstrapBrowserExtension(host);
-  first.dispose();
-  first.dispose();
-  const second = await bootstrapBrowserExtension(host);
-
-  assert.notEqual(second, first);
-  assertEventCounts(host.events, {
-    "mount-root:id-overlay": 2,
-    "start-runtime": 2,
-    "read-durable-state": 2,
-    render: 2,
-    "bind-input": 2,
-    "dispose-input": 1,
-    "dispose-root:id-overlay": 1,
-    "dispose-runtime": 1,
-  });
-  assertEventBefore(host.events, "bind-input", "dispose-input");
-  assertEventBefore(host.events, "dispose-input", "mount-root:id-overlay", {
-    occurrence: 2,
-  });
-});
-
 // Candidate: stale UI callbacks are a lifecycle concern. Once the page instance
 // is stopped, callbacks captured by an old render must not dispatch product
 // commands, persist effects, or re-render a root that has been disposed.

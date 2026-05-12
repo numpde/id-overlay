@@ -33,6 +33,38 @@ test("supported page start is idempotent and binds input once after first render
   assertEventBefore(host.events, "render", "bind-input");
 });
 
+// Class-c: disposal is the right lifecycle concern, but this test still fixes
+// the public shape before the controller exists. Keep it quarantined until
+// start/stop/restart are explicit browser-lifecycle operations.
+test("dispose is idempotent and allows a fresh later start", async () => {
+  const host = createLifecycleHostHarness({
+    pageContext: {
+      kind: "supported-map-editor-page",
+    },
+  });
+
+  const first = await bootstrapBrowserExtension(host);
+  first.dispose();
+  first.dispose();
+  const second = await bootstrapBrowserExtension(host);
+
+  assert.notEqual(second, first);
+  assertEventCounts(host.events, {
+    "mount-root:id-overlay": 2,
+    "start-runtime": 2,
+    "read-durable-state": 2,
+    render: 2,
+    "bind-input": 2,
+    "dispose-input": 1,
+    "dispose-root:id-overlay": 1,
+    "dispose-runtime": 1,
+  });
+  assertEventBefore(host.events, "bind-input", "dispose-input");
+  assertEventBefore(host.events, "dispose-input", "mount-root:id-overlay", {
+    occurrence: 2,
+  });
+});
+
 function createLifecycleHostHarness({
   pageContext,
   durableState = null,
