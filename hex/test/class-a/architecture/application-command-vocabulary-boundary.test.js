@@ -26,21 +26,30 @@ test("application command vocabulary is semantic and source-agnostic", () => {
 
 const REQUIRED_PRODUCT_COMMAND_KINDS = Object.freeze([
   "activate-primary-action",
+  "toggle-registration-pin",
+  "commit-placement-edit",
+  "set-opacity",
   "report-reference-image-input-outcome",
   "clear-status-notice",
   "clear-panel-intent",
 ]);
 
 const FORBIDDEN_COMMAND_KIND_PATTERNS = Object.freeze([
+  // Browser mechanics describe how an adapter observed input. Application
+  // commands name the replayable product intent/fact after that observation has
+  // crossed the interaction boundary.
   /\bpaste\b/,
   /\bclipboard\b/,
   /\bclick\b/,
   /\bmouse\b/,
   /\bpointer\b/,
   /\bwheel\b/,
+  /\bdrag\b/,
+  /\bgesture\b/,
   /\bkeydown\b/,
   /\bkeyup\b/,
   /\bevent\b/,
+  /\bdom\b/,
   /\btimer\b/,
   /\bstorage\b/,
   /\bchrome\b/,

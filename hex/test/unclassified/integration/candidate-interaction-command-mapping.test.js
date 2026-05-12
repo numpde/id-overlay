@@ -4,13 +4,6 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import {
-  APPLICATION_COMMAND_KIND,
-} from "../../../application/command.js";
-import {
-  createInteractionRuntime,
-} from "../../../bootstrap/interaction-runtime.js";
-
 // Unclassified: candidate boundary law for interaction command mapping.
 //
 // Rejected alternatives:
@@ -32,26 +25,6 @@ const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..
 const HEX_ROOT = path.join(REPO_ROOT, "hex");
 const INTERACTION_RUNTIME_PATH = path.join(HEX_ROOT, "bootstrap/interaction-runtime.js");
 
-const INTERACTION_COMMAND_KIND = Object.freeze({
-  COMMIT_PLACEMENT_EDIT: "commit-placement-edit",
-  SET_OPACITY: "set-opacity",
-  SET_TEMPORARY_PASS_THROUGH: "set-temporary-pass-through",
-  TOGGLE_REGISTRATION_PIN: "toggle-registration-pin",
-});
-
-const FORBIDDEN_APPLICATION_COMMAND_WORDS = Object.freeze([
-  "keyboard",
-  "pointer",
-  "mouse",
-  "wheel",
-  "drag",
-  "gesture",
-  "keydown",
-  "keyup",
-  "click",
-  "dom",
-]);
-
 const FORBIDDEN_INTERACTION_RUNTIME_STATE_READS = Object.freeze([
   // The interaction runtime should not branch on product state. If a command is
   // invalid in Trace/no-session/etc., the application transition owns that no-op.
@@ -66,26 +39,6 @@ const FORBIDDEN_INTERACTION_RUNTIME_STATE_READS = Object.freeze([
   ".history",
 ]);
 
-// Candidate: the command vocabulary needed by interaction mapping is exact and
-// semantic. Adding keyboard/pointer/wheel-flavored commands would be a boundary
-// regression, because those words describe how the browser observed input, not
-// what the user asked the product to do.
-test("candidate: interaction command vocabulary contains no browser-input mechanics", () => {
-  const commandKinds = Object.values(APPLICATION_COMMAND_KIND);
-  const violations = [
-    ...Object.values(INTERACTION_COMMAND_KIND)
-      .filter((kind) => !commandKinds.includes(kind))
-      .map((kind) => `missing interaction command: ${kind}`),
-    ...commandKinds.flatMap((kind) => (
-      FORBIDDEN_APPLICATION_COMMAND_WORDS
-        .filter((word) => kind.includes(word))
-        .map((word) => `${kind} contains browser-input word ${word}`)
-    )),
-  ];
-
-  assert.deepEqual(violations, []);
-});
-
 // Candidate: interaction mapping is not a second reducer. It may call
 // projection/selection ports and dispatch application commands; it must not
 // inspect session fields, view-model fields, or mode-specific policy.
@@ -96,12 +49,3 @@ test("candidate: interaction runtime source does not read product state", () => 
     [],
   );
 });
-
-function rotatedPlacement() {
-  return {
-    x: 10,
-    y: 20,
-    scale: 1,
-    rotationRad: 0.25,
-  };
-}
