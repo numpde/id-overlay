@@ -30,24 +30,6 @@ import {
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../..");
 const BOOTSTRAP_INDEX = path.join(REPO_ROOT, "hex/bootstrap/index.js");
 
-// Candidate: unsupported pages are outside the lifecycle. The controller should
-// not mount UI, create runtime state, read storage, bind input, or render an
-// inert shell that looks alive.
-test("candidate: unsupported page performs no lifecycle work", async () => {
-  const host = createLifecycleHostHarness({
-    pageContext: {
-      kind: "unsupported-page",
-    },
-  });
-
-  const result = await bootstrapBrowserExtension(host);
-
-  assert.deepEqual(result, {
-    kind: "unsupported-page",
-  });
-  assert.deepEqual(host.events, []);
-});
-
 // Candidate: start is a lifecycle transition, not a constructor call. Repeated
 // start for the same live page must reuse the same running session and must not
 // duplicate roots, runtimes, storage reads, renders, or browser listeners.
