@@ -5,9 +5,14 @@ import {
   createProjectionAdapter,
 } from "../../../adapters/page-osm-id/page-adapter.js";
 
-// Unclassified candidate: projection is not an ambient page query. The caller
-// supplies the point and the projection facts being used; the page adapter
-// translates those explicit facts or returns an explicit failure.
+// Class-c: projection should be deterministic over explicit input facts, not
+// an ambient page query hidden behind `context.project()`. Current code does
+// not satisfy this yet, so the test stays quarantined until projection is split
+// from page observation and given a clear input contract.
+//
+// Decision: keep only the unsatisfied explicit-input pressure. Explicit
+// projection misses are already covered in class-b, so duplicating them here
+// would make class-c noisier without adding design signal.
 test("projection adapter passes explicit projection inputs to the page projection service", () => {
   const calls = [];
   const request = {
@@ -60,27 +65,4 @@ test("projection adapter passes explicit projection inputs to the page projectio
     },
   });
   assert.deepEqual(calls, [request]);
-});
-
-// Unclassified candidate: expected projection misses are port data, not nulls
-// or thrown control flow. The application can then decide whether the miss is
-// user-visible, retryable, or irrelevant.
-test("projection adapter preserves unavailable projection reasons as explicit facts", () => {
-  const projection = createProjectionAdapter({
-    readProjectionContext() {
-      return {
-        kind: "missing-viewport",
-      };
-    },
-  });
-
-  assert.deepEqual(projection.projectScreenPoint({
-    screenPx: {
-      x: 320,
-      y: 240,
-    },
-  }), {
-    kind: "failed",
-    reason: "missing-viewport",
-  });
 });
