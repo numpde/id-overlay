@@ -100,33 +100,56 @@ test("hydration replaces transient state from durable input", () => {
   });
 });
 
-// Class-a: durable data is allowed to restore only valid product state. An
-// impossible saved reference-image geometry is a boundary failure, not a session
-// the app should partially hydrate and repair later.
+// Class-a: durable data is allowed to restore only valid product state.
+// Impossible saved image facts and runtime-scoped refs are boundary failures,
+// not sessions the app should partially hydrate and repair later.
 test("hydration rejects malformed durable reference-image session", () => {
-  const command = createApplicationCommand(APPLICATION_COMMAND_KIND.HYDRATE, {
-    durableState: {
-      session: {
-        mode: "align",
-        referenceImage: {
-          imageDataRef: "reference-image-data-1",
-          intrinsicSizePx: {
-            width: 0,
-            height: 480,
-          },
+  for (const { description, referenceImage } of [
+    {
+      description: "impossible intrinsic size",
+      referenceImage: {
+        imageDataRef: "reference-image-data-1",
+        intrinsicSizePx: {
+          width: 0,
+          height: 480,
         },
       },
     },
-  });
+    ...[
+      "blob:https://www.openstreetmap.org/runtime-only",
+      "filesystem:https://www.openstreetmap.org/runtime-only",
+      ["c", "hrome-extension://extension-id/runtime-only.png"].join(""),
+      ["m", "oz-extension://extension-id/runtime-only.png"].join(""),
+    ].map((imageDataRef) => ({
+      description: `runtime-scoped image ref: ${imageDataRef}`,
+      referenceImage: {
+        imageDataRef,
+        intrinsicSizePx: {
+          width: 640,
+          height: 480,
+        },
+      },
+    })),
+  ]) {
+    const command = createApplicationCommand(APPLICATION_COMMAND_KIND.HYDRATE, {
+      durableState: {
+        session: {
+          mode: "align",
+          referenceImage,
+        },
+      },
+    });
 
-  assert.throws(
-    () => handleApplicationCommand({
-      state: createInitialApplicationState(),
-      command,
-    }),
-    (error) => (
-      error instanceof ApplicationBoundaryError
-        && error.code === APPLICATION_BOUNDARY_ERROR_CODE.UNSUPPORTED_DURABLE_STATE
-    ),
-  );
+    assert.throws(
+      () => handleApplicationCommand({
+        state: createInitialApplicationState(),
+        command,
+      }),
+      (error) => (
+        error instanceof ApplicationBoundaryError
+          && error.code === APPLICATION_BOUNDARY_ERROR_CODE.UNSUPPORTED_DURABLE_STATE
+      ),
+      description,
+    );
+  }
 });

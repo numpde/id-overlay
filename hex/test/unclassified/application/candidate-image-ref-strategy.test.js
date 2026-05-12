@@ -8,10 +8,6 @@ import {
   APPLICATION_COMMAND_KIND,
   createApplicationCommand,
 } from "../../../application/command.js";
-import {
-  APPLICATION_BOUNDARY_ERROR_CODE,
-  ApplicationBoundaryError,
-} from "../../../application/errors.js";
 import { handleApplicationCommand } from "../../../application/handle-command.js";
 import {
   selectApplicationView,
@@ -46,13 +42,6 @@ const EFFECT_KIND = Object.freeze({
   PERSIST_DURABLE_STATE: "persist-durable-state",
 });
 
-const FORBIDDEN_RUNTIME_IMAGE_REFS = Object.freeze([
-  "blob:https://www.openstreetmap.org/runtime-only",
-  "filesystem:https://www.openstreetmap.org/runtime-only",
-  "chrome-extension://extension-id/runtime-only.png",
-  "moz-extension://extension-id/runtime-only.png",
-]);
-
 const FORBIDDEN_APPLICATION_IMAGE_MECHANICS = Object.freeze([
   "objectURL",
   "ObjectURL",
@@ -66,28 +55,6 @@ const FORBIDDEN_APPLICATION_IMAGE_MECHANICS = Object.freeze([
   "new Image",
   "dataTransfer",
 ]);
-
-// Candidate: hydration is stricter than "plain JSON loaded from storage." A
-// stale persisted `blob:` URL is unsupported durable state, not a best-effort
-// image to render.
-test("candidate: hydration rejects runtime-scoped durable image refs", () => {
-  for (const imageDataRef of FORBIDDEN_RUNTIME_IMAGE_REFS) {
-    assertApplicationBoundaryError(
-      () => handleApplicationCommand({
-        state: {},
-        command: createApplicationCommand(APPLICATION_COMMAND_KIND.HYDRATE, {
-          durableState: durableImageState({
-            referenceImage: normalizedReferenceImage("runtime", {
-              imageDataRef,
-            }),
-          }),
-        }),
-      }),
-      APPLICATION_BOUNDARY_ERROR_CODE.UNSUPPORTED_DURABLE_STATE,
-      imageDataRef,
-    );
-  }
-});
 
 // Candidate: durability is a session projection that includes the image ref but
 // excludes any renderer-owned image resource cache. If a renderer needs a
@@ -223,15 +190,6 @@ function assertNoImageIoEffects(effects) {
     assert.notEqual(effect.kind, "create-object-url");
     assert.notEqual(effect.kind, "revoke-object-url");
   }
-}
-
-function assertApplicationBoundaryError(fn, expectedCode, message) {
-  assert.throws(
-    fn,
-    (error) => error instanceof ApplicationBoundaryError
-      && error.code === expectedCode,
-    message,
-  );
 }
 
 function listJavaScriptFiles(directoryPath) {
