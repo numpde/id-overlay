@@ -4,31 +4,13 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import {
-  APPLICATION_COMMAND_KIND,
-  createApplicationCommand,
-} from "../../../application/command.js";
-import { handleApplicationCommand } from "../../../application/handle-command.js";
-
-// Unclassified: these tests are candidate law for the desired effect boundary.
-// They are intentionally sharper than the current implementation. A passing
-// implementation must make product causality explicit through a tiny set of
-// application-emitted effects, and must fail the old shell-watcher shape where
-// browser code infers work from state changes.
+// Unclassified: remaining source-scan candidate for the desired effect
+// boundary. Behavior-level effect vocabulary is now class-a; this test is still
+// pending a classification decision because source scans are useful guardrails
+// but can become brittle if they duplicate architecture tests too aggressively.
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../..");
 const APPLICATION_DIR = path.join(REPO_ROOT, "hex/application");
-
-const COMMAND_KIND = Object.freeze({
-  REPORT_REFERENCE_IMAGE_INPUT_OUTCOME: "report-reference-image-input-outcome",
-});
-
-const EFFECT_KIND = Object.freeze({
-  PERSIST_DURABLE_STATE: "persist-durable-state",
-  REQUEST_REFERENCE_IMAGE_INPUT: "request-reference-image-input",
-  SCHEDULE_CLEAR_STATUS_NOTICE: "schedule-clear-status-notice",
-  SCHEDULE_CLEAR_PANEL_INTENT: "schedule-clear-panel-intent",
-});
 
 const FORBIDDEN_EFFECT_KINDS = Object.freeze([
   // Transitional/internal vocabulary: persistence is product-declared work, not
@@ -50,57 +32,6 @@ const FORBIDDEN_EFFECT_KINDS = Object.freeze([
   "release-image-data-ref",
 ]);
 
-// Candidate: this is the baseline vocabulary, not a sampling convenience. If a
-// use case needs another effect, it should be added here deliberately with a
-// product-causality explanation. Browser mechanics should never sneak in as
-// effect names.
-test("candidate: baseline effect vocabulary is exact and product-named", () => {
-  const observedEffects = [
-    ...handleApplicationCommand({
-      state: {},
-      command: createApplicationCommand(APPLICATION_COMMAND_KIND.ACTIVATE_PRIMARY_ACTION),
-    }).effects,
-    ...handleApplicationCommand({
-      state: awaitingReferenceImageInputState({ requestId: 1 }),
-      command: createApplicationCommand(
-        APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_INPUT_OUTCOME,
-        {
-          requestId: 1,
-          outcome: {
-            kind: "accepted",
-            referenceImage: normalizedReferenceImage(),
-          },
-        },
-      ),
-    }).effects,
-    ...handleApplicationCommand({
-      state: awaitingReferenceImageInputState({ requestId: 2 }),
-      command: createApplicationCommand(
-        APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_INPUT_OUTCOME,
-        {
-          requestId: 2,
-          outcome: {
-            kind: "empty",
-          },
-        },
-      ),
-    }).effects,
-    ...handleApplicationCommand({
-      state: referenceImageLoadedState(),
-      command: createApplicationCommand(APPLICATION_COMMAND_KIND.ACTIVATE_PRIMARY_ACTION),
-    }).effects,
-  ];
-
-  assert.deepEqual(
-    observedEffects.map((observedEffect) => observedEffect.kind).sort(),
-    Object.values(EFFECT_KIND).sort(),
-  );
-  assert.deepEqual(
-    observedEffects.flatMap(validateEffectShape),
-    [],
-  );
-});
-
 // Candidate: even before runtime wiring exists, production application source
 // should not contain the rejected effect names. This catches the undesired shape
 // directly instead of relying only on the sampled transitions above.
@@ -117,101 +48,6 @@ test("candidate: application source contains no forbidden effect vocabulary", ()
 
   assert.deepEqual(violations, []);
 });
-
-function assertApplicationResult(actual, expected) {
-  assert.deepEqual(actual, expected);
-  assertPlainData(actual);
-  assert.deepEqual(actual.effects.flatMap(validateEffectShape), []);
-}
-
-function effect(payload) {
-  assert.deepEqual(validateEffectShape(payload), []);
-  return payload;
-}
-
-function validateEffectShape(candidateEffect) {
-  const violations = [];
-  if (!Object.values(EFFECT_KIND).includes(candidateEffect.kind)) {
-    violations.push(`unknown effect kind: ${candidateEffect.kind}`);
-  }
-  if (FORBIDDEN_EFFECT_KINDS.includes(candidateEffect.kind)) {
-    violations.push(`forbidden effect kind: ${candidateEffect.kind}`);
-  }
-  if (!isPlainData(candidateEffect)) {
-    violations.push(`non-plain effect: ${candidateEffect.kind}`);
-  }
-  for (const forbiddenKey of [
-    "callback",
-    "promise",
-    "handle",
-    "timerHandle",
-    "imageHandle",
-    "storageKey",
-    "element",
-    "event",
-  ]) {
-    if (Object.hasOwn(candidateEffect, forbiddenKey)) {
-      violations.push(`forbidden effect field: ${candidateEffect.kind}.${forbiddenKey}`);
-    }
-  }
-  return violations;
-}
-
-function awaitingReferenceImageInputState({ requestId }) {
-  return {
-    referenceImageInput: {
-      status: "awaiting-input",
-      requestId,
-    },
-  };
-}
-
-function referenceImageLoadedState() {
-  return {
-    session: {
-      mode: "align",
-      referenceImage: normalizedReferenceImage(),
-    },
-  };
-}
-
-function normalizedReferenceImage() {
-  return {
-    imageDataRef: "data:image/png;base64,reference-image",
-    intrinsicSizePx: {
-      width: 640,
-      height: 480,
-    },
-  };
-}
-
-function assertPlainData(value) {
-  assert.equal(isPlainData(value), true);
-}
-
-function isPlainData(value) {
-  if (value === null) {
-    return true;
-  }
-  if (Array.isArray(value)) {
-    return value.every(isPlainData);
-  }
-
-  const valueType = typeof value;
-  if (["string", "boolean"].includes(valueType)) {
-    return true;
-  }
-  if (valueType === "number") {
-    return Number.isFinite(value);
-  }
-  if (valueType !== "object") {
-    return false;
-  }
-  if (Object.getPrototypeOf(value) !== Object.prototype) {
-    return false;
-  }
-  return Object.values(value).every(isPlainData);
-}
 
 function listJavaScriptFiles(directoryPath) {
   const files = [];
