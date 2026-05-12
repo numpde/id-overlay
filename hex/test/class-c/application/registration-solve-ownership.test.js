@@ -7,6 +7,8 @@ import {
 } from "../../../application/command.js";
 import { handleApplicationCommand } from "../../../application/handle-command.js";
 
+const STATUS_NOTICE_DELAY_MS = 2500;
+
 // Class-c: the user-visible outcome is right, but the ownership shape is not
 // settled enough for authority. Selecting Trace with enough registration facts
 // should fit the overlay. This candidate makes `select-mode` perform the solve
@@ -60,6 +62,39 @@ test("selecting Trace solves registration inside application", () => {
   });
 });
 
+// Class-c: solve failure UX is coupled to the same unresolved ownership seam as
+// the success path. Staying in Align with a transient notice may be right, but
+// it should not become authoritative until the fit request/result model decides
+// whether a failed fit blocks Trace, enters Trace unchanged, or exposes an
+// explicit retryable fit state.
+test("failed registration solve stays in Align with a transient notice", () => {
+  const state = referenceImageLoadedState({
+    mode: "align",
+    pins: [degenerateFirstPin(), degenerateSecondPin()],
+  });
+
+  assert.deepEqual(handleApplicationCommand({
+    state,
+    command: createApplicationCommand(APPLICATION_COMMAND_KIND.SELECT_MODE, {
+      mode: "trace",
+    }),
+  }), {
+    state: {
+      ...state,
+      notice: {
+        kind: "registration-fit-failed",
+        reason: "degenerate-pins",
+        requestId: 1,
+      },
+    },
+    effects: [{
+      kind: "schedule-clear-status-notice",
+      requestId: 1,
+      delayMs: STATUS_NOTICE_DELAY_MS,
+    }],
+  });
+});
+
 function referenceImageLoadedState({ mode, pins }) {
   return {
     session: {
@@ -106,6 +141,26 @@ function secondPin() {
     mapPx: {
       x: 200,
       y: 200,
+    },
+  };
+}
+
+function degenerateFirstPin() {
+  return {
+    ...firstPin(),
+    imagePx: {
+      x: 0,
+      y: 0,
+    },
+  };
+}
+
+function degenerateSecondPin() {
+  return {
+    ...secondPin(),
+    imagePx: {
+      x: 0,
+      y: 0,
     },
   };
 }

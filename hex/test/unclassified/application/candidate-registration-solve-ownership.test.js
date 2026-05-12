@@ -27,41 +27,6 @@ const HEX_ROOT = path.join(REPO_ROOT, "hex");
 
 const EFFECT_KIND = Object.freeze({
   PERSIST_DURABLE_STATE: "persist-durable-state",
-  SCHEDULE_CLEAR_STATUS_NOTICE: "schedule-clear-status-notice",
-});
-
-const STATUS_NOTICE_DELAY_MS = 2500;
-
-// Candidate: solve failure is also product-owned. If the user asks for Trace as
-// the fitted overlay mode but pins cannot produce a transform, stay in Align and
-// show a transient product notice. Switching to Trace without placement would be
-// a confusing visible mode change with no fit.
-test("candidate: failed registration solve stays in Align with a transient notice", () => {
-  const state = referenceImageLoadedState({
-    mode: "align",
-    pins: [degenerateFirstPin(), degenerateSecondPin()],
-  });
-
-  assert.deepEqual(handleApplicationCommand({
-    state,
-    command: createApplicationCommand(APPLICATION_COMMAND_KIND.SELECT_MODE, {
-      mode: "trace",
-    }),
-  }), {
-    state: {
-      ...state,
-      notice: {
-        kind: "registration-fit-failed",
-        reason: "degenerate-pins",
-        requestId: 1,
-      },
-    },
-    effects: [{
-      kind: EFFECT_KIND.SCHEDULE_CLEAR_STATUS_NOTICE,
-      requestId: 1,
-      delayMs: STATUS_NOTICE_DELAY_MS,
-    }],
-  });
 });
 
 // Candidate: insufficient pins are not an error if the user simply switches
@@ -264,26 +229,6 @@ function thirdPin() {
     mapPx: {
       x: 150,
       y: 300,
-    },
-  };
-}
-
-function degenerateFirstPin() {
-  return {
-    ...firstPin(),
-    imagePx: {
-      x: 0,
-      y: 0,
-    },
-  };
-}
-
-function degenerateSecondPin() {
-  return {
-    ...secondPin(),
-    imagePx: {
-      x: 0,
-      y: 0,
     },
   };
 }
