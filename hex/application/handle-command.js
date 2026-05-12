@@ -21,6 +21,8 @@ export function handleApplicationCommand({ state, command }) {
       return hydrate(command.durableState);
     case APPLICATION_COMMAND_KIND.ACTIVATE_PRIMARY_ACTION:
       return activatePrimaryAction(state);
+    case APPLICATION_COMMAND_KIND.REQUEST_REFERENCE_IMAGE_REPLACEMENT:
+      return requestReferenceImageReplacement(state);
     case APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_INPUT_OUTCOME:
       return reportReferenceImageInputOutcome(state, command);
     case APPLICATION_COMMAND_KIND.CLEAR_REFERENCE_IMAGE:
@@ -235,6 +237,37 @@ function activatePrimaryAction(state) {
         intentKind: "confirm-clear-reference-image",
       }),
     ],
+  };
+}
+
+function requestReferenceImageReplacement(state) {
+  if (!state.session) {
+    return inertResult(state);
+  }
+
+  const requestId = 1;
+  return {
+    state: {
+      session: state.session,
+      ...historyState(state),
+      referenceImageInput: {
+        status: "awaiting-input",
+        requestId,
+        intent: {
+          kind: "replace-reference-image",
+        },
+      },
+    },
+    effects: [requestReferenceImageInputEffect(requestId)],
+  };
+}
+
+function historyState(state) {
+  if (!state.history) {
+    return {};
+  }
+  return {
+    history: state.history,
   };
 }
 

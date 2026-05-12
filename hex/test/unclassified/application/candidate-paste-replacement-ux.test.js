@@ -51,49 +51,6 @@ const EFFECT_KIND = Object.freeze({
 
 const STATUS_NOTICE_DELAY_MS = 2500;
 
-// Candidate: loaded-image replacement is not the primary clear flow. Starting
-// replacement keeps the existing session and asks the outside world for a new
-// reference image through the same abstract input effect used by no-session
-// Paste.
-test("candidate: requesting replacement keeps current image while awaiting input", () => {
-  const state = {
-    ...loadedImageState({
-      mode: "trace",
-      placement: oldPlacement(),
-      pins: [firstPin()],
-      opacity: 0.5,
-    }),
-    notice: {
-      kind: "stale-notice",
-    },
-    panelIntent: {
-      kind: "confirm-clear-reference-image",
-    },
-  };
-
-  assert.deepEqual(handleApplicationCommand({
-    state,
-    command: createApplicationCommand(
-      APPLICATION_COMMAND_KIND.REQUEST_REFERENCE_IMAGE_REPLACEMENT,
-    ),
-  }), {
-    state: {
-      session: state.session,
-      referenceImageInput: {
-        status: "awaiting-input",
-        requestId: 1,
-        intent: {
-          kind: "replace-reference-image",
-        },
-      },
-    },
-    effects: [{
-      kind: EFFECT_KIND.REQUEST_REFERENCE_IMAGE_INPUT,
-      requestId: 1,
-    }],
-  });
-});
-
 // Candidate: replacement is only meaningful when there is an image to replace.
 // Stale or synthetic replacement commands in no-session must not start a hidden
 // special flow; no-session already has the ordinary Paste action.

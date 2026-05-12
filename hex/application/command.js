@@ -14,6 +14,7 @@ export const APPLICATION_COMMAND_KIND = Object.freeze({
   CLEAR_REGISTRATION_PINS: "clear-registration-pins",
   COMMIT_PLACEMENT_EDIT: "commit-placement-edit",
   ACTIVATE_PRIMARY_ACTION: "activate-primary-action",
+  REQUEST_REFERENCE_IMAGE_REPLACEMENT: "request-reference-image-replacement",
   REPORT_REFERENCE_IMAGE_INPUT_OUTCOME: "report-reference-image-input-outcome",
   CLEAR_REFERENCE_IMAGE: "clear-reference-image",
   CLEAR_STATUS_NOTICE: "clear-status-notice",
