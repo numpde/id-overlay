@@ -67,35 +67,6 @@ const FORBIDDEN_APPLICATION_IMAGE_MECHANICS = Object.freeze([
   "dataTransfer",
 ]);
 
-// Candidate: hidden runtime handles are as bad as runtime URLs. Reference-image
-// data should be a closed plain-data shape: stable ref plus intrinsic size.
-test("candidate: reference-image input rejects extra runtime image handles", () => {
-  for (const runtimeField of [
-    "objectUrl",
-    "runtimeImageHandle",
-    "decodedImageHandle",
-    "blobHandle",
-  ]) {
-    assertApplicationBoundaryError(
-      () => createApplicationCommand(
-        APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_INPUT_OUTCOME,
-        {
-          requestId: 1,
-          outcome: {
-            kind: "accepted",
-            referenceImage: {
-              ...normalizedReferenceImage("stable-reference-image"),
-              [runtimeField]: "runtime-only",
-            },
-          },
-        },
-      ),
-      APPLICATION_BOUNDARY_ERROR_CODE.INVALID_APPLICATION_COMMAND,
-      runtimeField,
-    );
-  }
-});
-
 // Candidate: hydration is stricter than "plain JSON loaded from storage." A
 // stale persisted `blob:` URL is unsupported durable state, not a best-effort
 // image to render.

@@ -114,6 +114,25 @@ test("accepted reference-image input outcome requires normalized reference image
         },
       },
     })),
+    ...[
+      "objectUrl",
+      "runtimeImageHandle",
+      "decodedImageHandle",
+      "blobHandle",
+    ].map((runtimeField) => ({
+      description: `hidden runtime image field: ${runtimeField}`,
+      outcome: {
+        kind: "accepted",
+        referenceImage: {
+          imageDataRef: "reference-image-data-1",
+          intrinsicSizePx: {
+            width: 640,
+            height: 480,
+          },
+          [runtimeField]: "runtime-only",
+        },
+      },
+    })),
     {
       description: "missing intrinsic size",
       outcome: {
