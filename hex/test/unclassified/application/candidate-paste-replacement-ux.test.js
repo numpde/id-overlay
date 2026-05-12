@@ -27,6 +27,11 @@ import { selectApplicationView } from "../../../application/view-model.js";
 // durable. Empty, failed, stale, or cancelled input leaves the old session
 // intact. Accepted input starts a fresh Align session and records an undoable
 // whole-session replacement history record.
+//
+// Classification note: a standalone command-vocabulary candidate was deleted.
+// Command names are not independent product behavior; promoting the name alone
+// would create a dangling API surface. The replacement behavior candidates below
+// should own whatever command vocabulary they require.
 
 const COMMAND_KIND = Object.freeze({
   REQUEST_REFERENCE_IMAGE_REPLACEMENT: "request-reference-image-replacement",
@@ -40,19 +45,6 @@ const EFFECT_KIND = Object.freeze({
 });
 
 const STATUS_NOTICE_DELAY_MS = 2500;
-
-// Candidate: replacement needs its own product command vocabulary. It should
-// not be smuggled through "clear image" or a source-specific paste command.
-test("candidate: replacement uses explicit source-agnostic command vocabulary", () => {
-  assert.equal(
-    APPLICATION_COMMAND_KIND.REQUEST_REFERENCE_IMAGE_REPLACEMENT,
-    COMMAND_KIND.REQUEST_REFERENCE_IMAGE_REPLACEMENT,
-  );
-  assert.equal(
-    APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_INPUT_OUTCOME,
-    COMMAND_KIND.REPORT_REFERENCE_IMAGE_INPUT_OUTCOME,
-  );
-});
 
 // Candidate: a loaded image exposes replacement as an explicit image action.
 // This does not prescribe button placement; it only forbids burying replacement
