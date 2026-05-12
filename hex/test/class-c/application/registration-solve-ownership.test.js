@@ -88,9 +88,13 @@ test("failed registration solve stays in Align with a transient notice", () => {
       },
     },
     effects: [{
-      kind: "schedule-clear-status-notice",
-      requestId: 1,
+      kind: "schedule-application-command",
+      scheduleId: "status-notice",
       delayMs: STATUS_NOTICE_DELAY_MS,
+      command: {
+        kind: "clear-status-notice",
+        requestId: 1,
+      },
     }],
   });
 });

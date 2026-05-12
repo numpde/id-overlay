@@ -208,8 +208,12 @@ function persistDurableStateEffect(durableState) {
 
 function scheduleClearStatusNoticeEffect(requestId) {
   return {
-    kind: "schedule-clear-status-notice",
-    requestId,
+    kind: "schedule-application-command",
+    scheduleId: "status-notice",
     delayMs: 2500,
+    command: {
+      kind: "clear-status-notice",
+      requestId,
+    },
   };
 }

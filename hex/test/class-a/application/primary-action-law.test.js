@@ -282,17 +282,25 @@ function requestReferenceImageInputEffect(requestId) {
 
 function scheduleClearStatusNoticeEffect(requestId) {
   return {
-    kind: "schedule-clear-status-notice",
-    requestId,
+    kind: "schedule-application-command",
+    scheduleId: "status-notice",
     delayMs: 2500,
+    command: {
+      kind: "clear-status-notice",
+      requestId,
+    },
   };
 }
 
 function scheduleClearPanelIntentEffect({ requestId, intentKind }) {
   return {
-    kind: "schedule-clear-panel-intent",
-    requestId,
-    intentKind,
+    kind: "schedule-application-command",
+    scheduleId: "panel-intent",
     delayMs: 2500,
+    command: {
+      kind: "clear-panel-intent",
+      requestId,
+      intentKind,
+    },
   };
 }

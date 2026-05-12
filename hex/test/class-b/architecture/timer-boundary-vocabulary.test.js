@@ -8,13 +8,10 @@ import {
   relativeToRepo,
 } from "../../class-a/architecture/source-files.js";
 
-// Class-c: delayed app behavior may ultimately be represented as scheduled
-// application commands instead of product-specific schedule/expiry effects.
-// Current class-a effect vocabulary still exposes `schedule-clear-*` effects,
-// so this source-scan is aspirational until that cut-over happens.
-//
-// Decision: keep quarantined with the timer-port and scheduled-command effect
-// candidates. Promoting it now would contradict stable effect law.
+// Class-b, deliberately not class-a: this is a source-level guard over today's
+// files. It protects the timer cut-over by banning the old shape where runtime
+// timer facts re-entered product code and bootstrap translated timer purposes
+// into product commands.
 test("application and bootstrap do not expose timer-fired product vocabulary", () => {
   const violations = [];
   for (const filePath of [

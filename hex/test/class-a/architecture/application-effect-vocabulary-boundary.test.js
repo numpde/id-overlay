@@ -29,6 +29,9 @@ test("application source contains no forbidden effect vocabulary", () => {
 const FORBIDDEN_EFFECT_KINDS = Object.freeze([
   "durable-state-changed",
   "read-clipboard-image",
+  "schedule-clear-status-notice",
+  "schedule-clear-panel-intent",
+  "timer-fired",
   "start-manual-paste-capture",
   "cancel-manual-paste-capture",
   "forward-map-gesture",

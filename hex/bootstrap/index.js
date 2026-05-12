@@ -34,6 +34,7 @@ export async function bootstrapBrowserExtension(host) {
   };
   const durableStatePort = host.durableStatePort ?? createNoopDurableStatePort();
   const panelChromePort = host.panelChromePort ?? createNoopPanelChromePort();
+  const timerPort = host.timerPort ?? createNoopTimerPort();
   let panelChrome = await readPanelChrome({
     host,
     panelChromePort,
@@ -43,7 +44,9 @@ export async function bootstrapBrowserExtension(host) {
     stepApplication: handleApplicationCommand,
     effectHandlers: createEffectHandlers({
       durableStatePort,
+      dispatchApplicationCommand: (command) => dispatchAndRender(command),
       host,
+      timerPort,
     }),
   });
   const startedRuntime = host.startRuntime(runtime) ?? runtime;
@@ -159,7 +162,12 @@ function renderApplicationView({
   });
 }
 
-function createEffectHandlers({ durableStatePort, host }) {
+function createEffectHandlers({
+  durableStatePort,
+  dispatchApplicationCommand,
+  host,
+  timerPort,
+}) {
   return {
     async "persist-durable-state"(effect) {
       try {
@@ -172,10 +180,13 @@ function createEffectHandlers({ durableStatePort, host }) {
     async "request-reference-image-input"() {
       return null;
     },
-    async "schedule-clear-status-notice"() {
-      return null;
-    },
-    async "schedule-clear-panel-intent"() {
+    async "schedule-application-command"(effect) {
+      timerPort.scheduleApplicationCommand({
+        scheduleId: effect.scheduleId,
+        delayMs: effect.delayMs,
+        command: effect.command,
+        dispatchApplicationCommand,
+      });
       return null;
     },
   };
@@ -196,6 +207,12 @@ function createNoopPanelChromePort() {
       return null;
     },
     async writePanelChrome() {},
+  };
+}
+
+function createNoopTimerPort() {
+  return {
+    scheduleApplicationCommand() {},
   };
 }
 

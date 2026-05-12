@@ -11,8 +11,10 @@ import { isPlainData } from "../../../application/plain-data.js";
 // Class-a: application effects are the complete app-to-runtime work contract.
 // This is intentionally exact: adding a new effect kind means adding a product
 // cause, a runtime handler, and a test update that explains why the new host
-// work belongs in the application vocabulary.
-test("baseline effect vocabulary is exact and product-named", () => {
+// work belongs in the application vocabulary. Multiple product outcomes may use
+// the same effect kind when the runtime work is the same, as with delayed app
+// commands.
+test("baseline effect vocabulary is exact", () => {
   const observedEffects = [
     ...handleApplicationCommand({
       state: {},
@@ -50,7 +52,7 @@ test("baseline effect vocabulary is exact and product-named", () => {
   ];
 
   assert.deepEqual(
-    observedEffects.map((observedEffect) => observedEffect.kind).sort(),
+    [...new Set(observedEffects.map((observedEffect) => observedEffect.kind))].sort(),
     Object.values(EFFECT_KIND).sort(),
   );
   assert.deepEqual(
@@ -62,8 +64,7 @@ test("baseline effect vocabulary is exact and product-named", () => {
 const EFFECT_KIND = Object.freeze({
   PERSIST_DURABLE_STATE: "persist-durable-state",
   REQUEST_REFERENCE_IMAGE_INPUT: "request-reference-image-input",
-  SCHEDULE_CLEAR_STATUS_NOTICE: "schedule-clear-status-notice",
-  SCHEDULE_CLEAR_PANEL_INTENT: "schedule-clear-panel-intent",
+  SCHEDULE_APPLICATION_COMMAND: "schedule-application-command",
 });
 
 const FORBIDDEN_EFFECT_KINDS = Object.freeze([

@@ -284,9 +284,13 @@ test("empty or failed replacement leaves old image intact", () => {
         notice: expectedNotice,
       },
       effects: [{
-        kind: "schedule-clear-status-notice",
-        requestId: 6,
+        kind: "schedule-application-command",
+        scheduleId: "status-notice",
         delayMs: 2500,
+        command: {
+          kind: "clear-status-notice",
+          requestId: 6,
+        },
       }],
     });
   }
@@ -322,9 +326,13 @@ test("cancelling replacement leaves old image intact", () => {
       },
     },
     effects: [{
-      kind: "schedule-clear-status-notice",
-      requestId: 7,
+      kind: "schedule-application-command",
+      scheduleId: "status-notice",
       delayMs: 2500,
+      command: {
+        kind: "clear-status-notice",
+        requestId: 7,
+      },
     }],
   });
 });

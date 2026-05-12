@@ -1,25 +1,25 @@
 export function createTimerPortAdapter({ setTimer, clearTimer }) {
-  const handles = new Map();
+  const handlesByScheduleId = new Map();
   return {
-    startTimer({ requestId, delayMs, purpose }) {
-      return new Promise((resolve) => {
-        const handle = setTimer(delayMs, () => {
-          handles.delete(requestId);
-          resolve({
-            kind: "timer-fired",
-            requestId,
-            purpose,
-          });
-        });
-        handles.set(requestId, handle);
-      });
-    },
-    cancelTimer({ requestId }) {
-      const handle = handles.get(requestId);
-      if (handle) {
-        clearTimer(handle);
-        handles.delete(requestId);
+    scheduleApplicationCommand({
+      scheduleId,
+      delayMs,
+      command,
+      dispatchApplicationCommand,
+    }) {
+      const previousHandle = handlesByScheduleId.get(scheduleId);
+      if (previousHandle) {
+        clearTimer(previousHandle);
       }
+
+      const handle = setTimer(delayMs, async () => {
+        if (handlesByScheduleId.get(scheduleId) !== handle) {
+          return;
+        }
+        handlesByScheduleId.delete(scheduleId);
+        await dispatchApplicationCommand(command);
+      });
+      handlesByScheduleId.set(scheduleId, handle);
     },
   };
 }

@@ -71,9 +71,13 @@ test("empty reference-image input outcome becomes a correlated notice", () => {
 
 function scheduleClearStatusNoticeEffect(requestId) {
   return {
-    kind: "schedule-clear-status-notice",
-    requestId,
+    kind: "schedule-application-command",
+    scheduleId: "status-notice",
     delayMs: 2500,
+    command: {
+      kind: "clear-status-notice",
+      requestId,
+    },
   };
 }
 

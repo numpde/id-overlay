@@ -689,19 +689,36 @@ function requestReferenceImageInputEffect(requestId) {
 }
 
 function scheduleClearStatusNoticeEffect(requestId) {
-  return {
-    kind: "schedule-clear-status-notice",
-    requestId,
+  return scheduleApplicationCommandEffect({
+    scheduleId: "status-notice",
     delayMs: 2500,
-  };
+    command: createApplicationCommand(
+      APPLICATION_COMMAND_KIND.CLEAR_STATUS_NOTICE,
+      { requestId },
+    ),
+  });
 }
 
 function scheduleClearPanelIntentEffect({ requestId, intentKind }) {
-  return {
-    kind: "schedule-clear-panel-intent",
-    requestId,
-    intentKind,
+  return scheduleApplicationCommandEffect({
+    scheduleId: "panel-intent",
     delayMs: 2500,
+    command: createApplicationCommand(
+      APPLICATION_COMMAND_KIND.CLEAR_PANEL_INTENT,
+      {
+        requestId,
+        intentKind,
+      },
+    ),
+  });
+}
+
+function scheduleApplicationCommandEffect({ scheduleId, delayMs, command }) {
+  return {
+    kind: "schedule-application-command",
+    scheduleId,
+    delayMs,
+    command,
   };
 }
 
