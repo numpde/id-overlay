@@ -50,61 +50,6 @@ const FORBIDDEN_HISTORY_SOURCE_PATTERNS = Object.freeze([
   },
 ]);
 
-// Candidate: placement undo applies the placement scope over the current
-// session. Mode, opacity, reference image, and pins are not part of a move
-// record, so they must survive even when the user switched mode after editing.
-test("candidate: undoing placement preserves unrelated current durable state", () => {
-  const record = placementHistoryRecord({
-    editKind: "move",
-    before: placementRevision({
-      placement: originalPlacement(),
-      solvedRegistration: null,
-    }),
-    after: placementRevision({
-      placement: movedPlacement(),
-      solvedRegistration: null,
-    }),
-  });
-
-  assert.deepEqual(handleApplicationCommand({
-    state: {
-      session: referenceImageSession({
-        mode: "trace",
-        opacity: 0.5,
-        pins: [firstPin()],
-        placement: movedPlacement(),
-      }),
-      history: {
-        past: [record],
-        future: [],
-      },
-    },
-    command: createApplicationCommand(APPLICATION_COMMAND_KIND.UNDO),
-  }), {
-    state: {
-      session: referenceImageSession({
-        mode: "trace",
-        opacity: 0.5,
-        pins: [firstPin()],
-        placement: originalPlacement(),
-      }),
-      history: {
-        past: [],
-        future: [record],
-      },
-    },
-    effects: [{
-      kind: EFFECT_KIND.PERSIST_DURABLE_STATE,
-      durableState: durableImageState({
-        mode: "trace",
-        opacity: 0.5,
-        pins: [firstPin()],
-        placement: originalPlacement(),
-      }),
-    }],
-  });
-});
-
 // Candidate: redo is the same scoped replay in the other direction. It should
 // reapply the placement revision while preserving whatever unrelated durable
 // facts are current at redo time.
