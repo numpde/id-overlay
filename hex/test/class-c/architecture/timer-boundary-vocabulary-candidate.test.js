@@ -8,10 +8,13 @@ import {
   relativeToRepo,
 } from "../../class-a/architecture/source-files.js";
 
-// Unclassified candidate: delayed app behavior should be represented as
-// scheduled application commands, not as a second app-facing timer vocabulary.
-// `timer-fired` is a browser-clock fact; if it reaches application/bootstrap
-// product code, the shell has become a product meaning translator.
+// Class-c: delayed app behavior may ultimately be represented as scheduled
+// application commands instead of product-specific schedule/expiry effects.
+// Current class-a effect vocabulary still exposes `schedule-clear-*` effects,
+// so this source-scan is aspirational until that cut-over happens.
+//
+// Decision: keep quarantined with the timer-port and scheduled-command effect
+// candidates. Promoting it now would contradict stable effect law.
 test("application and bootstrap do not expose timer-fired product vocabulary", () => {
   const violations = [];
   for (const filePath of [
