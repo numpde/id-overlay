@@ -29,6 +29,10 @@ import { selectApplicationView } from "../../../application/view-model.js";
 // app records the placement revision before/after a committed move/rotate/scale
 // and generic history replay applies that scope over the current durable
 // session, preserving unrelated durable facts.
+//
+// Classification note: the opacity/placement-history composition candidate was
+// deleted as redundant. Class-a opacity already preserves existing past history,
+// and class-a branch semantics already clear redo future for new durable edits.
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../..");
 const APPLICATION_DIR = path.join(REPO_ROOT, "hex/application");
@@ -49,70 +53,6 @@ const FORBIDDEN_HISTORY_SOURCE_PATTERNS = Object.freeze([
     pattern: /\bredoLabel\s*:/,
   },
 ]);
-
-// Candidate: same-session non-placement edits create a new branch but should
-// not erase still-valid past placement history. They clear redo future because
-// future records no longer follow the current durable timeline.
-test("candidate: opacity changes preserve past placement history and clear future", () => {
-  const pastRecord = placementHistoryRecord({
-    editKind: "move",
-    before: placementRevision({
-      placement: originalPlacement(),
-      solvedRegistration: null,
-    }),
-    after: placementRevision({
-      placement: movedPlacement(),
-      solvedRegistration: null,
-    }),
-  });
-  const futureRecord = placementHistoryRecord({
-    editKind: "scale",
-    before: placementRevision({
-      placement: movedPlacement(),
-      solvedRegistration: null,
-    }),
-    after: placementRevision({
-      placement: scaledPlacement(),
-      solvedRegistration: null,
-    }),
-  });
-
-  assert.deepEqual(handleApplicationCommand({
-    state: {
-      session: referenceImageSession({
-        mode: "align",
-        placement: movedPlacement(),
-      }),
-      history: {
-        past: [pastRecord],
-        future: [futureRecord],
-      },
-    },
-    command: createApplicationCommand(APPLICATION_COMMAND_KIND.SET_OPACITY, {
-      opacity: 0.5,
-    }),
-  }), {
-    state: {
-      session: referenceImageSession({
-        mode: "align",
-        opacity: 0.5,
-        placement: movedPlacement(),
-      }),
-      history: {
-        past: [pastRecord],
-        future: [],
-      },
-    },
-    effects: [{
-      kind: EFFECT_KIND.PERSIST_DURABLE_STATE,
-      durableState: durableImageState({
-        mode: "align",
-        opacity: 0.5,
-        placement: movedPlacement(),
-      }),
-    }],
-  });
-});
 
 // Candidate: duplicate commit facts are adapter noise, not user edits. They
 // must neither persist nor create empty history records.
