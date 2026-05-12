@@ -1,3 +1,7 @@
+import {
+  normalizeReferenceImageSourceResult,
+} from "./reference-image-input-port.js";
+
 export function createClipboardImagePortAdapter({
   readClipboardImageHandle,
   normalizeImageHandle,
@@ -7,24 +11,10 @@ export function createClipboardImagePortAdapter({
       const clipboardResult = await readClipboardImageHandle().catch(() => ({
         kind: "unavailable",
       }));
-      if (clipboardResult.kind === "unavailable") {
-        return {
-          kind: "failed",
-          reason: "source-unavailable",
-        };
-      }
-      if (clipboardResult.kind === "empty") {
-        return {
-          kind: "empty",
-        };
-      }
-      if (clipboardResult.kind === "unsupported") {
-        return {
-          kind: "failed",
-          reason: "unsupported-image",
-        };
-      }
-      return normalizeImageHandle(clipboardResult.imageHandle);
+      return normalizeReferenceImageSourceResult({
+        sourceResult: clipboardResult,
+        normalizeImageHandle,
+      });
     },
     async readReferenceImageFromPasteEvent({ imageHandle }) {
       return normalizeImageHandle(imageHandle);

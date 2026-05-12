@@ -9,6 +9,9 @@ import {
 import {
   createTimerPortAdapter,
 } from "../adapters/web/timer-port.js";
+import {
+  createBrowserReferenceImageInputPort,
+} from "../adapters/web/reference-image-input-port.js";
 
 const DURABLE_STATE_STORAGE_KEY = "id-overlay/state";
 
@@ -17,6 +20,10 @@ export async function startExtensionContent({
   document = globalThis.document,
   findEmbeddedEditorFrame = () => null,
   mountOwnedRoot,
+  ownerWindow = globalThis.window,
+  referenceImageInputPort = createBrowserReferenceImageInputPort({
+    ownerWindow,
+  }),
   renderApplicationView,
   startRuntime = (runtime) => runtime,
   storageArea = globalThis.chrome?.storage?.local,
@@ -46,6 +53,7 @@ export async function startExtensionContent({
       setTimer,
       clearTimer,
     }),
+    referenceImageInputPort,
     mountOwnedRoot: mountOwnedRoot ?? uiHost.mountOwnedRoot,
     renderApplicationView: renderApplicationView ?? uiHost.renderApplicationView,
     startRuntime,
