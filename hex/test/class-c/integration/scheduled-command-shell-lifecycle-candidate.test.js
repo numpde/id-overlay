@@ -5,10 +5,15 @@ import {
   bootstrapBrowserExtension,
 } from "../../../bootstrap/index.js";
 
-// Unclassified candidate: the browser shell should execute
-// `schedule-application-command` effects by scheduling a clock and later
-// dispatching the embedded command. It must not inspect `notice`, `panelIntent`,
-// or any other product field to decide what to clear.
+// Class-c: this is the preferred timer boundary, but it deliberately conflicts
+// with today's class-a effect vocabulary (`schedule-clear-status-notice` and
+// `schedule-clear-panel-intent`). The clean cut-over is one generic
+// `schedule-application-command` effect whose payload already contains the
+// command the app wants to receive later.
+//
+// Decision: keep quarantined with the timer-port candidates. Promote only when
+// bootstrap schedules clocks without inspecting `notice`, `panelIntent`, or any
+// other product field to decide what to clear.
 test("browser shell clears status by dispatching the scheduled app command", async () => {
   const timers = createApplicationCommandTimerHarness();
   const host = createBrowserHostHarness({
@@ -41,9 +46,9 @@ test("browser shell clears status by dispatching the scheduled app command", asy
   assert.equal(host.latestRender.view.status, "");
 });
 
-// Unclassified candidate: confirmation expiry is the same protocol as status
-// expiry. The shell schedules and fires the embedded command; the application
-// owns intent matching and stale rejection.
+// Class-c: confirmation expiry should use the same protocol as status expiry.
+// The shell schedules and fires the embedded command; the application owns
+// intent matching and stale rejection. Today that protocol is not implemented.
 test("browser shell clears panel intent by dispatching the scheduled app command", async () => {
   const timers = createApplicationCommandTimerHarness();
   const host = createBrowserHostHarness({
