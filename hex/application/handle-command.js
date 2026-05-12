@@ -298,6 +298,9 @@ function reportReferenceImageInputOutcome(state, command) {
   if (state.referenceImageInput?.requestId !== command.requestId) {
     return inertResult(state);
   }
+  if (isReplacementReferenceImageInput(state)) {
+    return reportReferenceImageReplacementOutcome(state, command);
+  }
   if (command.outcome?.kind === "empty") {
     return {
       state: {
@@ -326,28 +329,73 @@ function reportReferenceImageInputOutcome(state, command) {
     mode: "align",
     referenceImage: command.outcome.referenceImage,
   };
-  if (state.referenceImageInput.intent?.kind === "replace-reference-image") {
-    const nextDurableState = { session };
-    const record = {
-      kind: "replace-reference-image",
-      undoLabel: "Restore previous image",
-      redoLabel: "Replace image",
-      before: selectDurableApplicationState(state),
-      after: nextDurableState,
-    };
-    return {
-      state: {
-        session,
-        history: pushHistory(state.history, record),
-      },
-      effects: [persistDurableStateEffect(nextDurableState)],
-    };
-  }
   return {
     state: {
       session,
     },
     effects: [persistDurableStateEffect({ session })],
+  };
+}
+
+function isReplacementReferenceImageInput(state) {
+  return Boolean(
+    state.session
+      && state.referenceImageInput?.intent?.kind === "replace-reference-image",
+  );
+}
+
+function reportReferenceImageReplacementOutcome(state, command) {
+  if (command.outcome?.kind === "empty") {
+    return replacementInputNoticeResult({
+      state,
+      notice: {
+        kind: "reference-image-replacement-empty",
+        requestId: command.requestId,
+      },
+      requestId: command.requestId,
+    });
+  }
+  if (command.outcome?.kind === "failed") {
+    return replacementInputNoticeResult({
+      state,
+      notice: {
+        kind: "reference-image-replacement-failed",
+        reason: command.outcome.reason,
+        requestId: command.requestId,
+      },
+      requestId: command.requestId,
+    });
+  }
+
+  const session = {
+    mode: "align",
+    referenceImage: command.outcome.referenceImage,
+  };
+  const nextDurableState = { session };
+  const record = {
+    kind: "replace-reference-image",
+    undoLabel: "Restore previous image",
+    redoLabel: "Replace image",
+    before: selectDurableApplicationState(state),
+    after: nextDurableState,
+  };
+  return {
+    state: {
+      session,
+      history: pushHistory(state.history, record),
+    },
+    effects: [persistDurableStateEffect(nextDurableState)],
+  };
+}
+
+function replacementInputNoticeResult({ state, notice, requestId }) {
+  return {
+    state: {
+      session: state.session,
+      ...historyState(state),
+      notice,
+    },
+    effects: [scheduleClearStatusNoticeEffect(requestId)],
   };
 }
 

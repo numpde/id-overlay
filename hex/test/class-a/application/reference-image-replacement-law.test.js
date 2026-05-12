@@ -221,6 +221,77 @@ test("accepted replacement appends history and clears redo future", () => {
   }]);
 });
 
+// Class-a: empty or failed replacement input is non-destructive. The previous
+// session and history remain intact, the pending input ends, and no durable
+// write occurs because the accepted-image boundary was never reached.
+test("empty or failed replacement leaves old image intact", () => {
+  for (const { outcome, expectedNotice } of [
+    {
+      outcome: {
+        kind: "empty",
+      },
+      expectedNotice: {
+        kind: "reference-image-replacement-empty",
+        requestId: 6,
+      },
+    },
+    {
+      outcome: {
+        kind: "failed",
+        reason: "source-unavailable",
+      },
+      expectedNotice: {
+        kind: "reference-image-replacement-failed",
+        reason: "source-unavailable",
+        requestId: 6,
+      },
+    },
+  ]) {
+    const state = {
+      ...loadedImageState({
+        mode: "align",
+        placement: oldPlacement(),
+        pins: [firstPin()],
+      }),
+      history: {
+        past: [placementHistoryRecord()],
+        future: [],
+      },
+      referenceImageInput: {
+        status: "awaiting-input",
+        requestId: 6,
+        intent: {
+          kind: "replace-reference-image",
+        },
+      },
+    };
+
+    const result = handleApplicationCommand({
+      state,
+      command: createApplicationCommand(
+        APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_INPUT_OUTCOME,
+        {
+          requestId: 6,
+          outcome,
+        },
+      ),
+    });
+
+    assert.deepEqual(result, {
+      state: {
+        session: state.session,
+        history: state.history,
+        notice: expectedNotice,
+      },
+      effects: [{
+        kind: "schedule-clear-status-notice",
+        requestId: 6,
+        delayMs: 2500,
+      }],
+    });
+  }
+});
+
 function loadedImageState({
   mode = "align",
   referenceImage = oldReferenceImage(),

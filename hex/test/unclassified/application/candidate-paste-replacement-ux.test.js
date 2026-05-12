@@ -51,62 +51,6 @@ const EFFECT_KIND = Object.freeze({
 
 const STATUS_NOTICE_DELAY_MS = 2500;
 
-// Candidate: empty and failed replacement input are non-destructive outcomes.
-// They end the pending input, retain the old session and old history, schedule
-// status expiry, and do not write durable state.
-test("candidate: empty or failed replacement leaves old image intact", () => {
-  for (const outcome of [
-    {
-      kind: "empty",
-    },
-    {
-      kind: "failed",
-      reason: "source-unavailable",
-    },
-  ]) {
-    const state = {
-      ...loadedImageState({
-        mode: "align",
-        placement: oldPlacement(),
-        pins: [firstPin()],
-      }),
-      history: {
-        past: [placementHistoryRecord()],
-        future: [],
-      },
-      referenceImageInput: {
-        status: "awaiting-input",
-        requestId: 6,
-        intent: {
-          kind: "replace-reference-image",
-        },
-      },
-    };
-
-    const result = handleApplicationCommand({
-      state,
-      command: createApplicationCommand(
-        APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_INPUT_OUTCOME,
-        {
-          requestId: 6,
-          outcome,
-        },
-      ),
-    });
-
-    assert.deepEqual(result.state.session, state.session);
-    assert.deepEqual(result.state.history, state.history);
-    assert.equal(result.state.referenceImageInput, undefined);
-    assert.equal(result.state.notice.requestId, 6);
-    assert.match(result.state.notice.kind, /reference-image-replacement/);
-    assert.deepEqual(result.effects, [{
-      kind: EFFECT_KIND.SCHEDULE_CLEAR_STATUS_NOTICE,
-      requestId: 6,
-      delayMs: STATUS_NOTICE_DELAY_MS,
-    }]);
-  }
-});
-
 // Candidate: cancelling replacement is non-destructive for the same reason
 // empty/failure are non-destructive. Cancel means "keep what I had", not "clear
 // the image".
