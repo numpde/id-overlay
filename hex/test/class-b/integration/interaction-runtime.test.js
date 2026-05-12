@@ -57,6 +57,7 @@ test("interaction runtime maps adapter facts into application commands without r
       lon: 36.84,
     },
   }]);
+  assertNoAdapterVocabulary(commands);
 });
 
 // Class-b: projection misses are inert at the interaction seam. They are not
@@ -125,6 +126,7 @@ test("interaction runtime maps placement facts through projection to committed e
     editKind: "rotate",
     placement: rotatedPlacement(),
   }]);
+  assertNoAdapterVocabulary(commands);
 });
 
 // Class-b: opacity changes are product commands, but the browser interaction
@@ -163,7 +165,21 @@ test("interaction runtime maps opacity facts through selection to set-opacity", 
     kind: "set-opacity",
     opacity: 0.5,
   }]);
+  assertNoAdapterVocabulary(commands);
 });
+
+// Class-b: the exact interaction-fact names can still evolve, but the boundary
+// rule is stable enough to guard here. Browser/adapter source words may enter
+// the mapper as facts; they must not leak into application commands, otherwise
+// the application command vocabulary stops being source-neutral.
+function assertNoAdapterVocabulary(commands) {
+  const serializedCommands = JSON.stringify(commands);
+
+  assert.equal(serializedCommands.includes("keyboard"), false);
+  assert.equal(serializedCommands.includes("pointer"), false);
+  assert.equal(serializedCommands.includes("wheel"), false);
+  assert.equal(serializedCommands.includes("overlay"), false);
+}
 
 function rotatedPlacement() {
   return {
