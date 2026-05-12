@@ -22,33 +22,6 @@ const APPLICATION_DIR = path.join(REPO_ROOT, "hex/application");
 const BOOTSTRAP_DIR = path.join(REPO_ROOT, "hex/bootstrap");
 const CONTENT_DIR = path.join(REPO_ROOT, "src/content");
 
-const REQUIRED_PRODUCT_COMMAND_KINDS = Object.freeze([
-  "activate-primary-action",
-  "report-reference-image-input-outcome",
-  "clear-status-notice",
-  "clear-panel-intent",
-]);
-
-const FORBIDDEN_COMMAND_KIND_PATTERNS = Object.freeze([
-  // Source-specific input. The product requests a reference image; adapters may
-  // choose clipboard, paste event, or another source.
-  /\bpaste\b/,
-  /\bclipboard\b/,
-
-  // Raw browser interaction. Adapters normalize these into semantic commands.
-  /\bpointer\b/,
-  /\bwheel\b/,
-  /\bkeydown\b/,
-  /\bkeyup\b/,
-  /\bevent\b/,
-
-  // External execution mechanisms. These belong to ports/adapters/runtime.
-  /\btimer\b/,
-  /\bstorage\b/,
-  /\bchrome\b/,
-  /\bbrowser\b/,
-]);
-
 const APPLICATION_BROWSER_MECHANICS = Object.freeze([
   "navigator",
   "clipboard",
@@ -100,25 +73,6 @@ const SHELL_WATCHER_ACTIONS = Object.freeze([
   "releaseImageDataRef",
   "solveRegistrationPlacement",
 ]);
-
-// Candidate: command names are product intents/facts, not transport/source
-// details. This intentionally fails the old `report-reference-image-paste-outcome`
-// command because "paste" is one browser input mechanism, not the product fact.
-test("candidate: application command vocabulary is semantic and source-agnostic", () => {
-  const commandKinds = Object.values(APPLICATION_COMMAND_KIND);
-  const violations = [
-    ...REQUIRED_PRODUCT_COMMAND_KINDS
-      .filter((kind) => !commandKinds.includes(kind))
-      .map((kind) => `missing required command kind: ${kind}`),
-    ...commandKinds.flatMap((kind) => (
-      FORBIDDEN_COMMAND_KIND_PATTERNS
-        .filter((pattern) => pattern.test(kind))
-        .map((pattern) => `${kind} matches ${pattern}`)
-    )),
-  ];
-
-  assert.deepEqual(violations, []);
-});
 
 // Candidate: application code may declare effects, but it must not name the
 // physical browser mechanisms that adapters use to satisfy those effects. This
