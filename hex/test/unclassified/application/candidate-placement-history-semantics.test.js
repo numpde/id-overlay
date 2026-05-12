@@ -54,45 +54,6 @@ const FORBIDDEN_HISTORY_SOURCE_PATTERNS = Object.freeze([
   },
 ]);
 
-// Candidate: Trace/native-map mode is not an overlay editing mode. Stale
-// placement commands cannot mutate placement, persistence, or history.
-test("candidate: Trace placement edit is inert and leaves history untouched", () => {
-  const state = {
-    session: referenceImageSession({
-      mode: "trace",
-      placement: originalPlacement(),
-    }),
-    history: {
-      past: [placementHistoryRecord({
-        editKind: "move",
-        before: placementRevision({
-          placement: null,
-          solvedRegistration: null,
-        }),
-        after: placementRevision({
-          placement: originalPlacement(),
-          solvedRegistration: null,
-        }),
-      })],
-      future: [],
-    },
-  };
-
-  assert.deepEqual(handleApplicationCommand({
-    state,
-    command: createApplicationCommand(
-      APPLICATION_COMMAND_KIND.COMMIT_PLACEMENT_EDIT,
-      {
-        editKind: "move",
-        placement: movedPlacement(),
-      },
-    ),
-  }), {
-    state,
-    effects: [],
-  });
-});
-
 // Candidate: history copy is derived from semantic records at the view-model
 // boundary. The important law is not the exact prose; it is that a placement
 // record without stored labels still yields specific, non-generic affordances.

@@ -8,11 +8,29 @@ import {
 import { handleApplicationCommand } from "../../../application/handle-command.js";
 
 // Class-a: Trace is the native-map posture. Overlay placement commands can
-// still arrive from stale UI wiring, but they must not mutate hidden state.
+// still arrive from stale UI wiring, but they must not mutate hidden placement
+// or history state.
 test("placement edits are no-ops in Trace mode", () => {
-  const state = referenceImageLoadedState({
-    mode: "trace",
-  });
+  const state = {
+    ...referenceImageLoadedState({
+      mode: "trace",
+      placement: originalPlacement(),
+    }),
+    history: {
+      past: [placementHistoryRecord({
+        editKind: "move",
+        before: placementRevision({
+          placement: null,
+          solvedRegistration: null,
+        }),
+        after: placementRevision({
+          placement: originalPlacement(),
+          solvedRegistration: null,
+        }),
+      })],
+      future: [],
+    },
+  };
   const command = createApplicationCommand(
     APPLICATION_COMMAND_KIND.COMMIT_PLACEMENT_EDIT,
     {
@@ -74,7 +92,7 @@ test("pin edits and clear-pins are no-ops in Trace mode", () => {
   }
 });
 
-function referenceImageLoadedState({ mode, pins }) {
+function referenceImageLoadedState({ mode, pins, placement }) {
   const session = {
     mode,
     referenceImage: {
@@ -85,6 +103,9 @@ function referenceImageLoadedState({ mode, pins }) {
       },
     },
   };
+  if (placement !== undefined) {
+    session.placement = placement;
+  }
   if (pins !== undefined) {
     session.registration = {
       pins,
@@ -92,5 +113,30 @@ function referenceImageLoadedState({ mode, pins }) {
   }
   return {
     session,
+  };
+}
+
+function placementHistoryRecord({ editKind, before, after }) {
+  return {
+    kind: "overlay-placement-edit",
+    editKind,
+    before,
+    after,
+  };
+}
+
+function placementRevision({ placement, solvedRegistration }) {
+  return {
+    placement,
+    solvedRegistration,
+  };
+}
+
+function originalPlacement() {
+  return {
+    x: 10,
+    y: 20,
+    scale: 1,
+    rotationRad: 0,
   };
 }
