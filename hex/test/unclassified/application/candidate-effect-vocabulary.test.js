@@ -53,20 +53,6 @@ const FORBIDDEN_EFFECT_KINDS = Object.freeze([
 const DEFAULT_STATUS_NOTICE_DELAY_MS = 2500;
 const DEFAULT_PANEL_INTENT_DELAY_MS = 2500;
 
-// Candidate: the public command vocabulary should be generic user-input
-// vocabulary. A paste event is one adapter path; it should not name the product
-// command. This fails the old `report-reference-image-paste-outcome` shape.
-test("candidate: reference-image input outcome command is source-agnostic", () => {
-  assert.equal(
-    APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_INPUT_OUTCOME,
-    COMMAND_KIND.REPORT_REFERENCE_IMAGE_INPUT_OUTCOME,
-  );
-  assert.equal(
-    Object.values(APPLICATION_COMMAND_KIND).includes("report-reference-image-paste-outcome"),
-    false,
-  );
-});
-
 // Candidate: Paste is product causality. The app should declare reference-image
 // input work as an effect; the shell should not infer clipboard/manual-paste
 // work by watching `referenceImageInput` appear in state.

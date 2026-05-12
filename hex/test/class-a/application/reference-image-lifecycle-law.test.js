@@ -26,7 +26,7 @@ test("accepted reference image creates an Align session and durability effect", 
       },
     },
     command: createApplicationCommand(
-      APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_PASTE_OUTCOME,
+      APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_INPUT_OUTCOME,
       {
         requestId: 1,
         outcome: {
@@ -70,7 +70,7 @@ test("accepted reference image clears pending input notice and panel intent", ()
       },
     },
     command: createApplicationCommand(
-      APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_PASTE_OUTCOME,
+      APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_INPUT_OUTCOME,
       {
         requestId: 1,
         outcome: {
@@ -91,10 +91,10 @@ test("accepted reference image clears pending input notice and panel intent", ()
   });
 });
 
-// Class-a: an empty paste is a normal user-world outcome, not a boundary
-// failure. It must end the transient paste input without creating a session or
-// durable work; exact notice vocabulary is weaker UI policy.
-test("empty reference image paste outcome ends input without durability", () => {
+// Class-a: empty reference-image input is a normal user-world outcome, not a
+// boundary failure. It must end the transient input without creating a session
+// or durable work; exact notice vocabulary is weaker UI policy.
+test("empty reference-image input outcome ends input without durability", () => {
   const result = handleApplicationCommand({
     state: {
       referenceImageInput: {
@@ -103,7 +103,7 @@ test("empty reference image paste outcome ends input without durability", () => 
       },
     },
     command: createApplicationCommand(
-      APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_PASTE_OUTCOME,
+      APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_INPUT_OUTCOME,
       {
         requestId: 1,
         outcome: {
@@ -118,10 +118,10 @@ test("empty reference image paste outcome ends input without durability", () => 
   assert.deepEqual(result.effects, []);
 });
 
-// Class-a: a declared paste failure is also a normal user-world outcome. It
+// Class-a: a declared input failure is also a normal user-world outcome. It
 // ends the transient input flow without creating an image session or durable
 // work; the exact failure notice vocabulary is weaker UI policy.
-test("failed reference image paste outcome ends input without durability", () => {
+test("failed reference-image input outcome ends input without durability", () => {
   const result = handleApplicationCommand({
     state: {
       referenceImageInput: {
@@ -130,7 +130,7 @@ test("failed reference image paste outcome ends input without durability", () =>
       },
     },
     command: createApplicationCommand(
-      APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_PASTE_OUTCOME,
+      APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_INPUT_OUTCOME,
       {
         requestId: 1,
         outcome: {

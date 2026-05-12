@@ -70,10 +70,11 @@ test("known commands with malformed payloads throw ApplicationBoundaryError", ()
   );
 });
 
-// Class-a: an accepted paste result must already be usable application data.
+// Class-a: an accepted reference-image input result must already be usable
+// application data.
 // Missing image facts, host handles, and impossible dimensions are boundary
 // failures, not product states for the reducer to patch up later.
-test("accepted paste outcome requires normalized reference image data", () => {
+test("accepted reference-image input outcome requires normalized reference image data", () => {
   for (const { description, outcome } of [
     {
       description: "missing reference image",
@@ -119,7 +120,7 @@ test("accepted paste outcome requires normalized reference image data", () => {
   ]) {
     assertApplicationBoundaryError(
       () => createApplicationCommand(
-        APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_PASTE_OUTCOME,
+        APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_INPUT_OUTCOME,
         {
           requestId: 1,
           outcome,
@@ -132,12 +133,12 @@ test("accepted paste outcome requires normalized reference image data", () => {
 });
 
 // Class-a: known command names do not make arbitrary payloads product events.
-// Undeclared paste outcomes and runtime-object failure reasons are boundary
+// Undeclared input outcomes and runtime-object failure reasons are boundary
 // failures at both entry points: command construction and reducer handling.
-test("malformed reference image paste outcome commands are boundary errors", () => {
+test("malformed reference-image input outcome commands are boundary errors", () => {
   assertApplicationBoundaryError(
     () => createApplicationCommand(
-      APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_PASTE_OUTCOME,
+      APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_INPUT_OUTCOME,
       {
         requestId: 1,
         outcome: {
@@ -149,7 +150,7 @@ test("malformed reference image paste outcome commands are boundary errors", () 
   );
   assertApplicationBoundaryError(
     () => createApplicationCommand(
-      APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_PASTE_OUTCOME,
+      APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_INPUT_OUTCOME,
       {
         requestId: 1,
         outcome: {
@@ -169,7 +170,7 @@ test("malformed reference image paste outcome commands are boundary errors", () 
         },
       },
       command: {
-        kind: APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_PASTE_OUTCOME,
+        kind: APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_INPUT_OUTCOME,
         requestId: 1,
         outcome: {
           kind: "failed",
@@ -188,7 +189,7 @@ test("malformed reference image paste outcome commands are boundary errors", () 
         },
       },
       command: {
-        kind: APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_PASTE_OUTCOME,
+        kind: APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_INPUT_OUTCOME,
         requestId: 1,
         outcome: {
           kind: "mystery-outcome",

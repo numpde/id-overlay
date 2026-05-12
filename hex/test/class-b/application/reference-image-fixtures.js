@@ -114,7 +114,7 @@ export function pinTogglePayload({
   };
 }
 
-export function acceptedReferenceImagePastePayload({ requestId = 1 } = {}) {
+export function acceptedReferenceImageInputPayload({ requestId = 1 } = {}) {
   return {
     requestId,
     outcome: {

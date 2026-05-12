@@ -14,7 +14,7 @@ export const APPLICATION_COMMAND_KIND = Object.freeze({
   CLEAR_REGISTRATION_PINS: "clear-registration-pins",
   COMMIT_PLACEMENT_EDIT: "commit-placement-edit",
   ACTIVATE_PRIMARY_ACTION: "activate-primary-action",
-  REPORT_REFERENCE_IMAGE_PASTE_OUTCOME: "report-reference-image-paste-outcome",
+  REPORT_REFERENCE_IMAGE_INPUT_OUTCOME: "report-reference-image-input-outcome",
   CLEAR_REFERENCE_IMAGE: "clear-reference-image",
   CLEAR_STATUS_NOTICE: "clear-status-notice",
   UNDO: "undo",
@@ -48,8 +48,8 @@ export function createApplicationCommand(kind, payload = {}) {
       message: "Invalid mode command.",
     });
   }
-  if (kind === APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_PASTE_OUTCOME) {
-    assertValidReferenceImagePasteOutcomePayload(payload);
+  if (kind === APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_INPUT_OUTCOME) {
+    assertValidReferenceImageInputOutcomePayload(payload);
   }
 
   if (kind === APPLICATION_COMMAND_KIND.COMMIT_PLACEMENT_EDIT) {
@@ -94,7 +94,7 @@ function createPlacementEditCommand(payload) {
   };
 }
 
-function assertValidReferenceImagePasteOutcomePayload(payload) {
+function assertValidReferenceImageInputOutcomePayload(payload) {
   if (!isPositiveInteger(payload.requestId)) {
     throwInvalidApplicationCommand();
   }

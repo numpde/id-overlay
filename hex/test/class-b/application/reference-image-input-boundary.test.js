@@ -11,23 +11,23 @@ import {
 } from "./application-result-assertions.js";
 import { assertPlainData } from "./plain-data-assertions.js";
 import {
-  acceptedReferenceImagePastePayload,
+  acceptedReferenceImageInputPayload,
   normalizedReferenceImage,
 } from "./reference-image-fixtures.js";
 
 // Class-b, deliberately not class-a: this is command-factory API shape. Class-a
-// owns the behavior: async paste outcomes are request-correlated and stale
+// owns the behavior: async input outcomes are request-correlated and stale
 // results are ignored. This harness only keeps the current command boundary
 // from dropping correlation before the command reaches the app.
-test("reference image paste outcome command is correlated plain data", () => {
+test("reference-image input outcome command is correlated plain data", () => {
   const command = createApplicationCommand(
-    APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_PASTE_OUTCOME,
-    acceptedReferenceImagePastePayload(),
+    APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_INPUT_OUTCOME,
+    acceptedReferenceImageInputPayload(),
   );
 
   assertPlainData(command);
   assert.deepEqual(command, {
-    kind: APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_PASTE_OUTCOME,
+    kind: APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_INPUT_OUTCOME,
     requestId: 1,
     outcome: {
       kind: "accepted",
@@ -36,11 +36,11 @@ test("reference image paste outcome command is correlated plain data", () => {
   });
 });
 
-// Class-b, deliberately not class-a: class-a owns the empty-paste product law
+// Class-b, deliberately not class-a: class-a owns the empty-input product law
 // that no session or durable work is created. This keeps only the current
 // transient notice vocabulary and the request id used by status-clearing
 // correlation.
-test("empty reference image paste outcome becomes a correlated notice", () => {
+test("empty reference-image input outcome becomes a correlated notice", () => {
   assertApplicationResult(handleApplicationCommand({
     state: {
       referenceImageInput: {
@@ -49,7 +49,7 @@ test("empty reference image paste outcome becomes a correlated notice", () => {
       },
     },
     command: createApplicationCommand(
-      APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_PASTE_OUTCOME,
+      APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_INPUT_OUTCOME,
       {
         requestId: 1,
         outcome: {
@@ -68,10 +68,10 @@ test("empty reference image paste outcome becomes a correlated notice", () => {
   });
 });
 
-// Class-b, deliberately not class-a: class-a owns failed paste as a normal
+// Class-b, deliberately not class-a: class-a owns failed input as a normal
 // non-durable outcome. This keeps only the current transient notice vocabulary,
 // including the data-only reason and the request id used by status correlation.
-test("failed reference image paste outcome becomes a correlated notice", () => {
+test("failed reference-image input outcome becomes a correlated notice", () => {
   assertApplicationResult(handleApplicationCommand({
     state: {
       referenceImageInput: {
@@ -80,7 +80,7 @@ test("failed reference image paste outcome becomes a correlated notice", () => {
       },
     },
     command: createApplicationCommand(
-      APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_PASTE_OUTCOME,
+      APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_INPUT_OUTCOME,
       {
         requestId: 1,
         outcome: {
