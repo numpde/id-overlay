@@ -292,6 +292,43 @@ test("empty or failed replacement leaves old image intact", () => {
   }
 });
 
+// Class-a: cancelling replacement means "keep what I had". It is a transient
+// input cancellation, not a destructive image action, so it preserves the old
+// session and schedules only notice expiry.
+test("cancelling replacement leaves old image intact", () => {
+  const state = {
+    ...loadedImageState({
+      mode: "trace",
+      placement: oldPlacement(),
+    }),
+    referenceImageInput: {
+      status: "awaiting-input",
+      requestId: 7,
+      intent: {
+        kind: "replace-reference-image",
+      },
+    },
+  };
+
+  assert.deepEqual(handleApplicationCommand({
+    state,
+    command: createApplicationCommand(APPLICATION_COMMAND_KIND.ACTIVATE_PRIMARY_ACTION),
+  }), {
+    state: {
+      session: state.session,
+      notice: {
+        kind: "reference-image-replacement-cancelled",
+        requestId: 7,
+      },
+    },
+    effects: [{
+      kind: "schedule-clear-status-notice",
+      requestId: 7,
+      delayMs: 2500,
+    }],
+  });
+});
+
 function loadedImageState({
   mode = "align",
   referenceImage = oldReferenceImage(),

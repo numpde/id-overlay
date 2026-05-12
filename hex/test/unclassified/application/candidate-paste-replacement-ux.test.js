@@ -51,43 +51,6 @@ const EFFECT_KIND = Object.freeze({
 
 const STATUS_NOTICE_DELAY_MS = 2500;
 
-// Candidate: cancelling replacement is non-destructive for the same reason
-// empty/failure are non-destructive. Cancel means "keep what I had", not "clear
-// the image".
-test("candidate: cancelling replacement leaves old image intact", () => {
-  const state = {
-    ...loadedImageState({
-      mode: "trace",
-      placement: oldPlacement(),
-    }),
-    referenceImageInput: {
-      status: "awaiting-input",
-      requestId: 7,
-      intent: {
-        kind: "replace-reference-image",
-      },
-    },
-  };
-
-  assert.deepEqual(handleApplicationCommand({
-    state,
-    command: createApplicationCommand(APPLICATION_COMMAND_KIND.ACTIVATE_PRIMARY_ACTION),
-  }), {
-    state: {
-      session: state.session,
-      notice: {
-        kind: "reference-image-replacement-cancelled",
-        requestId: 7,
-      },
-    },
-    effects: [{
-      kind: EFFECT_KIND.SCHEDULE_CLEAR_STATUS_NOTICE,
-      requestId: 7,
-      delayMs: STATUS_NOTICE_DELAY_MS,
-    }],
-  });
-});
-
 // Candidate: request correlation matters more during replacement because a late
 // accepted image could otherwise overwrite a visible session the user chose to
 // keep. Stale outcomes are inert.

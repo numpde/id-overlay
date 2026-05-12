@@ -174,6 +174,16 @@ function hydrate(durableState) {
 
 function activatePrimaryAction(state) {
   if (state.referenceImageInput?.status === "awaiting-input") {
+    if (isReplacementReferenceImageInput(state)) {
+      return replacementInputNoticeResult({
+        state,
+        notice: {
+          kind: "reference-image-replacement-cancelled",
+          requestId: state.referenceImageInput.requestId,
+        },
+        requestId: state.referenceImageInput.requestId,
+      });
+    }
     return {
       state: {
         notice: {
