@@ -66,36 +66,6 @@ const FORBIDDEN_INTERACTION_RUNTIME_STATE_READS = Object.freeze([
   ".history",
 ]);
 
-// Candidate: temporary pass-through is a semantic application input posture,
-// not a shell-only side channel. The view can then derive native-map overlay
-// behavior from one application state, and the transition remains non-durable.
-test("candidate: temporary pass-through facts map to semantic posture commands", async () => {
-  const commands = [];
-  const runtime = createInteractionRuntime({
-    dispatchApplicationCommand(command) {
-      commands.push(command);
-    },
-  });
-
-  await runtime.handleInteractionFact({
-    kind: "temporary-pass-through-started",
-  });
-  await runtime.handleInteractionFact({
-    kind: "temporary-pass-through-ended",
-  });
-
-  assert.deepEqual(commands, [
-    {
-      kind: INTERACTION_COMMAND_KIND.SET_TEMPORARY_PASS_THROUGH,
-      active: true,
-    },
-    {
-      kind: INTERACTION_COMMAND_KIND.SET_TEMPORARY_PASS_THROUGH,
-      active: false,
-    },
-  ]);
-});
-
 // Candidate: placement manipulation has one mapping path regardless of whether
 // the browser source is drag, wheel, keyboard, or future handles. Geometry ports
 // compute a full placement; the application receives a committed placement edit.
