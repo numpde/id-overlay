@@ -18,6 +18,9 @@ import { handleApplicationCommand } from "../../../application/handle-command.js
 //
 // Classification note: the no-session input request candidate was deleted as a
 // duplicate of the stronger class-a primary-action law.
+//
+// Classification note: the accepted-input candidate was deleted as a duplicate
+// of the stronger class-a reference-image lifecycle law.
 
 const COMMAND_KIND = Object.freeze({
   REPORT_REFERENCE_IMAGE_INPUT_OUTCOME: "report-reference-image-input-outcome",
@@ -41,41 +44,6 @@ const FAILURE_REASON = Object.freeze({
   SOURCE_UNAVAILABLE: "source-unavailable",
   DECODE_FAILED: "decode-failed",
   UNSUPPORTED_IMAGE: "unsupported-image",
-});
-
-// Candidate: accepted input is source-neutral. Whether the adapter got the image
-// from navigator.clipboard, a paste event, drag/drop, or a future page API is not
-// observable in product state, persistence, or history.
-test("candidate: accepted reference-image input creates a fresh Align session", () => {
-  const referenceImage = normalizedReferenceImage();
-  const session = {
-    mode: "align",
-    referenceImage,
-  };
-
-  assert.deepEqual(handleApplicationCommand({
-    state: awaitingInputState({ requestId: 1 }),
-    command: createApplicationCommand(
-      APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_INPUT_OUTCOME,
-      {
-        requestId: 1,
-        outcome: {
-          kind: ACCEPTED_OUTCOME.ACCEPTED,
-          referenceImage,
-        },
-      },
-    ),
-  }), {
-    state: {
-      session,
-    },
-    effects: [{
-      kind: EFFECT_KIND.PERSIST_DURABLE_STATE,
-      durableState: {
-        session,
-      },
-    }],
-  });
 });
 
 // Candidate: empty input is a normal user-world outcome. It ends the request,
