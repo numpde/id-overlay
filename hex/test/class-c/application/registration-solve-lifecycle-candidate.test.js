@@ -7,11 +7,14 @@ import {
 } from "../../../application/command.js";
 import { handleApplicationCommand } from "../../../application/handle-command.js";
 
-// Unclassified candidate: selecting Trace is the product moment that asks for
-// an auto-fit. The app/domain own that causality; the shell must not pre-solve
-// and smuggle placement into `select-mode`. The durable fact is the selected fit
-// source, not duplicated solve coefficients that can already be derived from
-// the pins.
+// Class-c: this proposes a different registration-solve lifecycle than current
+// class-a mode-transition law. Today selecting Trace changes mode only unless a
+// solved registration already exists; this candidate says Trace selection is
+// the product moment that asks for an auto-fit.
+//
+// Decision: keep quarantined, not promoted. It also uses stale
+// `registration.fit` vocabulary, so it must be rewritten around the final
+// solve-result model before it can become authoritative.
 test("selecting Trace with solve-ready pins records an undoable registration fit", () => {
   const beforeState = referenceImageLoadedState({
     mode: "align",
@@ -64,9 +67,8 @@ test("selecting Trace with solve-ready pins records an undoable registration fit
   });
 });
 
-// Unclassified candidate: failed fitting must be visible but not durable. Trace
-// remains a valid mode selection, the current placement is not fabricated, and
-// no history entry is recorded because no fit happened.
+// Class-c: the failure UX may be right if Trace selection triggers solving, but
+// that trigger itself is not settled.
 test("failed registration fit enters Trace without fabricating solved placement", () => {
   const beforeState = referenceImageLoadedState({
     mode: "align",
