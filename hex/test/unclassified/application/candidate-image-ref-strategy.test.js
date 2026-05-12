@@ -9,9 +9,6 @@ import {
   createApplicationCommand,
 } from "../../../application/command.js";
 import { handleApplicationCommand } from "../../../application/handle-command.js";
-import {
-  selectApplicationView,
-} from "../../../application/view-model.js";
 
 // Unclassified: candidate law for the reference-image ref strategy.
 //
@@ -54,30 +51,6 @@ const FORBIDDEN_APPLICATION_IMAGE_MECHANICS = Object.freeze([
   "new Image",
   "dataTransfer",
 ]);
-
-// Candidate: the view is allowed to expose the durable image ref as a render
-// fact. It must not expose a second runtime-url slot that turns the application
-// view model into a browser resource cache.
-test("candidate: application view exposes durable image ref, not runtime image resources", () => {
-  const referenceImage = normalizedReferenceImage("stable-reference-image");
-  const view = selectApplicationView({
-    session: {
-      mode: "align",
-      referenceImage,
-    },
-  });
-
-  assert.deepEqual(view.overlay, {
-    visible: true,
-    imageDataRef: referenceImage.imageDataRef,
-    intrinsicSizePx: referenceImage.intrinsicSizePx,
-    placement: null,
-    opacity: 1,
-    pins: [],
-  });
-  assert.equal(JSON.stringify(view).includes("objectUrl"), false);
-  assert.equal(JSON.stringify(view).includes("blob:"), false);
-});
 
 // Candidate: undoing image removal replays the durable image ref. It must not
 // ask the browser for a new image, and it must not treat the old durable ref as

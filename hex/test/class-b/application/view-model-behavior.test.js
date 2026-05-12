@@ -95,8 +95,8 @@ test("view model exposes semantic history controls", () => {
 });
 
 // Class-b, deliberately not class-a: class-a owns the visible law that Trace
-// hides pins. This protects only the adapter contract shape: overlay adapters
-// receive plain render facts and do not read session internals directly.
+// hides pins. This protects the adapter contract shape: overlay adapters receive
+// durable render facts, not renderer-owned resource cache fields.
 test("view model exposes overlay render facts", () => {
   const placement = {
     x: 80,
@@ -105,11 +105,19 @@ test("view model exposes overlay render facts", () => {
     rotationRad: 0.2,
   };
 
-  assert.deepEqual(selectApplicationView(referenceImageLoadedState({
-    placement,
-    opacity: 0.6,
-    pins: [firstPin()],
-  })).overlay, {
+  const view = selectApplicationView({
+    ...referenceImageLoadedState({
+      placement,
+      opacity: 0.6,
+      pins: [firstPin()],
+    }),
+    runtimeImageResource: {
+      imageDataRef: "reference-image-data-1",
+      objectUrl: "blob:https://www.openstreetmap.org/runtime-only",
+    },
+  });
+
+  assert.deepEqual(view.overlay, {
     visible: true,
     imageDataRef: "reference-image-data-1",
     intrinsicSizePx: {
@@ -120,6 +128,8 @@ test("view model exposes overlay render facts", () => {
     opacity: 0.6,
     pins: [firstPin()],
   });
+  assert.equal(JSON.stringify(view).includes("objectUrl"), false);
+  assert.equal(JSON.stringify(view).includes("blob:"), false);
 });
 
 // Class-b, deliberately not class-a: temporary pass-through is transient input
