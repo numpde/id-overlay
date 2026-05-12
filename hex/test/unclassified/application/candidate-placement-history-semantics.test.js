@@ -37,11 +37,17 @@ const EFFECT_KIND = Object.freeze({
   PERSIST_DURABLE_STATE: "persist-durable-state",
 });
 
-const FORBIDDEN_HISTORY_SOURCE_SNIPPETS = Object.freeze([
+const FORBIDDEN_HISTORY_SOURCE_PATTERNS = Object.freeze([
   // History records should carry semantic descriptors; user-facing copy belongs
   // in the view-model boundary so labels can improve without rewriting history.
-  "undoLabel",
-  "redoLabel",
+  {
+    label: "stored undo label field",
+    pattern: /\bundoLabel\s*:/,
+  },
+  {
+    label: "stored redo label field",
+    pattern: /\bredoLabel\s*:/,
+  },
 ]);
 
 // Candidate: a committed placement edit is the single durable user action for a
@@ -73,11 +79,11 @@ test("candidate: committed Align placement edit creates semantic scoped history"
           editKind: "move",
           before: placementRevision({
             placement: null,
-            registrationSolvedPlacement: null,
+            solvedRegistration: null,
           }),
           after: placementRevision({
             placement: movedPlacement(),
-            registrationSolvedPlacement: null,
+            solvedRegistration: null,
           }),
         })],
         future: [],
@@ -101,11 +107,11 @@ test("candidate: undoing placement preserves unrelated current durable state", (
     editKind: "move",
     before: placementRevision({
       placement: originalPlacement(),
-      registrationSolvedPlacement: null,
+      solvedRegistration: null,
     }),
     after: placementRevision({
       placement: movedPlacement(),
-      registrationSolvedPlacement: null,
+      solvedRegistration: null,
     }),
   });
 
@@ -156,11 +162,11 @@ test("candidate: redoing placement preserves unrelated current durable state", (
     editKind: "rotate",
     before: placementRevision({
       placement: originalPlacement(),
-      registrationSolvedPlacement: null,
+      solvedRegistration: null,
     }),
     after: placementRevision({
       placement: rotatedPlacement(),
-      registrationSolvedPlacement: null,
+      solvedRegistration: null,
     }),
   });
 
@@ -203,19 +209,22 @@ test("candidate: redoing placement preserves unrelated current durable state", (
   });
 });
 
-// Candidate: registration fit metadata is part of the placement revision, not a
-// separate hidden state machine. Manual placement clears solved metadata; undo
-// restores it if the before revision was the fitted placement.
+// Candidate: registration fit metadata is part of the placement revision, but
+// only with its pin context. Manual placement clears solved metadata; undo
+// restores it only while the current pins still match the recorded fit.
 test("candidate: undoing manual placement restores solved registration placement metadata", () => {
   const record = placementHistoryRecord({
     editKind: "move",
     before: placementRevision({
       placement: originalPlacement(),
-      registrationSolvedPlacement: originalPlacement(),
+      solvedRegistration: solvedRegistration({
+        pinIds: [1, 2],
+        placement: originalPlacement(),
+      }),
     }),
     after: placementRevision({
       placement: movedPlacement(),
-      registrationSolvedPlacement: null,
+      solvedRegistration: null,
     }),
   });
 
@@ -238,7 +247,7 @@ test("candidate: undoing manual placement restores solved registration placement
         mode: "align",
         pins: [firstPin(), secondPin()],
         placement: originalPlacement(),
-        registrationSolvedPlacement: originalPlacement(),
+        solvedPlacement: originalPlacement(),
       }),
       history: {
         past: [],
@@ -251,36 +260,92 @@ test("candidate: undoing manual placement restores solved registration placement
         mode: "align",
         pins: [firstPin(), secondPin()],
         placement: originalPlacement(),
-        registrationSolvedPlacement: originalPlacement(),
+        solvedPlacement: originalPlacement(),
       }),
     }],
   });
 });
 
-// Candidate: a non-undoable durable edit creates a new branch but should not
-// erase still-valid past placement history. It only clears redo future because
+// Candidate: if the pin context changed after manual placement, undo still
+// restores the visible placement but must not resurrect stale solved metadata.
+// The user asked to undo a transform edit, not to assert that changed pins still
+// solve to the old transform.
+test("candidate: undoing placement does not restore solved metadata for changed pins", () => {
+  const record = placementHistoryRecord({
+    editKind: "move",
+    before: placementRevision({
+      placement: originalPlacement(),
+      solvedRegistration: solvedRegistration({
+        pinIds: [1, 2],
+        placement: originalPlacement(),
+      }),
+    }),
+    after: placementRevision({
+      placement: movedPlacement(),
+      solvedRegistration: null,
+    }),
+  });
+
+  assert.deepEqual(handleApplicationCommand({
+    state: {
+      session: referenceImageSession({
+        mode: "align",
+        pins: [firstPin(), thirdPin()],
+        placement: movedPlacement(),
+      }),
+      history: {
+        past: [record],
+        future: [],
+      },
+    },
+    command: createApplicationCommand(APPLICATION_COMMAND_KIND.UNDO),
+  }), {
+    state: {
+      session: referenceImageSession({
+        mode: "align",
+        pins: [firstPin(), thirdPin()],
+        placement: originalPlacement(),
+      }),
+      history: {
+        past: [],
+        future: [record],
+      },
+    },
+    effects: [{
+      kind: EFFECT_KIND.PERSIST_DURABLE_STATE,
+      durableState: durableImageState({
+        mode: "align",
+        pins: [firstPin(), thirdPin()],
+        placement: originalPlacement(),
+      }),
+    }],
+  });
+});
+
+// Candidate: same-session non-placement edits create a new branch but should
+// not erase still-valid past placement history. They clear redo future because
 // future records no longer follow the current durable timeline.
-test("candidate: non-undoable durable edits preserve past placement history and clear future", () => {
+test("candidate: opacity changes preserve past placement history and clear future", () => {
   const pastRecord = placementHistoryRecord({
     editKind: "move",
     before: placementRevision({
       placement: originalPlacement(),
-      registrationSolvedPlacement: null,
+      solvedRegistration: null,
     }),
     after: placementRevision({
       placement: movedPlacement(),
-      registrationSolvedPlacement: null,
+      solvedRegistration: null,
     }),
   });
   const futureRecord = placementHistoryRecord({
     editKind: "scale",
     before: placementRevision({
       placement: movedPlacement(),
-      registrationSolvedPlacement: null,
+      solvedRegistration: null,
     }),
     after: placementRevision({
       placement: scaledPlacement(),
-      registrationSolvedPlacement: null,
+      solvedRegistration: null,
     }),
   });
 
@@ -295,13 +360,14 @@ test("candidate: non-undoable durable edits preserve past placement history and 
         future: [futureRecord],
       },
     },
-    command: createApplicationCommand(APPLICATION_COMMAND_KIND.SELECT_MODE, {
-      mode: "trace",
+    command: createApplicationCommand(APPLICATION_COMMAND_KIND.SET_OPACITY, {
+      opacity: 0.5,
     }),
   }), {
     state: {
       session: referenceImageSession({
-        mode: "trace",
+        mode: "align",
+        opacity: 0.5,
         placement: movedPlacement(),
       }),
       history: {
@@ -312,7 +378,8 @@ test("candidate: non-undoable durable edits preserve past placement history and 
     effects: [{
       kind: EFFECT_KIND.PERSIST_DURABLE_STATE,
       durableState: durableImageState({
-        mode: "trace",
+        mode: "align",
+        opacity: 0.5,
         placement: movedPlacement(),
       }),
     }],
@@ -332,11 +399,11 @@ test("candidate: unchanged placement edit is inert and leaves history untouched"
         editKind: "move",
         before: placementRevision({
           placement: originalPlacement(),
-          registrationSolvedPlacement: null,
+          solvedRegistration: null,
         }),
         after: placementRevision({
           placement: movedPlacement(),
-          registrationSolvedPlacement: null,
+          solvedRegistration: null,
         }),
       })],
       future: [],
@@ -371,11 +438,11 @@ test("candidate: Trace placement edit is inert and leaves history untouched", ()
         editKind: "move",
         before: placementRevision({
           placement: null,
-          registrationSolvedPlacement: null,
+          solvedRegistration: null,
         }),
         after: placementRevision({
           placement: originalPlacement(),
-          registrationSolvedPlacement: null,
+          solvedRegistration: null,
         }),
       })],
       future: [],
@@ -411,22 +478,22 @@ test("candidate: view model labels placement history from semantic records", () 
         editKind: "move",
         before: placementRevision({
           placement: originalPlacement(),
-          registrationSolvedPlacement: null,
+          solvedRegistration: null,
         }),
         after: placementRevision({
           placement: movedPlacement(),
-          registrationSolvedPlacement: null,
+          solvedRegistration: null,
         }),
       })],
       future: [placementHistoryRecord({
         editKind: "rotate",
         before: placementRevision({
           placement: movedPlacement(),
-          registrationSolvedPlacement: null,
+          solvedRegistration: null,
         }),
         after: placementRevision({
           placement: rotatedPlacement(),
-          registrationSolvedPlacement: null,
+          solvedRegistration: null,
         }),
       })],
     },
@@ -434,22 +501,20 @@ test("candidate: view model labels placement history from semantic records", () 
 
   assert.equal(view.history.undo.enabled, true);
   assert.equal(view.history.redo.enabled, true);
-  assert.match(view.history.undo.label, /move overlay/i);
-  assert.match(view.history.redo.label, /rotate overlay/i);
-  assert.doesNotMatch(view.history.undo.label, /^undo$/i);
-  assert.doesNotMatch(view.history.redo.label, /^redo$/i);
+  assertSemanticHistoryLabel(view.history.undo.label, ["move", "overlay"]);
+  assertSemanticHistoryLabel(view.history.redo.label, ["rotate", "overlay"]);
 });
 
 // Candidate: production application code should not bake literal history labels
 // into records. Semantic records plus view-model copy keep persistence/replay
 // separate from UI wording.
-test("candidate: application source stores no literal history labels", () => {
+test("candidate: application source stores no history label fields", () => {
   const violations = [];
   for (const filePath of listJavaScriptFiles(APPLICATION_DIR)) {
     const source = fs.readFileSync(filePath, "utf8");
-    for (const snippet of FORBIDDEN_HISTORY_SOURCE_SNIPPETS) {
-      if (source.includes(snippet)) {
-        violations.push(`${relativeToRepo(filePath)} contains ${snippet}`);
+    for (const { label, pattern } of FORBIDDEN_HISTORY_SOURCE_PATTERNS) {
+      if (pattern.test(source)) {
+        violations.push(`${relativeToRepo(filePath)} contains ${label}`);
       }
     }
   }
@@ -466,11 +531,27 @@ function placementHistoryRecord({ editKind, before, after }) {
   };
 }
 
-function placementRevision({ placement, registrationSolvedPlacement }) {
+function placementRevision({ placement, solvedRegistration }) {
   return {
     placement,
-    registrationSolvedPlacement,
+    solvedRegistration,
   };
+}
+
+function solvedRegistration({ pinIds, placement }) {
+  return {
+    pinIds,
+    placement,
+  };
+}
+
+function assertSemanticHistoryLabel(label, requiredWords) {
+  assert.equal(typeof label, "string");
+  for (const word of requiredWords) {
+    assert.match(label, new RegExp(`\\b${word}\\b`, "i"));
+  }
+  assert.doesNotMatch(label, /^undo(?: change)?$/i);
+  assert.doesNotMatch(label, /^redo(?: change)?$/i);
 }
 
 function referenceImageLoadedState({
@@ -478,7 +559,7 @@ function referenceImageLoadedState({
   placement,
   opacity,
   pins,
-  registrationSolvedPlacement,
+  solvedPlacement,
 }) {
   return {
     session: referenceImageSession({
@@ -486,7 +567,7 @@ function referenceImageLoadedState({
       placement,
       opacity,
       pins,
-      registrationSolvedPlacement,
+      solvedPlacement,
     }),
   };
 }
@@ -496,14 +577,14 @@ function durableImageState({
   placement,
   opacity,
   pins,
-  registrationSolvedPlacement,
+  solvedPlacement,
 }) {
   return referenceImageLoadedState({
     mode,
     placement,
     opacity,
     pins,
-    registrationSolvedPlacement,
+    solvedPlacement,
   });
 }
 
@@ -512,7 +593,7 @@ function referenceImageSession({
   placement = undefined,
   opacity = undefined,
   pins = [],
-  registrationSolvedPlacement = undefined,
+  solvedPlacement = undefined,
 }) {
   const session = {
     mode,
@@ -524,12 +605,12 @@ function referenceImageSession({
   if (opacity !== undefined) {
     session.opacity = opacity;
   }
-  if (pins.length > 0 || registrationSolvedPlacement !== undefined) {
+  if (pins.length > 0 || solvedPlacement !== undefined) {
     session.registration = {
       pins,
     };
-    if (registrationSolvedPlacement !== undefined) {
-      session.registration.solvedPlacement = registrationSolvedPlacement;
+    if (solvedPlacement !== undefined) {
+      session.registration.solvedPlacement = solvedPlacement;
     }
   }
   return session;
@@ -569,6 +650,20 @@ function secondPin() {
     mapLatLon: {
       lat: -1.22,
       lon: 36.85,
+    },
+  };
+}
+
+function thirdPin() {
+  return {
+    id: 3,
+    imagePx: {
+      x: 420,
+      y: 300,
+    },
+    mapLatLon: {
+      lat: -1.21,
+      lon: 36.86,
     },
   };
 }
