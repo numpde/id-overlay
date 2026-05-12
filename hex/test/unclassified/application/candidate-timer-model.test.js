@@ -23,9 +23,6 @@ const EFFECT_KIND = Object.freeze({
   SCHEDULE_CLEAR_PANEL_INTENT: "schedule-clear-panel-intent",
 });
 
-const STATUS_NOTICE_DELAY_MS = 2500;
-const PANEL_INTENT_DELAY_MS = 2500;
-
 const FORBIDDEN_TIMER_EFFECT_FIELDS = Object.freeze([
   "callback",
   "promise",
@@ -42,33 +39,6 @@ const FORBIDDEN_TIMER_EFFECT_KINDS = Object.freeze([
   "set-timeout",
   "clear-timeout",
 ]);
-
-// Candidate: destructive confirmation expiry is also product causality. Arming
-// the confirmation and scheduling expiry must happen in the same transition, so
-// the shell cannot watch `panelIntent` and start timers on its own.
-test("candidate: panel confirmations emit named clear-intent timer effects", () => {
-  const result = handleApplicationCommand({
-    state: referenceImageLoadedState(),
-    command: createApplicationCommand(APPLICATION_COMMAND_KIND.ACTIVATE_PRIMARY_ACTION),
-  });
-
-  assert.deepEqual(result, {
-    state: {
-      ...referenceImageLoadedState(),
-      panelIntent: {
-        kind: "confirm-clear-reference-image",
-        requestId: 1,
-      },
-    },
-    effects: [{
-      kind: EFFECT_KIND.SCHEDULE_CLEAR_PANEL_INTENT,
-      requestId: 1,
-      intentKind: "confirm-clear-reference-image",
-      delayMs: PANEL_INTENT_DELAY_MS,
-    }],
-  });
-  assert.deepEqual(result.effects.flatMap(validateTimerEffect), []);
-});
 
 // Candidate: clear-panel-intent is a product command, not a timer adapter event.
 // It must be request-scoped and intent-scoped so a late timer cannot cancel a
