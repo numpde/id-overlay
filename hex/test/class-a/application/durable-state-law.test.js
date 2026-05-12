@@ -98,3 +98,32 @@ test("durable state excludes transient placement previews", () => {
     session,
   });
 });
+
+// Class-a: renderer image resources are runtime cache, not product state. The
+// durable projection keeps the stable image ref in the session and ignores any
+// temporary resource a renderer may allocate to display it.
+test("durable state excludes runtime image resources", () => {
+  const referenceImage = {
+    imageDataRef: "reference-image-data-1",
+    intrinsicSizePx: {
+      width: 640,
+      height: 480,
+    },
+  };
+
+  assert.deepEqual(selectDurableApplicationState({
+    session: {
+      mode: "align",
+      referenceImage,
+    },
+    runtimeImageResource: {
+      imageDataRef: referenceImage.imageDataRef,
+      objectUrl: "blob:https://www.openstreetmap.org/runtime-only",
+    },
+  }), {
+    session: {
+      mode: "align",
+      referenceImage,
+    },
+  });
+});

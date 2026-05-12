@@ -11,7 +11,6 @@ import {
 import { handleApplicationCommand } from "../../../application/handle-command.js";
 import {
   selectApplicationView,
-  selectDurableApplicationState,
 } from "../../../application/view-model.js";
 
 // Unclassified: candidate law for the reference-image ref strategy.
@@ -55,30 +54,6 @@ const FORBIDDEN_APPLICATION_IMAGE_MECHANICS = Object.freeze([
   "new Image",
   "dataTransfer",
 ]);
-
-// Candidate: durability is a session projection that includes the image ref but
-// excludes any renderer-owned image resource cache. If a renderer needs a
-// temporary URL, it belongs beside the view implementation, not in persisted app
-// state.
-test("candidate: durable projection keeps only the stable image ref", () => {
-  const referenceImage = normalizedReferenceImage("stable-reference-image");
-
-  assert.deepEqual(selectDurableApplicationState({
-    session: {
-      mode: "align",
-      referenceImage,
-    },
-    runtimeImageResource: {
-      imageDataRef: referenceImage.imageDataRef,
-      objectUrl: "blob:https://www.openstreetmap.org/runtime-only",
-    },
-  }), {
-    session: {
-      mode: "align",
-      referenceImage,
-    },
-  });
-});
 
 // Candidate: the view is allowed to expose the durable image ref as a render
 // fact. It must not expose a second runtime-url slot that turns the application
