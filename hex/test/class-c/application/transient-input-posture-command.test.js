@@ -9,12 +9,12 @@ import { selectDurableApplicationState } from "../../../application/view-model.j
 
 const SET_TEMPORARY_INPUT_POSTURE = "set-temporary-input-posture";
 
-// Unclassified: proposal for transient input posture ownership.
+// Class-c: proposal for transient input posture ownership.
 //
-// Decision encoded here: temporary native-map access is a semantic application
-// transition, not browser-local state and not durable product mode. The browser
-// may observe a key press, but the app owns the visible posture because the
-// posture affects panel/overlay rendering and must have one SSoT.
+// Decision pressure: temporary native-map access might need to be a semantic
+// application transition, not browser-local state and not durable product mode.
+// Current command vocabulary does not include this transition, so the test is
+// quarantined until the input-posture SSoT is settled end-to-end.
 test("candidate: temporary input posture is application-owned and non-durable", () => {
   const initialState = referenceImageLoadedState({
     mode: "align",
@@ -45,10 +45,9 @@ test("candidate: temporary input posture is application-owned and non-durable", 
   assert.deepEqual(exit.effects, []);
 });
 
-// Unclassified: proposal for the boundary payload. This deliberately rejects
-// `active: true`, `spacePressed`, and other input-device vocabulary. The command
-// names the product posture requested after browser mechanics have been mapped
-// away.
+// Class-c: proposed boundary payload. It deliberately rejects `active: true`,
+// `spacePressed`, and other input-device vocabulary, but the command itself is
+// not part of the accepted application vocabulary yet.
 test("candidate: temporary input posture command accepts only semantic posture payloads", () => {
   assert.deepEqual(createApplicationCommand(SET_TEMPORARY_INPUT_POSTURE, {
     posture: "native-map",
