@@ -7,9 +7,13 @@ import {
 } from "../../../application/command.js";
 import { handleApplicationCommand } from "../../../application/handle-command.js";
 
-// Unclassified candidate: timer effects should carry the exact future
-// application command. The shell owns clocks only; it must not translate a
-// generic `timer-fired` fact into product meaning after the delay.
+// Class-c: this is the target timer boundary if we replace the current
+// product-named schedule effects. It conflicts with class-a's exact effect
+// vocabulary today, so it cannot be promoted piecemeal.
+//
+// Decision: keep quarantined with the timer-port candidates. Promotion requires
+// one deliberate cut-over from `schedule-clear-*` effects to scheduled
+// application commands.
 test("status notices schedule an exact application command", () => {
   assert.deepEqual(handleApplicationCommand({
     state: {
@@ -47,9 +51,8 @@ test("status notices schedule an exact application command", () => {
   });
 });
 
-// Unclassified candidate: confirmations use the same delayed-command protocol
-// as status notices. The only difference is the future app command payload,
-// which includes the product intent identity needed for stale rejection.
+// Class-c: confirmations would use the same delayed-command protocol after
+// that cut-over, but current app effects name the confirmation expiry directly.
 test("destructive confirmations schedule an exact application command", () => {
   const state = referenceImageLoadedState();
 
