@@ -225,6 +225,35 @@ test("browser shell product commands preserve panel chrome without chrome writes
   }]);
 });
 
+// Class-b: unsupported pages should have no panel-chrome lifecycle. Reading a
+// user preference for a page where the extension does not mount would be hidden
+// host work with no visible owner.
+test("browser shell unsupported pages do not read panel chrome", async () => {
+  const panelChrome = createPanelChromeHarness({
+    storedChrome: {
+      position: {
+        screenPx: {
+          x: 16,
+          y: 16,
+        },
+      },
+    },
+  });
+
+  const result = await bootstrapBrowserExtension(createBrowserHostHarness({
+    pageContext: {
+      kind: "unsupported-page",
+    },
+    panelChromePort: panelChrome.port,
+  }));
+
+  assert.deepEqual(result, {
+    kind: "unsupported-page",
+  });
+  assert.equal(panelChrome.readCount, 0);
+  assert.deepEqual(panelChrome.writes, []);
+});
+
 function createBrowserHostHarness({
   pageContext = {
     kind: "supported-map-editor-page",

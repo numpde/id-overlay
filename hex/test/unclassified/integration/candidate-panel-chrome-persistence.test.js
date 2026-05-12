@@ -57,27 +57,6 @@ const FORBIDDEN_APPLICATION_PANEL_CHROME_PATTERNS = Object.freeze([
   /\bid-overlay\/panel\b/,
 ]);
 
-// Candidate: unsupported pages have no extension chrome lifecycle. They should
-// not read or write panel chrome any more than they read product durable state.
-test("candidate: unsupported pages do not read panel chrome", async () => {
-  const panelChrome = createPanelChromeHarness({
-    storedChrome: SAMPLE_PANEL_CHROME,
-  });
-
-  const result = await bootstrapBrowserExtension(createBrowserHostHarness({
-    pageContext: {
-      kind: "unsupported-page",
-    },
-    panelChromePort: panelChrome.port,
-  }));
-
-  assert.deepEqual(result, {
-    kind: "unsupported-page",
-  });
-  assert.equal(panelChrome.readCount, 0);
-  assert.deepEqual(panelChrome.writes, []);
-});
-
 // Candidate: panel chrome failures are shell preference failures, not product
 // errors. Read failure falls back to default chrome; write failure is reported
 // without dispatching application commands or killing later product renders.
