@@ -5,10 +5,15 @@ import {
   bootstrapBrowserExtension,
 } from "../../../bootstrap/index.js";
 
-// Unclassified candidate: the browser shell should execute the app's semantic
-// input effect through one reference-image-input port. Clipboard, manual paste,
-// file input, and drag/drop can be tactics behind that port, but bootstrap must
-// not contain separate product paths for each source.
+// Class-c: this is the right shell boundary but not today's implemented
+// contract. The application already owns source-neutral request correlation;
+// bootstrap still treats `request-reference-image-input` as a noop, and the
+// richer `referenceImageInputPort` shape below is only a target cut-over.
+//
+// Decision: keep quarantined. Promote only when the browser shell executes the
+// app's semantic input effect through one reference-image-input port. Clipboard,
+// manual paste, file input, and drag/drop may be tactics behind that port, but
+// bootstrap must not grow separate product paths for each source.
 test("browser shell starts reference-image input and reports accepted outcome", async () => {
   const referenceImage = normalizedReferenceImage();
   const storage = createDurableStorageHarness({
@@ -51,10 +56,10 @@ test("browser shell starts reference-image input and reports accepted outcome", 
   }]);
 });
 
-// Unclassified candidate: cancellation is both product state and host resource
-// cleanup. The application owns request correlation; the shell additionally
-// cancels the matching browser-side input flow so old paste listeners or file
-// handles do not remain active after the user cancels.
+// Class-c: cancellation has two owners. The app owns the product fact that the
+// request ended; the shell owns host-resource cleanup for the matching request.
+// That cleanup port is not wired yet, so this remains pressure on the shell
+// lifecycle rather than a stable harness.
 test("browser shell cancels reference-image input and late outcomes stay inert", async () => {
   const storage = createDurableStorageHarness({
     durableState: null,
