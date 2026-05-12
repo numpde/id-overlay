@@ -6,9 +6,14 @@ import {
   createOverlayAdapter,
 } from "../../../adapters/ui/overlay-adapter.js";
 
-// Unclassified: proposal for overlay click/pointer vocabulary. The adapter may
-// observe pointer events, but the emitted fact names the product interaction:
-// "toggle a registration pin at this screen point".
+// Class-c: this is a proposed canonical interaction vocabulary, not today's
+// overlay adapter contract. Current class-b tests allow low-level overlay facts
+// while the runtime/projectors translate them; this candidate says the adapter
+// should instead emit source-neutral user-intent facts directly.
+//
+// Decision: keep quarantined. The direction may be right, but it must be
+// settled with keyboard/runtime vocabulary as one cut-over; promoting this file
+// alone would make overlay semantics disagree with the rest of the input stack.
 test("candidate: overlay click emits registration pin-toggle fact", () => {
   const { window, surface, facts } = createOverlayHarness();
 
@@ -32,9 +37,9 @@ test("candidate: overlay click emits registration pin-toggle fact", () => {
   assert.equal(JSON.stringify(facts).includes("button"), false);
 });
 
-// Unclassified: proposal for drag/move vocabulary. A drag is reduced to one
-// placement-edit request with browser-neutral geometry. The application later
-// receives only a committed placement, after projection has done the geometry.
+// Class-c: drag recognition ownership is still unsettled. This test assumes
+// the overlay adapter compresses pointer phases into one placement-edit fact;
+// keep it out of stronger classes until that ownership is deliberately chosen.
 test("candidate: overlay drag emits move placement-edit fact", () => {
   const { window, surface, facts } = createOverlayHarness();
 
@@ -65,9 +70,9 @@ test("candidate: overlay drag emits move placement-edit fact", () => {
   }]);
 });
 
-// Unclassified: proposal for wheel/modifier vocabulary. DOM wheel and modifier
-// details terminate in the adapter; downstream code sees semantic placement or
-// opacity adjustment requests with a neutral adjustment vector.
+// Class-c: wheel/modifier normalization is part of the same unresolved
+// interaction vocabulary. The important pressure is no DOM `wheel`/`deltaY`
+// vocabulary past the adapter, but current stable tests still document it.
 test("candidate: overlay wheel gestures emit placement and opacity facts", () => {
   const { window, surface, facts } = createOverlayHarness();
 
