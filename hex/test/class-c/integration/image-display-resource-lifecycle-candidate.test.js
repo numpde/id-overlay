@@ -5,9 +5,14 @@ import {
   bootstrapBrowserExtension,
 } from "../../../bootstrap/index.js";
 
-// Unclassified candidate: display resources are runtime cache, not application
-// state. Hydrating a durable image should resolve its stable `imageDataRef`
-// into a browser-loadable display URL at the shell/render boundary only.
+// Class-c: display resources are runtime cache, not application state. Hydrating
+// a durable image should resolve its stable `imageDataRef` into a browser-
+// loadable display URL at the shell/render boundary, but that display-resource
+// port does not exist yet.
+//
+// Decision: keep quarantined. This should be promoted only with the broader
+// image resource ownership cut-over so acquisition, render, and release are one
+// coherent lifecycle.
 test("browser shell resolves display resources without polluting application state", async () => {
   const referenceImage = normalizedReferenceImage("old");
   const displayResources = createDisplayResourceHarness({
@@ -42,9 +47,8 @@ test("browser shell resolves display resources without polluting application sta
   });
 });
 
-// Unclassified candidate: display resources have render lifetime. Clearing the
-// image should make the overlay invisible and revoke/release the old display
-// resource even though durable stored image cleanup is a separate concern.
+// Class-c: display resources should have render lifetime, but release semantics
+// are not meaningful until acquisition is implemented.
 test("browser shell releases display resources when the image is no longer rendered", async () => {
   const referenceImage = normalizedReferenceImage("old");
   const storage = createDurableStorageHarness({
