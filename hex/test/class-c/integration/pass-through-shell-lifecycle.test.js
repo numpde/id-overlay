@@ -5,12 +5,11 @@ import {
   bootstrapBrowserExtension,
 } from "../../../bootstrap/index.js";
 
-// Class-c: the pieces are stable, but the composed seam is not. Keyboard facts
-// and the derived view posture are tested elsewhere; this candidate requires the
-// browser shell to wire interaction facts into transient application state and
-// re-render without durability. Promote only after that shell interaction
-// runtime is the single path for Space/temporary-pass-through behavior.
-test("temporary pass-through changes visible interaction posture without durability", async () => {
+// Class-c: the pieces are stable, but the composed seam is not. Input adapters
+// observe mechanics; the app owns visible posture; persistence owns only durable
+// session facts. Promote only after the shell wires source-neutral interaction
+// facts into transient application state and re-renders without durability.
+test("temporary native-map access changes visible interaction posture without durability", async () => {
   const storage = createDurableStorageHarness({
     durableState: durableImageState({
       mode: "align",
@@ -29,18 +28,20 @@ test("temporary pass-through changes visible interaction posture without durabil
   });
 
   await host.dispatchInteractionFact({
-    kind: "temporary-pass-through-pressed",
+    kind: "temporary-native-map-access-started",
   });
+  assert.equal(host.latestRender.view.mode, "align");
   assert.deepEqual(host.latestRender.view.overlayInput, {
     kind: "native-map",
     canEditOverlay: false,
     arePinsVisible: false,
-    reason: "temporary-pass-through",
+    reason: "temporary-native-map-access",
   });
 
   await host.dispatchInteractionFact({
-    kind: "temporary-pass-through-released",
+    kind: "temporary-native-map-access-ended",
   });
+  assert.equal(host.latestRender.view.mode, "align");
   assert.deepEqual(host.latestRender.view.overlayInput, {
     kind: "overlay-editing",
     canEditOverlay: true,
