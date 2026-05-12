@@ -238,6 +238,32 @@ test("malformed reference-image input outcome commands are boundary errors", () 
   );
 });
 
+// Class-a: input failure reasons are product vocabulary. Source-specific
+// mechanics must be normalized before they cross into application commands.
+test("source-specific input failure reasons are invalid application commands", () => {
+  for (const reason of [
+    "clipboard-api-unavailable",
+    "clipboard-permission-denied",
+    "paste-event-timeout",
+    "manual-paste-cancelled",
+  ]) {
+    assertApplicationBoundaryError(
+      () => createApplicationCommand(
+        APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_INPUT_OUTCOME,
+        {
+          requestId: 1,
+          outcome: {
+            kind: "failed",
+            reason,
+          },
+        },
+      ),
+      APPLICATION_BOUNDARY_ERROR_CODE.INVALID_APPLICATION_COMMAND,
+      reason,
+    );
+  }
+});
+
 // State validation belongs at the command boundary. This prevents runtime
 // objects from becoming product state through command handling.
 test("invalid application state throws ApplicationBoundaryError", () => {

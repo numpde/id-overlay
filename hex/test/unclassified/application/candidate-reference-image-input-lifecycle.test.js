@@ -52,28 +52,6 @@ const FAILURE_REASON = Object.freeze({
   UNSUPPORTED_IMAGE: "unsupported-image",
 });
 
-// Candidate: reject source-specific browser failure vocabulary at the application
-// boundary. The adapter can know these terms; product code should not.
-test("candidate: browser-specific input failure reasons are invalid application commands", () => {
-  for (const reason of [
-    "clipboard-api-unavailable",
-    "clipboard-permission-denied",
-    "paste-event-timeout",
-    "manual-paste-cancelled",
-  ]) {
-    assertApplicationBoundaryError(() => createApplicationCommand(
-      APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_INPUT_OUTCOME,
-      {
-        requestId: 1,
-        outcome: {
-          kind: ACCEPTED_OUTCOME.FAILED,
-          reason,
-        },
-      },
-    ), APPLICATION_BOUNDARY_ERROR_CODE.INVALID_APPLICATION_COMMAND);
-  }
-});
-
 // Candidate: state and notice vocabulary should be source-neutral. This catches
 // regressions where "paste" or "clipboard" leaks back into product state.
 test("candidate: reference-image input lifecycle emits no paste or clipboard vocabulary", () => {
