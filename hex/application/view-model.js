@@ -40,7 +40,9 @@ function overlayRenderFacts(state, mode) {
     intrinsicSizePx: state.session.referenceImage.intrinsicSizePx,
     placement: state.session.placement ?? null,
     opacity: state.session.opacity ?? 1,
-    pins: mode === "align" ? state.session.registration?.pins ?? [] : [],
+    pins: areRegistrationPinsVisible(state, mode)
+      ? state.session.registration?.pins ?? []
+      : [],
   };
 }
 
@@ -117,6 +119,10 @@ function statusText(state) {
 
 function pluralizePin(count) {
   return count === 1 ? "pin" : "pins";
+}
+
+function areRegistrationPinsVisible(state, mode) {
+  return mode === "align" && state.inputOverride?.kind !== "temporary-pass-through";
 }
 
 function overlayInputForState(state, mode) {

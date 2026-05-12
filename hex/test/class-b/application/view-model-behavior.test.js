@@ -177,11 +177,11 @@ test("view model exposes overlay render facts", () => {
 });
 
 // Class-b, deliberately not class-a: temporary pass-through is transient input
-// posture, not durable product mode. This protects the view-model boundary:
-// adapters render derived interaction facts instead of inspecting Align
-// internals.
+// posture, not durable product mode. The view model is the SSoT for visible
+// posture, so overlay interactivity and rendered pins must agree; adapters must
+// not reconcile contradictory view facts.
 test("view model exposes temporary pass-through as interaction posture", () => {
-  assert.deepEqual(selectApplicationView({
+  const view = selectApplicationView({
     ...referenceImageLoadedState({
       mode: "align",
       pins: [firstPin()],
@@ -189,12 +189,17 @@ test("view model exposes temporary pass-through as interaction posture", () => {
     inputOverride: {
       kind: "temporary-pass-through",
     },
-  }).overlayInput, {
+  });
+
+  assert.equal(view.mode, "align");
+  assert.equal(view.modeSwitch.selected, "align");
+  assert.deepEqual(view.overlayInput, {
     kind: "native-map",
     canEditOverlay: false,
     arePinsVisible: false,
     reason: "temporary-pass-through",
   });
+  assert.deepEqual(view.overlay.pins, []);
 });
 
 // Class-b, deliberately not class-a: these are user-facing strings and status
