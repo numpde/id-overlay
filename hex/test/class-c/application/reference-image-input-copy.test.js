@@ -3,10 +3,14 @@ import assert from "node:assert/strict";
 
 import { selectApplicationView } from "../../../application/view-model.js";
 
-// Unclassified candidate: failure copy belongs with the application view model,
-// but it must be source-neutral. Clipboard/paste instructions are browser-shell
-// input tactics; if they leak into app status, file input or drag/drop would
-// inherit misleading copy.
+// Class-c: source-neutral image-input copy is the likely destination, but exact
+// status strings are not stable enough to override the current class-b view
+// model copy. This test also assumes broader non-clipboard input sources that
+// are not yet implemented.
+//
+// Decision: keep quarantined. Promote only after the reference-image input
+// lifecycle has a settled source-neutral boundary and the chosen UX copy is
+// intentionally revised in the view model.
 test("initial reference-image input notices render source-neutral status copy", () => {
   for (const { notice, status } of [
     {
@@ -50,10 +54,8 @@ test("initial reference-image input notices render source-neutral status copy", 
   }
 });
 
-// Unclassified candidate: replacement failure copy must tell the user that the
-// current image was kept. That product fact is known only by the application;
-// the browser shell should not invent this message after seeing an adapter
-// failure.
+// Class-c: replacement failure should probably reassure that the current image
+// is kept, but the exact copy and status precedence are still UX decisions.
 test("replacement input notices render source-neutral keep-current-image copy", () => {
   const session = {
     mode: "align",
