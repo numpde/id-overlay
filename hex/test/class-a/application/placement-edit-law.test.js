@@ -36,7 +36,7 @@ test("committed Align placement edits update placement durably", () => {
     assert.deepEqual(result, {
       state: referenceImageLoadedState({ placement }),
       effects: [
-        durableStateChangedEffect(referenceImageDurableState({ placement })),
+        persistDurableStateEffect(referenceImageDurableState({ placement })),
       ],
     });
   }
@@ -149,9 +149,9 @@ function normalizedReferenceImageSession() {
   };
 }
 
-function durableStateChangedEffect(durableState) {
+function persistDurableStateEffect(durableState) {
   return {
-    kind: "durable-state-changed",
+    kind: "persist-durable-state",
     durableState,
   };
 }

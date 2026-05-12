@@ -122,7 +122,7 @@ function renderApplicationView({
 
 function createEffectHandlers({ durableStatePort, host }) {
   return {
-    async "durable-state-changed"(effect) {
+    async "persist-durable-state"(effect) {
       try {
         await durableStatePort.writeDurableState(effect.durableState);
       } catch (error) {

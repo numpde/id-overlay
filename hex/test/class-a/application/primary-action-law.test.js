@@ -151,7 +151,7 @@ test("primary action confirms clear-pins confirmation durably", () => {
   assert.deepEqual(result.state.session, referenceImageLoadedState().session);
   assert.equal(result.state.panelIntent, undefined);
   assert.deepEqual(result.effects, [
-    durableStateChangedEffect({
+    persistDurableStateEffect({
       session: referenceImageLoadedState().session,
     }),
   ]);
@@ -175,7 +175,7 @@ test("primary action confirms clear-image confirmation durably", () => {
   assert.equal(result.state.session, undefined);
   assert.equal(result.state.panelIntent, undefined);
   assert.deepEqual(result.effects, [
-    durableStateChangedEffect(null),
+    persistDurableStateEffect(null),
   ]);
 });
 
@@ -239,9 +239,9 @@ function firstPin() {
   };
 }
 
-function durableStateChangedEffect(durableState) {
+function persistDurableStateEffect(durableState) {
   return {
-    kind: "durable-state-changed",
+    kind: "persist-durable-state",
     durableState,
   };
 }

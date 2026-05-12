@@ -53,43 +53,6 @@ const FORBIDDEN_EFFECT_KINDS = Object.freeze([
 const DEFAULT_STATUS_NOTICE_DELAY_MS = 2500;
 const DEFAULT_PANEL_INTENT_DELAY_MS = 2500;
 
-// Candidate: accepted input commits a product session and declares persistence
-// through the canonical effect name. It should not emit the transitional
-// `durable-state-changed` effect or any browser-source-specific work.
-test("candidate: accepted reference-image input emits canonical persistence effect", () => {
-  const referenceImage = normalizedReferenceImage();
-  const session = {
-    mode: "align",
-    referenceImage,
-  };
-
-  assertApplicationResult(handleApplicationCommand({
-    state: awaitingReferenceImageInputState({ requestId: 1 }),
-    command: createApplicationCommand(
-      APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_INPUT_OUTCOME,
-      {
-        requestId: 1,
-        outcome: {
-          kind: "accepted",
-          referenceImage,
-        },
-      },
-    ),
-  }), {
-    state: {
-      session,
-    },
-    effects: [
-      effect({
-        kind: EFFECT_KIND.PERSIST_DURABLE_STATE,
-        durableState: {
-          session,
-        },
-      }),
-    ],
-  });
-});
-
 // Candidate: status expiry is product causality because request correlation and
 // stale-timeout rejection are application rules. The app should declare the
 // timeout; the shell should not watch notices and start timers on its own.

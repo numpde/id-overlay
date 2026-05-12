@@ -20,7 +20,7 @@ test("switching loaded image from Align to Trace changes mode durably", () => {
   }), {
     state: referenceImageLoadedState({ mode: "trace" }),
     effects: [
-      durableStateChangedEffect(referenceImageDurableState({ mode: "trace" })),
+      persistDurableStateEffect(referenceImageDurableState({ mode: "trace" })),
     ],
   });
 });
@@ -38,7 +38,7 @@ test("switching loaded image from Trace to Align changes mode durably", () => {
   }), {
     state: referenceImageLoadedState({ mode: "align" }),
     effects: [
-      durableStateChangedEffect(referenceImageDurableState({ mode: "align" })),
+      persistDurableStateEffect(referenceImageDurableState({ mode: "align" })),
     ],
   });
 });
@@ -85,7 +85,7 @@ test("interrupted placement edit drops preview without changing durable session"
   }), {
     state: referenceImageLoadedState({ mode: "trace" }),
     effects: [
-      durableStateChangedEffect(referenceImageDurableState({ mode: "trace" })),
+      persistDurableStateEffect(referenceImageDurableState({ mode: "trace" })),
     ],
   });
 });
@@ -107,7 +107,7 @@ test("mode switching clears pending destructive confirmation", () => {
   }), {
     state: referenceImageLoadedState({ mode: "trace" }),
     effects: [
-      durableStateChangedEffect(referenceImageDurableState({ mode: "trace" })),
+      persistDurableStateEffect(referenceImageDurableState({ mode: "trace" })),
     ],
   });
 });
@@ -134,7 +134,7 @@ test("switching to Trace without a solved registration changes mode only", () =>
   }), {
     state: expectedState,
     effects: [
-      durableStateChangedEffect({
+      persistDurableStateEffect({
         session: expectedState.session,
       }),
     ],
@@ -168,9 +168,9 @@ function referenceImageDurableState({ mode }) {
   };
 }
 
-function durableStateChangedEffect(durableState) {
+function persistDurableStateEffect(durableState) {
   return {
-    kind: "durable-state-changed",
+    kind: "persist-durable-state",
     durableState,
   };
 }

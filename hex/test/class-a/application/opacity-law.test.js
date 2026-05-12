@@ -39,7 +39,7 @@ test("opacity changes are durable but not undoable", () => {
       history,
     },
     effects: [
-      durableStateChangedEffect(referenceImageDurableState({
+      persistDurableStateEffect(referenceImageDurableState({
         opacity: 0.5,
       })),
     ],
@@ -96,9 +96,9 @@ function normalizedReferenceImageSession() {
   };
 }
 
-function durableStateChangedEffect(durableState) {
+function persistDurableStateEffect(durableState) {
   return {
-    kind: "durable-state-changed",
+    kind: "persist-durable-state",
     durableState,
   };
 }

@@ -40,7 +40,7 @@ test("accepted reference image creates an Align session and durability effect", 
       session,
     },
     effects: [
-      durableStateChangedEffect({
+      persistDurableStateEffect({
         session,
       }),
     ],
@@ -84,7 +84,7 @@ test("accepted reference image clears pending input notice and panel intent", ()
       session,
     },
     effects: [
-      durableStateChangedEffect({
+      persistDurableStateEffect({
         session,
       }),
     ],
@@ -157,7 +157,7 @@ test("clearing the reference image returns to no-session Trace", () => {
   }), {
     state: createInitialApplicationState(),
     effects: [
-      durableStateChangedEffect(null),
+      persistDurableStateEffect(null),
     ],
   });
 });
@@ -181,9 +181,9 @@ function referenceImageLoadedState() {
   };
 }
 
-function durableStateChangedEffect(durableState) {
+function persistDurableStateEffect(durableState) {
   return {
-    kind: "durable-state-changed",
+    kind: "persist-durable-state",
     durableState,
   };
 }

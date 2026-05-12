@@ -37,7 +37,7 @@ test("undo replays the latest history record before-state durably", () => {
       },
     },
     effects: [
-      durableStateChangedEffect(null),
+      persistDurableStateEffect(null),
     ],
   });
 });
@@ -72,7 +72,7 @@ test("redo replays the latest history record after-state durably", () => {
       },
     },
     effects: [
-      durableStateChangedEffect(referenceImageDurableState()),
+      persistDurableStateEffect(referenceImageDurableState()),
     ],
   });
 });
@@ -119,7 +119,7 @@ test("new durable edits clear redo future", () => {
       },
     },
     effects: [
-      durableStateChangedEffect(referenceImageDurableState({
+      persistDurableStateEffect(referenceImageDurableState({
         opacity: 0.5,
       })),
     ],
@@ -158,9 +158,9 @@ function normalizedReferenceImageSession({ opacity, placement } = {}) {
   return session;
 }
 
-function durableStateChangedEffect(durableState) {
+function persistDurableStateEffect(durableState) {
   return {
-    kind: "durable-state-changed",
+    kind: "persist-durable-state",
     durableState,
   };
 }

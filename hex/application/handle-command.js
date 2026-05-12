@@ -26,7 +26,7 @@ export function handleApplicationCommand({ state, command }) {
     case APPLICATION_COMMAND_KIND.CLEAR_REFERENCE_IMAGE:
       return {
         state: createInitialApplicationState(),
-        effects: [durableStateChangedEffect(null)],
+        effects: [persistDurableStateEffect(null)],
       };
     case APPLICATION_COMMAND_KIND.SELECT_MODE:
       return selectMode(state, command);
@@ -67,7 +67,7 @@ function setOpacity(state, command) {
   return {
     state: nextState,
     effects: [
-      durableStateChangedEffect(selectDurableApplicationState(nextState)),
+      persistDurableStateEffect(selectDurableApplicationState(nextState)),
     ],
   };
 }
@@ -100,7 +100,7 @@ function undoHistory(state) {
       ...stateFromDurableState(record.before),
       history: nextHistory,
     },
-    effects: [durableStateChangedEffect(record.before)],
+    effects: [persistDurableStateEffect(record.before)],
   };
 }
 
@@ -120,7 +120,7 @@ function redoHistory(state) {
       ...stateFromDurableState(record.after),
       history: nextHistory,
     },
-    effects: [durableStateChangedEffect(record.after)],
+    effects: [persistDurableStateEffect(record.after)],
   };
 }
 
@@ -151,7 +151,7 @@ function commitPlacementEdit(state, command) {
   return {
     state: nextState,
     effects: [
-      durableStateChangedEffect(selectDurableApplicationState(nextState)),
+      persistDurableStateEffect(selectDurableApplicationState(nextState)),
     ],
   };
 }
@@ -236,7 +236,7 @@ function clearReferenceImageWithHistory(state) {
     state: {
       history: pushHistory(state.history, record),
     },
-    effects: [durableStateChangedEffect(null)],
+    effects: [persistDurableStateEffect(null)],
   };
 }
 
@@ -283,7 +283,7 @@ function reportReferenceImageInputOutcome(state, command) {
     state: {
       session,
     },
-    effects: [durableStateChangedEffect({ session })],
+    effects: [persistDurableStateEffect({ session })],
   };
 }
 
@@ -317,7 +317,7 @@ function selectMode(state, command) {
     return {
       state: nextState,
       effects: [
-        durableStateChangedEffect(selectDurableApplicationState(nextState)),
+        persistDurableStateEffect(selectDurableApplicationState(nextState)),
       ],
     };
   }
@@ -331,7 +331,7 @@ function selectMode(state, command) {
   return {
     state: nextState,
     effects: [
-      durableStateChangedEffect(selectDurableApplicationState(nextState)),
+      persistDurableStateEffect(selectDurableApplicationState(nextState)),
     ],
   };
 }
@@ -360,7 +360,7 @@ function clearRegistrationPins(state) {
   return {
     state: nextState,
     effects: [
-      durableStateChangedEffect(selectDurableApplicationState(nextState)),
+      persistDurableStateEffect(selectDurableApplicationState(nextState)),
     ],
   };
 }
@@ -386,7 +386,7 @@ function toggleRegistrationPin(state, command) {
     return {
       state: nextState,
       effects: [
-        durableStateChangedEffect(selectDurableApplicationState(nextState)),
+        persistDurableStateEffect(selectDurableApplicationState(nextState)),
       ],
     };
   }
@@ -406,7 +406,7 @@ function toggleRegistrationPin(state, command) {
   return {
     state: nextState,
     effects: [
-      durableStateChangedEffect(selectDurableApplicationState(nextState)),
+      persistDurableStateEffect(selectDurableApplicationState(nextState)),
     ],
   };
 }
@@ -461,9 +461,9 @@ function inertResult(state) {
   };
 }
 
-function durableStateChangedEffect(durableState) {
+function persistDurableStateEffect(durableState) {
   return {
-    kind: "durable-state-changed",
+    kind: "persist-durable-state",
     durableState,
   };
 }

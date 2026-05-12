@@ -124,9 +124,9 @@ export function acceptedReferenceImageInputPayload({ requestId = 1 } = {}) {
   };
 }
 
-export function durableStateChangedEffect(durableState) {
+export function persistDurableStateEffect(durableState) {
   return {
-    kind: "durable-state-changed",
+    kind: "persist-durable-state",
     durableState,
   };
 }

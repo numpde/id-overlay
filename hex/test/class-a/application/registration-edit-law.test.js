@@ -24,7 +24,7 @@ test("Align pin toggle adds and removes registration facts durably", () => {
   assert.deepEqual(addedPin.imagePx, firstPin().imagePx);
   assert.deepEqual(addedPin.mapLatLon, firstPin().mapLatLon);
   assert.deepEqual(add.effects, [
-    durableStateChangedEffect({
+    persistDurableStateEffect({
       session: add.state.session,
     }),
   ]);
@@ -42,7 +42,7 @@ test("Align pin toggle adds and removes registration facts durably", () => {
     referenceImage: normalizedReferenceImage(),
   });
   assert.deepEqual(remove.effects, [
-    durableStateChangedEffect({
+    persistDurableStateEffect({
       session: remove.state.session,
     }),
   ]);
@@ -75,7 +75,7 @@ test("registration pin edits preserve current visible placement", () => {
 
   assert.deepEqual(result.state.session.placement, placement);
   assert.deepEqual(result.effects, [
-    durableStateChangedEffect({
+    persistDurableStateEffect({
       session: result.state.session,
     }),
   ]);
@@ -106,7 +106,7 @@ test("switching to Trace applies solved registration placement durably", () => {
     },
   });
   assert.deepEqual(result.effects, [
-    durableStateChangedEffect({
+    persistDurableStateEffect({
       session: result.state.session,
     }),
   ]);
@@ -129,7 +129,7 @@ test("clearing Align registration pins keeps the image and clears registration d
     referenceImage: normalizedReferenceImage(),
   });
   assert.deepEqual(result.effects, [
-    durableStateChangedEffect({
+    persistDurableStateEffect({
       session: result.state.session,
     }),
   ]);
@@ -210,9 +210,9 @@ function pinTogglePayload({
   };
 }
 
-function durableStateChangedEffect(durableState) {
+function persistDurableStateEffect(durableState) {
   return {
-    kind: "durable-state-changed",
+    kind: "persist-durable-state",
     durableState,
   };
 }
