@@ -4,13 +4,17 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-// Unclassified: proposal for the canonical interaction-fact vocabulary.
+// Class-c: proposal for the canonical interaction-fact vocabulary.
 //
 // Decision encoded here: interaction facts are not DOM observations and not app
 // commands. They are source-neutral user-intent facts that may still need
 // projection/selection ports before becoming product commands. This rejects
 // `overlay-*-wheel`, `keyboard-*`, raw `pointer*`, and button/deltaY fields as
 // public vocabulary.
+//
+// Decision: keep quarantined. Current class-b tests still document low-level
+// overlay/keyboard facts, so this source-scan becomes authoritative only after
+// one deliberate interaction-vocabulary cut-over.
 test("candidate: production interaction vocabulary is exact and source-neutral", () => {
   const source = INTERACTION_PRODUCTION_FILES
     .map((filePath) => fs.readFileSync(filePath, "utf8"))
