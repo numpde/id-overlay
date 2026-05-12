@@ -54,47 +54,6 @@ const FORBIDDEN_HISTORY_SOURCE_PATTERNS = Object.freeze([
   },
 ]);
 
-// Candidate: history copy is derived from semantic records at the view-model
-// boundary. The important law is not the exact prose; it is that a placement
-// record without stored labels still yields specific, non-generic affordances.
-test("candidate: view model labels placement history from semantic records", () => {
-  const view = selectApplicationView({
-    session: referenceImageSession({
-      mode: "align",
-      placement: movedPlacement(),
-    }),
-    history: {
-      past: [placementHistoryRecord({
-        editKind: "move",
-        before: placementRevision({
-          placement: originalPlacement(),
-          solvedRegistration: null,
-        }),
-        after: placementRevision({
-          placement: movedPlacement(),
-          solvedRegistration: null,
-        }),
-      })],
-      future: [placementHistoryRecord({
-        editKind: "rotate",
-        before: placementRevision({
-          placement: movedPlacement(),
-          solvedRegistration: null,
-        }),
-        after: placementRevision({
-          placement: rotatedPlacement(),
-          solvedRegistration: null,
-        }),
-      })],
-    },
-  });
-
-  assert.equal(view.history.undo.enabled, true);
-  assert.equal(view.history.redo.enabled, true);
-  assertSemanticHistoryLabel(view.history.undo.label, ["move", "overlay"]);
-  assertSemanticHistoryLabel(view.history.redo.label, ["rotate", "overlay"]);
-});
-
 // Candidate: production application code should not bake literal history labels
 // into records. Semantic records plus view-model copy keep persistence/replay
 // separate from UI wording.

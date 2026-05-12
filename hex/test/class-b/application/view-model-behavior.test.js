@@ -59,10 +59,9 @@ test("view model exposes primary action labels for each product posture", () => 
   );
 });
 
-// Class-b, deliberately not class-a: the ideal history record may eventually
-// carry semantic descriptors instead of literal labels. What is settled is the
-// boundary: panels render application-selected undo/redo affordances and do not
-// invent generic Undo/Redo copy locally.
+// Class-b, deliberately not class-a: exact history wording may be tuned. What
+// is settled is the boundary: panels render application-selected undo/redo
+// affordances and do not invent generic Undo/Redo copy locally.
 test("view model exposes semantic history controls", () => {
   const view = selectApplicationView({
     ...referenceImageLoadedState(),
@@ -92,6 +91,43 @@ test("view model exposes semantic history controls", () => {
   });
   assert.notEqual(view.history.undo.label, "Undo");
   assert.notEqual(view.history.redo.label, "Redo");
+
+  const placementView = selectApplicationView({
+    ...referenceImageLoadedState({
+      placement: movedPlacement(),
+    }),
+    history: {
+      past: [placementHistoryRecord({
+        editKind: "move",
+        before: placementRevision({
+          placement: originalPlacement(),
+          solvedRegistration: null,
+        }),
+        after: placementRevision({
+          placement: movedPlacement(),
+          solvedRegistration: null,
+        }),
+      })],
+      future: [placementHistoryRecord({
+        editKind: "rotate",
+        before: placementRevision({
+          placement: movedPlacement(),
+          solvedRegistration: null,
+        }),
+        after: placementRevision({
+          placement: rotatedPlacement(),
+          solvedRegistration: null,
+        }),
+      })],
+    },
+  });
+
+  assert.match(placementView.history.undo.label, /\bmove\b/i);
+  assert.match(placementView.history.undo.label, /\boverlay\b/i);
+  assert.match(placementView.history.redo.label, /\brotate\b/i);
+  assert.match(placementView.history.redo.label, /\boverlay\b/i);
+  assert.notEqual(placementView.history.undo.label, "Undo");
+  assert.notEqual(placementView.history.redo.label, "Redo");
 });
 
 // Class-b, deliberately not class-a: class-a owns the visible law that Trace
@@ -241,5 +277,48 @@ function firstPin() {
       lat: -1.23,
       lon: 36.84,
     },
+  };
+}
+
+function placementHistoryRecord({ editKind, before, after }) {
+  return {
+    kind: "overlay-placement-edit",
+    editKind,
+    before,
+    after,
+  };
+}
+
+function placementRevision({ placement, solvedRegistration }) {
+  return {
+    placement,
+    solvedRegistration,
+  };
+}
+
+function originalPlacement() {
+  return {
+    x: 10,
+    y: 20,
+    scale: 1,
+    rotationRad: 0,
+  };
+}
+
+function movedPlacement() {
+  return {
+    x: 30,
+    y: 50,
+    scale: 1,
+    rotationRad: 0,
+  };
+}
+
+function rotatedPlacement() {
+  return {
+    x: 30,
+    y: 50,
+    scale: 1,
+    rotationRad: 0.5,
   };
 }
