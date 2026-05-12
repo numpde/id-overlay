@@ -8,11 +8,12 @@ import {
   normalizeClipboardImage,
 } from "../../../adapters/web/image-normalization.js";
 
-// Class-b, deliberately not class-a: this is browser-adapter translation. The
-// application owns paste outcome semantics; the adapter only converts clipboard
-// handles and browser failure cases into the app's plain paste vocabulary.
+// Class-b, deliberately not class-a: this is browser-adapter translation, but
+// the source-neutral failure taxonomy is non-negotiable at the app boundary.
+// Unsupported clipboard content becomes `unsupported-image`, and clipboard API
+// exceptions become `source-unavailable`; source-specific details stop here.
 test("clipboard image port reports normalized paste outcomes", async () => {
-  for (const { clipboardResult, normalizedImage, expected } of [
+  for (const { clipboardResult, clipboardError, normalizedImage, expected } of [
     {
       clipboardResult: {
         kind: "empty",
@@ -28,7 +29,14 @@ test("clipboard image port reports normalized paste outcomes", async () => {
       },
       expected: {
         kind: "failed",
-        reason: "unsupported-clipboard-content",
+        reason: "unsupported-image",
+      },
+    },
+    {
+      clipboardError: new Error("navigator.clipboard unavailable"),
+      expected: {
+        kind: "failed",
+        reason: "source-unavailable",
       },
     },
     {
@@ -78,6 +86,9 @@ test("clipboard image port reports normalized paste outcomes", async () => {
   ]) {
     const port = createClipboardImagePortAdapter({
       async readClipboardImageHandle() {
+        if (clipboardError) {
+          throw clipboardError;
+        }
         return clipboardResult;
       },
       async normalizeImageHandle() {

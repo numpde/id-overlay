@@ -4,7 +4,15 @@ export function createClipboardImagePortAdapter({
 }) {
   return {
     async readReferenceImage() {
-      const clipboardResult = await readClipboardImageHandle();
+      const clipboardResult = await readClipboardImageHandle().catch(() => ({
+        kind: "unavailable",
+      }));
+      if (clipboardResult.kind === "unavailable") {
+        return {
+          kind: "failed",
+          reason: "source-unavailable",
+        };
+      }
       if (clipboardResult.kind === "empty") {
         return {
           kind: "empty",
@@ -13,7 +21,7 @@ export function createClipboardImagePortAdapter({
       if (clipboardResult.kind === "unsupported") {
         return {
           kind: "failed",
-          reason: "unsupported-clipboard-content",
+          reason: "unsupported-image",
         };
       }
       return normalizeImageHandle(clipboardResult.imageHandle);
