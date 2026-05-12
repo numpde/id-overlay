@@ -114,11 +114,17 @@ test("empty reference-image input outcome ends input without durability", () => 
     ),
   });
 
-  assert.equal(result.state.session, undefined);
-  assert.equal(result.state.referenceImageInput, undefined);
-  assert.deepEqual(result.effects, [
-    scheduleClearStatusNoticeEffect(1),
-  ]);
+  assert.deepEqual(result, {
+    state: {
+      notice: {
+        kind: "reference-image-input-empty",
+        requestId: 1,
+      },
+    },
+    effects: [
+      scheduleClearStatusNoticeEffect(1),
+    ],
+  });
 });
 
 // Class-a: a declared input failure is also a normal user-world outcome. It

@@ -43,39 +43,6 @@ const FORBIDDEN_TIMER_EFFECT_KINDS = Object.freeze([
   "clear-timeout",
 ]);
 
-// Candidate: a transient status notice schedules its own expiry as product
-// causality. The effect is named by the product outcome, not by a generic timer
-// mechanism or a shell-interpreted purpose string.
-test("candidate: status notices emit named clear-status timer effects", () => {
-  const result = handleApplicationCommand({
-    state: awaitingReferenceImageInputState({ requestId: 1 }),
-    command: createApplicationCommand(
-      APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_INPUT_OUTCOME,
-      {
-        requestId: 1,
-        outcome: {
-          kind: "empty",
-        },
-      },
-    ),
-  });
-
-  assert.deepEqual(result, {
-    state: {
-      notice: {
-        kind: "reference-image-input-empty",
-        requestId: 1,
-      },
-    },
-    effects: [{
-      kind: EFFECT_KIND.SCHEDULE_CLEAR_STATUS_NOTICE,
-      requestId: 1,
-      delayMs: STATUS_NOTICE_DELAY_MS,
-    }],
-  });
-  assert.deepEqual(result.effects.flatMap(validateTimerEffect), []);
-});
-
 // Candidate: timer completion re-enters as an ordinary application command.
 // Staleness belongs to the application because the request id is product state.
 test("candidate: clear-status timer outcome clears only the matching notice", () => {
