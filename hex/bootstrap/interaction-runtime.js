@@ -6,20 +6,34 @@ import {
 export function createInteractionRuntime({
   dispatchApplicationCommand,
   projectRegistrationPinToggle,
+  projectPlacementEdit,
 }) {
   return {
     async handleInteractionFact(fact) {
-      if (fact.kind !== "registration-pin-toggle-requested") {
+      if (fact.kind === "registration-pin-toggle-requested") {
+        const projection = projectRegistrationPinToggle(fact);
+        if (projection.kind !== "projected") {
+          return;
+        }
+        const { kind, ...pinTogglePayload } = projection;
+        await dispatchApplicationCommand(createApplicationCommand(
+          APPLICATION_COMMAND_KIND.TOGGLE_REGISTRATION_PIN,
+          pinTogglePayload,
+        ));
         return;
       }
-      const projection = projectRegistrationPinToggle(fact);
-      if (projection.kind !== "projected") {
+
+      if (fact.kind !== "placement-edit-requested" || typeof projectPlacementEdit !== "function") {
         return;
       }
-      const { kind, ...pinTogglePayload } = projection;
+      const projection = projectPlacementEdit(fact);
+      if (projection.kind !== "committed") {
+        return;
+      }
+      const { kind, ...placementEditPayload } = projection;
       await dispatchApplicationCommand(createApplicationCommand(
-        APPLICATION_COMMAND_KIND.TOGGLE_REGISTRATION_PIN,
-        pinTogglePayload,
+        APPLICATION_COMMAND_KIND.COMMIT_PLACEMENT_EDIT,
+        placementEditPayload,
       ));
     },
   };

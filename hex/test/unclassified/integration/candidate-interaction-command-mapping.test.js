@@ -66,48 +66,6 @@ const FORBIDDEN_INTERACTION_RUNTIME_STATE_READS = Object.freeze([
   ".history",
 ]);
 
-// Candidate: placement manipulation has one mapping path regardless of whether
-// the browser source is drag, wheel, keyboard, or future handles. Geometry ports
-// compute a full placement; the application receives a committed placement edit.
-test("candidate: placement interaction maps through projection to commit-placement-edit", async () => {
-  const commands = [];
-  const facts = [];
-  const runtime = createInteractionRuntime({
-    dispatchApplicationCommand(command) {
-      commands.push(command);
-    },
-    projectPlacementEdit(fact) {
-      facts.push(fact);
-      return {
-        kind: "committed",
-        editKind: "rotate",
-        placement: rotatedPlacement(),
-      };
-    },
-  });
-
-  await runtime.handleInteractionFact({
-    kind: "placement-edit-requested",
-    editKind: "rotate",
-    inputDelta: {
-      y: -100,
-    },
-  });
-
-  assert.deepEqual(facts, [{
-    kind: "placement-edit-requested",
-    editKind: "rotate",
-    inputDelta: {
-      y: -100,
-    },
-  }]);
-  assert.deepEqual(commands, [{
-    kind: INTERACTION_COMMAND_KIND.COMMIT_PLACEMENT_EDIT,
-    editKind: "rotate",
-    placement: rotatedPlacement(),
-  }]);
-});
-
 // Candidate: opacity adjustment is a semantic product command, but the browser
 // mechanics that choose the next value are not. A selector/projection port may
 // clamp or step the value before dispatch; history policy remains application

@@ -83,3 +83,55 @@ test("interaction runtime dispatches nothing when pin projection misses", async 
 
   assert.deepEqual(commands, []);
 });
+
+// Class-b: the stable product rule is that placement changes enter the app as
+// committed placement edits, never raw drag/wheel deltas. This stays class-b
+// because the exact fact name and `projectPlacementEdit` port are harness
+// vocabulary for today's shell, not a 99%-certain product law.
+test("interaction runtime maps placement facts through projection to committed edits", async () => {
+  const commands = [];
+  const facts = [];
+  const runtime = createInteractionRuntime({
+    dispatchApplicationCommand(command) {
+      commands.push(command);
+    },
+    projectPlacementEdit(fact) {
+      facts.push(fact);
+      return {
+        kind: "committed",
+        editKind: "rotate",
+        placement: rotatedPlacement(),
+      };
+    },
+  });
+
+  await runtime.handleInteractionFact({
+    kind: "placement-edit-requested",
+    editKind: "rotate",
+    inputDelta: {
+      y: -100,
+    },
+  });
+
+  assert.deepEqual(facts, [{
+    kind: "placement-edit-requested",
+    editKind: "rotate",
+    inputDelta: {
+      y: -100,
+    },
+  }]);
+  assert.deepEqual(commands, [{
+    kind: "commit-placement-edit",
+    editKind: "rotate",
+    placement: rotatedPlacement(),
+  }]);
+});
+
+function rotatedPlacement() {
+  return {
+    x: 10,
+    y: 20,
+    scale: 1,
+    rotationRad: 0.25,
+  };
+}
