@@ -58,3 +58,28 @@ test("interaction runtime maps adapter facts into application commands without r
     },
   }]);
 });
+
+// Class-b: projection misses are inert at the interaction seam. They are not
+// application errors and the mapper must not guess a fallback command or forward
+// a page gesture when it cannot form semantic product input.
+test("interaction runtime dispatches nothing when pin projection misses", async () => {
+  const commands = [];
+  const runtime = createInteractionRuntime({
+    dispatchApplicationCommand(command) {
+      commands.push(command);
+    },
+    projectRegistrationPinToggle() {
+      return {
+        kind: "not-projectable",
+        reason: "pointer-outside-reference-image",
+      };
+    },
+  });
+
+  await runtime.handleInteractionFact({
+    kind: "registration-pin-toggle-requested",
+    source: "overlay",
+  });
+
+  assert.deepEqual(commands, []);
+});

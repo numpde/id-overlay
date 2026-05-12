@@ -66,31 +66,6 @@ const FORBIDDEN_INTERACTION_RUNTIME_STATE_READS = Object.freeze([
   ".history",
 ]);
 
-// Candidate: projection miss is inert at this seam. It is not an application
-// error and it must not become a guessed browser fallback such as forwarding a
-// synthetic map gesture.
-test("candidate: unprojectable registration pin input dispatches nothing", async () => {
-  const commands = [];
-  const runtime = createInteractionRuntime({
-    dispatchApplicationCommand(command) {
-      commands.push(command);
-    },
-    projectRegistrationPinToggle() {
-      return {
-        kind: "not-projectable",
-        reason: "pointer-outside-reference-image",
-      };
-    },
-  });
-
-  await runtime.handleInteractionFact({
-    kind: "registration-pin-toggle-requested",
-    source: "overlay",
-  });
-
-  assert.deepEqual(commands, []);
-});
-
 // Candidate: temporary pass-through is a semantic application input posture,
 // not a shell-only side channel. The view can then derive native-map overlay
 // behavior from one application state, and the transition remains non-durable.
