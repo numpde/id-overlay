@@ -12,7 +12,8 @@ export function createKeyboardAdapter({ document, emitInteractionFact }) {
           return;
         }
         emitInteractionFact({
-          kind: "keyboard-pin-toggle-requested",
+          kind: "registration-pin-toggle-requested",
+          source: "shortcut",
         });
       });
       document.addEventListener("keyup", (event) => {

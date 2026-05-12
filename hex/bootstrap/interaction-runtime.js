@@ -4,20 +4,20 @@ import {
 } from "../application/command.js";
 
 export function createInteractionRuntime({
-  dispatchCommand,
-  projectCurrentPointerForPinToggle,
+  dispatchApplicationCommand,
+  projectRegistrationPinToggle,
 }) {
   return {
     async handleInteractionFact(fact) {
-      if (fact.kind !== "keyboard-pin-toggle-requested") {
+      if (fact.kind !== "registration-pin-toggle-requested") {
         return;
       }
-      const projection = projectCurrentPointerForPinToggle();
+      const projection = projectRegistrationPinToggle(fact);
       if (projection.kind !== "projected") {
         return;
       }
       const { kind, ...pinTogglePayload } = projection;
-      await dispatchCommand(createApplicationCommand(
+      await dispatchApplicationCommand(createApplicationCommand(
         APPLICATION_COMMAND_KIND.TOGGLE_REGISTRATION_PIN,
         pinTogglePayload,
       ));

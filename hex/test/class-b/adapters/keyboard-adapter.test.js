@@ -61,7 +61,8 @@ test("keyboard adapter emits pin-toggle intent for P without product data", () =
 
   assert.deepEqual(facts, [
     {
-      kind: "keyboard-pin-toggle-requested",
+      kind: "registration-pin-toggle-requested",
+      source: "shortcut",
     },
   ]);
 });

@@ -11,11 +11,13 @@ import {
 // state.
 test("interaction runtime maps adapter facts into application commands without reading state", async () => {
   const commands = [];
+  const facts = [];
   const runtime = createInteractionRuntime({
-    dispatchCommand(command) {
+    dispatchApplicationCommand(command) {
       commands.push(command);
     },
-    projectCurrentPointerForPinToggle() {
+    projectRegistrationPinToggle(fact) {
+      facts.push(fact);
       return {
         kind: "projected",
         existingPinId: null,
@@ -35,9 +37,14 @@ test("interaction runtime maps adapter facts into application commands without r
   });
 
   await runtime.handleInteractionFact({
-    kind: "keyboard-pin-toggle-requested",
+    kind: "registration-pin-toggle-requested",
+    source: "shortcut",
   });
 
+  assert.deepEqual(facts, [{
+    kind: "registration-pin-toggle-requested",
+    source: "shortcut",
+  }]);
   assert.deepEqual(commands, [{
     kind: "toggle-registration-pin",
     existingPinId: null,

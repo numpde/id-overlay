@@ -66,60 +66,6 @@ const FORBIDDEN_INTERACTION_RUNTIME_STATE_READS = Object.freeze([
   ".history",
 ]);
 
-// Candidate: pin input is source-neutral by the time it reaches the mapping
-// seam. Keyboard P, overlay click, or future UI controls may all request a pin
-// toggle; the projection port resolves the current browser/page coordinates
-// into the semantic application payload.
-test("candidate: registration pin input maps through projection to a semantic command", async () => {
-  const commands = [];
-  const facts = [];
-  const runtime = createInteractionRuntime({
-    dispatchApplicationCommand(command) {
-      commands.push(command);
-    },
-    projectRegistrationPinToggle(fact) {
-      facts.push(fact);
-      return {
-        kind: "projected",
-        existingPinId: null,
-        imagePx: {
-          x: 320,
-          y: 240,
-        },
-        mapLatLon: {
-          lat: -1.23,
-          lon: 36.84,
-        },
-      };
-    },
-    readApplicationState() {
-      assert.fail("interaction mapping must not inspect product state");
-    },
-  });
-
-  await runtime.handleInteractionFact({
-    kind: "registration-pin-toggle-requested",
-    source: "shortcut",
-  });
-
-  assert.deepEqual(facts, [{
-    kind: "registration-pin-toggle-requested",
-    source: "shortcut",
-  }]);
-  assert.deepEqual(commands, [{
-    kind: INTERACTION_COMMAND_KIND.TOGGLE_REGISTRATION_PIN,
-    existingPinId: null,
-    imagePx: {
-      x: 320,
-      y: 240,
-    },
-    mapLatLon: {
-      lat: -1.23,
-      lon: 36.84,
-    },
-  }]);
-});
-
 // Candidate: projection miss is inert at this seam. It is not an application
 // error and it must not become a guessed browser fallback such as forwarding a
 // synthetic map gesture.
