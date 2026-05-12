@@ -123,7 +123,7 @@ test("empty reference-image input outcome ends input without durability", () => 
 
 // Class-a: a declared input failure is also a normal user-world outcome. It
 // ends the transient input flow without creating an image session or durable
-// work; the exact failure notice vocabulary is weaker UI policy.
+// work, keeps source-neutral failure vocabulary, and schedules status expiry.
 test("failed reference-image input outcome ends input without durability", () => {
   const result = handleApplicationCommand({
     state: {
@@ -144,9 +144,18 @@ test("failed reference-image input outcome ends input without durability", () =>
     ),
   });
 
-  assert.equal(result.state.session, undefined);
-  assert.equal(result.state.referenceImageInput, undefined);
-  assert.deepEqual(result.effects, []);
+  assert.deepEqual(result, {
+    state: {
+      notice: {
+        kind: "reference-image-input-failed",
+        reason: "source-unavailable",
+        requestId: 1,
+      },
+    },
+    effects: [
+      scheduleClearStatusNoticeEffect(1),
+    ],
+  });
 });
 
 // Class-a: clearing the reference image collapses the app back to no session

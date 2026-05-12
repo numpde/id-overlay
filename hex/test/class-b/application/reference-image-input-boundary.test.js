@@ -79,7 +79,7 @@ function scheduleClearStatusNoticeEffect(requestId) {
 
 // Class-b, deliberately not class-a: class-a owns failed input as a normal
 // non-durable outcome. This keeps only the current transient notice vocabulary,
-// including the data-only reason and the request id used by status correlation.
+// including the data-only reason, request id, and status-expiry effect shape.
 test("failed reference-image input outcome becomes a correlated notice", () => {
   assertApplicationResult(handleApplicationCommand({
     state: {
@@ -101,11 +101,13 @@ test("failed reference-image input outcome becomes a correlated notice", () => {
   }), {
     state: {
       notice: {
-        kind: "reference-image-paste-failed",
+        kind: "reference-image-input-failed",
         reason: "source-unavailable",
         requestId: 1,
       },
     },
-    effects: [],
+    effects: [
+      scheduleClearStatusNoticeEffect(1),
+    ],
   });
 });

@@ -110,12 +110,19 @@ function assertValidReferenceImageInputOutcomePayload(payload) {
   }
   if (
     outcome?.kind === "failed"
-      && typeof outcome.reason === "string"
-      && outcome.reason.length > 0
+      && isReferenceImageInputFailureReason(outcome.reason)
   ) {
     return;
   }
   throwInvalidApplicationCommand();
+}
+
+function isReferenceImageInputFailureReason(reason) {
+  return [
+    "source-unavailable",
+    "decode-failed",
+    "unsupported-image",
+  ].includes(reason);
 }
 
 function assertValidReferenceImage(referenceImage) {

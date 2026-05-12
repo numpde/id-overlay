@@ -429,12 +429,12 @@ function reportReferenceImageInputOutcome(state, command) {
     return {
       state: {
         notice: {
-          kind: "reference-image-paste-failed",
+          kind: "reference-image-input-failed",
           reason: command.outcome.reason,
           requestId: command.requestId,
         },
       },
-      effects: [],
+      effects: [scheduleClearStatusNoticeEffect(command.requestId)],
     };
   }
 

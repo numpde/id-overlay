@@ -49,37 +49,6 @@ const FAILURE_REASON = Object.freeze({
   UNSUPPORTED_IMAGE: "unsupported-image",
 });
 
-// Candidate: failed input has a small product taxonomy. Browser-specific causes
-// must be normalized by the adapter before crossing into the application.
-test("candidate: failed reference-image input uses product failure reasons", () => {
-  assert.deepEqual(handleApplicationCommand({
-    state: awaitingInputState({ requestId: 1 }),
-    command: createApplicationCommand(
-      APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_INPUT_OUTCOME,
-      {
-        requestId: 1,
-        outcome: {
-          kind: ACCEPTED_OUTCOME.FAILED,
-          reason: FAILURE_REASON.SOURCE_UNAVAILABLE,
-        },
-      },
-    ),
-  }), {
-    state: {
-      notice: {
-        kind: "reference-image-input-failed",
-        reason: FAILURE_REASON.SOURCE_UNAVAILABLE,
-        requestId: 1,
-      },
-    },
-    effects: [{
-      kind: EFFECT_KIND.SCHEDULE_CLEAR_STATUS_NOTICE,
-      requestId: 1,
-      delayMs: STATUS_NOTICE_DELAY_MS,
-    }],
-  });
-});
-
 // Candidate: cancellation is product-owned. The adapter may clean up listeners
 // or abort in-flight reads, but late outcomes are ignored because the request id
 // no longer belongs to an active application request.
