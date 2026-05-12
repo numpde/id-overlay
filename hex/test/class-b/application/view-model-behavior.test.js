@@ -37,6 +37,7 @@ test("view model exposes primary action labels for each product posture", () => 
         pins: [firstPin()],
         panelIntent: {
           kind: "confirm-clear-pins",
+          requestId: 1,
         },
       }),
       label: "Clear pins?",
@@ -45,6 +46,7 @@ test("view model exposes primary action labels for each product posture", () => 
       state: referenceImageLoadedState({
         panelIntent: {
           kind: "confirm-clear-reference-image",
+          requestId: 1,
         },
       }),
       label: "Clear image?",

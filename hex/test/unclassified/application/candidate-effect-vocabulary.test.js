@@ -50,34 +50,6 @@ const FORBIDDEN_EFFECT_KINDS = Object.freeze([
   "release-image-data-ref",
 ]);
 
-const DEFAULT_PANEL_INTENT_DELAY_MS = 2500;
-
-// Candidate: destructive confirmation expiry is product causality. Arming the
-// confirmation and scheduling its expiry must be one application transition so
-// the shell cannot become the confirmation state machine.
-test("candidate: arming clear-image confirmation schedules panel intent expiry", () => {
-  assertApplicationResult(handleApplicationCommand({
-    state: referenceImageLoadedState(),
-    command: createApplicationCommand(APPLICATION_COMMAND_KIND.ACTIVATE_PRIMARY_ACTION),
-  }), {
-    state: {
-      ...referenceImageLoadedState(),
-      panelIntent: {
-        kind: "confirm-clear-reference-image",
-        requestId: 1,
-      },
-    },
-    effects: [
-      effect({
-        kind: EFFECT_KIND.SCHEDULE_CLEAR_PANEL_INTENT,
-        requestId: 1,
-        intentKind: "confirm-clear-reference-image",
-        delayMs: DEFAULT_PANEL_INTENT_DELAY_MS,
-      }),
-    ],
-  });
-});
-
 // Candidate: this is the baseline vocabulary, not a sampling convenience. If a
 // use case needs another effect, it should be added here deliberately with a
 // product-causality explanation. Browser mechanics should never sneak in as

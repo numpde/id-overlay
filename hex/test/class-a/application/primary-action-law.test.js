@@ -55,8 +55,8 @@ test("primary action while awaiting input cancels transient image input", () => 
 });
 
 // Class-a: clearing a loaded reference image is destructive. The primary action
-// must first arm an explicit confirmation, keeping the current session intact
-// and avoiding durability work until the user confirms.
+// must first arm an explicit confirmation and declare its expiry as product
+// causality; the shell must not become the hidden confirmation timer.
 test("primary action with a loaded image arms clear-image confirmation", () => {
   const state = referenceImageLoadedState();
   const result = handleApplicationCommand({
@@ -71,9 +71,15 @@ test("primary action with a loaded image arms clear-image confirmation", () => {
       ...state,
       panelIntent: {
         kind: "confirm-clear-reference-image",
+        requestId: 1,
       },
     },
-    effects: [],
+    effects: [
+      scheduleClearPanelIntentEffect({
+        requestId: 1,
+        intentKind: "confirm-clear-reference-image",
+      }),
+    ],
   });
 });
 
@@ -99,15 +105,21 @@ test("arming clear-image confirmation clears stale notices", () => {
       ...referenceImageLoadedState(),
       panelIntent: {
         kind: "confirm-clear-reference-image",
+        requestId: 1,
       },
     },
-    effects: [],
+    effects: [
+      scheduleClearPanelIntentEffect({
+        requestId: 1,
+        intentKind: "confirm-clear-reference-image",
+      }),
+    ],
   });
 });
 
 // Class-a: visible Align pins are the narrower destructive target. The primary
-// action must ask to clear pins before it asks to remove the whole image, which
-// keeps the button behavior coherent with the visible editing state.
+// action must ask to clear pins before it asks to remove the whole image, and
+// that confirmation gets the same explicit expiry treatment as image removal.
 test("primary action with visible Align pins arms clear-pins confirmation", () => {
   const state = referenceImageLoadedState({
     pins: [firstPin()],
@@ -124,9 +136,15 @@ test("primary action with visible Align pins arms clear-pins confirmation", () =
       ...state,
       panelIntent: {
         kind: "confirm-clear-pins",
+        requestId: 1,
       },
     },
-    effects: [],
+    effects: [
+      scheduleClearPanelIntentEffect({
+        requestId: 1,
+        intentKind: "confirm-clear-pins",
+      }),
+    ],
   });
 });
 
@@ -250,5 +268,14 @@ function requestReferenceImageInputEffect(requestId) {
   return {
     kind: "request-reference-image-input",
     requestId,
+  };
+}
+
+function scheduleClearPanelIntentEffect({ requestId, intentKind }) {
+  return {
+    kind: "schedule-clear-panel-intent",
+    requestId,
+    intentKind,
+    delayMs: 2500,
   };
 }

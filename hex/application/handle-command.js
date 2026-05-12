@@ -202,25 +202,39 @@ function activatePrimaryAction(state) {
     state.session.mode === "align"
       && (state.session.registration?.pins ?? []).length > 0
   ) {
+    const requestId = 1;
     return {
       state: {
         session: state.session,
         panelIntent: {
           kind: "confirm-clear-pins",
+          requestId,
         },
       },
-      effects: [],
+      effects: [
+        scheduleClearPanelIntentEffect({
+          requestId,
+          intentKind: "confirm-clear-pins",
+        }),
+      ],
     };
   }
 
+  const requestId = 1;
   return {
     state: {
       session: state.session,
       panelIntent: {
         kind: "confirm-clear-reference-image",
+        requestId,
       },
     },
-    effects: [],
+    effects: [
+      scheduleClearPanelIntentEffect({
+        requestId,
+        intentKind: "confirm-clear-reference-image",
+      }),
+    ],
   };
 }
 
@@ -479,6 +493,15 @@ function scheduleClearStatusNoticeEffect(requestId) {
   return {
     kind: "schedule-clear-status-notice",
     requestId,
+    delayMs: 2500,
+  };
+}
+
+function scheduleClearPanelIntentEffect({ requestId, intentKind }) {
+  return {
+    kind: "schedule-clear-panel-intent",
+    requestId,
+    intentKind,
     delayMs: 2500,
   };
 }

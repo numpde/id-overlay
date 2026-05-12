@@ -136,6 +136,9 @@ function createEffectHandlers({ durableStatePort, host }) {
     async "schedule-clear-status-notice"() {
       return null;
     },
+    async "schedule-clear-panel-intent"() {
+      return null;
+    },
   };
 }
 
