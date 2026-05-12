@@ -34,6 +34,8 @@ const REQUIRED_PRODUCT_COMMAND_KINDS = Object.freeze([
 const FORBIDDEN_COMMAND_KIND_PATTERNS = Object.freeze([
   /\bpaste\b/,
   /\bclipboard\b/,
+  /\bclick\b/,
+  /\bmouse\b/,
   /\bpointer\b/,
   /\bwheel\b/,
   /\bkeydown\b/,
