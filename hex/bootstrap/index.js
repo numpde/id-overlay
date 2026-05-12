@@ -35,6 +35,8 @@ export async function bootstrapBrowserExtension(host) {
   };
   const durableStatePort = host.durableStatePort ?? createNoopDurableStatePort();
   const panelChromePort = host.panelChromePort ?? createNoopPanelChromePort();
+  const referenceImageInputPort =
+    host.referenceImageInputPort ?? createNoopReferenceImageInputPort();
   const timerPort = host.timerPort ?? createNoopTimerPort();
   let panelChrome = await readPanelChrome({
     host,
@@ -47,6 +49,7 @@ export async function bootstrapBrowserExtension(host) {
       durableStatePort,
       dispatchApplicationCommand: (command) => dispatchAndRender(command),
       host,
+      referenceImageInputPort,
       timerPort,
     }),
   });
@@ -171,6 +174,7 @@ function createEffectHandlers({
   durableStatePort,
   dispatchApplicationCommand,
   host,
+  referenceImageInputPort,
   timerPort,
 }) {
   return {
@@ -182,7 +186,44 @@ function createEffectHandlers({
       }
       return null;
     },
-    async "request-reference-image-input"() {
+    async "request-reference-image-input"(effect) {
+      try {
+        await referenceImageInputPort.startReferenceImageInput({
+          requestId: effect.requestId,
+          intent: effect.intent,
+          reportOutcome: async (outcome) => {
+            await dispatchApplicationCommand(createApplicationCommand(
+              APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_INPUT_OUTCOME,
+              {
+                requestId: effect.requestId,
+                outcome,
+              },
+            ));
+          },
+        });
+      } catch (error) {
+        host.reportRuntimeError?.(error);
+        await dispatchApplicationCommand(createApplicationCommand(
+          APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_INPUT_OUTCOME,
+          {
+            requestId: effect.requestId,
+            outcome: {
+              kind: "failed",
+              reason: "source-unavailable",
+            },
+          },
+        ));
+      }
+      return null;
+    },
+    async "cancel-reference-image-input"(effect) {
+      try {
+        await referenceImageInputPort.cancelReferenceImageInput({
+          requestId: effect.requestId,
+        });
+      } catch (error) {
+        host.reportRuntimeError?.(error);
+      }
       return null;
     },
     async "schedule-application-command"(effect) {
@@ -212,6 +253,13 @@ function createNoopPanelChromePort() {
       return null;
     },
     async writePanelChrome() {},
+  };
+}
+
+function createNoopReferenceImageInputPort() {
+  return {
+    async startReferenceImageInput() {},
+    async cancelReferenceImageInput() {},
   };
 }
 

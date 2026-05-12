@@ -47,6 +47,9 @@ test("requesting replacement keeps the current image while awaiting input", () =
     effects: [{
       kind: "request-reference-image-input",
       requestId: 1,
+      intent: {
+        kind: "replace-reference-image",
+      },
     }],
   });
 });
@@ -298,7 +301,8 @@ test("empty or failed replacement leaves old image intact", () => {
 
 // Class-a: cancelling replacement means "keep what I had". It is a transient
 // input cancellation, not a destructive image action, so it preserves the old
-// session and schedules only notice expiry.
+// session, tells the shell to release the matching input flow, and schedules
+// only notice expiry.
 test("cancelling replacement leaves old image intact", () => {
   const state = {
     ...loadedImageState({
@@ -325,15 +329,21 @@ test("cancelling replacement leaves old image intact", () => {
         requestId: 7,
       },
     },
-    effects: [{
-      kind: "schedule-application-command",
-      scheduleId: "status-notice",
-      delayMs: 2500,
-      command: {
-        kind: "clear-status-notice",
+    effects: [
+      {
+        kind: "cancel-reference-image-input",
         requestId: 7,
       },
-    }],
+      {
+        kind: "schedule-application-command",
+        scheduleId: "status-notice",
+        delayMs: 2500,
+        command: {
+          kind: "clear-status-notice",
+          requestId: 7,
+        },
+      },
+    ],
   });
 });
 

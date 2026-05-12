@@ -25,10 +25,18 @@ test("primary action with no session requests reference-image input", () => {
       referenceImageInput: {
         status: "awaiting-input",
         requestId: 1,
+        intent: {
+          kind: "load-reference-image",
+        },
       },
     },
     effects: [
-      requestReferenceImageInputEffect(1),
+      requestReferenceImageInputEffect({
+        requestId: 1,
+        intent: {
+          kind: "load-reference-image",
+        },
+      }),
     ],
   });
 });
@@ -58,6 +66,7 @@ test("primary action while awaiting input cancels transient image input", () => 
       },
     },
     effects: [
+      cancelReferenceImageInputEffect(1),
       scheduleClearStatusNoticeEffect(1),
     ],
   });
@@ -273,9 +282,17 @@ function persistDurableStateEffect(durableState) {
   };
 }
 
-function requestReferenceImageInputEffect(requestId) {
+function requestReferenceImageInputEffect({ requestId, intent }) {
   return {
     kind: "request-reference-image-input",
+    requestId,
+    intent,
+  };
+}
+
+function cancelReferenceImageInputEffect(requestId) {
+  return {
+    kind: "cancel-reference-image-input",
     requestId,
   };
 }

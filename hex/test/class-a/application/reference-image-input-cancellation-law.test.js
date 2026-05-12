@@ -7,14 +7,10 @@ import {
 } from "../../../application/command.js";
 import { handleApplicationCommand } from "../../../application/handle-command.js";
 
-// Class-c: app correlation already makes late outcomes inert, but host input
-// resources may still need an explicit cancellation protocol. This test assumes
-// that protocol is a new `cancel-reference-image-input` application effect,
-// which currently conflicts with the class-a effect vocabulary.
-//
-// Decision: keep quarantined. The cleanup problem is real, but promotion needs
-// a deliberate effect-vocabulary revision, not a local assertion inside input
-// cancellation behavior.
+// Class-a: app correlation makes late outcomes inert, but host input resources
+// still need an explicit cleanup signal. Cancellation is therefore both a
+// product transition and correlated runtime work; bootstrap must route this
+// effect to the input port instead of silently abandoning host state.
 test("cancelling initial reference-image input emits a correlated cancel effect", () => {
   assert.deepEqual(handleApplicationCommand({
     state: awaitingInputState({
@@ -40,9 +36,9 @@ test("cancelling initial reference-image input emits a correlated cancel effect"
   });
 });
 
-// Class-c: replacement cancellation has the same unresolved resource boundary
-// as initial input. The product result is settled, but the host cleanup effect
-// shape is not.
+// Class-a: replacement cancellation has the same cleanup boundary as initial
+// input. The old image stays visible, and the matching host input flow is
+// cancelled by request id.
 test("cancelling replacement input preserves the old image and cancels host input", () => {
   const state = {
     session: {

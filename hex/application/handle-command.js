@@ -314,35 +314,48 @@ function hydrate(durableState) {
 
 function activatePrimaryAction(state) {
   if (state.referenceImageInput?.status === "awaiting-input") {
+    const requestId = state.referenceImageInput.requestId;
     if (isReplacementReferenceImageInput(state)) {
-      return replacementInputNoticeResult({
-        state,
-        notice: {
-          kind: "reference-image-replacement-cancelled",
-          requestId: state.referenceImageInput.requestId,
+      return {
+        state: {
+          session: state.session,
+          ...historyState(state),
+          notice: {
+            kind: "reference-image-replacement-cancelled",
+            requestId,
+          },
         },
-        requestId: state.referenceImageInput.requestId,
-      });
+        effects: [
+          cancelReferenceImageInputEffect(requestId),
+          scheduleClearStatusNoticeEffect(requestId),
+        ],
+      };
     }
     return {
       state: {
         notice: {
           kind: "reference-image-input-cancelled",
-          requestId: state.referenceImageInput.requestId,
+          requestId,
         },
       },
-      effects: [scheduleClearStatusNoticeEffect(state.referenceImageInput.requestId)],
+      effects: [
+        cancelReferenceImageInputEffect(requestId),
+        scheduleClearStatusNoticeEffect(requestId),
+      ],
     };
   }
   if (!state.session) {
+    const requestId = 1;
+    const intent = loadReferenceImageInputIntent();
     return {
       state: {
         referenceImageInput: {
           status: "awaiting-input",
-          requestId: 1,
+          requestId,
+          intent,
         },
       },
-      effects: [requestReferenceImageInputEffect(1)],
+      effects: [requestReferenceImageInputEffect({ requestId, intent })],
     };
   }
   if (state.panelIntent?.kind === "confirm-clear-pins") {
@@ -397,6 +410,7 @@ function requestReferenceImageReplacement(state) {
   }
 
   const requestId = 1;
+  const intent = replaceReferenceImageInputIntent();
   return {
     state: {
       session: state.session,
@@ -404,12 +418,10 @@ function requestReferenceImageReplacement(state) {
       referenceImageInput: {
         status: "awaiting-input",
         requestId,
-        intent: {
-          kind: "replace-reference-image",
-        },
+        intent,
       },
     },
-    effects: [requestReferenceImageInputEffect(requestId)],
+    effects: [requestReferenceImageInputEffect({ requestId, intent })],
   };
 }
 
@@ -714,10 +726,30 @@ function persistDurableStateEffect(durableState) {
   };
 }
 
-function requestReferenceImageInputEffect(requestId) {
+function requestReferenceImageInputEffect({ requestId, intent }) {
   return {
     kind: "request-reference-image-input",
     requestId,
+    intent,
+  };
+}
+
+function cancelReferenceImageInputEffect(requestId) {
+  return {
+    kind: "cancel-reference-image-input",
+    requestId,
+  };
+}
+
+function loadReferenceImageInputIntent() {
+  return {
+    kind: "load-reference-image",
+  };
+}
+
+function replaceReferenceImageInputIntent() {
+  return {
+    kind: "replace-reference-image",
   };
 }
 

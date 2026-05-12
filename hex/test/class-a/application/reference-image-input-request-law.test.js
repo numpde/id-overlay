@@ -7,14 +7,10 @@ import {
 } from "../../../application/command.js";
 import { handleApplicationCommand } from "../../../application/handle-command.js";
 
-// Class-c: this is the desired request contract, not today's class-a behavior.
-// The architectural claim is strong: a reference-image input request should be
-// self-contained product causality, so the shell never inspects application
-// state to discover whether it is loading or replacing.
-//
-// Decision: keep quarantined. Promoting this requires revising initial-input
-// class-a law and the effect shape together; doing only this file would create
-// contradictory authority.
+// Class-a: a reference-image input request is self-contained product causality.
+// The shell receives the same source-neutral intent that the app records for
+// request correlation, so it never inspects app state to infer whether the user
+// is loading the first image or replacing an existing one.
 test("reference-image input request carries explicit source-neutral intent", () => {
   assert.deepEqual(handleApplicationCommand({
     state: {},
@@ -39,9 +35,10 @@ test("reference-image input request carries explicit source-neutral intent", () 
   });
 });
 
-// Class-c: replacement is the same input lifecycle with a different product
-// intent, but current class-a behavior stores that intent in state only. The
-// effect-intent part stays quarantined until the whole request contract moves.
+// Class-a: replacement is the same input lifecycle with a different product
+// intent. The effect names the runtime work; the intent explains the product
+// cause without leaking clipboard, paste, or DOM mechanics into application
+// state.
 test("replacement input request carries the replacement intent on the effect", () => {
   const state = {
     session: {

@@ -46,6 +46,15 @@ test("baseline effect vocabulary is exact", () => {
       ),
     }).effects,
     ...handleApplicationCommand({
+      state: awaitingReferenceImageInputState({
+        requestId: 3,
+        intent: {
+          kind: "load-reference-image",
+        },
+      }),
+      command: createApplicationCommand(APPLICATION_COMMAND_KIND.ACTIVATE_PRIMARY_ACTION),
+    }).effects,
+    ...handleApplicationCommand({
       state: referenceImageLoadedState(),
       command: createApplicationCommand(APPLICATION_COMMAND_KIND.ACTIVATE_PRIMARY_ACTION),
     }).effects,
@@ -62,6 +71,7 @@ test("baseline effect vocabulary is exact", () => {
 });
 
 const EFFECT_KIND = Object.freeze({
+  CANCEL_REFERENCE_IMAGE_INPUT: "cancel-reference-image-input",
   PERSIST_DURABLE_STATE: "persist-durable-state",
   REQUEST_REFERENCE_IMAGE_INPUT: "request-reference-image-input",
   SCHEDULE_APPLICATION_COMMAND: "schedule-application-command",
@@ -112,11 +122,12 @@ function validateEffectShape(candidateEffect) {
   return violations;
 }
 
-function awaitingReferenceImageInputState({ requestId }) {
+function awaitingReferenceImageInputState({ requestId, intent }) {
   return {
     referenceImageInput: {
       status: "awaiting-input",
       requestId,
+      ...(intent ? { intent } : {}),
     },
   };
 }
