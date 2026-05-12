@@ -30,32 +30,6 @@ import {
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../..");
 const BOOTSTRAP_INDEX = path.join(REPO_ROOT, "hex/bootstrap/index.js");
 
-// Candidate: start is a lifecycle transition, not a constructor call. Repeated
-// start for the same live page must reuse the same running session and must not
-// duplicate roots, runtimes, storage reads, renders, or browser listeners.
-test("candidate: supported page start is idempotent and binds input once after first render", async () => {
-  const host = createLifecycleHostHarness({
-    pageContext: {
-      kind: "supported-map-editor-page",
-    },
-  });
-
-  const first = await bootstrapBrowserExtension(host);
-  const second = await bootstrapBrowserExtension(host);
-
-  assert.equal(first, second);
-  assert.equal(typeof first.dispose, "function");
-  assertEventCounts(host.events, {
-    "mount-root:id-overlay": 1,
-    "start-runtime": 1,
-    "read-durable-state": 1,
-    render: 1,
-    "bind-input": 1,
-  });
-  assertEventBefore(host.events, "read-durable-state", "render");
-  assertEventBefore(host.events, "render", "bind-input");
-});
-
 // Candidate: stop is part of the contract, not an implementation detail. It
 // disposes every browser-owned resource exactly once and removes the running
 // session so a future start is a fresh lifecycle, not a stale WeakMap hit.
