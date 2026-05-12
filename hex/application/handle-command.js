@@ -171,7 +171,7 @@ function hydrate(durableState) {
 }
 
 function activatePrimaryAction(state) {
-  if (state.referenceImageInput?.status === "awaiting-paste") {
+  if (state.referenceImageInput?.status === "awaiting-input") {
     return {
       state: {
         notice: {
@@ -185,11 +185,11 @@ function activatePrimaryAction(state) {
     return {
       state: {
         referenceImageInput: {
-          status: "awaiting-paste",
+          status: "awaiting-input",
           requestId: 1,
         },
       },
-      effects: [],
+      effects: [requestReferenceImageInputEffect(1)],
     };
   }
   if (state.panelIntent?.kind === "confirm-clear-pins") {
@@ -465,6 +465,13 @@ function durableStateChangedEffect(durableState) {
   return {
     kind: "durable-state-changed",
     durableState,
+  };
+}
+
+function requestReferenceImageInputEffect(requestId) {
+  return {
+    kind: "request-reference-image-input",
+    requestId,
   };
 }
 

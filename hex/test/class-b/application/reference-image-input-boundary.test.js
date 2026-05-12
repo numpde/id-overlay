@@ -44,7 +44,7 @@ test("empty reference-image input outcome becomes a correlated notice", () => {
   assertApplicationResult(handleApplicationCommand({
     state: {
       referenceImageInput: {
-        status: "awaiting-paste",
+        status: "awaiting-input",
         requestId: 1,
       },
     },
@@ -75,7 +75,7 @@ test("failed reference-image input outcome becomes a correlated notice", () => {
   assertApplicationResult(handleApplicationCommand({
     state: {
       referenceImageInput: {
-        status: "awaiting-paste",
+        status: "awaiting-input",
         requestId: 1,
       },
     },

@@ -130,6 +130,9 @@ function createEffectHandlers({ durableStatePort, host }) {
       }
       return null;
     },
+    async "request-reference-image-input"() {
+      return null;
+    },
   };
 }
 

@@ -21,7 +21,7 @@ test("accepted reference image creates an Align session and durability effect", 
   assert.deepEqual(handleApplicationCommand({
     state: {
       referenceImageInput: {
-        status: "awaiting-paste",
+        status: "awaiting-input",
         requestId: 1,
       },
     },
@@ -59,7 +59,7 @@ test("accepted reference image clears pending input notice and panel intent", ()
   assert.deepEqual(handleApplicationCommand({
     state: {
       referenceImageInput: {
-        status: "awaiting-paste",
+        status: "awaiting-input",
         requestId: 1,
       },
       notice: {
@@ -98,7 +98,7 @@ test("empty reference-image input outcome ends input without durability", () => 
   const result = handleApplicationCommand({
     state: {
       referenceImageInput: {
-        status: "awaiting-paste",
+        status: "awaiting-input",
         requestId: 1,
       },
     },
@@ -125,7 +125,7 @@ test("failed reference-image input outcome ends input without durability", () =>
   const result = handleApplicationCommand({
     state: {
       referenceImageInput: {
-        status: "awaiting-paste",
+        status: "awaiting-input",
         requestId: 1,
       },
     },

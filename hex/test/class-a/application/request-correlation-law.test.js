@@ -13,7 +13,7 @@ import { handleApplicationCommand } from "../../../application/handle-command.js
 test("stale reference-image input outcomes are ignored", () => {
   const state = {
     referenceImageInput: {
-      status: "awaiting-paste",
+      status: "awaiting-input",
       requestId: 2,
     },
   };

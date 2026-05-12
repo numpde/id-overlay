@@ -15,7 +15,7 @@ export function normalizedReferenceImage() {
 export function awaitingReferenceImagePasteState({ requestId = 1 } = {}) {
   return {
     referenceImageInput: {
-      status: "awaiting-paste",
+      status: "awaiting-input",
       requestId,
     },
   };

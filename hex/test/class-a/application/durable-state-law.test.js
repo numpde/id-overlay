@@ -7,12 +7,12 @@ import {
 } from "../../../application/view-model.js";
 
 // Class-a: pending user input is runtime application state, not durable session
-// state. Reloading the extension must not resurrect an old paste prompt.
+// state. Reloading the extension must not resurrect an old input prompt.
 test("transient reference-image input is not durable state", () => {
   assert.equal(
     selectDurableApplicationState({
       referenceImageInput: {
-        status: "awaiting-paste",
+        status: "awaiting-input",
         requestId: 1,
       },
     }),
@@ -48,7 +48,7 @@ test("durable state excludes transient application context", () => {
   assert.deepEqual(selectDurableApplicationState({
     session,
     referenceImageInput: {
-      status: "awaiting-paste",
+      status: "awaiting-input",
       requestId: 1,
     },
     notice: {

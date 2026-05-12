@@ -53,29 +53,6 @@ const FORBIDDEN_EFFECT_KINDS = Object.freeze([
 const DEFAULT_STATUS_NOTICE_DELAY_MS = 2500;
 const DEFAULT_PANEL_INTENT_DELAY_MS = 2500;
 
-// Candidate: Paste is product causality. The app should declare reference-image
-// input work as an effect; the shell should not infer clipboard/manual-paste
-// work by watching `referenceImageInput` appear in state.
-test("candidate: activating Paste emits only a reference-image input request effect", () => {
-  assertApplicationResult(handleApplicationCommand({
-    state: {},
-    command: createApplicationCommand(APPLICATION_COMMAND_KIND.ACTIVATE_PRIMARY_ACTION),
-  }), {
-    state: {
-      referenceImageInput: {
-        status: "awaiting-input",
-        requestId: 1,
-      },
-    },
-    effects: [
-      effect({
-        kind: EFFECT_KIND.REQUEST_REFERENCE_IMAGE_INPUT,
-        requestId: 1,
-      }),
-    ],
-  });
-});
-
 // Candidate: accepted input commits a product session and declares persistence
 // through the canonical effect name. It should not emit the transitional
 // `durable-state-changed` effect or any browser-source-specific work.

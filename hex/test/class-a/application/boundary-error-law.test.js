@@ -165,7 +165,7 @@ test("malformed reference-image input outcome commands are boundary errors", () 
     () => handleApplicationCommand({
       state: {
         referenceImageInput: {
-          status: "awaiting-paste",
+          status: "awaiting-input",
           requestId: 1,
         },
       },
@@ -184,7 +184,7 @@ test("malformed reference-image input outcome commands are boundary errors", () 
     () => handleApplicationCommand({
       state: {
         referenceImageInput: {
-          status: "awaiting-paste",
+          status: "awaiting-input",
           requestId: 1,
         },
       },

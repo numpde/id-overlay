@@ -16,7 +16,7 @@ test("view model exposes primary action labels for each product posture", () => 
     {
       state: {
         referenceImageInput: {
-          status: "awaiting-paste",
+          status: "awaiting-input",
           requestId: 1,
         },
       },

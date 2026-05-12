@@ -8,9 +8,11 @@ import {
 import { handleApplicationCommand } from "../../../application/handle-command.js";
 import { createInitialApplicationState } from "../../../application/state.js";
 
-// Class-a: with no session, the primary action is Paste. Activating it arms
-// reference-image input; the actual image still enters later as correlated data.
-test("primary action with no session waits for a pasted reference image", () => {
+// Class-a: with no session, the primary action is Paste. Activating it both
+// records the pending request and emits host work. The shell must not infer
+// image input by noticing state shape; product causality leaves the app as an
+// explicit effect.
+test("primary action with no session requests reference-image input", () => {
   const result = handleApplicationCommand({
     state: createInitialApplicationState(),
     command: createApplicationCommand(
@@ -21,22 +23,24 @@ test("primary action with no session waits for a pasted reference image", () => 
   assert.deepEqual(result, {
     state: {
       referenceImageInput: {
-        status: "awaiting-paste",
+        status: "awaiting-input",
         requestId: 1,
       },
     },
-    effects: [],
+    effects: [
+      requestReferenceImageInputEffect(1),
+    ],
   });
 });
 
-// Class-a: while paste is armed, activating the same primary action cancels that
+// Class-a: while image input is armed, activating the same primary action cancels that
 // transient input flow. Cancellation must not create a session or write durable
 // state; any user-facing cancellation notice is weaker copy policy.
-test("primary action while awaiting paste cancels transient image input", () => {
+test("primary action while awaiting input cancels transient image input", () => {
   const result = handleApplicationCommand({
     state: {
       referenceImageInput: {
-        status: "awaiting-paste",
+        status: "awaiting-input",
         requestId: 1,
       },
     },
@@ -239,5 +243,12 @@ function durableStateChangedEffect(durableState) {
   return {
     kind: "durable-state-changed",
     durableState,
+  };
+}
+
+function requestReferenceImageInputEffect(requestId) {
+  return {
+    kind: "request-reference-image-input",
+    requestId,
   };
 }

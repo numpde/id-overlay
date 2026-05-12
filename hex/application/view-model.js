@@ -60,7 +60,7 @@ function historyControls(state) {
 }
 
 function primaryActionLabel(state) {
-  if (state.referenceImageInput?.status === "awaiting-paste") {
+  if (state.referenceImageInput?.status === "awaiting-input") {
     return "Cancel paste";
   }
   if (!state.session) {

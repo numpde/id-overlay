@@ -77,7 +77,7 @@ test("hydration replaces transient state from durable input", () => {
   assert.deepEqual(handleApplicationCommand({
     state: {
       referenceImageInput: {
-        status: "awaiting-paste",
+        status: "awaiting-input",
         requestId: 1,
       },
       notice: {
