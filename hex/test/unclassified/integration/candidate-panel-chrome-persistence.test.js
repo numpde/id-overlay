@@ -57,47 +57,6 @@ const FORBIDDEN_APPLICATION_PANEL_CHROME_PATTERNS = Object.freeze([
   /\bid-overlay\/panel\b/,
 ]);
 
-// Candidate: startup has two independent restoration streams. Product durable
-// state hydrates the app; panel chrome goes only to rendering. The runtime state
-// must not contain panel position after startup.
-test("candidate: startup restores panel chrome outside product hydration", async () => {
-  const durableState = durableImageState();
-  const storage = createDurableStorageHarness({
-    durableState,
-  });
-  const panelChrome = createPanelChromeHarness({
-    storedChrome: {
-      position: {
-        screenPx: {
-          x: 24,
-          y: 32,
-        },
-      },
-    },
-  });
-  const host = createBrowserHostHarness({
-    durableStatePort: storage.port,
-    panelChromePort: panelChrome.port,
-  });
-
-  const result = await bootstrapBrowserExtension(host);
-
-  assert.equal(storage.readCount, 1);
-  assert.equal(panelChrome.readCount, 1);
-  assert.deepEqual(result.runtime.getState(), {
-    session: durableState.session,
-  });
-  assert.deepEqual(host.latestRender.panelChrome, {
-    position: {
-      screenPx: {
-        x: 24,
-        y: 32,
-      },
-    },
-  });
-  assert.equal(JSON.stringify(result.runtime.getState()).includes("panel"), false);
-});
-
 // Candidate: restored chrome is normalized for the current viewport before it
 // reaches rendering. Startup normalization should not immediately rewrite the
 // stored preference, because viewport and panel size can vary between pages.

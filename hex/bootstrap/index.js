@@ -30,6 +30,8 @@ export async function bootstrapBrowserExtension(host) {
     ownerId: "id-overlay",
   };
   const durableStatePort = host.durableStatePort ?? createNoopDurableStatePort();
+  const panelChromePort = host.panelChromePort ?? createNoopPanelChromePort();
+  const panelChrome = await panelChromePort.readPanelChrome();
   const runtime = wireRuntime({
     initialState: createInitialApplicationState(),
     stepApplication: handleApplicationCommand,
@@ -58,6 +60,7 @@ export async function bootstrapBrowserExtension(host) {
     }
     renderApplicationView({
       host,
+      panelChrome,
       root,
       runtime: startedRuntime,
       dispatchCommand: dispatchAndRender,
@@ -109,11 +112,13 @@ async function hydrateFromDurableState({
 
 function renderApplicationView({
   host,
+  panelChrome,
   root,
   runtime,
   dispatchCommand,
 }) {
   host.renderApplicationView?.({
+    panelChrome,
     root,
     view: selectApplicationView(runtime.getState()),
     dispatchCommand,
@@ -148,5 +153,14 @@ function createNoopDurableStatePort() {
       return null;
     },
     async writeDurableState() {},
+  };
+}
+
+function createNoopPanelChromePort() {
+  return {
+    async readPanelChrome() {
+      return null;
+    },
+    async writePanelChrome() {},
   };
 }
