@@ -99,6 +99,64 @@ test("replacement-pending view still renders the old image", () => {
   assert.doesNotMatch(view.primaryAction.label, /clear/i);
 });
 
+// Class-a: accepting replacement is the destructive moment. It starts a fresh
+// Align session for the new reference, persists that durable state, and records
+// a whole-session history edge so undo restores the previous image.
+test("accepted replacement creates fresh Align session and persists it", () => {
+  const oldState = loadedImageState({
+    mode: "trace",
+    placement: oldPlacement(),
+    pins: [firstPin()],
+    opacity: 0.5,
+  });
+  const newSession = {
+    mode: "align",
+    referenceImage: newReferenceImage(),
+  };
+
+  assert.deepEqual(handleApplicationCommand({
+    state: {
+      ...oldState,
+      referenceImageInput: {
+        status: "awaiting-input",
+        requestId: 4,
+        intent: {
+          kind: "replace-reference-image",
+        },
+      },
+    },
+    command: createApplicationCommand(
+      APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_INPUT_OUTCOME,
+      {
+        requestId: 4,
+        outcome: {
+          kind: "accepted",
+          referenceImage: newReferenceImage(),
+        },
+      },
+    ),
+  }), {
+    state: {
+      session: newSession,
+      history: {
+        past: [replacementHistoryRecord({
+          before: durableStateFromLoadedState(oldState),
+          after: {
+            session: newSession,
+          },
+        })],
+        future: [],
+      },
+    },
+    effects: [{
+      kind: "persist-durable-state",
+      durableState: {
+        session: newSession,
+      },
+    }],
+  });
+});
+
 function loadedImageState({
   mode = "align",
   referenceImage = oldReferenceImage(),
@@ -126,12 +184,38 @@ function loadedImageState({
   };
 }
 
+function durableStateFromLoadedState(state) {
+  return {
+    session: state.session,
+  };
+}
+
+function replacementHistoryRecord({ before, after }) {
+  return {
+    kind: "replace-reference-image",
+    undoLabel: "Restore previous image",
+    redoLabel: "Replace image",
+    before,
+    after,
+  };
+}
+
 function oldReferenceImage() {
   return {
     imageDataRef: "data:image/png;base64,old-reference-image",
     intrinsicSizePx: {
       width: 640,
       height: 480,
+    },
+  };
+}
+
+function newReferenceImage() {
+  return {
+    imageDataRef: "data:image/png;base64,new-reference-image",
+    intrinsicSizePx: {
+      width: 800,
+      height: 600,
     },
   };
 }

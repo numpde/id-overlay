@@ -326,6 +326,23 @@ function reportReferenceImageInputOutcome(state, command) {
     mode: "align",
     referenceImage: command.outcome.referenceImage,
   };
+  if (state.referenceImageInput.intent?.kind === "replace-reference-image") {
+    const nextDurableState = { session };
+    const record = {
+      kind: "replace-reference-image",
+      undoLabel: "Restore previous image",
+      redoLabel: "Replace image",
+      before: selectDurableApplicationState(state),
+      after: nextDurableState,
+    };
+    return {
+      state: {
+        session,
+        history: pushHistory(state.history, record),
+      },
+      effects: [persistDurableStateEffect(nextDurableState)],
+    };
+  }
   return {
     state: {
       session,

@@ -51,64 +51,6 @@ const EFFECT_KIND = Object.freeze({
 
 const STATUS_NOTICE_DELAY_MS = 2500;
 
-// Candidate: accepted replacement starts a fresh image session. Image-specific
-// alignment state from the old image is intentionally not inherited by the new
-// image.
-test("candidate: accepted replacement creates fresh Align session and persists it", () => {
-  const oldState = loadedImageState({
-    mode: "trace",
-    placement: oldPlacement(),
-    pins: [firstPin()],
-    opacity: 0.5,
-  });
-  const newSession = {
-    mode: "align",
-    referenceImage: newReferenceImage(),
-  };
-
-  assert.deepEqual(handleApplicationCommand({
-    state: {
-      ...oldState,
-      referenceImageInput: {
-        status: "awaiting-input",
-        requestId: 4,
-        intent: {
-          kind: "replace-reference-image",
-        },
-      },
-    },
-    command: createApplicationCommand(
-      APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_INPUT_OUTCOME,
-      {
-        requestId: 4,
-        outcome: {
-          kind: "accepted",
-          referenceImage: newReferenceImage(),
-        },
-      },
-    ),
-  }), {
-    state: {
-      session: newSession,
-      history: {
-        past: [replacementHistoryRecord({
-          before: durableStateFromLoadedState(oldState),
-          after: {
-            session: newSession,
-          },
-        })],
-        future: [],
-      },
-    },
-    effects: [{
-      kind: EFFECT_KIND.PERSIST_DURABLE_STATE,
-      durableState: {
-        session: newSession,
-      },
-    }],
-  });
-});
-
 // Candidate: replacement composes with existing history like any other new
 // undoable durable edit. It appends a whole-session replacement record and
 // clears redo because the timeline has branched.
