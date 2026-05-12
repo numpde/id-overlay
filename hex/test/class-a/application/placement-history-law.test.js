@@ -62,6 +62,60 @@ test("undoing placement preserves unrelated current durable state", () => {
   });
 });
 
+// Class-a: placement redo is the same scoped replay in the forward direction.
+// Redo reapplies only the recorded placement revision over the current session.
+test("redoing placement preserves unrelated current durable state", () => {
+  const record = placementHistoryRecord({
+    editKind: "rotate",
+    before: placementRevision({
+      placement: originalPlacement(),
+      solvedRegistration: null,
+    }),
+    after: placementRevision({
+      placement: rotatedPlacement(),
+      solvedRegistration: null,
+    }),
+  });
+
+  assert.deepEqual(handleApplicationCommand({
+    state: {
+      session: referenceImageSession({
+        mode: "align",
+        opacity: 0.7,
+        pins: [firstPin()],
+        placement: originalPlacement(),
+      }),
+      history: {
+        past: [],
+        future: [record],
+      },
+    },
+    command: createApplicationCommand(APPLICATION_COMMAND_KIND.REDO),
+  }), {
+    state: {
+      session: referenceImageSession({
+        mode: "align",
+        opacity: 0.7,
+        pins: [firstPin()],
+        placement: rotatedPlacement(),
+      }),
+      history: {
+        past: [record],
+        future: [],
+      },
+    },
+    effects: [{
+      kind: "persist-durable-state",
+      durableState: durableImageState({
+        mode: "align",
+        opacity: 0.7,
+        pins: [firstPin()],
+        placement: rotatedPlacement(),
+      }),
+    }],
+  });
+});
+
 function placementHistoryRecord({ editKind, before, after }) {
   return {
     kind: "overlay-placement-edit",
@@ -153,6 +207,15 @@ function movedPlacement() {
     y: 50,
     scale: 1,
     rotationRad: 0,
+  });
+}
+
+function rotatedPlacement() {
+  return placement({
+    x: 30,
+    y: 50,
+    scale: 1,
+    rotationRad: 0.5,
   });
 }
 

@@ -50,61 +50,6 @@ const FORBIDDEN_HISTORY_SOURCE_PATTERNS = Object.freeze([
   },
 ]);
 
-// Candidate: redo is the same scoped replay in the other direction. It should
-// reapply the placement revision while preserving whatever unrelated durable
-// facts are current at redo time.
-test("candidate: redoing placement preserves unrelated current durable state", () => {
-  const record = placementHistoryRecord({
-    editKind: "rotate",
-    before: placementRevision({
-      placement: originalPlacement(),
-      solvedRegistration: null,
-    }),
-    after: placementRevision({
-      placement: rotatedPlacement(),
-      solvedRegistration: null,
-    }),
-  });
-
-  assert.deepEqual(handleApplicationCommand({
-    state: {
-      session: referenceImageSession({
-        mode: "align",
-        opacity: 0.7,
-        pins: [firstPin()],
-        placement: originalPlacement(),
-      }),
-      history: {
-        past: [],
-        future: [record],
-      },
-    },
-    command: createApplicationCommand(APPLICATION_COMMAND_KIND.REDO),
-  }), {
-    state: {
-      session: referenceImageSession({
-        mode: "align",
-        opacity: 0.7,
-        pins: [firstPin()],
-        placement: rotatedPlacement(),
-      }),
-      history: {
-        past: [record],
-        future: [],
-      },
-    },
-    effects: [{
-      kind: EFFECT_KIND.PERSIST_DURABLE_STATE,
-      durableState: durableImageState({
-        mode: "align",
-        opacity: 0.7,
-        pins: [firstPin()],
-        placement: rotatedPlacement(),
-      }),
-    }],
-  });
-});
-
 // Candidate: registration fit metadata is part of the placement revision, but
 // only with its pin context. Manual placement clears solved metadata; undo
 // restores it only while the current pins still match the recorded fit.
