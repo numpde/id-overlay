@@ -6,10 +6,14 @@ import {
   createOverlayAdapter,
 } from "../../../adapters/ui/overlay-adapter.js";
 
-// Unclassified candidate: `imageDataRef` is a durable application reference,
-// not necessarily a browser-loadable URL. The DOM overlay should render a
-// shell-supplied display resource while keeping the durable ref only as
-// diagnostic/correlation data.
+// Class-c: durable image refs must not be treated as browser-loadable URLs, but
+// the display-resource port is not implemented yet. This test is intentionally
+// quarantined until the shell resolves `imageDataRef` into a render-scoped
+// display URL and the overlay adapter receives that URL as view data.
+//
+// Decision: keep. The principle is likely correct, but promoting this adapter
+// expectation before the shell/resource lifecycle exists would leave a green
+// adapter test with no real browser-resource ownership.
 test("overlay adapter renders display image URL instead of durable imageDataRef", () => {
   const { window } = new JSDOM("<!doctype html><body></body>");
   const overlay = createOverlayAdapter({
