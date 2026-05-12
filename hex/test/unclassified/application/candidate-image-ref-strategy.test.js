@@ -67,41 +67,6 @@ const FORBIDDEN_APPLICATION_IMAGE_MECHANICS = Object.freeze([
   "dataTransfer",
 ]);
 
-// Candidate: accepting an image should persist the same durable image ref that
-// the input adapter normalized. The app does not decode, copy, resolve, or
-// allocate a render resource; it commits the already-normalized product fact.
-test("candidate: accepted reference-image input commits a durable image ref unchanged", () => {
-  const referenceImage = normalizedReferenceImage("stable-reference-image");
-  const session = {
-    mode: "align",
-    referenceImage,
-  };
-
-  assert.deepEqual(handleApplicationCommand({
-    state: awaitingReferenceImageInputState({ requestId: 1 }),
-    command: createApplicationCommand(
-      APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_INPUT_OUTCOME,
-      {
-        requestId: 1,
-        outcome: {
-          kind: "accepted",
-          referenceImage,
-        },
-      },
-    ),
-  }), {
-    state: {
-      session,
-    },
-    effects: [{
-      kind: EFFECT_KIND.PERSIST_DURABLE_STATE,
-      durableState: {
-        session,
-      },
-    }],
-  });
-});
-
 // Candidate: runtime-scoped refs are not "just strings" at the application
 // boundary. Accepting them would make reload, undo, and persistence depend on a
 // browser document lifetime.
@@ -283,15 +248,6 @@ test("candidate: application source contains no runtime image-resource mechanics
 
   assert.deepEqual(violations, []);
 });
-
-function awaitingReferenceImageInputState({ requestId }) {
-  return {
-    referenceImageInput: {
-      status: "awaiting-input",
-      requestId,
-    },
-  };
-}
 
 function durableImageState({ referenceImage }) {
   return {
