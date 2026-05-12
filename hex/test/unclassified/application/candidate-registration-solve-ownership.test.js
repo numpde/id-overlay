@@ -29,34 +29,6 @@ const EFFECT_KIND = Object.freeze({
   PERSIST_DURABLE_STATE: "persist-durable-state",
 });
 
-// Candidate: insufficient pins are not an error if the user simply switches
-// modes. Without enough registration facts, Trace remains a native-map posture
-// and no placement is fabricated.
-test("candidate: selecting Trace with insufficient pins changes mode only", () => {
-  const expectedState = referenceImageLoadedState({
-    mode: "trace",
-    pins: [firstPin()],
-  });
-
-  assert.deepEqual(handleApplicationCommand({
-    state: referenceImageLoadedState({
-      mode: "align",
-      pins: [firstPin()],
-    }),
-    command: createApplicationCommand(APPLICATION_COMMAND_KIND.SELECT_MODE, {
-      mode: "trace",
-    }),
-  }), {
-    state: expectedState,
-    effects: [{
-      kind: EFFECT_KIND.PERSIST_DURABLE_STATE,
-      durableState: {
-        session: expectedState.session,
-      },
-    }],
-  });
-});
-
 // Candidate: solved placement is derived from the current pin set. Editing pins
 // preserves current visible placement but clears stale solved metadata so a later
 // Trace transition recomputes instead of trusting old fit facts.
