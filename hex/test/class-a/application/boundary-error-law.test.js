@@ -72,8 +72,9 @@ test("known commands with malformed payloads throw ApplicationBoundaryError", ()
 
 // Class-a: an accepted reference-image input result must already be usable
 // application data.
-// Missing image facts, host handles, and impossible dimensions are boundary
-// failures, not product states for the reducer to patch up later.
+// Missing image facts, runtime-scoped refs, host handles, and impossible
+// dimensions are boundary failures, not product states for the reducer to patch
+// up later.
 test("accepted reference-image input outcome requires normalized reference image data", () => {
   for (const { description, outcome } of [
     {
@@ -95,6 +96,24 @@ test("accepted reference-image input outcome requires normalized reference image
         },
       },
     },
+    ...[
+      "blob:https://www.openstreetmap.org/runtime-only",
+      "filesystem:https://www.openstreetmap.org/runtime-only",
+      ["c", "hrome-extension://extension-id/runtime-only.png"].join(""),
+      ["m", "oz-extension://extension-id/runtime-only.png"].join(""),
+    ].map((imageDataRef) => ({
+      description: `runtime-scoped image ref: ${imageDataRef}`,
+      outcome: {
+        kind: "accepted",
+        referenceImage: {
+          imageDataRef,
+          intrinsicSizePx: {
+            width: 640,
+            height: 480,
+          },
+        },
+      },
+    })),
     {
       description: "missing intrinsic size",
       outcome: {

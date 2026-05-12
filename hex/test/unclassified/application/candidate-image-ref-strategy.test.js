@@ -67,30 +67,6 @@ const FORBIDDEN_APPLICATION_IMAGE_MECHANICS = Object.freeze([
   "dataTransfer",
 ]);
 
-// Candidate: runtime-scoped refs are not "just strings" at the application
-// boundary. Accepting them would make reload, undo, and persistence depend on a
-// browser document lifetime.
-test("candidate: reference-image input rejects runtime-scoped image refs", () => {
-  for (const imageDataRef of FORBIDDEN_RUNTIME_IMAGE_REFS) {
-    assertApplicationBoundaryError(
-      () => createApplicationCommand(
-        APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_INPUT_OUTCOME,
-        {
-          requestId: 1,
-          outcome: {
-            kind: "accepted",
-            referenceImage: normalizedReferenceImage("runtime", {
-              imageDataRef,
-            }),
-          },
-        },
-      ),
-      APPLICATION_BOUNDARY_ERROR_CODE.INVALID_APPLICATION_COMMAND,
-      imageDataRef,
-    );
-  }
-});
-
 // Candidate: hidden runtime handles are as bad as runtime URLs. Reference-image
 // data should be a closed plain-data shape: stable ref plus intrinsic size.
 test("candidate: reference-image input rejects extra runtime image handles", () => {
