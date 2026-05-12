@@ -133,3 +133,60 @@ test("matching status clear request removes the current notice", () => {
     effects: [],
   });
 });
+
+// Class-a: destructive-confirmation expiry uses the same correlation rule as
+// status expiry, but it also names the intent. A late timer for an older or
+// different confirmation must not disarm the user's current destructive choice.
+test("clear-panel-intent request clears only the matching confirmation", () => {
+  const state = {
+    session: {
+      mode: "align",
+      referenceImage: {
+        imageDataRef: "reference-image-data-1",
+        intrinsicSizePx: {
+          width: 640,
+          height: 480,
+        },
+      },
+    },
+    panelIntent: {
+      kind: "confirm-clear-reference-image",
+      requestId: 2,
+    },
+  };
+
+  assert.deepEqual(handleApplicationCommand({
+    state,
+    command: createApplicationCommand(APPLICATION_COMMAND_KIND.CLEAR_PANEL_INTENT, {
+      requestId: 1,
+      intentKind: "confirm-clear-reference-image",
+    }),
+  }), {
+    state,
+    effects: [],
+  });
+
+  assert.deepEqual(handleApplicationCommand({
+    state,
+    command: createApplicationCommand(APPLICATION_COMMAND_KIND.CLEAR_PANEL_INTENT, {
+      requestId: 2,
+      intentKind: "confirm-clear-pins",
+    }),
+  }), {
+    state,
+    effects: [],
+  });
+
+  assert.deepEqual(handleApplicationCommand({
+    state,
+    command: createApplicationCommand(APPLICATION_COMMAND_KIND.CLEAR_PANEL_INTENT, {
+      requestId: 2,
+      intentKind: "confirm-clear-reference-image",
+    }),
+  }), {
+    state: {
+      session: state.session,
+    },
+    effects: [],
+  });
+});

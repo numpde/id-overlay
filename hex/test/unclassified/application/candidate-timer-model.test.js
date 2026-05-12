@@ -40,52 +40,6 @@ const FORBIDDEN_TIMER_EFFECT_KINDS = Object.freeze([
   "clear-timeout",
 ]);
 
-// Candidate: clear-panel-intent is a product command, not a timer adapter event.
-// It must be request-scoped and intent-scoped so a late timer cannot cancel a
-// newer or different confirmation.
-test("candidate: clear-panel-intent timer outcome is stale-safe", () => {
-  const state = {
-    ...referenceImageLoadedState(),
-    panelIntent: {
-      kind: "confirm-clear-reference-image",
-      requestId: 2,
-    },
-  };
-
-  assert.deepEqual(handleApplicationCommand({
-    state,
-    command: createApplicationCommand(APPLICATION_COMMAND_KIND.CLEAR_PANEL_INTENT, {
-      requestId: 1,
-      intentKind: "confirm-clear-reference-image",
-    }),
-  }), {
-    state,
-    effects: [],
-  });
-
-  assert.deepEqual(handleApplicationCommand({
-    state,
-    command: createApplicationCommand(APPLICATION_COMMAND_KIND.CLEAR_PANEL_INTENT, {
-      requestId: 2,
-      intentKind: "confirm-clear-pins",
-    }),
-  }), {
-    state,
-    effects: [],
-  });
-
-  assert.deepEqual(handleApplicationCommand({
-    state,
-    command: createApplicationCommand(APPLICATION_COMMAND_KIND.CLEAR_PANEL_INTENT, {
-      requestId: 2,
-      intentKind: "confirm-clear-reference-image",
-    }),
-  }), {
-    state: referenceImageLoadedState(),
-    effects: [],
-  });
-});
-
 // Candidate: timer effects are transient work declarations. They must never
 // appear in durable state and must never smuggle browser timer handles into app
 // state.

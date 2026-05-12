@@ -40,6 +40,8 @@ export function handleApplicationCommand({ state, command }) {
       return clearRegistrationPins(state);
     case APPLICATION_COMMAND_KIND.CLEAR_STATUS_NOTICE:
       return clearStatusNotice(state, command.requestId);
+    case APPLICATION_COMMAND_KIND.CLEAR_PANEL_INTENT:
+      return clearPanelIntent(state, command);
     case APPLICATION_COMMAND_KIND.UNDO:
       return undoHistory(state);
     case APPLICATION_COMMAND_KIND.REDO:
@@ -636,6 +638,26 @@ function clearStatusNotice(state, requestId) {
   const nextState = {};
   for (const [key, value] of Object.entries(state)) {
     if (key !== "notice") {
+      nextState[key] = value;
+    }
+  }
+  return {
+    state: nextState,
+    effects: [],
+  };
+}
+
+function clearPanelIntent(state, command) {
+  if (
+    state.panelIntent?.requestId !== command.requestId
+      || state.panelIntent?.kind !== command.intentKind
+  ) {
+    return inertResult(state);
+  }
+
+  const nextState = {};
+  for (const [key, value] of Object.entries(state)) {
+    if (key !== "panelIntent") {
       nextState[key] = value;
     }
   }

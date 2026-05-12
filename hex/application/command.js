@@ -18,6 +18,7 @@ export const APPLICATION_COMMAND_KIND = Object.freeze({
   REPORT_REFERENCE_IMAGE_INPUT_OUTCOME: "report-reference-image-input-outcome",
   CLEAR_REFERENCE_IMAGE: "clear-reference-image",
   CLEAR_STATUS_NOTICE: "clear-status-notice",
+  CLEAR_PANEL_INTENT: "clear-panel-intent",
   UNDO: "undo",
   REDO: "redo",
   SET_OPACITY: "set-opacity",
