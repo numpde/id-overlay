@@ -254,6 +254,47 @@ test("browser shell unsupported pages do not read panel chrome", async () => {
   assert.deepEqual(panelChrome.writes, []);
 });
 
+// Class-b: panel chrome storage is shell preference storage. Failures should be
+// visible to diagnostics, but they must not poison application state, prevent a
+// safe render, or block later product commands.
+test("browser shell keeps panel chrome storage failures outside application state", async () => {
+  const readError = new Error("panel chrome read failed");
+  const writeError = new Error("panel chrome write failed");
+  const host = createBrowserHostHarness({
+    durableStatePort: createDurableStorageHarness({
+      durableState: durableImageState(),
+    }).port,
+    panelChromePort: {
+      async readPanelChrome() {
+        throw readError;
+      },
+      async writePanelChrome() {
+        throw writeError;
+      },
+    },
+  });
+
+  const result = await bootstrapBrowserExtension(host);
+  await host.dispatchPanelChromeChange({
+    position: {
+      requestedScreenPx: {
+        x: 80,
+        y: 90,
+      },
+      panelSizePx: PANEL_SIZE_PX,
+      viewportPx: VIEWPORT_PX,
+    },
+  });
+  await host.latestRender.dispatchCommand({
+    kind: "select-mode",
+    mode: "trace",
+  });
+
+  assertSafeRenderedPanelChrome(host.latestRender.panelChrome);
+  assert.equal(result.runtime.getState().session.mode, "trace");
+  assert.deepEqual(host.reportedErrors, [readError, writeError]);
+});
+
 function createBrowserHostHarness({
   pageContext = {
     kind: "supported-map-editor-page",
@@ -261,10 +302,12 @@ function createBrowserHostHarness({
   durableStatePort = createDurableStorageHarness({ durableState: null }).port,
   panelChromePort = createPanelChromeHarness().port,
 }) {
+  const reportedErrors = [];
   return {
     pageContext,
     durableStatePort,
     panelChromePort,
+    reportedErrors,
     pageViewportPx: VIEWPORT_PX,
     panelSizePx: PANEL_SIZE_PX,
     latestRender: null,
@@ -276,6 +319,9 @@ function createBrowserHostHarness({
     },
     renderApplicationView(render) {
       this.latestRender = render;
+    },
+    reportRuntimeError(error) {
+      reportedErrors.push(error);
     },
     startRuntime(runtime) {
       return runtime;

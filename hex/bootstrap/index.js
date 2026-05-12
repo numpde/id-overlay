@@ -34,7 +34,10 @@ export async function bootstrapBrowserExtension(host) {
   };
   const durableStatePort = host.durableStatePort ?? createNoopDurableStatePort();
   const panelChromePort = host.panelChromePort ?? createNoopPanelChromePort();
-  let panelChrome = normalizePanelChrome(await panelChromePort.readPanelChrome(), host);
+  let panelChrome = await readPanelChrome({
+    host,
+    panelChromePort,
+  });
   const runtime = wireRuntime({
     initialState: createInitialApplicationState(),
     stepApplication: handleApplicationCommand,
@@ -82,7 +85,11 @@ export async function bootstrapBrowserExtension(host) {
       pageViewportPx: change.position?.viewportPx ?? host.pageViewportPx,
       panelSizePx: change.position?.panelSizePx ?? host.panelSizePx,
     });
-    await panelChromePort.writePanelChrome(panelChrome);
+    try {
+      await panelChromePort.writePanelChrome(panelChrome);
+    } catch (error) {
+      host.reportRuntimeError?.(error);
+    }
     renderApplicationView({
       host,
       panelChrome,
@@ -97,6 +104,15 @@ export async function bootstrapBrowserExtension(host) {
     host,
   });
   return bootstrap;
+}
+
+async function readPanelChrome({ host, panelChromePort }) {
+  try {
+    return normalizePanelChrome(await panelChromePort.readPanelChrome(), host);
+  } catch (error) {
+    host.reportRuntimeError?.(error);
+    return normalizePanelChrome(null, host);
+  }
 }
 
 async function hydrateFromDurableState({

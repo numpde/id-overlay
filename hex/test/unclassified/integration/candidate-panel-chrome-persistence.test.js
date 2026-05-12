@@ -57,47 +57,6 @@ const FORBIDDEN_APPLICATION_PANEL_CHROME_PATTERNS = Object.freeze([
   /\bid-overlay\/panel\b/,
 ]);
 
-// Candidate: panel chrome failures are shell preference failures, not product
-// errors. Read failure falls back to default chrome; write failure is reported
-// without dispatching application commands or killing later product renders.
-test("candidate: panel chrome storage failures stay outside application state", async () => {
-  const readError = new Error("panel chrome read failed");
-  const writeError = new Error("panel chrome write failed");
-  const host = createBrowserHostHarness({
-    durableStatePort: createDurableStorageHarness({
-      durableState: durableImageState(),
-    }).port,
-    panelChromePort: {
-      async readPanelChrome() {
-        throw readError;
-      },
-      async writePanelChrome() {
-        throw writeError;
-      },
-    },
-  });
-
-  const result = await bootstrapBrowserExtension(host);
-  await host.dispatchPanelChromeChange({
-    position: {
-      requestedScreenPx: {
-        x: 80,
-        y: 90,
-      },
-      panelSizePx: PANEL_SIZE_PX,
-      viewportPx: VIEWPORT_PX,
-    },
-  });
-  await host.latestRender.dispatchCommand({
-    kind: "select-mode",
-    mode: "trace",
-  });
-
-  assertSafeRenderedPanelChrome(host.latestRender.panelChrome);
-  assert.deepEqual(result.runtime.getState().session.mode, "trace");
-  assert.deepEqual(host.reportedErrors, [readError, writeError]);
-});
-
 // Candidate: application source should remain completely unaware of panel
 // chrome. This catches the bad future where panel coordinates sneak into
 // durable state, view-model state, commands, or history.
