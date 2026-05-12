@@ -180,6 +180,51 @@ test("browser shell panel drag writes only panel chrome", async () => {
   assert.deepEqual(storage.writes, []);
 });
 
+// Class-b: product commands may cause a render, but panel chrome is not part of
+// product transition output. Re-rendering after mode changes must preserve the
+// current shell preference without writing it again.
+test("browser shell product commands preserve panel chrome without chrome writes", async () => {
+  const storage = createDurableStorageHarness({
+    durableState: durableImageState(),
+  });
+  const panelChrome = createPanelChromeHarness({
+    storedChrome: {
+      position: {
+        screenPx: {
+          x: 44,
+          y: 55,
+        },
+      },
+    },
+  });
+  const host = createBrowserHostHarness({
+    durableStatePort: storage.port,
+    panelChromePort: panelChrome.port,
+  });
+
+  await bootstrapBrowserExtension(host);
+  await host.latestRender.dispatchCommand({
+    kind: "select-mode",
+    mode: "trace",
+  });
+
+  assert.deepEqual(host.latestRender.panelChrome, {
+    position: {
+      screenPx: {
+        x: 44,
+        y: 55,
+      },
+    },
+  });
+  assert.deepEqual(panelChrome.writes, []);
+  assert.deepEqual(storage.writes, [{
+    session: {
+      ...durableImageState().session,
+      mode: "trace",
+    },
+  }]);
+});
+
 function createBrowserHostHarness({
   pageContext = {
     kind: "supported-map-editor-page",

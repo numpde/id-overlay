@@ -57,51 +57,6 @@ const FORBIDDEN_APPLICATION_PANEL_CHROME_PATTERNS = Object.freeze([
   /\bid-overlay\/panel\b/,
 ]);
 
-// Candidate: product commands can re-render the panel, but they must not reset
-// or rewrite persisted panel chrome. Chrome preference survives product session
-// changes because it belongs to the browser-shell lifecycle.
-test("candidate: product commands preserve panel chrome without chrome writes", async () => {
-  const storage = createDurableStorageHarness({
-    durableState: durableImageState(),
-  });
-  const panelChrome = createPanelChromeHarness({
-    storedChrome: {
-      position: {
-        screenPx: {
-          x: 44,
-          y: 55,
-        },
-      },
-    },
-  });
-  const host = createBrowserHostHarness({
-    durableStatePort: storage.port,
-    panelChromePort: panelChrome.port,
-  });
-
-  await bootstrapBrowserExtension(host);
-  await host.latestRender.dispatchCommand({
-    kind: "select-mode",
-    mode: "trace",
-  });
-
-  assert.deepEqual(host.latestRender.panelChrome, {
-    position: {
-      screenPx: {
-        x: 44,
-        y: 55,
-      },
-    },
-  });
-  assert.deepEqual(panelChrome.writes, []);
-  assert.deepEqual(storage.writes, [{
-    session: {
-      ...durableImageState().session,
-      mode: "trace",
-    },
-  }]);
-});
-
 // Candidate: unsupported pages have no extension chrome lifecycle. They should
 // not read or write panel chrome any more than they read product durable state.
 test("candidate: unsupported pages do not read panel chrome", async () => {
