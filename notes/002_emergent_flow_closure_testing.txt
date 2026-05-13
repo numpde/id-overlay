@@ -1,0 +1,503 @@
+Emergent flow closure testing
+
+Context
+
+The hexagonal rebuild has good small tests for many pieces:
+
+- application commands produce state and plain-data effects
+- adapters translate browser/page/UI mechanics into semantic facts
+- runtime executes declared effects
+- integration harnesses show selected shell routes
+
+But a live browser check exposed a different class of failure. Pressing Paste
+could put the app into its awaiting-input posture, but Ctrl+V did nothing. The
+application behavior was defined correctly: activate-primary-action emitted a
+request-reference-image-input effect. The gap was downstream of the app: the
+tested integration path supplied a reference-image input port by hand, while
+the actually running browser composition did not provide one.
+
+This is not a reason to make a larger centralized state machine. It is a reason
+to make the tests reveal the flow graph they already exercise, then audit that
+graph for dangling or weakly-proven edges.
+
+The goal
+
+The goal is an emergent graph from tests:
+
+  run tests -> collect trace evidence -> build graph -> inspect closure
+
+The graph should not be a source of truth that tests read. It should be an
+artifact of executing behavior tests. Existing tests remain local, small, and
+behavioral. The trace records what happened at reusable harness boundaries.
+
+This gives us a way to detect "anodyne" tests: tests that pass because they
+inject a perfect fake capability, while never proving that the same edge exists
+in the composition being exercised by users.
+
+What counts as a flow edge
+
+Useful trace nodes include:
+
+- user or adapter sources
+- semantic application commands
+- application effects
+- runtime effect handlers
+- ports and port methods
+- callbacks from ports back into commands
+- terminal sinks such as render, durable write, panel chrome write, forwarded
+  native-map gesture, or diagnostic report
+- intentionally inert terminals
+
+Example reference-image input flow:
+
+  source.panel.primary
+  -> command.activate-primary-action
+  -> effect.request-reference-image-input
+  -> port.reference-image-input.start
+  -> source.reference-image-input.accepted
+  -> command.report-reference-image-input-outcome
+  -> sink.durable-state.write
+  -> sink.render
+
+The graph must also record provenance. An edge through a harness-injected fake
+port is not the same evidence as an edge through a shell-created port. Both can
+be valid, but they answer different questions.
+
+Example provenance:
+
+- provider: harness-injected
+- provider: shell-created
+- provider: adapter-under-test
+- provider: production-like-composition
+- terminal: intentionally-inert
+
+The paste failure would have shown up as:
+
+  effect.request-reference-image-input
+    -> port.reference-image-input.start
+       provider: harness-injected
+
+with no corresponding evidence at the required provenance level for the browser
+composition being used.
+
+Avoiding a central flow spec
+
+Do not introduce a FLOW constant that every test imports and obeys. That would
+be a second design artifact, close to an explicit centralized state machine.
+It would also invite tests to conform to the declared graph rather than expose
+the graph implied by behavior.
+
+Instead, let harness primitives record traces at the moment they do real work.
+The tests should not narrate traces manually.
+
+Bad shape:
+
+  trace.edge("effect.request-reference-image-input",
+    "port.reference-image-input.start");
+  input.starts.push(...);
+
+This can drift. The trace can say an edge happened even if the harness behavior
+later changes.
+
+Better shape:
+
+  port: {
+    startReferenceImageInput(args) {
+      trace.edge("effect.request-reference-image-input",
+        "port.reference-image-input.start", {
+          provider: "harness-injected",
+        });
+      starts.push(args);
+      reporters.set(args.requestId, args.reportOutcome);
+    },
+  }
+
+Better still, repeated patterns become trace-aware harness primitives:
+
+  tracePort("reference-image-input", {
+    startReferenceImageInput(args) {
+      starts.push(args);
+      reporters.set(args.requestId, args.reportOutcome);
+    },
+  });
+
+The important rule:
+
+  The trace is recorded by the same primitive that performs the behavior.
+
+Within-test drift risk
+
+There is a real risk that trace assertions drift from behavior assertions if
+they are written beside the test as a parallel story. Avoid that.
+
+Do not write tests like:
+
+  trace.edge("source.panel.primary", "command.activate-primary-action");
+  await host.latestRender.dispatchCommand({ kind: "activate-primary-action" });
+
+Prefer:
+
+  await host.dispatchUserCommand("panel.primary", {
+    kind: "activate-primary-action",
+  });
+
+The helper records and dispatches atomically. The test body remains readable,
+and the trace cannot claim the source edge without actually dispatching the
+command.
+
+The same applies to callbacks:
+
+  await input.accept(requestId, outcome);
+
+The accept helper records the callback edge and invokes the stored callback.
+The test should not separately push a trace edge and then poke the callback.
+
+How existing tests should change
+
+Do not rewrite all tests at once. Start with boundary-heavy tests, one at a
+time, keeping their existing assertions intact.
+
+Good first candidates:
+
+- reference-image-input shell lifecycle
+- scheduled-command shell lifecycle
+- interaction runtime
+- panel chrome persistence
+- storage failure lifecycle
+- browser shell mode switching
+
+For each test:
+
+1. Add or use a FlowTrace helper.
+2. Replace ad hoc arrays such as commands, starts, writes, schedules, and
+   renders with trace-aware harness primitives where useful.
+3. Record provider provenance when the harness supplies a port or source.
+4. Record terminal sinks from the primitives that perform them.
+5. Record intentional inertness explicitly when "nothing happens" is the
+   behavior under test.
+6. Keep the original behavior assertions.
+7. Add, at most, a narrow local trace assertion while the trace vocabulary is
+   still settling.
+
+The converted tests should still read as behavior tests. For example:
+
+  await host.dispatchUserCommand("panel.primary", {
+    kind: "activate-primary-action",
+  });
+  await input.accept(1, {
+    kind: "accepted",
+    referenceImage,
+  });
+
+  assert.deepEqual(result.runtime.getState(), expectedState);
+  assert.deepEqual(storage.writes, [expectedDurableState]);
+
+The trace is emitted by host.dispatchUserCommand, input.accept, storage.write,
+renderApplicationView, and the traced port methods.
+
+Current witness convention
+
+Converted tests use this filename shape:
+
+  *.flow-witness.test.js
+
+This means the test emits flow evidence and is eligible for trace collection.
+Normal tests remain normal tests; they do not need to know about the trace
+layer.
+
+The current witness set started with a random sample, not the known paste
+problem:
+
+- class-a application mode transition
+- class-b application history feedback
+- class-b UI panel adapter
+- class-b browser session lifecycle
+
+This was intentional. The goal is not to special-case the failure we already
+know about. The goal is to learn whether traces can be emitted from ordinary
+tests without turning them into graph-spec tests.
+
+JSONL emission layer
+
+The shared helper lives at:
+
+  hex/test/support/flow-trace.js
+
+It exports:
+
+  createFlowTrace({ file, test })
+  flowEdge(from, to, attributes)
+
+The helper has two responsibilities:
+
+1. Keep edges in memory for local assertions:
+
+     const trace = createFlowTrace({
+       file: import.meta.url,
+       test: "panel adapter emits semantic commands only",
+     });
+
+     trace.edge(flowEdge("source.panel.primary.click",
+       "command.activate-primary-action", {
+         provider: "panel-adapter",
+       }));
+
+     assert.deepEqual(trace.edges, expectedEdges);
+
+2. Write JSONL artifact rows only when FLOW_TRACE_DIR is set.
+
+When FLOW_TRACE_DIR is unset, the helper does no filesystem work. This keeps
+ordinary test runs ordinary.
+
+When FLOW_TRACE_DIR is set, every edge is appended as one JSON object:
+
+  {
+    "file": "hex/test/class-b/adapters/panel-adapter.flow-witness.test.js",
+    "test": "panel adapter emits semantic commands only",
+    "from": "source.panel.primary.click",
+    "to": "command.activate-primary-action",
+    "provider": "panel-adapter"
+  }
+
+Required record fields:
+
+- file
+- test
+- from
+- to
+
+The helper fails immediately if file, test, from, or to is missing in artifact
+mode. It does not invent vague defaults.
+
+Optional fields currently in use:
+
+- provider
+- terminal
+- phase
+
+The phase field is used when one test intentionally exercises the same edge
+more than once under different cases. This prevents repeated behavior from
+collapsing into an indistinguishable duplicate record.
+
+Source and attribute scopes
+
+The helper also supports:
+
+  trace.withSource(source, run)
+  trace.withAttributes(attributes, run)
+
+These are for harness primitives. For example, a panel harness can set the
+current source while it dispatches a click:
+
+  trace.withSource("source.panel.primary.click", () => {
+    root.querySelector("[data-control='primary']").click();
+  });
+
+Then the adapter callback records the command edge using the active source:
+
+  emitCommand(command) {
+    trace.edge(flowEdge(trace.activeSource(), `command.${command.kind}`, {
+      provider: "panel-adapter",
+    }));
+  }
+
+This keeps the trace coupled to the action that actually happened.
+
+Witness run command
+
+The current command is:
+
+  npm run test:flow:witnesses
+
+It does the following:
+
+  rm -rf .tmp/flow-traces
+  mkdir -p .tmp/flow-traces
+  FLOW_TRACE_DIR=.tmp/flow-traces node --test \
+    $(find hex/test -type f -name '*.flow-witness.test.js' | sort)
+
+The generated artifacts live under:
+
+  .tmp/flow-traces/
+
+The .tmp directory is ignored by git.
+
+Current status
+
+At the time this note was updated:
+
+  npm run test:flow
+
+passes, emits JSONL, and audits the generated artifacts as a normal test. The
+current witness set produced 187 trace records.
+
+The artifact audit test lives at:
+
+  hex/test/flow/trace-artifacts.test.js
+
+It reads only the trace directory and generated JSONL files under strict rules:
+
+- FLOW_TRACE_DIR is required and must be exactly .tmp/flow-traces
+- directory must exist
+- artifact files must be pid-named JSONL files
+- at least one JSONL file must exist
+- every JSONL file must contain at least one record
+- every JSONL file must contain records for exactly one witness file
+- blank interior lines fail
+- artifacts must end with a newline
+- every line must parse as JSON
+- each record must have file, test, from, and to
+- only file, test, from, to, phase, provider, and terminal are accepted
+- record fields must appear in the canonical order
+- trace node names must use the audited node vocabulary
+- each edge must have exactly one of provider or terminal
+- edge kind transitions must be allowed by the audited trace vocabulary
+- terminal edges must end at sink.* or inert.* nodes
+- provider names and terminal names must be from the audited vocabulary
+- provider names must be valid for the specific edge they claim to prove
+- shell effect-handler edges must route each effect to its exact port
+- terminal edges must be emitted by the exact allowed owner for that sink/inert
+- each recorded witness file must emit records through exactly one artifact file
+- repeated same-test edge evidence must carry unique phase labels
+- exact duplicate records fail; repeated actions need a phase
+- non-terminal targets must have outgoing evidence
+- non-entry emitters must have incoming evidence
+- every graph node must be reachable from a source/check/view entry or approved
+  root command
+- every non-terminal graph node must be able to reach a sink.* or inert.*
+  terminal
+- application-produced effects must have browser-shell effect-handler evidence
+- browser-shell effect-handler edges must have corresponding app-produced
+  effect evidence
+- reached commands must have application state evidence, including commands
+  introduced by vocabulary checks
+- command effect, inert, and view evidence must have same-test state evidence
+- callbacks must have owner/registration evidence, source firing evidence, and
+  outgoing evidence from matching providers
+- bootstrap render evidence must have same-test startup evidence
+- rendered-command render evidence must have same-test dispatch evidence
+- callback render evidence must have same-test command evidence
+- timer schedule and timer callback evidence must use the exact known callback
+  and command pairing
+- interaction runtime evidence must use exact adapter-fact source to port/command
+  pairings, and projection/selection ports must terminate explicitly
+
+This is still not a product-flow source of truth. It does not list expected
+user flows. It audits whether the graph emitted by tests is admissible, closed
+at the node level, and backed by sufficiently strong provenance for effect
+handling, callback ownership, and render-after-action evidence. Malformed JSONL
+and convention violations fail with precise file and line context.
+
+It intentionally does not scan witness source files. If a test does not emit any
+trace record, that absence must be solved at the trace emission or witness-runner
+level, not by making the artifact audit read source.
+
+The current combined command is:
+
+  npm run test:flow
+
+It runs the witness tests, emits JSONL, and then runs the artifact audit test.
+
+Closure audit
+
+Closure questions now move into the artifact audit test itself, one rule at a
+time. The audit consumes trace artifacts and checks closure without introducing
+a product-flow source of truth.
+
+Useful closure questions:
+
+- Does every non-inert application effect observed in tests reach a handler or
+  terminal sink?
+- Does every effect handler either terminate explicitly or re-enter through a
+  known command?
+- Do user-visible flows close at the required provenance level?
+- Are there edges closed only by harness-injected providers?
+- Are there callbacks that can be fired without a recorded owner or cancellation
+  path?
+- Are there terminal sinks that appear without being declared as legitimate
+  sinks by their harness primitive?
+
+The audit should stay conservative. Its value is not to prove the whole system
+perfectly; it is to make weak evidence visible. A useful failure is allowed to
+say:
+
+  reference image input is closed under harness-injected provider,
+  but not yet proven under production-like composition.
+
+That is exactly the class of issue we want surfaced before manual browser
+testing.
+
+Relationship to tiny tests
+
+The app behavior should remain completely defined by tiny tests. Tiny app tests
+define command -> state/effect/view behavior. Tiny adapter tests define browser
+mechanics -> semantic facts or port outcomes. Tiny runtime tests define effect
+execution and re-entry. Tiny integration tests define shell routes.
+
+The graph closure audit does not replace those tests. It connects their
+evidence.
+
+The desired testing shape is:
+
+  many small tests prove local behavior
+  shared harness primitives emit trace evidence
+  one audit inspects whether the emergent flow graph has dangling edges
+
+This preserves the hexagonal design. It avoids a centralized flow spec. It also
+raises the bar on tests that are currently too harmless because they inject the
+capability they claim the shell provides.
+
+Vocabulary discipline
+
+Use stable boundary vocabulary in trace nodes, but do not require production to
+depend on it.
+
+Good trace names:
+
+- source.panel.primary
+- command.activate-primary-action
+- effect.request-reference-image-input
+- port.reference-image-input.start
+- callback.reference-image-input.outcome
+- sink.durable-state.write
+- sink.render
+- inert.pin-projection-miss
+
+Avoid naming DOM mechanics in graph nodes unless the adapter test is explicitly
+about browser mechanics. For app and shell closure, the graph should speak in
+semantic sources, commands, effects, ports, callbacks, and sinks.
+
+Trace node names currently use one of these prefixes:
+
+- callback.*
+- check.*
+- command.*
+- effect.*
+- inert.*
+- port.*
+- sink.*
+- source.*
+- view.*
+
+Words inside trace node names and labels use lowercase dash-separated tokens,
+with dots separating boundary levels.
+
+Immediate next step
+
+The first gap-driven conversion pass closed the obvious non-terminal targets in
+the current emitted graph:
+
+- command.set-opacity
+- effect.persist-durable-state
+- port.durable-state.read
+- effect.schedule-application-command
+- command.clear-status-notice
+- command.clear-panel-intent
+- effect.request-reference-image-input
+- effect.cancel-reference-image-input
+
+The artifact audit now reports no open non-terminal targets and no orphan
+non-entry emitters in the current witness corpus. The next step is not to
+declare closure solved; it is to continue moving closure questions into the
+artifact audit test, one at a time, with the same discipline: no external graph
+spec and no silent fallback.

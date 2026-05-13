@@ -14,6 +14,9 @@
     "test:hex:quarantine": "npm run test:hex:class-c",
     "test:hex:application": "npm run test:hex:harness",
     "test:hex": "npm run test:hex:class-a && npm run test:hex:class-b",
+    "test:flow:witnesses": "rm -rf .tmp/flow-traces && mkdir -p .tmp/flow-traces && files=$(find hex/test -type f -name '*.flow-witness.test.js' | sort); if [ -n \"$files\" ]; then FLOW_TRACE_DIR=.tmp/flow-traces node --test $files; else echo \"No flow witness tests\"; fi",
+    "test:flow:artifacts": "FLOW_TRACE_DIR=.tmp/flow-traces node --test hex/test/flow/trace-artifacts.test.js",
+    "test:flow": "npm run test:flow:witnesses && npm run test:flow:artifacts",
     "test": "npm run test:hex"
   },
   "devDependencies": {
