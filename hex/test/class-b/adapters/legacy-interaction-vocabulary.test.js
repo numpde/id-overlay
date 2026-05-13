@@ -46,6 +46,40 @@ test("legacy overlay pin gesture is double-click, not plain click", () => {
   assertNoDomInputVocabulary(facts);
 });
 
+// Class-b: in Align, overlay pointerdown owns the browser click sequence so a
+// click on the overlay cannot leak to the native map. Pointerdown alone is not a
+// product edit and should not emit an inward interaction fact.
+test("overlay pointerdown owns the DOM click sequence without forcing a product edit", () => {
+  const { window } = new JSDOM("<!doctype html><body><div id='map'><div id='overlay'></div></div></body>");
+  const map = window.document.getElementById("map");
+  const overlaySurface = window.document.getElementById("overlay");
+  const facts = [];
+  let mapPointerDownCount = 0;
+  const overlay = createOverlayAdapter({
+    document: window.document,
+    emitInteractionFact(fact) {
+      facts.push(fact);
+    },
+  });
+  map.addEventListener("pointerdown", () => {
+    mapPointerDownCount += 1;
+  });
+  overlay.bindInput(overlaySurface);
+
+  const event = new window.MouseEvent("pointerdown", {
+    bubbles: true,
+    cancelable: true,
+    clientX: 512,
+    clientY: 288,
+    button: 0,
+  });
+  overlaySurface.dispatchEvent(event);
+
+  assert.equal(event.defaultPrevented, true);
+  assert.equal(mapPointerDownCount, 0);
+  assert.deepEqual(facts, []);
+});
+
 test("keyboard P uses the same source-neutral pin-toggle vocabulary", () => {
   const { window } = new JSDOM("<!doctype html><body></body>");
   const facts = [];
