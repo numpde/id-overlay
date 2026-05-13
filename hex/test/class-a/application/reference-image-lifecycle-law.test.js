@@ -9,13 +9,17 @@ import { handleApplicationCommand } from "../../../application/handle-command.js
 import { createInitialApplicationState } from "../../../application/state.js";
 
 // Class-a: accepting a reference image creates the first visible overlay
-// session. The canonical first posture is Align, and the new durable session is
-// emitted as host work rather than written by the application.
-test("accepted reference image creates an Align session and durability effect", () => {
+// session. The canonical first posture is Align, the load is undoable, and the
+// new durable session is emitted as host work rather than written by the
+// application.
+test("accepted reference image creates an undoable Align session and durability effect", () => {
   const referenceImage = normalizedReferenceImage();
   const session = {
     mode: "align",
     referenceImage,
+  };
+  const durableState = {
+    session,
   };
 
   assert.deepEqual(handleApplicationCommand({
@@ -38,11 +42,13 @@ test("accepted reference image creates an Align session and durability effect", 
   }), {
     state: {
       session,
+      history: {
+        past: [loadReferenceImageHistoryRecord(durableState)],
+        future: [],
+      },
     },
     effects: [
-      persistDurableStateEffect({
-        session,
-      }),
+      persistDurableStateEffect(durableState),
     ],
   });
 });
@@ -54,6 +60,9 @@ test("accepted reference image clears pending input notice and panel intent", ()
   const session = {
     mode: "align",
     referenceImage,
+  };
+  const durableState = {
+    session,
   };
 
   assert.deepEqual(handleApplicationCommand({
@@ -82,11 +91,13 @@ test("accepted reference image clears pending input notice and panel intent", ()
   }), {
     state: {
       session,
+      history: {
+        past: [loadReferenceImageHistoryRecord(durableState)],
+        future: [],
+      },
     },
     effects: [
-      persistDurableStateEffect({
-        session,
-      }),
+      persistDurableStateEffect(durableState),
     ],
   });
 });
@@ -203,6 +214,14 @@ function persistDurableStateEffect(durableState) {
   return {
     kind: "persist-durable-state",
     durableState,
+  };
+}
+
+function loadReferenceImageHistoryRecord(durableState) {
+  return {
+    kind: "load-reference-image",
+    before: null,
+    after: durableState,
   };
 }
 

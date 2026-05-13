@@ -13,8 +13,6 @@ import { handleApplicationCommand } from "../../../application/handle-command.js
 test("undo replays the latest history record before-state durably", () => {
   const record = {
     kind: "load-reference-image",
-    undoLabel: "Remove image",
-    redoLabel: "Reload image",
     before: null,
     after: referenceImageDurableState(),
   };
@@ -29,17 +27,15 @@ test("undo replays the latest history record before-state durably", () => {
     command: createApplicationCommand(APPLICATION_COMMAND_KIND.UNDO),
   });
 
-  assert.deepEqual(result, {
-    state: {
-      history: {
-        past: [],
-        future: [record],
-      },
-    },
-    effects: [
-      persistDurableStateEffect(null),
-    ],
+  assert.equal(Object.hasOwn(result.state, "session"), false);
+  assert.deepEqual(result.state.history, {
+    past: [],
+    future: [record],
   });
+  assert.deepEqual(
+    persistDurableStateEffects(result.effects),
+    [persistDurableStateEffect(null)],
+  );
 });
 
 // Class-a: redo is the same durable-state replay in the other direction. The
@@ -48,8 +44,6 @@ test("undo replays the latest history record before-state durably", () => {
 test("redo replays the latest history record after-state durably", () => {
   const record = {
     kind: "load-reference-image",
-    undoLabel: "Remove image",
-    redoLabel: "Reload image",
     before: null,
     after: referenceImageDurableState(),
   };
@@ -63,18 +57,49 @@ test("redo replays the latest history record after-state durably", () => {
     command: createApplicationCommand(APPLICATION_COMMAND_KIND.REDO),
   });
 
-  assert.deepEqual(result, {
+  assert.deepEqual(result.state.session, referenceImageLoadedState().session);
+  assert.deepEqual(result.state.history, {
+    past: [record],
+    future: [],
+  });
+  assert.deepEqual(
+    persistDurableStateEffects(result.effects),
+    [persistDurableStateEffect(referenceImageDurableState())],
+  );
+});
+
+// Class-a: initial image load is undoable legacy product behavior, and replaying
+// that undo must also clear stale destructive confirmation UI state.
+test("undoing initial reference-image load clears stale confirmation state", () => {
+  const record = {
+    kind: "load-reference-image",
+    before: null,
+    after: referenceImageDurableState(),
+  };
+  const result = handleApplicationCommand({
     state: {
       ...referenceImageLoadedState(),
+      panelIntent: {
+        kind: "confirm-clear-reference-image",
+      },
       history: {
         past: [record],
         future: [],
       },
     },
-    effects: [
-      persistDurableStateEffect(referenceImageDurableState()),
-    ],
+    command: createApplicationCommand(APPLICATION_COMMAND_KIND.UNDO),
   });
+
+  assert.equal(Object.hasOwn(result.state, "session"), false);
+  assert.equal(Object.hasOwn(result.state, "panelIntent"), false);
+  assert.deepEqual(result.state.history, {
+    past: [],
+    future: [record],
+  });
+  assert.deepEqual(
+    persistDurableStateEffects(result.effects),
+    [persistDurableStateEffect(null)],
+  );
 });
 
 // Class-a: a new durable edit creates a new timeline branch. Even when that
@@ -163,4 +188,8 @@ function persistDurableStateEffect(durableState) {
     kind: "persist-durable-state",
     durableState,
   };
+}
+
+function persistDurableStateEffects(effects) {
+  return effects.filter((effect) => effect.kind === "persist-durable-state");
 }
