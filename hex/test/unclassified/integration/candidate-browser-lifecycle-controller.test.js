@@ -97,6 +97,40 @@ test("stale rendered dispatch is inert after dispose", async () => {
   assert.equal(host.renderCount, 1);
 });
 
+// Unclassified candidate: the legacy app tied the active content session to the
+// page lifetime with one beforeunload teardown. This keeps the behavior visible
+// without freezing whether teardown is exposed through `dispose`, an owner
+// window port, or a higher-level browser lifecycle controller.
+test("owner window beforeunload tears down the active browser session once", async () => {
+  const ownerWindow = createWindowLifecycleHarness();
+  const host = createLifecycleHostHarness({
+    ownerWindow,
+    pageContext: {
+      kind: "supported-map-editor-page",
+    },
+  });
+
+  await bootstrapBrowserExtension(host);
+
+  assert.equal(ownerWindow.listenerCount("beforeunload"), 1);
+
+  ownerWindow.dispatch("beforeunload");
+  ownerWindow.dispatch("beforeunload");
+
+  assert.equal(ownerWindow.listenerCount("beforeunload"), 0);
+  assertEventCounts(host.events, {
+    "mount-root:id-overlay": 1,
+    "start-runtime": 1,
+    "read-durable-state": 1,
+    render: 1,
+    "bind-input": 1,
+    "dispose-input": 1,
+    "dispose-root:id-overlay": 1,
+    "dispose-runtime": 1,
+  });
+  assertEventBefore(host.events, "bind-input", "dispose-input");
+});
+
 // Unclassified candidate: this is the desired lifecycle cut-over, but source-name assertions
 // are not authority. Keep it unclassified until an explicit lifecycle controller
 // is real and behavior tests, not a magic function name, define the boundary.
@@ -123,6 +157,7 @@ function durableImageState({ mode }) {
 }
 
 function createLifecycleHostHarness({
+  ownerWindow = createWindowLifecycleHarness(),
   pageContext,
   durableState = null,
 }) {
@@ -133,6 +168,7 @@ function createLifecycleHostHarness({
 
   return {
     pageContext,
+    ownerWindow,
     events,
     storageWrites,
     get latestRender() {
@@ -182,6 +218,32 @@ function createLifecycleHostHarness({
           originalDispose?.();
         },
       };
+    },
+  };
+}
+
+function createWindowLifecycleHarness() {
+  const listeners = new Map();
+
+  return {
+    addEventListener(type, listener) {
+      listeners.set(type, [...(listeners.get(type) ?? []), listener]);
+    },
+    removeEventListener(type, listener) {
+      listeners.set(
+        type,
+        (listeners.get(type) ?? []).filter((candidate) => candidate !== listener),
+      );
+    },
+    listenerCount(type) {
+      return listeners.get(type)?.length ?? 0;
+    },
+    dispatch(type) {
+      for (const listener of listeners.get(type) ?? []) {
+        listener({
+          type,
+        });
+      }
     },
   };
 }
