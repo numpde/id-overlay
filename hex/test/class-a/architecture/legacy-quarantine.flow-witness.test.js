@@ -5,6 +5,10 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 
 import {
+  createFlowTrace,
+  flowEdge,
+} from "../../support/flow-trace.js";
+import {
   HEX_ROOT,
   extractImportSpecifiers,
   hexPath,
@@ -17,12 +21,28 @@ import {
 } from "./source-files.js";
 
 test("legacy implementation remains quarantined outside the hex tree", () => {
+  const trace = createFlowTrace({
+    file: import.meta.url,
+    test: "legacy implementation remains quarantined outside the hex tree",
+  });
   assert.equal(fs.existsSync(repoPath("legacy/src")), true);
   assert.equal(fs.existsSync(repoPath("legacy/test")), true);
   assert.equal(fs.existsSync(hexPath("legacy")), false);
+  assert.deepEqual(traceArchitectureCheck({
+    trace,
+    check: "check.legacy-quarantine",
+  }), [
+    flowEdge("check.legacy-quarantine", "sink.architecture-legacy-boundary", {
+      terminal: "architecture-check",
+    }),
+  ]);
 });
 
 test("hex JavaScript files do not import legacy code", () => {
+  const trace = createFlowTrace({
+    file: import.meta.url,
+    test: "hex JavaScript files do not import legacy code",
+  });
   const violations = [];
   for (const filePath of listJavaScriptFiles(HEX_ROOT, { includeTests: true })) {
     for (const specifier of extractImportSpecifiers(readSource(filePath))) {
@@ -36,6 +56,14 @@ test("hex JavaScript files do not import legacy code", () => {
   }
 
   assert.deepEqual(violations, []);
+  assert.deepEqual(traceArchitectureCheck({
+    trace,
+    check: "check.hex-legacy-imports",
+  }), [
+    flowEdge("check.hex-legacy-imports", "sink.architecture-legacy-boundary", {
+      terminal: "architecture-check",
+    }),
+  ]);
 });
 
 // Class-a: legacy is reference material, not a dependency tier. The future
@@ -43,6 +71,10 @@ test("hex JavaScript files do not import legacy code", () => {
 // cover them too; otherwise a "clean" core could still ship through legacy
 // content or packaging code.
 test("browser shell and build path do not reference legacy", () => {
+  const trace = createFlowTrace({
+    file: import.meta.url,
+    test: "browser shell and build path do not reference legacy",
+  });
   const violations = [];
   for (const filePath of [
     ...listJavaScriptFiles(repoPath("src")),
@@ -58,4 +90,25 @@ test("browser shell and build path do not reference legacy", () => {
   }
 
   assert.deepEqual(violations, []);
+  assert.deepEqual(traceArchitectureCheck({
+    trace,
+    check: "check.browser-legacy-imports",
+  }), [
+    flowEdge("check.browser-legacy-imports", "sink.architecture-legacy-boundary", {
+      terminal: "architecture-check",
+    }),
+  ]);
 });
+
+function traceArchitectureCheck({ trace, check }) {
+  const edges = [
+    flowEdge(check, "sink.architecture-legacy-boundary", {
+      terminal: "architecture-check",
+    }),
+  ];
+  for (const edge of edges) {
+    trace.edge(edge);
+  }
+  assert.deepEqual(trace.edges, edges);
+  return edges;
+}
