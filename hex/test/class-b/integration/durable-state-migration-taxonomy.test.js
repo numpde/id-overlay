@@ -28,6 +28,94 @@ test("unsupported durable-state variants all recover to empty startup state", as
   }
 });
 
+// Class-b: old releases persisted map-centered placement records. Those are
+// recoverable only with live page context; they must not be treated as the same
+// corrupt-placement bucket as arbitrary malformed durable state.
+test("legacy map-centered placement migrates through a live page snapshot", async () => {
+  const referenceImage = normalizedReferenceImage();
+  const legacyPlacement = legacyMapCenteredPlacement();
+  const liveMapSnapshot = supportedMapSnapshot();
+  const canonicalPlacement = placement({
+    x: 372,
+    y: 272,
+    scale: 1.25,
+    rotationRad: 0.5,
+  });
+  const storage = createDurableStorageHarness({
+    durableState: legacyDurableImageState({
+      referenceImage,
+      placement: legacyPlacement,
+    }),
+  });
+  const migration = createLegacyPlacementMigrationHarness({
+    placement: canonicalPlacement,
+  });
+  const host = createBrowserHostHarness({
+    durableStatePort: storage.port,
+    pageSnapshotPort: {
+      readSnapshot() {
+        return liveMapSnapshot;
+      },
+    },
+    legacyPlacementMigrationPort: migration.port,
+  });
+
+  const result = await bootstrapBrowserExtension(host);
+
+  assert.deepEqual(migration.calls, [{
+    referenceImage,
+    legacyPlacement,
+    pageSnapshot: liveMapSnapshot,
+  }]);
+  assert.deepEqual(result.runtime.getState(), currentDurableImageState({
+    referenceImage,
+    placement: canonicalPlacement,
+    opacity: 0.5,
+  }));
+  assert.deepEqual(storage.writes, [currentDurableImageState({
+    referenceImage,
+    placement: canonicalPlacement,
+    opacity: 0.5,
+  })]);
+});
+
+// Class-b: if page context is not usable yet, the shell should keep the image
+// recoverable instead of clearing the whole durable record or guessing a
+// placement. A later page-observation lifecycle can reconcile it.
+test("unresolved legacy map-centered placement keeps the image session", async () => {
+  const referenceImage = normalizedReferenceImage();
+  const storage = createDurableStorageHarness({
+    durableState: legacyDurableImageState({
+      referenceImage,
+      placement: legacyMapCenteredPlacement(),
+    }),
+  });
+  const migration = createLegacyPlacementMigrationHarness({
+    placement: placement(),
+  });
+  const host = createBrowserHostHarness({
+    durableStatePort: storage.port,
+    pageSnapshotPort: {
+      readSnapshot() {
+        return {
+          kind: "unavailable-map-snapshot",
+          reason: "missing-map-view",
+        };
+      },
+    },
+    legacyPlacementMigrationPort: migration.port,
+  });
+
+  const result = await bootstrapBrowserExtension(host);
+
+  assert.deepEqual(migration.calls, []);
+  assert.deepEqual(result.runtime.getState(), currentDurableImageState({
+    referenceImage,
+    opacity: 0.5,
+  }));
+  assert.deepEqual(storage.writes, []);
+});
+
 function unsupportedDurableStates() {
   const referenceImage = normalizedReferenceImage();
   return [
@@ -87,12 +175,18 @@ function unsupportedDurableStates() {
   ];
 }
 
-function createBrowserHostHarness({ durableStatePort }) {
+function createBrowserHostHarness({
+  durableStatePort,
+  pageSnapshotPort = undefined,
+  legacyPlacementMigrationPort = undefined,
+}) {
   return {
     pageContext: {
       kind: "supported-map-editor-page",
     },
     durableStatePort,
+    pageSnapshotPort,
+    legacyPlacementMigrationPort,
     latestRender: null,
     mountOwnedRoot(ownerId, root) {
       return {
@@ -105,6 +199,23 @@ function createBrowserHostHarness({ durableStatePort }) {
     },
     startRuntime(runtime) {
       return runtime;
+    },
+  };
+}
+
+function createLegacyPlacementMigrationHarness({ placement: nextPlacement }) {
+  const calls = [];
+  return {
+    calls,
+    port: {
+      reconcileLegacyPlacement({ referenceImage, legacyPlacement, pageSnapshot }) {
+        calls.push({
+          referenceImage,
+          legacyPlacement,
+          pageSnapshot,
+        });
+        return nextPlacement;
+      },
     },
   };
 }
@@ -122,6 +233,29 @@ function createDurableStorageHarness({ durableState }) {
       },
     },
   };
+}
+
+function legacyDurableImageState({
+  referenceImage,
+  placement: placementData,
+}) {
+  return currentDurableImageState({
+    referenceImage,
+    placement: placementData,
+    opacity: 0.5,
+  });
+}
+
+function currentDurableImageState({
+  referenceImage,
+  placement: placementData = undefined,
+  opacity = undefined,
+}) {
+  return durableImageState({
+    referenceImage,
+    placement: placementData,
+    opacity,
+  });
 }
 
 function durableImageState({
@@ -165,5 +299,38 @@ function placement({
     y,
     scale,
     rotationRad,
+  };
+}
+
+function legacyMapCenteredPlacement() {
+  return {
+    centerMapLatLon: {
+      lat: 0,
+      lon: 0,
+    },
+    scale: 1.25,
+    rotationRad: 0.5,
+  };
+}
+
+function supportedMapSnapshot() {
+  return {
+    kind: "supported-map-page",
+    mapView: {
+      zoom: 17,
+      centerLatLon: {
+        lat: -1.24401,
+        lon: 36.82412,
+      },
+    },
+    viewportPx: {
+      width: 1280,
+      height: 720,
+    },
+    tileTransform: {
+      x: -240,
+      y: -180,
+      scale: 1,
+    },
   };
 }
