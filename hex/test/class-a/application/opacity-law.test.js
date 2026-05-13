@@ -46,6 +46,59 @@ test("opacity changes are durable but not undoable", () => {
   });
 });
 
+// Class-a: opacity is a visible reference-image setting in both Align and
+// Trace. Trace disables placement/pin editing, but it must not make opacity
+// read-only or turn opacity changes into history.
+test("opacity changes are durable in Trace mode", () => {
+  const history = {
+    past: [{
+      kind: "overlay-placement-edit",
+      editKind: "move",
+      before: {
+        placement: null,
+        solvedRegistration: null,
+      },
+      after: {
+        placement: {
+          x: 80,
+          y: 40,
+          scale: 1,
+          rotationRad: 0,
+        },
+        solvedRegistration: null,
+      },
+    }],
+    future: [],
+  };
+  const result = handleApplicationCommand({
+    state: {
+      ...referenceImageLoadedState({
+        mode: "trace",
+      }),
+      history,
+    },
+    command: createApplicationCommand(APPLICATION_COMMAND_KIND.SET_OPACITY, {
+      opacity: 0.5,
+    }),
+  });
+
+  assert.deepEqual(result, {
+    state: {
+      ...referenceImageLoadedState({
+        mode: "trace",
+        opacity: 0.5,
+      }),
+      history,
+    },
+    effects: [
+      persistDurableStateEffect(referenceImageDurableState({
+        mode: "trace",
+        opacity: 0.5,
+      })),
+    ],
+  });
+});
+
 // Class-a: because opacity is durable visual state, hydration must restore it.
 // Otherwise opacity would be a write-only setting that disappears across
 // extension restarts.
@@ -67,8 +120,8 @@ test("durable opacity hydrates into the session", () => {
   });
 });
 
-function referenceImageLoadedState({ opacity } = {}) {
-  const session = normalizedReferenceImageSession();
+function referenceImageLoadedState({ mode = "align", opacity } = {}) {
+  const session = normalizedReferenceImageSession({ mode });
   if (opacity !== undefined) {
     session.opacity = opacity;
   }
@@ -77,15 +130,15 @@ function referenceImageLoadedState({ opacity } = {}) {
   };
 }
 
-function referenceImageDurableState({ opacity } = {}) {
+function referenceImageDurableState({ mode = "align", opacity } = {}) {
   return {
-    session: referenceImageLoadedState({ opacity }).session,
+    session: referenceImageLoadedState({ mode, opacity }).session,
   };
 }
 
-function normalizedReferenceImageSession() {
+function normalizedReferenceImageSession({ mode = "align" } = {}) {
   return {
-    mode: "align",
+    mode,
     referenceImage: {
       imageDataRef: "reference-image-data-1",
       intrinsicSizePx: {
