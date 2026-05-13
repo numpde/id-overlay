@@ -49,12 +49,54 @@ test("temporary native-map access changes visible interaction posture without du
   assert.deepEqual(storage.writes, []);
 });
 
-function createBrowserHostHarness({ durableStatePort }) {
+// Class-b: keyboard and pointer adapters emit the same source-neutral
+// registration-pin fact. The shell boundary is that the fact is projected once,
+// enters the app as a semantic pin toggle, re-renders, and persists.
+test("registration pin interaction fact projects to a durable visible pin", async () => {
+  const projections = [];
+  const storage = createDurableStorageHarness({
+    durableState: durableImageState({
+      mode: "align",
+    }),
+  });
+  const host = createBrowserHostHarness({
+    durableStatePort: storage.port,
+    projectRegistrationPinToggle(fact) {
+      projections.push(fact);
+      return {
+        kind: "projected",
+        existingPinId: null,
+        imagePx: firstPin().imagePx,
+        mapLatLon: firstPin().mapLatLon,
+      };
+    },
+  });
+
+  await bootstrapBrowserExtension(host);
+  await host.dispatchInteractionFact({
+    kind: "registration-pin-toggle-requested",
+  });
+
+  assert.deepEqual(projections, [{
+    kind: "registration-pin-toggle-requested",
+  }]);
+  assert.deepEqual(host.latestRender.view.overlay.pins, [firstPin()]);
+  assert.deepEqual(storage.writes, [durableImageState({
+    mode: "align",
+    pins: [firstPin()],
+  })]);
+});
+
+function createBrowserHostHarness({
+  durableStatePort,
+  projectRegistrationPinToggle = undefined,
+}) {
   return {
     pageContext: {
       kind: "supported-map-editor-page",
     },
     durableStatePort,
+    projectRegistrationPinToggle,
     latestRender: null,
     mountOwnedRoot(ownerId, root) {
       return {
