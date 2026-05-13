@@ -176,6 +176,37 @@ test("view model exposes overlay render facts", () => {
   assert.equal(JSON.stringify(view).includes("blob:"), false);
 });
 
+// Class-b: Trace rendering needs page projection, but the application view
+// should stay browser-neutral. It exposes the solved map-world render source;
+// live page snapshots and surface motion are applied by the UI/page projection
+// boundary.
+test("view model exposes Trace solved overlay render source without page facts", () => {
+  const solvedTransform = imageToMapWorldTransform();
+  const view = selectApplicationView(referenceImageLoadedState({
+    mode: "trace",
+    pins: [firstPin(), secondPin()],
+    solvedTransform,
+  }));
+
+  assert.deepEqual(view.overlay, {
+    visible: true,
+    imageDataRef: "reference-image-data-1",
+    intrinsicSizePx: {
+      width: 640,
+      height: 480,
+    },
+    placement: null,
+    opacity: 1,
+    pins: [],
+    pageProjectionSource: {
+      kind: "image-to-map-world-transform",
+      transform: solvedTransform,
+    },
+  });
+  assert.equal(JSON.stringify(view.overlay).includes("surfaceMotion"), false);
+  assert.equal(JSON.stringify(view.overlay).includes("viewport"), false);
+});
+
 // Class-b, deliberately not class-a: this is view-model projection of a class-a
 // app state law. The view model is the SSoT for visible posture, so overlay
 // interactivity and rendered pins must agree; adapters must not reconcile
@@ -267,6 +298,7 @@ function referenceImageLoadedState({
   placement,
   opacity,
   pins = [],
+  solvedTransform,
   panelIntent = null,
   notice = null,
 } = {}) {
@@ -286,15 +318,31 @@ function referenceImageLoadedState({
   if (opacity !== undefined) {
     session.opacity = opacity;
   }
-  if (pins.length > 0) {
+  if (pins.length > 0 || solvedTransform !== undefined) {
     session.registration = {
       pins,
     };
+    if (solvedTransform !== undefined) {
+      session.registration.solvedTransform = solvedTransform;
+    }
   }
   return {
     session,
     ...(panelIntent === null ? {} : { panelIntent }),
     ...(notice === null ? {} : { notice }),
+  };
+}
+
+function imageToMapWorldTransform() {
+  return {
+    type: "image-to-map-world",
+    a: 1,
+    b: 0,
+    tx: 100,
+    ty: 200,
+    scale: 1,
+    rotationRad: 0,
+    pinIds: [1, 2],
   };
 }
 
@@ -308,6 +356,20 @@ function firstPin() {
     mapLatLon: {
       lat: -1.23,
       lon: 36.84,
+    },
+  };
+}
+
+function secondPin() {
+  return {
+    id: 2,
+    imagePx: {
+      x: 420,
+      y: 240,
+    },
+    mapLatLon: {
+      lat: -1.23,
+      lon: 36.85,
     },
   };
 }
