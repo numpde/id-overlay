@@ -102,6 +102,72 @@ test("accepted reference image clears pending input notice and panel intent", ()
   });
 });
 
+// Class-a: loading a new image after a prior removal starts a fresh session.
+// Undo history may still remember the removed placement and pins, but those
+// old alignment facts must not leak into the newly accepted image.
+test("accepted reference image after removal does not inherit removed placement or pins", () => {
+  const removedDurableState = {
+    session: {
+      mode: "align",
+      referenceImage: normalizedReferenceImage("old"),
+      placement: placement(),
+      registration: {
+        pins: [firstPin()],
+      },
+    },
+  };
+  const previousRemoval = {
+    kind: "remove-reference-image",
+    before: removedDurableState,
+    after: null,
+  };
+  const referenceImage = normalizedReferenceImage("new");
+  const session = {
+    mode: "align",
+    referenceImage,
+  };
+  const durableState = {
+    session,
+  };
+
+  assert.deepEqual(handleApplicationCommand({
+    state: {
+      referenceImageInput: {
+        status: "awaiting-input",
+        requestId: 2,
+      },
+      history: {
+        past: [previousRemoval],
+        future: [],
+      },
+    },
+    command: createApplicationCommand(
+      APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_INPUT_OUTCOME,
+      {
+        requestId: 2,
+        outcome: {
+          kind: "accepted",
+          referenceImage,
+        },
+      },
+    ),
+  }), {
+    state: {
+      session,
+      history: {
+        past: [
+          previousRemoval,
+          loadReferenceImageHistoryRecord(durableState),
+        ],
+        future: [],
+      },
+    },
+    effects: [
+      persistDurableStateEffect(durableState),
+    ],
+  });
+});
+
 // Class-a: empty reference-image input is a normal user-world outcome, not a
 // boundary failure. It must end the transient input without creating a session
 // or durable work, and the application must declare the correlated status
@@ -191,9 +257,9 @@ test("clearing the reference image returns to no-session Trace", () => {
   });
 });
 
-function normalizedReferenceImage() {
+function normalizedReferenceImage(label = "1") {
   return {
-    imageDataRef: "reference-image-data-1",
+    imageDataRef: `reference-image-data-${label}`,
     intrinsicSizePx: {
       width: 640,
       height: 480,
@@ -233,6 +299,29 @@ function scheduleClearStatusNoticeEffect(requestId) {
     command: {
       kind: "clear-status-notice",
       requestId,
+    },
+  };
+}
+
+function placement() {
+  return {
+    x: 30,
+    y: 40,
+    scale: 2,
+    rotationRad: 0.4,
+  };
+}
+
+function firstPin() {
+  return {
+    id: 1,
+    imagePx: {
+      x: 320,
+      y: 240,
+    },
+    mapLatLon: {
+      lat: -1.23,
+      lon: 36.84,
     },
   };
 }
