@@ -16,6 +16,7 @@ import {
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../..");
 const EXTENSION_CONTENT_MODULE = "hex/bootstrap/extension-content.js";
+const BUILD_INFO_MODULE = "hex/bootstrap/build-info.js";
 
 // Class-b, deliberately not class-a: browser packaging mechanics may still
 // change. The stable build boundary is that generated manifests derive loadable
@@ -102,6 +103,63 @@ test("chrome build copies runtime modules reachable from content bootstrap", asy
   }
 });
 
+// Class-b: build metadata is browser packaging behavior, not product state. The
+// extension runtime should receive stamped package metadata without exposing the
+// source-tree placeholder in Chromium builds.
+test("chrome build stamps browser build metadata into packaged runtime", async () => {
+  const outputDir = await fsp.mkdtemp(path.join(os.tmpdir(), "id-overlay-build-info-"));
+  try {
+    await buildChromeExtension({
+      rootDir: REPO_ROOT,
+      outputDir,
+    });
+
+    const buildInfoSource = await fsp.readFile(
+      path.join(outputDir, BUILD_INFO_MODULE),
+      "utf8",
+    );
+    const sourceManifest = JSON.parse(readSource(repoPath("manifest.chrome.json")));
+
+    assert.match(buildInfoSource, /\bexport\s+const\s+BUILD_INFO\b/);
+    assert.match(
+      buildInfoSource,
+      new RegExp(`\\bversion:\\s*"${escapeRegExp(sourceManifest.version)}"`),
+    );
+    assert.doesNotMatch(buildInfoSource, /source-tree/);
+
+    const builtAt = /\bbuiltAt:\s*"([^"]+)"/.exec(buildInfoSource)?.[1];
+    assert.match(builtAt ?? "", /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
+    assert.equal(Number.isNaN(Date.parse(builtAt)), false);
+  } finally {
+    await fsp.rm(outputDir, {
+      recursive: true,
+      force: true,
+    });
+  }
+});
+
+// Class-b: stamping the module is insufficient if Chromium cannot load it. The
+// generated manifest and copied dist tree must keep build metadata reachable
+// through the same content graph as the runtime modules.
+test("chrome build metadata is loadable through the generated content graph", async () => {
+  const outputDir = await fsp.mkdtemp(path.join(os.tmpdir(), "id-overlay-build-info-"));
+  try {
+    const manifest = await buildChromeExtension({
+      rootDir: REPO_ROOT,
+      outputDir,
+    });
+    const resources = new Set(manifest.web_accessible_resources[0].resources);
+
+    assert.equal(resources.has(BUILD_INFO_MODULE), true);
+    assert.equal(await fileExists(path.join(outputDir, BUILD_INFO_MODULE)), true);
+  } finally {
+    await fsp.rm(outputDir, {
+      recursive: true,
+      force: true,
+    });
+  }
+});
+
 function readSource(filePath) {
   return fs.readFileSync(filePath, "utf8");
 }
@@ -117,4 +175,8 @@ async function fileExists(filePath) {
   } catch {
     return false;
   }
+}
+
+function escapeRegExp(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
