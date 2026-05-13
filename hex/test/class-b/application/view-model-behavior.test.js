@@ -232,11 +232,29 @@ test("view model exposes user-visible status copy", () => {
     },
     {
       state: {
-      notice: {
-        kind: "reference-image-input-empty",
+        referenceImageInput: {
+          status: "awaiting-input",
+          requestId: 1,
+        },
       },
+      status: "Press Ctrl/Cmd+V to paste an image from your clipboard.",
+    },
+    {
+      state: {
+        notice: {
+          kind: "reference-image-input-empty",
+        },
       },
       status: "Clipboard does not contain an image.",
+    },
+    {
+      state: {
+        notice: {
+          kind: "reference-image-input-failed",
+          reason: "decode-failed",
+        },
+      },
+      status: "Clipboard image could not be read.",
     },
   ]) {
     assert.equal(selectApplicationView(state).status, status);
