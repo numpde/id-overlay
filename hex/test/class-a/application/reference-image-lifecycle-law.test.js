@@ -102,6 +102,53 @@ test("accepted reference image clears pending input notice and panel intent", ()
   });
 });
 
+// Class-a: page observation is outside the app, but an accepted image may carry
+// an already-derived initial placement. Loading the image and placement is one
+// atomic durable product transition, not "load, then move overlay".
+test("accepted reference image records initial placement atomically", () => {
+  const referenceImage = normalizedReferenceImage("placed");
+  const initialPlacement = placement();
+  const session = {
+    mode: "align",
+    referenceImage,
+    placement: initialPlacement,
+  };
+  const durableState = {
+    session,
+  };
+
+  assert.deepEqual(handleApplicationCommand({
+    state: {
+      referenceImageInput: {
+        status: "awaiting-input",
+        requestId: 1,
+      },
+    },
+    command: createApplicationCommand(
+      APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_INPUT_OUTCOME,
+      {
+        requestId: 1,
+        outcome: {
+          kind: "accepted",
+          referenceImage,
+          placement: initialPlacement,
+        },
+      },
+    ),
+  }), {
+    state: {
+      session,
+      history: {
+        past: [loadReferenceImageHistoryRecord(durableState)],
+        future: [],
+      },
+    },
+    effects: [
+      persistDurableStateEffect(durableState),
+    ],
+  });
+});
+
 // Class-a: loading a new image after a prior removal starts a fresh session.
 // Undo history may still remember the removed placement and pins, but those
 // old alignment facts must not leak into the newly accepted image.
