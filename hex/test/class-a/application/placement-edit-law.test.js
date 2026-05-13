@@ -176,6 +176,87 @@ test("manual placement edits invalidate solved placement metadata", () => {
   });
 });
 
+// Class-a: placement undo/redo is a semantic placement revision, not whole
+// session snapshot replay. Legacy preserves the user's current Align/Trace
+// posture while restoring the prior overlay transform and solved-registration
+// metadata.
+test("placement undo and redo preserve the current mode", () => {
+  const record = placementHistoryRecord({
+    editKind: "move",
+    before: placementRevision({
+      placement: originalPlacement(),
+      solvedRegistration: null,
+    }),
+    after: placementRevision({
+      placement: movedPlacement(),
+      solvedRegistration: null,
+    }),
+  });
+  const undoResult = handleApplicationCommand({
+    state: {
+      ...referenceImageLoadedState({
+        mode: "trace",
+        placement: movedPlacement(),
+      }),
+      history: {
+        past: [record],
+        future: [],
+      },
+    },
+    command: createApplicationCommand(APPLICATION_COMMAND_KIND.UNDO),
+  });
+
+  assert.deepEqual(undoResult, {
+    state: {
+      ...referenceImageLoadedState({
+        mode: "trace",
+        placement: originalPlacement(),
+      }),
+      history: {
+        past: [],
+        future: [record],
+      },
+    },
+    effects: [
+      persistDurableStateEffect(referenceImageDurableState({
+        mode: "trace",
+        placement: originalPlacement(),
+      })),
+    ],
+  });
+
+  assert.deepEqual(handleApplicationCommand({
+    state: undoResult.state,
+    command: createApplicationCommand(APPLICATION_COMMAND_KIND.REDO),
+  }), {
+    state: {
+      ...referenceImageLoadedState({
+        mode: "trace",
+        placement: movedPlacement(),
+      }),
+      history: {
+        past: [record],
+        future: [],
+      },
+    },
+    effects: [
+      persistDurableStateEffect(referenceImageDurableState({
+        mode: "trace",
+        placement: movedPlacement(),
+      })),
+    ],
+  });
+});
+
+function originalPlacement() {
+  return {
+    x: 10,
+    y: 20,
+    scale: 1,
+    rotationRad: 0,
+  };
+}
+
 function movedPlacement() {
   return {
     x: 80,
@@ -236,11 +317,12 @@ function placementRevision({ placement, solvedRegistration }) {
 }
 
 function referenceImageLoadedState({
+  mode = "align",
   placement,
   pins,
   solvedPlacement: solvedPlacementData,
 } = {}) {
-  const session = normalizedReferenceImageSession();
+  const session = normalizedReferenceImageSession({ mode });
   if (placement !== undefined) {
     session.placement = placement;
   }
@@ -257,15 +339,15 @@ function referenceImageLoadedState({
   };
 }
 
-function referenceImageDurableState({ placement } = {}) {
+function referenceImageDurableState({ mode = "align", placement } = {}) {
   return {
-    session: referenceImageLoadedState({ placement }).session,
+    session: referenceImageLoadedState({ mode, placement }).session,
   };
 }
 
-function normalizedReferenceImageSession() {
+function normalizedReferenceImageSession({ mode = "align" } = {}) {
   return {
-    mode: "align",
+    mode,
     referenceImage: {
       imageDataRef: "reference-image-data-1",
       intrinsicSizePx: {
