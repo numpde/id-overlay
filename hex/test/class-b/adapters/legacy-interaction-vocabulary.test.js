@@ -149,6 +149,50 @@ test("shift-drag requests overlay move and plain drag stays native-map", () => {
   assertNoDomInputVocabulary(overlayDrag.facts);
 });
 
+// Class-b: drag activation threshold is interaction policy, not product law.
+// The stable legacy behavior is that small pointer jitter after an overlay
+// pointerdown is inert, while deliberate movement emits one semantic move edit.
+test("overlay move drag starts only after deliberate pointer movement", () => {
+  const { window, surface, facts } = createOverlayHarness();
+
+  dispatchPointer(window, surface, "pointerdown", {
+    clientX: 100,
+    clientY: 100,
+    shiftKey: true,
+  });
+  dispatchPointer(window, window, "pointermove", {
+    clientX: 102,
+    clientY: 101,
+    shiftKey: true,
+  });
+  assert.deepEqual(facts.filter(isPlacementEditFact), []);
+
+  dispatchPointer(window, window, "pointermove", {
+    clientX: 124,
+    clientY: 118,
+    shiftKey: true,
+  });
+  dispatchPointer(window, window, "pointerup", {
+    clientX: 124,
+    clientY: 118,
+    shiftKey: true,
+  });
+
+  assert.deepEqual(facts.filter(isPlacementEditFact), [{
+    kind: "placement-edit-requested",
+    editKind: "move",
+    screenDeltaPx: {
+      x: 24,
+      y: 18,
+    },
+    anchorScreenPx: {
+      x: 100,
+      y: 100,
+    },
+  }]);
+  assertNoDomInputVocabulary(facts);
+});
+
 test("modifier wheels edit overlay while plain wheel requests native-map zoom", () => {
   const { window, surface, facts } = createOverlayHarness();
 
@@ -250,6 +294,10 @@ function dispatchWheel(window, target, modifiers = {}) {
     bubbles: true,
     cancelable: true,
   }));
+}
+
+function isPlacementEditFact(fact) {
+  return fact.kind === "placement-edit-requested";
 }
 
 function assertNoDomInputVocabulary(facts) {
