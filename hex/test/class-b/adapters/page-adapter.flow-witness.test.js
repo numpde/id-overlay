@@ -5,11 +5,19 @@ import {
   createPageSnapshotAdapter,
   createProjectionAdapter,
 } from "../../../adapters/page-osm-id/page-adapter.js";
+import {
+  createFlowTrace,
+  flowEdge,
+} from "../../support/flow-trace.js";
 
 // Class-b, deliberately not class-a: OSM/iD page scraping is an adapter
 // strategy, not product law. The durable boundary is that dirty page handles
 // are translated into browser-neutral plain map facts before entering the app.
 test("page snapshot adapter emits plain map facts", () => {
+  const trace = createFlowTrace({
+    file: import.meta.url,
+    test: "page snapshot adapter emits plain map facts",
+  });
   const adapter = createPageSnapshotAdapter({
     readPage() {
       return {
@@ -28,7 +36,16 @@ test("page snapshot adapter emits plain map facts", () => {
     },
   });
 
-  const snapshot = adapter.readSnapshot();
+  const snapshot = trace.withSource("source.page-snapshot-read", () => {
+    trace.edge(flowEdge("source.page-snapshot-read", "port.page-snapshot.read", {
+      provider: "page-snapshot-adapter",
+    }));
+    const result = adapter.readSnapshot();
+    trace.edge(flowEdge("port.page-snapshot.read", "sink.map-snapshot", {
+      terminal: "port-result",
+    }));
+    return result;
+  });
 
   assert.deepEqual(snapshot, {
     kind: "supported-map-page",
@@ -50,12 +67,24 @@ test("page snapshot adapter emits plain map facts", () => {
     },
   });
   assertPlainData(snapshot);
+  assert.deepEqual(trace.edges, [
+    flowEdge("source.page-snapshot-read", "port.page-snapshot.read", {
+      provider: "page-snapshot-adapter",
+    }),
+    flowEdge("port.page-snapshot.read", "sink.map-snapshot", {
+      terminal: "port-result",
+    }),
+  ]);
 });
 
 // Class-b, deliberately not class-a: map projection can be implemented many
 // ways. The boundary promise is that expected misses cross inward as explicit
 // plain failure facts, never as null guesses or page-adapter exceptions.
 test("projection adapter reports explicit failure facts", () => {
+  const trace = createFlowTrace({
+    file: import.meta.url,
+    test: "projection adapter reports explicit failure facts",
+  });
   const projection = createProjectionAdapter({
     readProjectionContext() {
       return {
@@ -64,15 +93,34 @@ test("projection adapter reports explicit failure facts", () => {
     },
   });
 
-  assert.deepEqual(projection.projectScreenPoint({
-    screenPx: {
-      x: 320,
-      y: 240,
-    },
-  }), {
+  const result = trace.withSource("source.page-projection-request", () => {
+    trace.edge(flowEdge("source.page-projection-request", "port.project-screen-point", {
+      provider: "page-projection-adapter",
+    }));
+    const projected = projection.projectScreenPoint({
+      screenPx: {
+        x: 320,
+        y: 240,
+      },
+    });
+    trace.edge(flowEdge("port.project-screen-point", "sink.projection-result", {
+      terminal: "port-result",
+    }));
+    return projected;
+  });
+
+  assert.deepEqual(result, {
     kind: "failed",
     reason: "missing-viewport",
   });
+  assert.deepEqual(trace.edges, [
+    flowEdge("source.page-projection-request", "port.project-screen-point", {
+      provider: "page-projection-adapter",
+    }),
+    flowEdge("port.project-screen-point", "sink.projection-result", {
+      terminal: "port-result",
+    }),
+  ]);
 });
 
 function assertPlainData(value) {
