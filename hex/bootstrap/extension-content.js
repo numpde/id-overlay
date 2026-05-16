@@ -12,7 +12,6 @@ import {
 } from "../adapters/page-osm-id/page-adapter.js";
 import {
   observePageSnapshots,
-  SURFACE_MOTION_EVENT_TYPE,
 } from "../adapters/page-osm-id/page-observation-runtime.js";
 import {
   installMapStateDebugProbe,
@@ -25,7 +24,6 @@ import {
 } from "../adapters/page-osm-id/native-map-wheel-suppression.js";
 import {
   findEmbeddedEditorFrame,
-  isSurfaceMotionPayload,
   readOpenStreetMapPage,
   summarizeObservedPage,
 } from "../adapters/page-osm-id/page-dom-reader.js";
@@ -35,9 +33,6 @@ import {
 import {
   createExtensionUiHost,
 } from "../adapters/ui/extension-ui-host.js";
-import {
-  createEventDebugLogger,
-} from "../adapters/ui/event-debug-log.js";
 import {
   createOverlayInteractionProjectionPort,
 } from "../adapters/ui/overlay-interaction-projection-port.js";
@@ -51,6 +46,10 @@ import {
 import {
   bootstrapBrowserExtension,
 } from "./index.js";
+import {
+  createContentEventDebugLogger,
+  installSurfaceMotionBridge,
+} from "./content-script-bridges.js";
 
 const BOOTSTRAP_KEY = "__idOverlayBootstrap";
 const STORE_KEY = "id-overlay.durable-state";
@@ -59,8 +58,6 @@ const HOST_PORT = Object.freeze({
   registrationSolver: "registrationSolverPort",
   fitPins: "solveRegistrationPlacement",
 });
-const SURFACE_MOTION_BRIDGE_RESOURCE = "hex/bootstrap/surface-motion-page-bridge.js";
-const DEBUG_CONSOLE_BRIDGE_RESOURCE = "hex/bootstrap/event-debug-console-bridge.js";
 export function startExtensionContent({
   location,
   document: providedDocument = globalThis.document,
@@ -112,15 +109,9 @@ function createBrowserHost({
   ownerWindow,
   chromeApi,
 }) {
-  const eventDebugConsoleBridgeUrl = eventDebugConsoleBridgeResourceUrl(chromeApi);
-  const eventDebugLogger = createEventDebugLogger({
+  const eventDebugLogger = createContentEventDebugLogger({
     ownerWindow,
-    consoleObject: eventDebugConsoleBridgeUrl ? null : undefined,
-  });
-  installEventDebugConsoleBridge({
-    ownerWindow,
-    url: eventDebugConsoleBridgeUrl,
-    enabled: eventDebugLogger.enabled,
+    chromeApi,
   });
   let pageWorldSurfaceMotion = null;
   let notifyPageSnapshotChange = () => {};
@@ -288,62 +279,6 @@ function createBrowserHost({
     },
   }).bindInput();
   return host;
-}
-
-function installSurfaceMotionBridge({
-  ownerWindow,
-  chromeApi,
-  onSurfaceMotion,
-}) {
-  ownerWindow.addEventListener("message", (event) => {
-    if (
-      event.data?.source !== "id-overlay"
-        || event.data?.type !== SURFACE_MOTION_EVENT_TYPE
-        || !isSurfaceMotionPayload(event.data.surfaceMotion)
-    ) {
-      return;
-    }
-    onSurfaceMotion(event.data.surfaceMotion);
-  });
-  ownerWindow.document?.addEventListener?.(SURFACE_MOTION_EVENT_TYPE, (event) => {
-    if (!isSurfaceMotionPayload(event.detail)) {
-      return;
-    }
-    onSurfaceMotion(event.detail);
-  });
-  const url = chromeApi?.runtime?.getURL?.(SURFACE_MOTION_BRIDGE_RESOURCE);
-  if (!url || !ownerWindow.document?.documentElement) {
-    return;
-  }
-  const script = ownerWindow.document.createElement("script");
-  script.src = url;
-  script.async = false;
-  script.dataset.idOverlaySurfaceMotionBridge = "";
-  ownerWindow.document.documentElement.append(script);
-  script.remove();
-}
-
-function installEventDebugConsoleBridge({
-  ownerWindow,
-  url,
-  enabled,
-}) {
-  if (!enabled) {
-    return;
-  }
-  if (!url || !ownerWindow.document?.documentElement) {
-    return;
-  }
-  const script = ownerWindow.document.createElement("script");
-  script.src = url;
-  script.async = false;
-  script.dataset.idOverlayEventDebugConsoleBridge = "";
-  ownerWindow.document.documentElement.append(script);
-  script.remove();
-}
-
-function eventDebugConsoleBridgeResourceUrl(chromeApi) {
-  return chromeApi?.runtime?.getURL?.(DEBUG_CONSOLE_BRIDGE_RESOURCE) ?? null;
 }
 
 function memoryStorageArea() {

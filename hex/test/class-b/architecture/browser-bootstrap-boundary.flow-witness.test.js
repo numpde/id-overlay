@@ -17,6 +17,7 @@ const PAGE_OBSERVATION_RUNTIME_SOURCE = hexPath("adapters/page-osm-id/page-obser
 const MAP_STATE_DEBUG_PROBE_SOURCE = hexPath("adapters/page-osm-id/map-state-debug-probe.js");
 const NATIVE_MAP_GESTURE_FORWARDER_SOURCE = hexPath("adapters/page-osm-id/native-map-gesture-forwarder.js");
 const NATIVE_MAP_WHEEL_SUPPRESSION_SOURCE = hexPath("adapters/page-osm-id/native-map-wheel-suppression.js");
+const CONTENT_SCRIPT_BRIDGES_SOURCE = hexPath("bootstrap/content-script-bridges.js");
 
 // Class-b: browser entrypoint lifecycle is shell behavior, not product law. The
 // extension bootstrap should wait for DOM readiness before mounting visible UI
@@ -175,6 +176,28 @@ test("browser bootstrap delegates native-map interaction mechanics to the page a
   assert.match(nativeMapWheelSource, /\bexport\s+function\s+createNativeMapWheelSuppression\b/);
   assert.match(nativeMapWheelSource, /wheel-suppressed-during-pan/);
   trace.edge(flowEdge("check.bootstrap-native-map-interaction-delegation", "sink.architecture-boundary", {
+    terminal: "architecture-check",
+  }));
+});
+
+// Class-b: page-world script injection is browser-extension bridge plumbing.
+// The content entrypoint may install the bridges, but resource names, page
+// script injection, and debug-console logger construction belong behind a small
+// bridge module rather than in the host-composition path.
+test("browser bootstrap delegates page script bridge plumbing", () => {
+  const trace = createFlowTrace({
+    file: import.meta.url,
+    test: "browser bootstrap delegates page script bridge plumbing",
+  });
+  const bootstrapSource = readSource(EXTENSION_CONTENT_SOURCE);
+  const bridgeSource = readSource(CONTENT_SCRIPT_BRIDGES_SOURCE);
+
+  assert.match(bootstrapSource, /from\s+["']\.\/content-script-bridges\.js["']/);
+  assert.doesNotMatch(bootstrapSource, /\bfunction\s+(?:installSurfaceMotionBridge|installEventDebugConsoleBridge|installPageScriptBridge|eventDebugConsoleBridgeResourceUrl)\b/);
+  assert.match(bridgeSource, /\bexport\s+function\s+installSurfaceMotionBridge\b/);
+  assert.match(bridgeSource, /\bexport\s+function\s+createContentEventDebugLogger\b/);
+  assert.match(bridgeSource, /\bruntime\?\.getURL\b/);
+  trace.edge(flowEdge("check.bootstrap-page-script-bridge-delegation", "sink.architecture-boundary", {
     terminal: "architecture-check",
   }));
 });
