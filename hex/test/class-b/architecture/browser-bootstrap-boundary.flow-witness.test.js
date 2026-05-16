@@ -23,6 +23,7 @@ const MAP_LOCKED_PLACEMENT_SOURCE = hexPath("bootstrap/map-locked-placement.js")
 const PANEL_CHROME_SOURCE = hexPath("bootstrap/panel-chrome.js");
 const BROWSER_EFFECT_HANDLERS_SOURCE = hexPath("bootstrap/browser-effect-handlers.js");
 const BROWSER_RENDER_PROJECTION_SOURCE = hexPath("bootstrap/browser-render-projection.js");
+const SHELL_APPLICATION_STEP_SOURCE = hexPath("bootstrap/shell-application-step.js");
 
 // Class-b: browser entrypoint lifecycle is shell behavior, not product law. The
 // extension bootstrap should wait for DOM readiness before mounting visible UI
@@ -297,6 +298,28 @@ test("browser bootstrap delegates render projection diagnostics", () => {
   assert.match(projectionSource, /\bprojectTraceOverlayForPageSnapshot\b/);
   assert.match(projectionSource, /\beventDebugLogger\b/);
   trace.edge(flowEdge("check.bootstrap-render-projection-delegation", "sink.architecture-boundary", {
+    terminal: "architecture-check",
+  }));
+});
+
+// Class-b: browser bootstrap may decorate application stepping with shell facts,
+// but registration solving and map-lock normalization are product-adjacent
+// policies that should live outside the runtime composition function.
+test("browser bootstrap delegates shell application step policy", () => {
+  const trace = createFlowTrace({
+    file: import.meta.url,
+    test: "browser bootstrap delegates shell application step policy",
+  });
+  const shellSource = readSource(hexPath("bootstrap/index.js"));
+  const stepSource = readSource(SHELL_APPLICATION_STEP_SOURCE);
+
+  assert.match(shellSource, /from\s+["']\.\/shell-application-step\.js["']/);
+  assert.doesNotMatch(shellSource, /\bfunction\s+(?:maybeSolveBeforeStep|withSolvedFit|withMapLockedPlacement|applySolvedFit)\b/);
+  assert.match(stepSource, /\bexport\s+function\s+stepShellApplication\b/);
+  assert.match(stepSource, /\bsolveRegistrationPlacement\b/);
+  assert.match(stepSource, /\bderiveMapLockedPlacementFromScreenPlacement\b/);
+  assert.match(stepSource, /\bfit-registration-placement\b/);
+  trace.edge(flowEdge("check.bootstrap-shell-step-delegation", "sink.architecture-boundary", {
     terminal: "architecture-check",
   }));
 });
