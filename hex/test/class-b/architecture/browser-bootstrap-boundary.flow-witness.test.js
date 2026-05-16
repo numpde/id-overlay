@@ -20,6 +20,7 @@ const NATIVE_MAP_WHEEL_SUPPRESSION_SOURCE = hexPath("adapters/page-osm-id/native
 const CONTENT_SCRIPT_BRIDGES_SOURCE = hexPath("bootstrap/content-script-bridges.js");
 const STARTUP_DURABLE_STATE_SOURCE = hexPath("bootstrap/startup-durable-state.js");
 const MAP_LOCKED_PLACEMENT_SOURCE = hexPath("bootstrap/map-locked-placement.js");
+const PANEL_CHROME_SOURCE = hexPath("bootstrap/panel-chrome.js");
 
 // Class-b: browser entrypoint lifecycle is shell behavior, not product law. The
 // extension bootstrap should wait for DOM readiness before mounting visible UI
@@ -227,6 +228,27 @@ test("browser bootstrap delegates startup durable-state reconciliation", () => {
   assert.match(mapLockSource, /\bfunction\s+projectLatLonToWorld\b/);
   assert.doesNotMatch(bootstrapSource, /\breconcileLegacyPlacement\b/);
   trace.edge(flowEdge("check.bootstrap-startup-state-delegation", "sink.architecture-boundary", {
+    terminal: "architecture-check",
+  }));
+});
+
+// Class-b: panel chrome persistence is shell UI policy. Bootstrap should keep
+// only the event hook; stored chrome normalization and viewport clamping belong
+// behind a panel chrome helper instead of being mixed into runtime composition.
+test("browser bootstrap delegates panel chrome normalization", () => {
+  const trace = createFlowTrace({
+    file: import.meta.url,
+    test: "browser bootstrap delegates panel chrome normalization",
+  });
+  const shellSource = readSource(hexPath("bootstrap/index.js"));
+  const panelChromeSource = readSource(PANEL_CHROME_SOURCE);
+
+  assert.match(shellSource, /from\s+["']\.\/panel-chrome\.js["']/);
+  assert.doesNotMatch(shellSource, /\bfunction\s+(?:readPanelChrome|normalizeStoredPanelChrome|normalizePanelChrome)\b/);
+  assert.match(panelChromeSource, /\bexport\s+async\s+function\s+readPanelChrome\b/);
+  assert.match(panelChromeSource, /\bexport\s+function\s+normalizePanelChrome\b/);
+  assert.match(panelChromeSource, /\bresolvePanelPosition\b/);
+  trace.edge(flowEdge("check.bootstrap-panel-chrome-delegation", "sink.architecture-boundary", {
     terminal: "architecture-check",
   }));
 });
