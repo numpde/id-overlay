@@ -24,6 +24,7 @@ const PANEL_CHROME_SOURCE = hexPath("bootstrap/panel-chrome.js");
 const BROWSER_EFFECT_HANDLERS_SOURCE = hexPath("bootstrap/browser-effect-handlers.js");
 const BROWSER_RENDER_PROJECTION_SOURCE = hexPath("bootstrap/browser-render-projection.js");
 const SHELL_APPLICATION_STEP_SOURCE = hexPath("bootstrap/shell-application-step.js");
+const NATIVE_MAP_PAN_SESSION_SOURCE = hexPath("bootstrap/native-map-pan-session.js");
 
 // Class-b: browser entrypoint lifecycle is shell behavior, not product law. The
 // extension bootstrap should wait for DOM readiness before mounting visible UI
@@ -320,6 +321,28 @@ test("browser bootstrap delegates shell application step policy", () => {
   assert.match(stepSource, /\bderiveMapLockedPlacementFromScreenPlacement\b/);
   assert.match(stepSource, /\bfit-registration-placement\b/);
   trace.edge(flowEdge("check.bootstrap-shell-step-delegation", "sink.architecture-boundary", {
+    terminal: "architecture-check",
+  }));
+});
+
+// Class-b: active native-map pan tracking is shell interaction state, not
+// bootstrap composition. The bootstrap entrypoint should pass a semantic
+// forwarder into interaction runtime and let a focused helper suppress zoom and
+// close active pans when application commands interrupt them.
+test("browser bootstrap delegates native-map pan session policy", () => {
+  const trace = createFlowTrace({
+    file: import.meta.url,
+    test: "browser bootstrap delegates native-map pan session policy",
+  });
+  const shellSource = readSource(hexPath("bootstrap/index.js"));
+  const panSource = readSource(NATIVE_MAP_PAN_SESSION_SOURCE);
+
+  assert.match(shellSource, /from\s+["']\.\/native-map-pan-session\.js["']/);
+  assert.doesNotMatch(shellSource, /\bactiveNativeMapPan\b|\bfunction\s+(?:forwardNativeMapGesture|endActiveNativeMapPanForCommand|doesCommandInterruptNativeMapPan)\b/);
+  assert.match(panSource, /\bexport\s+function\s+createNativeMapPanSession\b/);
+  assert.match(panSource, /\bgestureKind\s*===\s*["']zoom["']/);
+  assert.match(panSource, /\bforwardNativeMapGesture\b/);
+  trace.edge(flowEdge("check.bootstrap-native-map-pan-session-delegation", "sink.architecture-boundary", {
     terminal: "architecture-check",
   }));
 });

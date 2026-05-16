@@ -37,6 +37,9 @@ import {
 import {
   stepShellApplication,
 } from "./shell-application-step.js";
+import {
+  createNativeMapPanSession,
+} from "./native-map-pan-session.js";
 
 const OWNER_ID = "id-overlay";
 const ROOT_RECORD = Symbol.for("id-overlay.browser-session");
@@ -52,9 +55,9 @@ export async function bootstrapBrowserExtension(host) {
   }
 
   const root = host.mountOwnedRoot?.(OWNER_ID, {}) ?? {};
+  const nativeMapPanSession = createNativeMapPanSession({ host });
   const shell = {
     disposed: false,
-    activeNativeMapPan: null,
     disposers: [],
     hasRendered: false,
     normalizingPlacementFromSnapshot: false,
@@ -106,7 +109,7 @@ export async function bootstrapBrowserExtension(host) {
     projectRegistrationPinToggle: host.projectRegistrationPinToggle,
     projectPlacementEdit: host.projectPlacementEdit,
     selectOpacity: host.selectOpacity,
-    forwardNativeMapGesture: forwardNativeMapGesture,
+    forwardNativeMapGesture: nativeMapPanSession.forwardGesture,
     reportRuntimeError(error) {
       reportHostError(host, error);
     },
@@ -123,43 +126,12 @@ export async function bootstrapBrowserExtension(host) {
       return;
     }
     try {
-      await endActiveNativeMapPanForCommand(command);
+      await nativeMapPanSession.endForCommand(command);
       await runtime.dispatch(command);
       render();
     } catch (error) {
       reportHostError(host, error);
     }
-  }
-
-  async function forwardNativeMapGesture(fact) {
-    if (fact.gestureKind === "zoom" && shell.activeNativeMapPan) {
-      return;
-    }
-    if (fact.gestureKind === "pan") {
-      if (fact.phase === "start" || fact.phase === "move") {
-        shell.activeNativeMapPan = {
-          screenPx: fact.screenPx,
-        };
-      }
-      if (fact.phase === "end") {
-        shell.activeNativeMapPan = null;
-      }
-    }
-    await host.forwardNativeMapGesture?.(fact);
-  }
-
-  async function endActiveNativeMapPanForCommand(command) {
-    if (!shell.activeNativeMapPan || !doesCommandInterruptNativeMapPan(command)) {
-      return;
-    }
-    const screenPx = shell.activeNativeMapPan.screenPx;
-    shell.activeNativeMapPan = null;
-    await host.forwardNativeMapGesture?.({
-      kind: "native-map-gesture-requested",
-      gestureKind: "pan",
-      phase: "end",
-      screenPx,
-    });
   }
 
   async function handlePanelChromeChange(change) {
@@ -209,10 +181,6 @@ export async function bootstrapBrowserExtension(host) {
   }
 }
 
-function readPageSnapshot(host) {
-  return host.pageSnapshotPort?.readSnapshot?.() ?? null;
-}
-
 function subscribePageSnapshots({ host, shell, render }) {
   const unsubscribe = host.pageSnapshotPort?.subscribe?.((snapshot) => {
     shell.pageSnapshot = snapshot;
@@ -260,12 +228,6 @@ async function normalizePlacementFromSnapshot({
   } finally {
     shell.normalizingPlacementFromSnapshot = false;
   }
-}
-
-function doesCommandInterruptNativeMapPan(command) {
-  return command.kind === APPLICATION_COMMAND_KIND.SELECT_MODE
-    || command.kind === APPLICATION_COMMAND_KIND.CLEAR_REFERENCE_IMAGE
-    || command.kind === APPLICATION_COMMAND_KIND.ACTIVATE_PRIMARY_ACTION;
 }
 
 function createPublicRuntime(runtime) {
