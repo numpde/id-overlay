@@ -140,6 +140,9 @@ test("reference-image input port falls back from unavailable direct input to pas
   const trace = createReferenceImageInputTrace(
     "reference-image input port falls back from unavailable direct input to paste event",
   );
+  const caseId = "manual-paste-fallback";
+  const request = requestIdentity(1);
+  const resource = pasteListenerResourceIdentity(1);
   const outcomes = [];
   const normalizedOutcome = {
     kind: "accepted",
@@ -149,39 +152,55 @@ test("reference-image input port falls back from unavailable direct input to pas
   const normalizedHandles = [];
   const port = createReferenceImageInputPortAdapter({
     async readClipboardImageHandle() {
-      trace.edge(flowEdge("port.clipboard-image.read", "callback.image-source-result", {
+      trace.edge(flowEdge("port.clipboard-image.read", "callback.image-source-result", flowAttrs({
+        caseId,
         phase: "direct-unavailable",
+        request,
+        surface: "browser-adapter",
         provider: "reference-image-input-port",
-      }));
+      })));
       return {
         kind: "unavailable",
       };
     },
     async readPasteEventImageHandle(event) {
-      trace.edge(flowEdge("callback.paste-event", "port.paste-event-image.read", {
+      trace.edge(flowEdge("callback.paste-event", "port.paste-event-image.read", flowAttrs({
+        caseId,
         phase: "manual-paste",
+        request,
+        surface: "browser-adapter",
         provider: "reference-image-input-port",
-      }));
-      trace.edge(flowEdge("port.paste-event-image.read", "callback.image-source-result", {
+      })));
+      trace.edge(flowEdge("port.paste-event-image.read", "callback.image-source-result", flowAttrs({
+        caseId,
         phase: "manual-paste",
+        request,
+        surface: "browser-adapter",
         provider: "reference-image-input-port",
-      }));
+      })));
       return {
         kind: "image",
         imageHandle: event.imageHandle,
       };
     },
     async normalizeImageHandle(imageHandle) {
-      trace.edge(flowEdge("callback.image-source-result", "port.image-normalization.normalize", {
+      trace.edge(flowEdge("callback.image-source-result", "port.image-normalization.normalize", flowAttrs({
+        caseId,
         phase: "manual-paste",
+        request,
+        surface: "browser-adapter",
         provider: "reference-image-input-port",
-      }));
+      })));
       normalizedHandles.push(imageHandle);
       return normalizedOutcome;
     },
     addPasteListener: paste.addPasteListenerWithTrace({
       trace,
+      caseId,
       phase: "direct-unavailable",
+      request,
+      resource,
+      surface: "browser-adapter",
     }),
   });
 
@@ -189,16 +208,22 @@ test("reference-image input port falls back from unavailable direct input to pas
     trace,
     port,
     requestId: 1,
+    caseId,
     phase: "direct-unavailable",
+    request,
+    surface: "browser-adapter",
     intent: {
       kind: "load-reference-image",
     },
     reportOutcome: async (outcome) => {
       outcomes.push(outcome);
-      trace.edge(flowEdge("port.image-normalization.normalize", "sink.reference-image-input.outcome", {
+      trace.edge(flowEdge("port.image-normalization.normalize", "sink.reference-image-input.outcome", flowAttrs({
+        caseId,
         phase: "manual-paste",
+        request,
+        surface: "browser-adapter",
         terminal: "port-result",
-      }));
+      })));
     },
   });
 
@@ -212,7 +237,10 @@ test("reference-image input port falls back from unavailable direct input to pas
   });
   await paste.dispatch(pasteEvent, {
     trace,
+    caseId,
     phase: "manual-paste",
+    request,
+    resource,
   });
 
   assert.equal(pasteEvent.defaultPrevented, true);
@@ -222,43 +250,93 @@ test("reference-image input port falls back from unavailable direct input to pas
   }]);
   assert.deepEqual(outcomes, [normalizedOutcome]);
   assert.deepEqual(trace.edges, [
-    ...startInputEdges("direct-unavailable"),
-    flowEdge("port.clipboard-image.read", "callback.image-source-result", {
+    ...startInputEdges({
+      caseId,
       phase: "direct-unavailable",
-      provider: "reference-image-input-port",
+      request,
+      surface: "browser-adapter",
     }),
-    flowEdge("callback.image-source-result", "port.paste-listener.add", {
+    flowEdge("port.clipboard-image.read", "callback.image-source-result", flowAttrs({
+      caseId,
       phase: "direct-unavailable",
+      request,
+      surface: "browser-adapter",
       provider: "reference-image-input-port",
-    }),
-    flowEdge("port.paste-listener.add", "sink.reference-image-input.armed", {
+    })),
+    flowEdge("callback.image-source-result", "port.paste-listener.add", flowAttrs({
+      caseId,
       phase: "direct-unavailable",
-      terminal: "host-resource-active",
-    }),
-    flowEdge("source.manual-paste-event", "callback.paste-event", {
-      phase: "manual-paste",
+      request,
+      surface: "browser-adapter",
       provider: "reference-image-input-port",
-    }),
-    flowEdge("callback.paste-event", "port.paste-event-image.read", {
-      phase: "manual-paste",
+    })),
+    flowEdge("port.paste-listener.add", "resource.paste-listener.active", flowAttrs({
+      caseId,
+      phase: "direct-unavailable",
+      request,
+      resource,
+      surface: "browser-adapter",
       provider: "reference-image-input-port",
-    }),
-    flowEdge("port.paste-event-image.read", "callback.image-source-result", {
+    })),
+    flowEdge("source.manual-paste-event", "resource.paste-listener.active", flowAttrs({
+      caseId,
       phase: "manual-paste",
+      request,
+      resource,
+      surface: "browser-event-loop",
+      provider: "browser-event-loop",
+    })),
+    flowEdge("resource.paste-listener.active", "callback.paste-event", flowAttrs({
+      caseId,
+      phase: "manual-paste",
+      request,
+      resource,
+      surface: "browser-adapter",
       provider: "reference-image-input-port",
-    }),
-    flowEdge("callback.image-source-result", "port.image-normalization.normalize", {
+    })),
+    flowEdge("callback.paste-event", "port.paste-event-image.read", flowAttrs({
+      caseId,
       phase: "manual-paste",
+      request,
+      surface: "browser-adapter",
       provider: "reference-image-input-port",
-    }),
-    flowEdge("port.image-normalization.normalize", "sink.reference-image-input.outcome", {
+    })),
+    flowEdge("port.paste-event-image.read", "callback.image-source-result", flowAttrs({
+      caseId,
       phase: "manual-paste",
+      request,
+      surface: "browser-adapter",
+      provider: "reference-image-input-port",
+    })),
+    flowEdge("callback.image-source-result", "port.image-normalization.normalize", flowAttrs({
+      caseId,
+      phase: "manual-paste",
+      request,
+      surface: "browser-adapter",
+      provider: "reference-image-input-port",
+    })),
+    flowEdge("resource.paste-listener.active", "sink.paste-listener.disposed", flowAttrs({
+      caseId,
+      phase: "direct-unavailable",
+      request,
+      resource,
+      surface: "browser-adapter",
+      terminal: "host-resource-disposed",
+    })),
+    flowEdge("port.image-normalization.normalize", "sink.reference-image-input.outcome", flowAttrs({
+      caseId,
+      phase: "manual-paste",
+      request,
+      surface: "browser-adapter",
       terminal: "port-result",
-    }),
-    flowEdge("callback.paste-event", "sink.paste-event.default-prevented", {
+    })),
+    flowEdge("callback.paste-event", "sink.paste-event.default-prevented", flowAttrs({
+      caseId,
       phase: "manual-paste",
+      request,
+      surface: "browser-adapter",
       terminal: "browser-event-consumed",
-    }),
+    })),
   ]);
 });
 
@@ -269,14 +347,20 @@ test("reference-image input port cancels active capture and suppresses late resu
   const trace = createReferenceImageInputTrace(
     "reference-image input port cancels active capture and suppresses late results",
   );
+  const caseId = "manual-paste-cancel";
+  const request = requestIdentity(1);
+  const resource = pasteListenerResourceIdentity(1);
   const outcomes = [];
   const paste = createPasteListenerHarness();
   const port = createReferenceImageInputPortAdapter({
     async readClipboardImageHandle() {
-      trace.edge(flowEdge("port.clipboard-image.read", "callback.image-source-result", {
+      trace.edge(flowEdge("port.clipboard-image.read", "callback.image-source-result", flowAttrs({
+        caseId,
         phase: "direct-unavailable",
+        request,
+        surface: "browser-adapter",
         provider: "reference-image-input-port",
-      }));
+      })));
       return {
         kind: "unavailable",
       };
@@ -305,7 +389,11 @@ test("reference-image input port cancels active capture and suppresses late resu
     },
     addPasteListener: paste.addPasteListenerWithTrace({
       trace,
+      caseId,
       phase: "direct-unavailable",
+      request,
+      resource,
+      surface: "browser-adapter",
     }),
   });
 
@@ -313,7 +401,10 @@ test("reference-image input port cancels active capture and suppresses late resu
     trace,
     port,
     requestId: 1,
+    caseId,
     phase: "direct-unavailable",
+    request,
+    surface: "browser-adapter",
     intent: {
       kind: "load-reference-image",
     },
@@ -325,7 +416,10 @@ test("reference-image input port cancels active capture and suppresses late resu
     trace,
     port,
     requestId: 1,
+    caseId,
     phase: "cancel",
+    request,
+    surface: "browser-adapter",
   });
   await paste.dispatch(createPasteEvent({
     imageHandle: {
@@ -333,37 +427,71 @@ test("reference-image input port cancels active capture and suppresses late resu
     },
   }), {
     trace,
+    caseId,
     phase: "late-paste",
+    request,
   });
 
   assert.equal(paste.isActive, false);
   assert.deepEqual(outcomes, []);
   assert.deepEqual(trace.edges, [
-    ...startInputEdges("direct-unavailable"),
-    flowEdge("port.clipboard-image.read", "callback.image-source-result", {
+    ...startInputEdges({
+      caseId,
       phase: "direct-unavailable",
+      request,
+      surface: "browser-adapter",
+    }),
+    flowEdge("port.clipboard-image.read", "callback.image-source-result", flowAttrs({
+      caseId,
+      phase: "direct-unavailable",
+      request,
+      surface: "browser-adapter",
       provider: "reference-image-input-port",
-    }),
-    flowEdge("callback.image-source-result", "port.paste-listener.add", {
+    })),
+    flowEdge("callback.image-source-result", "port.paste-listener.add", flowAttrs({
+      caseId,
       phase: "direct-unavailable",
+      request,
+      surface: "browser-adapter",
       provider: "reference-image-input-port",
-    }),
-    flowEdge("port.paste-listener.add", "sink.reference-image-input.armed", {
+    })),
+    flowEdge("port.paste-listener.add", "resource.paste-listener.active", flowAttrs({
+      caseId,
       phase: "direct-unavailable",
-      terminal: "host-resource-active",
-    }),
-    flowEdge("source.reference-image-input.cancel", "port.reference-image-input.cancel", {
+      request,
+      resource,
+      surface: "browser-adapter",
+      provider: "reference-image-input-port",
+    })),
+    flowEdge("source.reference-image-input.cancel", "port.reference-image-input.cancel", flowAttrs({
+      caseId,
       phase: "cancel",
+      request,
+      surface: "browser-adapter",
       provider: "reference-image-input-port",
-    }),
-    flowEdge("port.reference-image-input.cancel", "sink.reference-image-input.cancel", {
-      phase: "cancel",
+    })),
+    flowEdge("resource.paste-listener.active", "sink.paste-listener.disposed", flowAttrs({
+      caseId,
+      phase: "direct-unavailable",
+      request,
+      resource,
+      surface: "browser-adapter",
       terminal: "host-resource-disposed",
-    }),
-    flowEdge("source.manual-paste-event", "inert.no-active-paste-listener", {
+    })),
+    flowEdge("port.reference-image-input.cancel", "sink.reference-image-input.cancel", flowAttrs({
+      caseId,
+      phase: "cancel",
+      request,
+      surface: "browser-adapter",
+      terminal: "host-resource-disposed",
+    })),
+    flowEdge("source.manual-paste-event", "inert.no-active-paste-listener", flowAttrs({
+      caseId,
       phase: "late-paste",
+      request,
+      surface: "browser-event-loop",
       terminal: "intentionally-inert",
-    }),
+    })),
   ]);
 });
 
@@ -594,10 +722,18 @@ async function startReferenceImageInput({
   requestId,
   intent,
   reportOutcome,
+  caseId,
   phase,
+  request,
+  surface,
 }) {
   return trace.withSource("source.reference-image-input.start", async () => {
-    for (const edge of startInputEdges(phase)) {
+    for (const edge of startInputEdges({
+      caseId,
+      phase,
+      request,
+      surface,
+    })) {
       trace.edge(edge);
     }
     await port.startReferenceImageInput({
@@ -612,35 +748,47 @@ function cancelReferenceImageInput({
   trace,
   port,
   requestId,
+  caseId,
   phase,
+  request,
+  surface,
 }) {
   trace.withSource("source.reference-image-input.cancel", () => {
-    trace.edge(flowEdge("source.reference-image-input.cancel", "port.reference-image-input.cancel", {
-      ...phaseAttr(phase),
+    trace.edge(flowEdge("source.reference-image-input.cancel", "port.reference-image-input.cancel", flowAttrs({
+      caseId,
+      phase,
+      request,
+      surface,
       provider: "reference-image-input-port",
-    }));
+    })));
     port.cancelReferenceImageInput({ requestId });
-    trace.edge(flowEdge("port.reference-image-input.cancel", "sink.reference-image-input.cancel", {
-      ...phaseAttr(phase),
+    trace.edge(flowEdge("port.reference-image-input.cancel", "sink.reference-image-input.cancel", flowAttrs({
+      caseId,
+      phase,
+      request,
+      surface,
       terminal: "host-resource-disposed",
-    }));
+    })));
   });
 }
 
-function startInputEdges(phase) {
+function startInputEdges(input) {
+  const options = typeof input === "string"
+    ? { phase: input }
+    : input ?? {};
   return [
-    flowEdge("source.reference-image-input.start", "port.reference-image-input.start", {
-      ...phaseAttr(phase),
+    flowEdge("source.reference-image-input.start", "port.reference-image-input.start", flowAttrs({
+      ...options,
       provider: "reference-image-input-port",
-    }),
-    flowEdge("port.reference-image-input.start", "callback.reference-image-input.started", {
-      ...phaseAttr(phase),
+    })),
+    flowEdge("port.reference-image-input.start", "callback.reference-image-input.started", flowAttrs({
+      ...options,
       provider: "reference-image-input-port",
-    }),
-    flowEdge("callback.reference-image-input.started", "port.clipboard-image.read", {
-      ...phaseAttr(phase),
+    })),
+    flowEdge("callback.reference-image-input.started", "port.clipboard-image.read", flowAttrs({
+      ...options,
       provider: "reference-image-input-port",
-    }),
+    })),
   ];
 }
 
@@ -708,6 +856,56 @@ function phaseAttr(phase) {
   return phase === undefined ? {} : { phase };
 }
 
+function flowAttrs({
+  caseId,
+  phase,
+  request,
+  resource,
+  surface,
+  obligation,
+  fulfills,
+  provider,
+  terminal,
+} = {}) {
+  const attributes = {};
+  if (caseId !== undefined) {
+    attributes.case = caseId;
+  }
+  if (phase !== undefined) {
+    attributes.phase = phase;
+  }
+  if (request !== undefined) {
+    attributes.request = request;
+  }
+  if (resource !== undefined) {
+    attributes.resource = resource;
+  }
+  if (surface !== undefined) {
+    attributes.surface = surface;
+  }
+  if (obligation !== undefined) {
+    attributes.obligation = obligation;
+  }
+  if (fulfills !== undefined) {
+    attributes.fulfills = fulfills;
+  }
+  if (provider !== undefined) {
+    attributes.provider = provider;
+  }
+  if (terminal !== undefined) {
+    attributes.terminal = terminal;
+  }
+  return attributes;
+}
+
+function requestIdentity(requestId) {
+  return `reference-image-input-${requestId}`;
+}
+
+function pasteListenerResourceIdentity(requestId) {
+  return `paste-listener-${requestId}`;
+}
+
 function createPasteListenerHarness() {
   let listener = null;
   return {
@@ -722,40 +920,91 @@ function createPasteListenerHarness() {
         }
       };
     },
-    addPasteListenerWithTrace({ trace, phase }) {
+    addPasteListenerWithTrace({
+      trace,
+      caseId,
+      phase,
+      request,
+      resource,
+      surface,
+    }) {
       return (handler) => {
-        trace.edge(flowEdge("callback.image-source-result", "port.paste-listener.add", {
-          ...phaseAttr(phase),
+        trace.edge(flowEdge("callback.image-source-result", "port.paste-listener.add", flowAttrs({
+          caseId,
+          phase,
+          request,
+          surface,
           provider: "reference-image-input-port",
-        }));
-        trace.edge(flowEdge("port.paste-listener.add", "sink.reference-image-input.armed", {
-          ...phaseAttr(phase),
-          terminal: "host-resource-active",
-        }));
-        return this.addPasteListener(handler);
+        })));
+        trace.edge(flowEdge("port.paste-listener.add", "resource.paste-listener.active", flowAttrs({
+          caseId,
+          phase,
+          request,
+          resource,
+          surface,
+          provider: "reference-image-input-port",
+        })));
+        const dispose = this.addPasteListener(handler);
+        return () => {
+          dispose();
+          trace.edge(flowEdge("resource.paste-listener.active", "sink.paste-listener.disposed", flowAttrs({
+            caseId,
+            phase,
+            request,
+            resource,
+            surface,
+            terminal: "host-resource-disposed",
+          })));
+        };
       };
     },
     async dispatch(event, traceContext = {}) {
-      const { trace, phase } = traceContext;
+      const {
+        trace,
+        caseId,
+        phase,
+        request,
+        resource,
+      } = traceContext;
       if (!listener) {
-        trace?.edge(flowEdge("source.manual-paste-event", "inert.no-active-paste-listener", {
-          ...phaseAttr(phase),
+        trace?.edge(flowEdge("source.manual-paste-event", "inert.no-active-paste-listener", flowAttrs({
+          caseId,
+          phase,
+          request,
+          surface: "browser-event-loop",
           terminal: "intentionally-inert",
-        }));
+        })));
         return;
       }
       if (trace) {
         await trace.withSource("source.manual-paste-event", async () => {
-          trace.edge(flowEdge("source.manual-paste-event", "callback.paste-event", {
-            ...phaseAttr(phase),
-            provider: "reference-image-input-port",
-          }));
-          await trace.withSource("callback.paste-event", async () => {
-            await listener(event);
-            trace.edge(flowEdge("callback.paste-event", "sink.paste-event.default-prevented", {
-              ...phaseAttr(phase),
-              terminal: "browser-event-consumed",
-            }));
+          trace.edge(flowEdge("source.manual-paste-event", "resource.paste-listener.active", flowAttrs({
+            caseId,
+            phase,
+            request,
+            resource,
+            surface: "browser-event-loop",
+            provider: "browser-event-loop",
+          })));
+          await trace.withSource("resource.paste-listener.active", async () => {
+            trace.edge(flowEdge("resource.paste-listener.active", "callback.paste-event", flowAttrs({
+              caseId,
+              phase,
+              request,
+              resource,
+              surface: "browser-adapter",
+              provider: "reference-image-input-port",
+            })));
+            await trace.withSource("callback.paste-event", async () => {
+              await listener(event);
+              trace.edge(flowEdge("callback.paste-event", "sink.paste-event.default-prevented", flowAttrs({
+                caseId,
+                phase,
+                request,
+                surface: "browser-adapter",
+                terminal: "browser-event-consumed",
+              })));
+            });
           });
         });
         return;

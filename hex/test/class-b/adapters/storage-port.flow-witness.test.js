@@ -76,6 +76,48 @@ test("storage port normalizes missing state to null", async () => {
   )));
 });
 
+// Class-b: extension storage is a browser boundary. The adapter must support
+// callback-style Chrome storage as well as promise-style browser storage so
+// durable state is not tied to one extension API dialect.
+test("storage port supports callback-style Chrome storage", async () => {
+  const trace = createFlowTrace({
+    file: import.meta.url,
+    test: "storage port supports callback-style Chrome storage",
+  });
+  const durableState = {
+    session: {
+      mode: "trace",
+    },
+  };
+  const records = {};
+  const storage = createStoragePortAdapter({
+    storageArea: {
+      get(key, callback) {
+        callback({
+          [key]: records[key] ?? null,
+        });
+      },
+      set(record, callback) {
+        Object.assign(records, record);
+        callback();
+      },
+    },
+    storageKey: "id-overlay/state",
+  });
+
+  assert.equal(await readDurableState({ trace, storage, phase: "initial" }), null);
+  await writeDurableState({
+    trace,
+    storage,
+    durableState,
+    phase: "write",
+  });
+  assert.deepEqual(await readDurableState({ trace, storage, phase: "after-write" }), durableState);
+  assert.deepEqual(records, {
+    "id-overlay/state": durableState,
+  });
+});
+
 async function writeDurableState({
   trace,
   storage,

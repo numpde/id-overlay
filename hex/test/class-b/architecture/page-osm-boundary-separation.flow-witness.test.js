@@ -7,6 +7,10 @@ import {
   readSource,
   relativeToRepo,
 } from "../../class-a/architecture/source-files.js";
+import {
+  createFlowTrace,
+  flowEdge,
+} from "../../support/flow-trace.js";
 
 const PAGE_OSM_ADAPTER_DIR = hexPath("adapters/page-osm-id");
 
@@ -16,6 +20,10 @@ const PAGE_OSM_ADAPTER_DIR = hexPath("adapters/page-osm-id");
 // makes the page boundary reviewable without promoting file names to class-a
 // product law.
 test("page OSM adapter files do not mix observation, projection, and gesture forwarding roles", () => {
+  const trace = createFlowTrace({
+    file: import.meta.url,
+    test: "page OSM adapter files do not mix observation, projection, and gesture forwarding roles",
+  });
   const violations = [];
 
   for (const filePath of listJavaScriptFiles(PAGE_OSM_ADAPTER_DIR)) {
@@ -30,6 +38,10 @@ test("page OSM adapter files do not mix observation, projection, and gesture for
   }
 
   assert.deepEqual(violations, []);
+  trace.edge(flowEdge("check.page-osm-adapter-role-separation", "sink.architecture-boundary", {
+    phase: "page-osm-role-separation",
+    terminal: "source-contract",
+  }));
 });
 
 const PAGE_OSM_BOUNDARY_ROLES = Object.freeze([

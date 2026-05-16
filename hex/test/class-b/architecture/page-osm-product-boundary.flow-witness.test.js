@@ -7,6 +7,10 @@ import {
   readSource,
   relativeToRepo,
 } from "../../class-a/architecture/source-files.js";
+import {
+  createFlowTrace,
+  flowEdge,
+} from "../../support/flow-trace.js";
 
 const PAGE_OSM_ADAPTER_DIR = hexPath("adapters/page-osm-id");
 
@@ -15,6 +19,10 @@ const PAGE_OSM_ADAPTER_DIR = hexPath("adapters/page-osm-id");
 // mechanics, but it must not know product state, panel copy, history, or app
 // command execution; those remain inside application/bootstrap contracts.
 test("page OSM adapter source does not contain product vocabulary", () => {
+  const trace = createFlowTrace({
+    file: import.meta.url,
+    test: "page OSM adapter source does not contain product vocabulary",
+  });
   const violations = [];
 
   for (const filePath of listJavaScriptFiles(PAGE_OSM_ADAPTER_DIR)) {
@@ -27,6 +35,9 @@ test("page OSM adapter source does not contain product vocabulary", () => {
   }
 
   assert.deepEqual(violations, []);
+  trace.edge(flowEdge("check.page-osm-product-boundary", "sink.architecture-boundary", {
+    terminal: "architecture-check",
+  }));
 });
 
 const FORBIDDEN_PRODUCT_PATTERNS = Object.freeze([
