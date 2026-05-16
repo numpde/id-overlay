@@ -24,20 +24,18 @@ import {
   ApplicationBoundaryError,
   APPLICATION_BOUNDARY_ERROR_CODE,
 } from "./errors.js";
-import { isPlacementData, placementEquals } from "./placement.js";
-import {
-  applyPlacementRevision,
-  placementRevisionFromSession,
-} from "./placement-history.js";
+import { isPlacementData } from "./placement.js";
 import { isPlainData } from "./plain-data.js";
 import { isReferenceImageData } from "./reference-image.js";
 import { createInitialApplicationState } from "./state.js";
 import {
-  pushHistory,
   replayHistory,
   withoutRedoHistory,
 } from "./history.js";
 import { selectDurableApplicationState } from "./view-model.js";
+import {
+  commitPlacementEdit,
+} from "./placement-commands.js";
 
 export function handleApplicationCommand({ state, command }) {
   assertValidState(state);
@@ -67,7 +65,7 @@ export function handleApplicationCommand({ state, command }) {
     case APPLICATION_COMMAND_KIND.TOGGLE_REGISTRATION_PIN:
       return toggleRegistrationPin(state, command, { inertResult });
     case APPLICATION_COMMAND_KIND.COMMIT_PLACEMENT_EDIT:
-      return commitPlacementEdit(state, command);
+      return commitPlacementEdit(state, command, { inertResult });
     case APPLICATION_COMMAND_KIND.CLEAR_REGISTRATION_PINS:
       return clearRegistrationPins(state, { inertResult });
     case APPLICATION_COMMAND_KIND.CLEAR_STATUS_NOTICE:
@@ -147,41 +145,6 @@ function stateFromDurableState(durableState) {
   }
   return {
     session: durableState.session,
-  };
-}
-
-function commitPlacementEdit(state, command) {
-  if (
-    !state.session
-      || state.session.mode !== "align"
-      || placementEquals(state.session.placement, command.placement)
-  ) {
-    return inertResult(state);
-  }
-
-  const before = placementRevisionFromSession(state.session);
-  const after = {
-    placement: command.placement,
-    solvedRegistration: null,
-  };
-  const nextState = {
-    session: applyPlacementRevision(state.session, after),
-    history: pushHistory(state.history, {
-      kind: "overlay-placement-edit",
-      editKind: command.editKind,
-      before,
-      after,
-    }),
-    notice: {
-      kind: "placement-changed",
-      editKind: command.editKind,
-    },
-  };
-  return {
-    state: nextState,
-    effects: [
-      persistDurableStateEffect(selectDurableApplicationState(nextState)),
-    ],
   };
 }
 
