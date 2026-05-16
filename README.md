@@ -95,6 +95,35 @@ yet.
 If Chromium says files are missing, you probably selected the zip itself, the
 wrong parent folder, or a folder that was moved after loading.
 
+## Permissions
+
+The extension asks for a narrow set of permissions:
+
+- `storage`: lets the extension save its own state, such as overlay placement,
+  opacity, pins, and panel position.
+- `https://www.openstreetmap.org/*`: lets the extension run on OpenStreetMap
+  pages.
+
+The content script is limited to:
+
+- `https://www.openstreetmap.org/edit*`
+
+Loading the extension in Chromium developer mode does not grant extra extension
+permissions. Developer mode only adds browser controls for inspecting,
+reloading, and debugging the extension.
+
+The extension does not request:
+
+- access to all websites
+- `tabs`
+- `activeTab`
+- clipboard extension permissions
+- cookies, history, downloads, or native messaging
+
+The important caveat is that a content script running on the iD editor page can
+read and modify that page while it is active there. In practice, the permission
+boundary is OpenStreetMap/iD plus extension storage, not the whole browser.
+
 ### Build and Install Locally
 
 Install dependencies:
@@ -200,7 +229,7 @@ git push origin main --tags
 
 Current release tag:
 
-- [`v0.0.1`](https://github.com/numpde/id-overlay/releases/tag/v0.0.1)
+- [`v0.0.2`](https://github.com/numpde/id-overlay/releases/tag/v0.0.2)
 
 ## Status
 
