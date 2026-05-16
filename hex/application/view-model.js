@@ -7,7 +7,7 @@ export function selectDurableApplicationState(state) {
   };
 }
 
-export function selectApplicationView(state) {
+export function selectApplicationView(state, viewFeedback = null) {
   const mode = state.session?.mode ?? "trace";
   return {
     mode,
@@ -25,7 +25,7 @@ export function selectApplicationView(state) {
       label: primaryActionLabel(state),
       enabled: true,
     },
-    status: statusText(state),
+    status: statusText(state, viewFeedback),
   };
 }
 
@@ -123,7 +123,7 @@ function primaryActionLabel(state) {
   return "Clear image";
 }
 
-function statusText(state) {
+function statusText(state, viewFeedback) {
   if (state.referenceImageInput?.status === "awaiting-input") {
     return pasteInstructions();
   }
@@ -133,7 +133,7 @@ function statusText(state) {
   if (state.panelIntent?.kind === "confirm-clear-pins") {
     return "Click Clear pins? again to remove the current registration pins.";
   }
-  const noticeText = formatStatusNotice(state.historyFeedback ?? state.notice);
+  const noticeText = formatStatusNotice(viewFeedback?.statusNotice ?? state.notice);
   if (noticeText !== null) {
     return noticeText;
   }

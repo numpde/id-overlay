@@ -13,6 +13,7 @@ export function createRuntimeDriver({
   subscriptions = [],
 }) {
   let currentState = initialState;
+  let currentViewFeedback = null;
   let disposed = false;
   let didDispose = false;
 
@@ -25,6 +26,9 @@ export function createRuntimeDriver({
     },
     getState() {
       return currentState;
+    },
+    getViewFeedback() {
+      return currentViewFeedback;
     },
     dispose() {
       if (didDispose) {
@@ -44,6 +48,7 @@ export function createRuntimeDriver({
       command,
     });
     currentState = result.state;
+    currentViewFeedback = result.viewFeedback ?? null;
 
     for (const effect of result.effects) {
       await runEffect(effect);

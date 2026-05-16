@@ -64,6 +64,10 @@ test("undoing placement preserves unrelated current durable state", () => {
         placement: originalPlacement(),
       }),
     }],
+    viewFeedback: historyReplayFeedback({
+      record,
+      direction: "undo",
+    }),
   });
   tracePlacementHistory(trace, "undo-placement");
 });
@@ -120,6 +124,10 @@ test("redoing placement preserves unrelated current durable state", () => {
         placement: rotatedPlacement(),
       }),
     }],
+    viewFeedback: historyReplayFeedback({
+      record,
+      direction: "redo",
+    }),
   });
   tracePlacementHistory(trace, "redo-placement");
 });
@@ -179,6 +187,10 @@ test("undoing manual placement restores solved registration placement metadata",
         solvedPlacement: originalPlacement(),
       }),
     }],
+    viewFeedback: historyReplayFeedback({
+      record,
+      direction: "undo",
+    }),
   });
   tracePlacementHistory(trace, "undo-placement-solved-registration");
 });
@@ -236,6 +248,10 @@ test("undoing placement does not restore solved metadata for changed pins", () =
         placement: originalPlacement(),
       }),
     }],
+    viewFeedback: historyReplayFeedback({
+      record,
+      direction: "undo",
+    }),
   });
   tracePlacementHistory(trace, "undo-placement-changed-pins");
 });
@@ -261,6 +277,17 @@ function tracePlacementHistory(trace, phase) {
     phase,
     terminal: "effect-result",
   }));
+}
+
+function historyReplayFeedback({ record, direction }) {
+  return {
+    statusNotice: {
+      kind: "history-replayed",
+      direction,
+      historyKind: record.kind,
+      editKind: record.editKind,
+    },
+  };
 }
 
 function placementHistoryRecord({ editKind, before, after }) {

@@ -86,6 +86,52 @@ test("runtime runs only effects returned by the application step", async () => {
   ]);
 });
 
+// Class-a: transient view feedback is a reducer result channel, not product
+// state. The runtime may retain the latest feedback for rendering, but it must
+// not graft it onto the state object or keep stale feedback after a later
+// command produces none.
+test("runtime carries transient view feedback outside product state", async () => {
+  const trace = createRuntimeTrace("runtime carries transient view feedback outside product state");
+  const states = [{ step: 0 }, { step: 1 }, { step: 2 }];
+  const feedback = {
+    statusNotice: {
+      kind: "history-empty",
+      direction: "undo",
+    },
+  };
+  let stepIndex = 0;
+  const runtime = createRuntimeDriver({
+    initialState: states[0],
+    effectHandlers: {},
+    stepApplication() {
+      stepIndex += 1;
+      return {
+        state: states[stepIndex],
+        effects: [],
+        ...(stepIndex === 1 ? { viewFeedback: feedback } : {}),
+      };
+    },
+  });
+
+  await runtime.dispatch({ kind: "first-command" });
+  assert.equal(runtime.getState(), states[1]);
+  assert.equal(Object.hasOwn(runtime.getState(), "viewFeedback"), false);
+  assert.deepEqual(runtime.getViewFeedback(), feedback);
+
+  await runtime.dispatch({ kind: "second-command" });
+  assert.equal(runtime.getState(), states[2]);
+  assert.equal(runtime.getViewFeedback(), null);
+
+  traceRuntimeDispatch(trace, "transient-view-feedback-first-dispatch", [
+    "sink.application-step",
+    "sink.runtime-view-feedback",
+  ]);
+  traceRuntimeDispatch(trace, "transient-view-feedback-second-dispatch", [
+    "sink.application-step",
+    "inert.no-stale-feedback",
+  ]);
+});
+
 // Class-a: effect kind is the runtime dispatch key. A declared effect must call
 // exactly its matching host handler; neighboring capabilities must stay inert.
 test("runtime dispatches each declared effect kind to its matching handler", async () => {

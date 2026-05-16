@@ -88,6 +88,17 @@ test("undo and redo expose transient history feedback", () => {
     });
 
     assert.equal(undo.status, undoStatus);
+    assert.equal(Object.hasOwn(undo.result.state, "historyFeedback"), false);
+    assert.deepEqual(undo.result.viewFeedback, {
+      statusNotice: {
+        kind: "history-replayed",
+        direction: "undo",
+        historyKind: record.kind,
+        ...(record.editKind === undefined ? {} : {
+          editKind: record.editKind,
+        }),
+      },
+    });
 
     const redo = witnessApplicationStatus({
       trace,
@@ -97,6 +108,17 @@ test("undo and redo expose transient history feedback", () => {
     });
 
     assert.equal(redo.status, redoStatus);
+    assert.equal(Object.hasOwn(redo.result.state, "historyFeedback"), false);
+    assert.deepEqual(redo.result.viewFeedback, {
+      statusNotice: {
+        kind: "history-replayed",
+        direction: "redo",
+        historyKind: record.kind,
+        ...(record.editKind === undefined ? {} : {
+          editKind: record.editKind,
+        }),
+      },
+    });
   }
   assert.deepEqual(trace.edges, cases.flatMap(({ phase }) => (
     successfulHistoryFeedbackEdges({ phase })
@@ -150,7 +172,7 @@ test("empty undo and redo expose status feedback without durability", () => {
 function witnessApplicationStatus({ trace, state, command, phase }) {
   const result = handleApplicationCommand({ state, command });
   traceApplicationResult({ trace, command, result, phase });
-  const view = selectApplicationView(result.state);
+  const view = selectApplicationView(result.state, result.viewFeedback ?? null);
   trace.edge(flowEdge(`command.${command.kind}`, "sink.application-view.status", {
     ...(phase === undefined ? {} : { phase }),
     terminal: "view-result",

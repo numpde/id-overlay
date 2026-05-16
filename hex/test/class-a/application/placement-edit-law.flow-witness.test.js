@@ -297,6 +297,10 @@ test("placement undo and redo preserve the current mode", () => {
         placement: originalPlacement(),
       })),
     ],
+    viewFeedback: historyReplayFeedback({
+      record,
+      direction: "undo",
+    }),
   });
 
   const redoCommand = createApplicationCommand(APPLICATION_COMMAND_KIND.REDO);
@@ -327,6 +331,10 @@ test("placement undo and redo preserve the current mode", () => {
         placement: movedPlacement(),
       })),
     ],
+    viewFeedback: historyReplayFeedback({
+      record,
+      direction: "redo",
+    }),
   });
   assert.deepEqual(trace.edges, [
     ...durableCommandEdges("command.undo"),
@@ -375,6 +383,17 @@ function durableCommandEdges(commandNode, attributes = {}) {
 
 function placementEditEdges(attributes = {}) {
   return durableCommandEdges("command.commit-placement-edit", attributes);
+}
+
+function historyReplayFeedback({ record, direction }) {
+  return {
+    statusNotice: {
+      kind: "history-replayed",
+      direction,
+      historyKind: record.kind,
+      editKind: record.editKind,
+    },
+  };
 }
 
 function originalPlacement() {

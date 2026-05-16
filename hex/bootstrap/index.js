@@ -192,7 +192,7 @@ export async function bootstrapBrowserExtension(host) {
       return;
     }
     shell.hasRendered = true;
-    const baseView = selectApplicationView(runtime.getState());
+    const baseView = selectApplicationView(runtime.getState(), runtime.getViewFeedback?.() ?? null);
     const projectedView = projectApplicationView({
       host,
       pageSnapshot: shell.pageSnapshot,
@@ -895,6 +895,9 @@ function createPublicRuntime(runtime) {
     },
     getState() {
       return withoutRuntimeLocalState(runtime.getState());
+    },
+    getViewFeedback() {
+      return runtime.getViewFeedback?.() ?? null;
     },
     dispose() {
       runtime.dispose();

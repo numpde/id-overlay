@@ -13,8 +13,8 @@ import { createInitialApplicationState } from "./state.js";
 import {
   createHistoryEmptyNotice,
   createHistoryReplayedNotice,
+  createViewFeedbackStatusNotice,
   withStatusNotice,
-  withTransientStatusFeedback,
 } from "./status-notice.js";
 import { selectDurableApplicationState } from "./view-model.js";
 
@@ -147,13 +147,16 @@ function undoHistory(state) {
     future: [...(history.future ?? []), record],
   };
   const durableState = applyHistoryRecord(state, record, "before");
-  const nextState = withTransientStatusFeedback({
+  const nextState = {
     ...stateFromDurableState(durableState),
     history: nextHistory,
-  }, createHistoryReplayedNotice({ record, direction: "undo" }));
+  };
   return {
     state: nextState,
     effects: [persistDurableStateEffect(durableState)],
+    viewFeedback: createViewFeedbackStatusNotice(
+      createHistoryReplayedNotice({ record, direction: "undo" }),
+    ),
   };
 }
 
@@ -172,13 +175,16 @@ function redoHistory(state) {
     future: history.future.slice(0, -1),
   };
   const durableState = applyHistoryRecord(state, record, "after");
-  const nextState = withTransientStatusFeedback({
+  const nextState = {
     ...stateFromDurableState(durableState),
     history: nextHistory,
-  }, createHistoryReplayedNotice({ record, direction: "redo" }));
+  };
   return {
     state: nextState,
     effects: [persistDurableStateEffect(durableState)],
+    viewFeedback: createViewFeedbackStatusNotice(
+      createHistoryReplayedNotice({ record, direction: "redo" }),
+    ),
   };
 }
 

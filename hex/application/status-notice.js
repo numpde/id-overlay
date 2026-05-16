@@ -5,15 +5,6 @@ export function withStatusNotice(state, notice) {
   };
 }
 
-export function withTransientStatusFeedback(state, notice) {
-  Object.defineProperty(state, "historyFeedback", {
-    value: notice,
-    enumerable: false,
-    configurable: true,
-  });
-  return state;
-}
-
 export function createOverlayFittedNotice({ pinCount }) {
   return {
     kind: "overlay-fitted",
@@ -36,5 +27,11 @@ export function createHistoryReplayedNotice({ record, direction }) {
     ...(record.editKind === undefined ? {} : {
       editKind: record.editKind,
     }),
+  };
+}
+
+export function createViewFeedbackStatusNotice(notice) {
+  return {
+    statusNotice: notice,
   };
 }
