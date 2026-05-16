@@ -3,6 +3,15 @@ import {
   createApplicationCommand,
 } from "./command.js";
 import {
+  cancelReferenceImageInputEffect,
+  loadReferenceImageInputIntent,
+  persistDurableStateEffect,
+  replaceReferenceImageInputIntent,
+  requestReferenceImageInputEffect,
+  scheduleClearPanelIntentEffect,
+  scheduleClearStatusNoticeEffect,
+} from "./effects.js";
+import {
   ApplicationBoundaryError,
   APPLICATION_BOUNDARY_ERROR_CODE,
 } from "./errors.js";
@@ -634,74 +643,6 @@ function inertResult(state) {
   return {
     state,
     effects: [],
-  };
-}
-
-function persistDurableStateEffect(durableState) {
-  return {
-    kind: "persist-durable-state",
-    durableState,
-  };
-}
-
-function requestReferenceImageInputEffect({ requestId, intent }) {
-  return {
-    kind: "request-reference-image-input",
-    requestId,
-    intent,
-  };
-}
-
-function cancelReferenceImageInputEffect(requestId) {
-  return {
-    kind: "cancel-reference-image-input",
-    requestId,
-  };
-}
-
-function loadReferenceImageInputIntent() {
-  return {
-    kind: "load-reference-image",
-  };
-}
-
-function replaceReferenceImageInputIntent() {
-  return {
-    kind: "replace-reference-image",
-  };
-}
-
-function scheduleClearStatusNoticeEffect(requestId) {
-  return scheduleApplicationCommandEffect({
-    scheduleId: "status-notice",
-    delayMs: 2500,
-    command: createApplicationCommand(
-      APPLICATION_COMMAND_KIND.CLEAR_STATUS_NOTICE,
-      { requestId },
-    ),
-  });
-}
-
-function scheduleClearPanelIntentEffect({ requestId, intentKind }) {
-  return scheduleApplicationCommandEffect({
-    scheduleId: "panel-intent",
-    delayMs: 2500,
-    command: createApplicationCommand(
-      APPLICATION_COMMAND_KIND.CLEAR_PANEL_INTENT,
-      {
-        requestId,
-        intentKind,
-      },
-    ),
-  });
-}
-
-function scheduleApplicationCommandEffect({ scheduleId, delayMs, command }) {
-  return {
-    kind: "schedule-application-command",
-    scheduleId,
-    delayMs,
-    command,
   };
 }
 
