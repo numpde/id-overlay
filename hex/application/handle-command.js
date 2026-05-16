@@ -32,6 +32,10 @@ import {
   setOpacity,
   setTemporaryInputPosture,
 } from "./session-commands.js";
+import {
+  clearPanelIntent,
+  clearStatusNotice,
+} from "./scheduled-clear-commands.js";
 
 export function handleApplicationCommand({ state, command }) {
   assertValidState(state);
@@ -65,9 +69,9 @@ export function handleApplicationCommand({ state, command }) {
     case APPLICATION_COMMAND_KIND.CLEAR_REGISTRATION_PINS:
       return clearRegistrationPins(state, { inertResult });
     case APPLICATION_COMMAND_KIND.CLEAR_STATUS_NOTICE:
-      return clearStatusNotice(state, command.requestId);
+      return clearStatusNotice(state, command.requestId, { inertResult });
     case APPLICATION_COMMAND_KIND.CLEAR_PANEL_INTENT:
-      return clearPanelIntent(state, command);
+      return clearPanelIntent(state, command, { inertResult });
     case APPLICATION_COMMAND_KIND.UNDO:
       return replayHistory(state, "undo");
     case APPLICATION_COMMAND_KIND.REDO:
@@ -100,43 +104,6 @@ function hydrate(durableState) {
   assertSupportedDurableState(durableState);
   return {
     state: stateFromDurableState(durableState),
-    effects: [],
-  };
-}
-
-function clearStatusNotice(state, requestId) {
-  if (state.notice?.requestId !== requestId) {
-    return inertResult(state);
-  }
-
-  const nextState = {};
-  for (const [key, value] of Object.entries(state)) {
-    if (key !== "notice") {
-      nextState[key] = value;
-    }
-  }
-  return {
-    state: nextState,
-    effects: [],
-  };
-}
-
-function clearPanelIntent(state, command) {
-  if (
-    state.panelIntent?.requestId !== command.requestId
-      || state.panelIntent?.kind !== command.intentKind
-  ) {
-    return inertResult(state);
-  }
-
-  const nextState = {};
-  for (const [key, value] of Object.entries(state)) {
-    if (key !== "panelIntent") {
-      nextState[key] = value;
-    }
-  }
-  return {
-    state: nextState,
     effects: [],
   };
 }
