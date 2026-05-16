@@ -131,6 +131,12 @@ function assertValidReferenceImageInputOutcomePayload(payload) {
   const outcome = payload.outcome;
   if (outcome?.kind === "accepted") {
     assertValidReferenceImage(outcome.referenceImage);
+    if (
+      Object.hasOwn(outcome, "placement")
+        && !isPlacementData(outcome.placement)
+    ) {
+      throwInvalidApplicationCommand();
+    }
     return;
   }
   if (outcome?.kind === "empty") {

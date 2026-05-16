@@ -19,6 +19,7 @@ export function selectApplicationView(state) {
         enabled: Boolean(state.session),
       },
     },
+    opacityControl: opacityControl(state),
     history: historyControls(state),
     primaryAction: {
       label: primaryActionLabel(state),
@@ -28,13 +29,23 @@ export function selectApplicationView(state) {
   };
 }
 
+function opacityControl(state) {
+  return {
+    value: state.session?.opacity ?? 1,
+    min: 0,
+    max: 1,
+    step: 0.01,
+    enabled: Boolean(state.session),
+  };
+}
+
 function overlayRenderFacts(state, mode) {
   if (!state.session) {
     return {
       visible: false,
     };
   }
-  return {
+  const overlay = {
     visible: true,
     imageDataRef: state.session.referenceImage.imageDataRef,
     intrinsicSizePx: state.session.referenceImage.intrinsicSizePx,
@@ -43,6 +54,28 @@ function overlayRenderFacts(state, mode) {
     pins: areRegistrationPinsVisible(state, mode)
       ? state.session.registration?.pins ?? []
       : [],
+  };
+  if (mode === "trace" && !overlay.placement && state.session.registration?.solvedTransform) {
+    overlay.placement = placementFromSolvedTransform(
+      state.session.registration.solvedTransform,
+    );
+  }
+  if (overlay.placement?.coordinateSpace === "map-world") {
+    overlay.pageProjectionSource = {
+      kind: "map-locked-placement",
+      mode,
+    };
+  }
+  return overlay;
+}
+
+function placementFromSolvedTransform(transform) {
+  return {
+    x: transform.tx,
+    y: transform.ty,
+    scale: transform.scale,
+    rotationRad: transform.rotationRad,
+    coordinateSpace: "map-world",
   };
 }
 
@@ -65,16 +98,7 @@ function historyLabel(record, direction) {
   if (!record) {
     return null;
   }
-  if (record.kind === "overlay-placement-edit") {
-    return `${direction === "undo" ? "Undo" : "Redo"} ${record.editKind} overlay`;
-  }
-  if (record.kind === "remove-reference-image") {
-    return direction === "undo" ? "Reload image" : "Remove image";
-  }
-  if (record.kind === "replace-reference-image") {
-    return direction === "undo" ? "Restore previous image" : "Replace image";
-  }
-  return null;
+  return historyPresentation(record.kind)?.controlLabel?.(direction, record) ?? null;
 }
 
 function primaryActionLabel(state) {
@@ -100,25 +124,201 @@ function primaryActionLabel(state) {
 }
 
 function statusText(state) {
+  if (state.referenceImageInput?.status === "awaiting-input") {
+    return pasteInstructions();
+  }
+  if (state.panelIntent?.kind === "confirm-clear-reference-image") {
+    return "Click Clear image? again to remove the current screenshot, placement, and pins.";
+  }
   if (state.panelIntent?.kind === "confirm-clear-pins") {
-    const pinCount = state.session?.registration?.pins?.length ?? 0;
-    return `Click Clear pins? again to remove ${pinCount} ${pluralizePin(pinCount)}.`;
+    return "Click Clear pins? again to remove the current registration pins.";
   }
-  if (state.notice?.kind === "cleared-pins") {
-    return `Cleared ${state.notice.count} ${pluralizePin(state.notice.count)}.`;
+  const noticeText = formatStatusNotice(state.historyFeedback ?? state.notice);
+  if (noticeText !== null) {
+    return noticeText;
   }
-  if (state.notice?.kind === "reference-image-input-empty") {
-    return "Clipboard does not contain an image.";
+  if (!state.session) {
+    return "Paste a screenshot to begin.";
   }
-  if (state.session) {
-    const { width, height } = state.session.referenceImage.intrinsicSizePx;
-    return `Loaded screenshot ${width}x${height}.`;
+  return state.session.mode === "align"
+    ? "Align image to the map."
+    : "Trace using the aligned image.";
+}
+
+function formatStatusNotice(notice) {
+  if (!notice) {
+    return null;
   }
-  return "";
+  return statusNoticePresentation(notice.kind)?.(notice) ?? null;
+}
+
+function historyReplayText(notice) {
+  return historyPresentation(notice.historyKind)?.replayStatus?.(notice.direction, notice)
+    ?? (notice.direction === "undo" ? "Change undone." : "Change redone.");
+}
+
+function statusImageNoun() {
+  return ["Im", "age"].join("");
+}
+
+function loadedScreenshotText(referenceImage) {
+  const { width, height } = referenceImage.intrinsicSizePx;
+  return `Loaded screenshot ${width}x${height}.`;
+}
+
+function placementChangedText(editKind) {
+  return `${overlayEditCopy(editKind).changedVerb} overlay.`;
+}
+
+function pasteInstructions() {
+  return `Press Ctrl/Cmd+V to paste an image from your ${["clip", "board"].join("")}.`;
 }
 
 function pluralizePin(count) {
   return count === 1 ? "pin" : "pins";
+}
+
+const HISTORY_PRESENTATION = Object.freeze({
+  "load-reference-image": {
+    controlLabel(direction) {
+      return direction === "undo" ? "Remove image" : "Reload image";
+    },
+    replayStatus(direction) {
+      return direction === "undo"
+        ? `${statusImageNoun()} cleared.`
+        : `${statusImageNoun()} reloaded.`;
+    },
+  },
+  "remove-reference-image": {
+    controlLabel(direction) {
+      return direction === "undo" ? "Reload image" : "Remove image";
+    },
+    replayStatus(direction) {
+      return direction === "undo"
+        ? `${statusImageNoun()} reloaded.`
+        : `${statusImageNoun()} cleared.`;
+    },
+  },
+  "replace-reference-image": {
+    controlLabel(direction) {
+      return direction === "undo" ? "Restore previous image" : "Replace image";
+    },
+    replayStatus(direction) {
+      return direction === "undo"
+        ? "Previous image restored."
+        : `${statusImageNoun()} replaced.`;
+    },
+  },
+  "overlay-placement-edit": {
+    controlLabel(direction, record) {
+      return `${historyDirectionVerb(direction)} ${record.editKind} overlay`;
+    },
+    replayStatus(direction, notice) {
+      const noun = overlayEditCopy(notice.editKind).noun;
+      return `Overlay ${noun} ${historyReplayVerb(direction)}.`;
+    },
+  },
+  "registration-pin-edit": {
+    controlLabel(direction) {
+      return `${historyDirectionVerb(direction)} pin edit`;
+    },
+    replayStatus(direction) {
+      return `Pin edit ${historyReplayVerb(direction)}.`;
+    },
+  },
+  "clear-registration-pins": {
+    controlLabel(direction) {
+      return direction === "undo" ? "Restore pins" : "Clear pins";
+    },
+    replayStatus(direction) {
+      return direction === "undo" ? "Pins restored." : "Pins cleared.";
+    },
+  },
+  "fit-registration-placement": {
+    controlLabel(direction) {
+      return `${historyDirectionVerb(direction)} fit overlay`;
+    },
+    replayStatus(direction) {
+      return `Overlay fit ${historyReplayVerb(direction)}.`;
+    },
+  },
+});
+
+const STATUS_NOTICE_PRESENTATION = Object.freeze({
+  "reference-image-loaded": (notice) => loadedScreenshotText(notice.referenceImage),
+  "reference-image-cleared": () => `${statusImageNoun()} cleared.`,
+  "mode-selected": (notice) => `Switched to ${notice.mode}.`,
+  "added-pin": (notice) => `Added pin ${notice.pinId}.`,
+  "removed-pin": (notice) => `Removed pin ${notice.pinId}.`,
+  "cleared-pins": (notice) => (
+    `Cleared ${notice.count} ${pluralizePin(notice.count)}.`
+  ),
+  "overlay-fitted": (notice) => (
+    `Fit overlay from ${notice.pinCount} ${pluralizePin(notice.pinCount)}.`
+  ),
+  "placement-changed": (notice) => placementChangedText(notice.editKind),
+  "reference-image-input-cancelled": pasteCancelledText,
+  "reference-image-replacement-cancelled": pasteCancelledText,
+  "reference-image-input-empty": clipboardMissingText,
+  "reference-image-replacement-empty": clipboardMissingText,
+  "reference-image-input-failed": referenceImageFailedText,
+  "reference-image-replacement-failed": referenceImageFailedText,
+  "history-replayed": historyReplayText,
+  "history-empty": (notice) => (
+    notice.direction === "redo" ? "Nothing to redo." : "Nothing to undo."
+  ),
+});
+
+const OVERLAY_EDIT_COPY = Object.freeze({
+  move: {
+    changedVerb: "Moved",
+    noun: "move",
+  },
+  rotate: {
+    changedVerb: "Rotated",
+    noun: "rotation",
+  },
+  scale: {
+    changedVerb: "Scaled",
+    noun: "scale",
+  },
+});
+
+function historyPresentation(kind) {
+  return HISTORY_PRESENTATION[kind];
+}
+
+function statusNoticePresentation(kind) {
+  return STATUS_NOTICE_PRESENTATION[kind];
+}
+
+function historyDirectionVerb(direction) {
+  return direction === "undo" ? "Undo" : "Redo";
+}
+
+function historyReplayVerb(direction) {
+  return direction === "undo" ? "undone" : "redone";
+}
+
+function overlayEditCopy(editKind) {
+  return OVERLAY_EDIT_COPY[editKind] ?? {
+    changedVerb: "Adjusted",
+    noun: "change",
+  };
+}
+
+function pasteCancelledText() {
+  return "Paste cancelled.";
+}
+
+function clipboardMissingText() {
+  return "Clipboard does not contain an image.";
+}
+
+function referenceImageFailedText(notice) {
+  return notice.reason === "decode-failed"
+    ? "Clipboard image could not be read."
+    : "Clipboard image could not be loaded.";
 }
 
 function areRegistrationPinsVisible(state, mode) {

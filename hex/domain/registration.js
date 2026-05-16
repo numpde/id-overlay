@@ -8,13 +8,16 @@ export function solveRegistrationPlacement({ pins }) {
 
   const [firstPin, secondPin] = pins;
   const imageVector = vectorBetween(firstPin.imagePx, secondPin.imagePx);
-  const mapVector = vectorBetween(firstPin.mapPx, secondPin.mapPx);
+  const firstWorld = projectLatLonToWorld(firstPin.mapLatLon);
+  const secondWorld = projectLatLonToWorld(secondPin.mapLatLon);
+  const mapVector = vectorBetween(firstWorld, secondWorld);
   const imageLength = vectorLength(imageVector);
   const mapLength = vectorLength(mapVector);
   if (imageLength === 0 || mapLength === 0) {
     return {
       kind: "failed",
       reason: "degenerate-pins",
+      pinIds: [firstPin.id, secondPin.id],
     };
   }
 
@@ -30,12 +33,25 @@ export function solveRegistrationPlacement({ pins }) {
 
   return {
     kind: "solved",
-    placement: {
-      x: firstPin.mapPx.x - transformedFirst.x,
-      y: firstPin.mapPx.y - transformedFirst.y,
+    solvedTransform: {
+      type: "image-to-map-world",
+      a: scale * cos,
+      b: scale * sin,
+      tx: firstWorld.x - transformedFirst.x,
+      ty: firstWorld.y - transformedFirst.y,
       scale,
       rotationRad,
+      pinIds: [firstPin.id, secondPin.id],
     },
+  };
+}
+
+function projectLatLonToWorld(point) {
+  const sinLat = Math.sin((point.lat * Math.PI) / 180);
+  const clampedSin = Math.min(0.9999, Math.max(-0.9999, sinLat));
+  return {
+    x: 256 * ((point.lon + 180) / 360),
+    y: 256 * (0.5 - Math.log((1 + clampedSin) / (1 - clampedSin)) / (4 * Math.PI)),
   };
 }
 

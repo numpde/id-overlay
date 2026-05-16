@@ -1,0 +1,705 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+
+import {
+  RuntimeBoundaryError,
+  createRuntimeDriver,
+} from "../../../bootstrap/runtime.js";
+import {
+  createFlowTrace,
+  flowEdge,
+} from "../../support/flow-trace.js";
+
+// Class-a: the runtime is a hexagonal sequencer, not a product reducer. It may
+// hold and pass state by identity, but it must never inspect product fields; all
+// product interpretation belongs to the application step.
+test("runtime driver treats product state as opaque", async () => {
+  const trace = createRuntimeTrace("runtime driver treats product state as opaque");
+  const command = {
+    kind: "user-command",
+  };
+  const state = createOpaqueProductState({
+    session: {
+      mode: "align",
+      pins: [],
+    },
+    status: "Loaded screenshot.",
+  });
+  let stepCallCount = 0;
+
+  const runtime = createRuntimeDriver({
+    initialState: state,
+    effectHandlers: {},
+    stepApplication({ state: receivedState, command: receivedCommand }) {
+      stepCallCount += 1;
+      assert.equal(receivedState, state);
+      assert.equal(receivedCommand, command);
+      return {
+        state: receivedState,
+        effects: [],
+      };
+    },
+  });
+
+  await runtime.dispatch(command);
+
+  assert.equal(stepCallCount, 1);
+  traceRuntimeDispatch(trace, "opaque-product-state", [
+    "sink.application-step",
+    "inert.no-effects",
+  ]);
+});
+
+// Class-a: application output is the only source of host work. The runtime must
+// not infer persistence, timers, input reads, or any other effect from state
+// shape; only declared effects cross outward.
+test("runtime runs only effects returned by the application step", async () => {
+  const trace = createRuntimeTrace("runtime runs only effects returned by the application step");
+  const state = {
+    durableState: {
+      session: {
+        mode: "align",
+      },
+    },
+  };
+  const runtime = createRuntimeDriver({
+    initialState: state,
+    effectHandlers: {
+      "persist-durable-state": () => {
+        assert.fail("runtime invented persistence from state inspection");
+      },
+    },
+    stepApplication() {
+      return {
+        state,
+        effects: [],
+      };
+    },
+  });
+
+  await runtime.dispatch({
+    kind: "user-command",
+  });
+  traceRuntimeDispatch(trace, "declared-effects-only", [
+    "sink.application-step",
+    "inert.no-effects",
+  ]);
+});
+
+// Class-a: effect kind is the runtime dispatch key. A declared effect must call
+// exactly its matching host handler; neighboring capabilities must stay inert.
+test("runtime dispatches each declared effect kind to its matching handler", async () => {
+  const trace = createRuntimeTrace("runtime dispatches each declared effect kind to its matching handler");
+  const effect = {
+    kind: "persist-durable-state",
+    durableState: {
+      session: {
+        mode: "trace",
+      },
+    },
+  };
+  const calls = [];
+  const runtime = createRuntimeDriver({
+    initialState: {},
+    effectHandlers: {
+      "persist-durable-state": async (receivedEffect) => {
+        calls.push({
+          handler: "persist-durable-state",
+          effect: receivedEffect,
+        });
+        return null;
+      },
+      "read-reference-image": () => {
+        assert.fail("runtime called a handler whose kind was not requested");
+      },
+    },
+    stepApplication({ state }) {
+      return {
+        state,
+        effects: [effect],
+      };
+    },
+  });
+
+  await runtime.dispatch({
+    kind: "user-command",
+  });
+
+  assert.deepEqual(calls, [{
+    handler: "persist-durable-state",
+    effect,
+  }]);
+  traceRuntimeEffect(trace, "matching-effect-handler", "persist-durable-state");
+});
+
+// Class-a: unknown host work is an integration bug, not a product outcome. The
+// runtime must fail loudly instead of silently ignoring, guessing, or converting
+// undeclared effects into application facts.
+test("runtime rejects unknown effect kinds at the boundary", async () => {
+  const trace = createRuntimeTrace("runtime rejects unknown effect kinds at the boundary");
+  const runtime = createRuntimeDriver({
+    initialState: {},
+    effectHandlers: {},
+    stepApplication({ state }) {
+      return {
+        state,
+        effects: [{
+          kind: "unknown-effect",
+        }],
+      };
+    },
+  });
+
+  await assert.rejects(
+    () => runtime.dispatch({
+      kind: "user-command",
+    }),
+    (error) => (
+      error instanceof RuntimeBoundaryError
+        && error.code === "unknown-effect-kind"
+    ),
+  );
+  traceRuntimeDispatch(trace, "unknown-effect-kind", [
+    "sink.runtime-boundary-error",
+  ]);
+});
+
+// Class-a: runtime dispatch is not an adapter-normalization layer. The matching
+// host handler receives exactly the effect emitted by the application.
+test("runtime passes effect payloads to handlers unchanged", async () => {
+  const trace = createRuntimeTrace("runtime passes effect payloads to handlers unchanged");
+  const effect = {
+    kind: "persist-durable-state",
+    durableState: {
+      session: {
+        mode: "align",
+        referenceImage: {
+          imageDataRef: "reference-image-data-1",
+        },
+      },
+    },
+    requestId: "persist-1",
+  };
+  let handlerEffect = null;
+  const runtime = createRuntimeDriver({
+    initialState: {},
+    effectHandlers: {
+      "persist-durable-state": async (receivedEffect) => {
+        handlerEffect = receivedEffect;
+        return null;
+      },
+    },
+    stepApplication({ state }) {
+      return {
+        state,
+        effects: [effect],
+      };
+    },
+  });
+
+  await runtime.dispatch({
+    kind: "user-command",
+  });
+
+  assert.deepEqual(handlerEffect, effect);
+  traceRuntimeEffect(trace, "effect-payload-identity", "persist-durable-state");
+});
+
+// Class-a: handler output becomes the next application input. Runtime must not
+// interpret host results as state patches or update product state directly.
+test("runtime feeds plain effect results back through the application step", async () => {
+  const trace = createRuntimeTrace("runtime feeds plain effect results back through the application step");
+  const effect = {
+    kind: "persist-durable-state",
+    durableState: {
+      session: {
+        mode: "align",
+      },
+    },
+    requestId: "persist-1",
+  };
+  const effectResult = {
+    kind: "durable-state-persisted",
+    requestId: "persist-1",
+  };
+  const applicationCalls = [];
+  const runtime = createRuntimeDriver({
+    initialState: {
+      phase: "idle",
+    },
+    effectHandlers: {
+      "persist-durable-state": async () => effectResult,
+    },
+    stepApplication({ state, command }) {
+      applicationCalls.push({
+        state,
+        command,
+      });
+      if (command.kind === "start") {
+        return {
+          state: {
+            phase: "persisting",
+          },
+          effects: [effect],
+        };
+      }
+      assert.deepEqual(command, effectResult);
+      return {
+        state: {
+          phase: "complete",
+        },
+        effects: [],
+      };
+    },
+  });
+
+  await runtime.dispatch({
+    kind: "start",
+  });
+
+  assert.deepEqual(applicationCalls, [
+    {
+      state: {
+        phase: "idle",
+      },
+      command: {
+        kind: "start",
+      },
+    },
+    {
+      state: {
+        phase: "persisting",
+      },
+      command: effectResult,
+    },
+  ]);
+  assert.deepEqual(runtime.getState(), {
+    phase: "complete",
+  });
+  traceRuntimeFeedback(trace, "effect-result-reentry");
+});
+
+// Class-a: expected handler failures re-enter the app as plain diagnostic facts.
+// The runtime exposes stable failure identity without leaking stack traces or
+// thrown host objects across the application boundary.
+test("runtime converts handler failures into plain application facts", async () => {
+  const trace = createRuntimeTrace("runtime converts handler failures into plain application facts");
+  const effect = {
+    kind: "read-reference-image",
+    requestId: "paste-1",
+  };
+  const applicationCommands = [];
+  const runtime = createRuntimeDriver({
+    initialState: {},
+    effectHandlers: {
+      "read-reference-image": async () => {
+        throw new Error("permission denied");
+      },
+    },
+    stepApplication({ state, command }) {
+      applicationCommands.push(command);
+      if (command.kind === "start") {
+        return {
+          state,
+          effects: [effect],
+        };
+      }
+
+      assert.equal(command.kind, "runtime-effect-failed");
+      assert.equal(command.effectKind, "read-reference-image");
+      assert.equal(command.requestId, "paste-1");
+      assert.equal(command.error.code, "effect-handler-failed");
+      assert.equal("stack" in command.error, false);
+      assertPlainData(command);
+      return {
+        state,
+        effects: [],
+      };
+    },
+  });
+
+  await runtime.dispatch({
+    kind: "start",
+  });
+
+  assert.equal(applicationCommands.length, 2);
+  traceRuntimeFeedback(trace, "effect-failure-reentry");
+});
+
+// Class-a: runtime preserves correlation identity but never interprets it.
+// Staleness and request ownership are application policy, not driver policy.
+test("runtime preserves correlation ids and leaves staleness decisions to the application", async () => {
+  const trace = createRuntimeTrace("runtime preserves correlation ids and leaves staleness decisions to the application");
+  const applicationCommands = [];
+  const runtime = createRuntimeDriver({
+    initialState: {
+      notice: {
+        kind: "newer-notice",
+        requestId: 2,
+      },
+    },
+    effectHandlers: {
+      "clear-status-after-delay": async () => ({
+        kind: "clear-status-notice",
+        requestId: 1,
+      }),
+    },
+    stepApplication({ state, command }) {
+      applicationCommands.push(command);
+      if (command.kind === "start") {
+        return {
+          state,
+          effects: [{
+            kind: "clear-status-after-delay",
+            requestId: 1,
+          }],
+        };
+      }
+      assert.deepEqual(command, {
+        kind: "clear-status-notice",
+        requestId: 1,
+      });
+      return {
+        state,
+        effects: [],
+      };
+    },
+  });
+
+  await runtime.dispatch({
+    kind: "start",
+  });
+
+  assert.deepEqual(applicationCommands.map((command) => command.requestId ?? null), [
+    null,
+    1,
+  ]);
+  traceRuntimeFeedback(trace, "correlation-id-preserved");
+});
+
+// Class-a: host results must be plain data before they re-enter the app. Rich
+// runtime handles are boundary violations, not values the application can
+// normalize after the fact.
+test("runtime rejects non-plain handler results before app re-entry", async () => {
+  const trace = createRuntimeTrace("runtime rejects non-plain handler results before app re-entry");
+  const runtime = createRuntimeDriver({
+    initialState: {},
+    effectHandlers: {
+      "read-reference-image": async () => ({
+        kind: "reference-image-read",
+        runtimeHandle: new Map(),
+      }),
+    },
+    stepApplication({ state, command }) {
+      if (command.kind !== "start") {
+        assert.fail("non-plain handler result reached the application step");
+      }
+      return {
+        state,
+        effects: [{
+          kind: "read-reference-image",
+          requestId: "paste-1",
+        }],
+      };
+    },
+  });
+
+  await assert.rejects(
+    () => runtime.dispatch({
+      kind: "start",
+    }),
+    (error) => (
+      error instanceof RuntimeBoundaryError
+        && error.code === "non-plain-effect-result"
+    ),
+  );
+  traceRuntimeDispatch(trace, "non-plain-effect-result", [
+    "sink.runtime-boundary-error",
+  ]);
+});
+
+// Class-a: runtime is sequencing, not mutation. State, commands, emitted
+// effects, and handler results remain caller-owned values across dispatch.
+test("runtime does not mutate state commands effects or handler results", async () => {
+  const trace = createRuntimeTrace("runtime does not mutate state commands effects or handler results");
+  const state = deepFreeze({
+    session: {
+      mode: "align",
+    },
+  });
+  const command = deepFreeze({
+    kind: "start",
+  });
+  const effect = deepFreeze({
+    kind: "read-reference-image",
+    requestId: "paste-1",
+  });
+  const handlerResult = deepFreeze({
+    kind: "reference-image-read",
+    requestId: "paste-1",
+    outcome: {
+      kind: "empty",
+    },
+  });
+  const runtime = createRuntimeDriver({
+    initialState: state,
+    effectHandlers: {
+      "read-reference-image": async () => handlerResult,
+    },
+    stepApplication({ state: receivedState, command: receivedCommand }) {
+      if (receivedCommand.kind === "start") {
+        return {
+          state: receivedState,
+          effects: [effect],
+        };
+      }
+      return {
+        state: {
+          done: true,
+        },
+        effects: [],
+      };
+    },
+  });
+
+  await runtime.dispatch(command);
+
+  assert.deepEqual(state, {
+    session: {
+      mode: "align",
+    },
+  });
+  assert.deepEqual(command, {
+    kind: "start",
+  });
+  assert.deepEqual(effect, {
+    kind: "read-reference-image",
+    requestId: "paste-1",
+  });
+  assert.deepEqual(handlerResult, {
+    kind: "reference-image-read",
+    requestId: "paste-1",
+    outcome: {
+      kind: "empty",
+    },
+  });
+  traceRuntimeFeedback(trace, "caller-owned-values");
+});
+
+// Class-a: disposal closes the runtime ingress gate. Late async results may
+// settle, but they must not be delivered to the application after disposal.
+test("runtime disposal prevents late effect results from re-entering the app", async () => {
+  const trace = createRuntimeTrace("runtime disposal prevents late effect results from re-entering the app");
+  const applicationCommands = [];
+  let resolveLateResult = null;
+  const lateResult = new Promise((resolve) => {
+    resolveLateResult = resolve;
+  });
+  const runtime = createRuntimeDriver({
+    initialState: {},
+    effectHandlers: {
+      "read-reference-image": async () => lateResult,
+    },
+    stepApplication({ state, command }) {
+      applicationCommands.push(command);
+      return {
+        state,
+        effects: command.kind === "start"
+          ? [{
+            kind: "read-reference-image",
+            requestId: "paste-1",
+          }]
+          : [],
+      };
+    },
+  });
+
+  const dispatch = runtime.dispatch({
+    kind: "start",
+  });
+  runtime.dispose();
+  resolveLateResult({
+    kind: "reference-image-read",
+    requestId: "paste-1",
+    outcome: {
+      kind: "empty",
+    },
+  });
+
+  await assert.doesNotReject(dispatch);
+  assert.deepEqual(applicationCommands, [{
+    kind: "start",
+  }]);
+  traceRuntimeDispatch(trace, "disposed-late-result", [
+    "sink.application-step",
+    "sink.runtime-disposal",
+  ]);
+});
+
+// Class-a: runtime owns subscription cleanup. Disposal is idempotent and calls
+// each registered disposer exactly once.
+test("runtime disposal calls registered disposers exactly once", () => {
+  const trace = createRuntimeTrace("runtime disposal calls registered disposers exactly once");
+  const calls = [];
+  const runtime = createRuntimeDriver({
+    initialState: {},
+    effectHandlers: {},
+    stepApplication({ state }) {
+      return {
+        state,
+        effects: [],
+      };
+    },
+    subscriptions: [
+      () => {
+        calls.push("first");
+      },
+      () => {
+        calls.push("second");
+      },
+    ],
+  });
+
+  runtime.dispose();
+  runtime.dispose();
+
+  assert.deepEqual(calls, [
+    "first",
+    "second",
+  ]);
+  trace.edge(flowEdge("source.runtime-dispose", "sink.runtime-disposal", {
+    phase: "registered-disposers",
+    terminal: "cleanup-result",
+  }));
+});
+
+function createRuntimeTrace(testName) {
+  return createFlowTrace({
+    file: import.meta.url,
+    test: testName,
+  });
+}
+
+function traceRuntimeDispatch(trace, phase, sinks) {
+  trace.edge(flowEdge("source.runtime-dispatch", "command.runtime-dispatch", {
+    phase,
+    provider: "runtime-driver-witness",
+  }));
+  for (const sink of sinks) {
+    trace.edge(flowEdge("command.runtime-dispatch", sink, {
+      phase,
+      terminal: sink === "inert.no-effects" ? "effect-result" : "runtime-result",
+    }));
+  }
+}
+
+function traceRuntimeEffect(trace, phase, effectKind) {
+  const effectNode = `effect.${effectKind}`;
+  trace.edge(flowEdge("source.runtime-dispatch", "command.runtime-dispatch", {
+    phase,
+    provider: "runtime-driver-witness",
+  }));
+  trace.edge(flowEdge("command.runtime-dispatch", "sink.application-step", {
+    phase,
+    terminal: "state-result",
+  }));
+  trace.edge(flowEdge("command.runtime-dispatch", effectNode, {
+    phase,
+    provider: effectKind,
+  }));
+  trace.edge(flowEdge(effectNode, "port.effect-handler", {
+    phase,
+    provider: effectKind,
+  }));
+  trace.edge(flowEdge("port.effect-handler", "sink.effect-handler-call", {
+    phase,
+    terminal: "host-call",
+  }));
+}
+
+function traceRuntimeFeedback(trace, phase) {
+  trace.edge(flowEdge("source.runtime-dispatch", "command.runtime-dispatch", {
+    phase,
+    provider: "runtime-driver-witness",
+  }));
+  trace.edge(flowEdge("command.runtime-dispatch", "effect.declared-host-work", {
+    phase,
+    provider: "declared-effect",
+  }));
+  trace.edge(flowEdge("effect.declared-host-work", "port.effect-handler", {
+    phase,
+    provider: "declared-effect",
+  }));
+  trace.edge(flowEdge("port.effect-handler", "callback.effect-result", {
+    phase,
+    provider: "handler-result",
+  }));
+  trace.edge(flowEdge("callback.effect-result", "command.runtime-dispatch", {
+    phase,
+    provider: "runtime-reentry",
+  }));
+  trace.edge(flowEdge("command.runtime-dispatch", "sink.application-step", {
+    phase,
+    terminal: "state-result",
+  }));
+}
+
+function createOpaqueProductState(value) {
+  const forbiddenProductFields = new Set([
+    "mode",
+    "pins",
+    "session",
+    "status",
+  ]);
+
+  return new Proxy(value, {
+    get(target, property, receiver) {
+      if (forbiddenProductFields.has(property)) {
+        assert.fail(`runtime inspected product field ${String(property)}`);
+      }
+      return Reflect.get(target, property, receiver);
+    },
+    ownKeys() {
+      assert.fail("runtime enumerated product state fields");
+    },
+  });
+}
+
+function assertPlainData(value) {
+  if (value === null) {
+    return;
+  }
+  if (Array.isArray(value)) {
+    for (const nestedValue of value) {
+      assertPlainData(nestedValue);
+    }
+    return;
+  }
+
+  const valueType = typeof value;
+  if (["string", "boolean"].includes(valueType)) {
+    return;
+  }
+  if (valueType === "number") {
+    assert.equal(Number.isFinite(value), true);
+    return;
+  }
+
+  assert.equal(valueType, "object");
+  assert.equal(Object.getPrototypeOf(value), Object.prototype);
+  for (const [key, nestedValue] of Object.entries(value)) {
+    assert.equal(typeof key, "string");
+    assertPlainData(nestedValue);
+  }
+}
+
+function deepFreeze(value) {
+  if (value === null || typeof value !== "object" || Object.isFrozen(value)) {
+    return value;
+  }
+  Object.freeze(value);
+  for (const nestedValue of Object.values(value)) {
+    deepFreeze(nestedValue);
+  }
+  return value;
+}

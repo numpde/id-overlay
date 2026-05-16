@@ -6,7 +6,12 @@ export function isPlacementData(value) {
     && Number.isFinite(value.y)
     && Number.isFinite(value.scale)
     && value.scale > 0
-    && Number.isFinite(value.rotationRad);
+    && Number.isFinite(value.rotationRad)
+    && (
+      value.coordinateSpace === undefined
+        || value.coordinateSpace === "map-world"
+        || value.coordinateSpace === "screen"
+    );
 }
 
 export function placementEquals(left, right) {

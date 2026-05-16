@@ -1,0 +1,179 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+
+import {
+  APPLICATION_COMMAND_KIND,
+  createApplicationCommand,
+} from "../../../application/command.js";
+import { handleApplicationCommand } from "../../../application/handle-command.js";
+import {
+  createFlowTrace,
+  flowEdge,
+} from "../../support/flow-trace.js";
+
+// Class-a: Trace is the native-map posture. Overlay placement commands can
+// still arrive from stale UI wiring, but they must not mutate hidden placement
+// or history state.
+test("placement edits are no-ops in Trace mode", () => {
+  const trace = createFlowTrace({
+    file: import.meta.url,
+    test: "placement edits are no-ops in Trace mode",
+  });
+  const state = {
+    ...referenceImageLoadedState({
+      mode: "trace",
+      placement: originalPlacement(),
+    }),
+    history: {
+      past: [placementHistoryRecord({
+        editKind: "move",
+        before: placementRevision({
+          placement: null,
+          solvedRegistration: null,
+        }),
+        after: placementRevision({
+          placement: originalPlacement(),
+          solvedRegistration: null,
+        }),
+      })],
+      future: [],
+    },
+  };
+  const command = createApplicationCommand(
+    APPLICATION_COMMAND_KIND.COMMIT_PLACEMENT_EDIT,
+    {
+      kind: "move",
+      placement: {
+        x: 80,
+        y: 40,
+        scale: 1,
+        rotationRad: 0,
+      },
+    },
+  );
+
+  assert.deepEqual(handleApplicationCommand({ state, command }), {
+    state,
+    effects: [],
+  });
+  trace.edge(flowEdge("source.application-command", "command.commit-placement-edit", {
+    phase: "trace-placement",
+    provider: "application-transition-witness",
+  }));
+  trace.edge(flowEdge("command.commit-placement-edit", "sink.application-state", {
+    phase: "trace-placement",
+    terminal: "state-result",
+  }));
+  trace.edge(flowEdge("command.commit-placement-edit", "inert.no-effects", {
+    phase: "trace-placement",
+    terminal: "intentionally-inert",
+  }));
+});
+
+// Class-a: Trace hides registration pins. Pin commands may still be delivered,
+// but they must not edit invisible registration state.
+test("pin edits and clear-pins are no-ops in Trace mode", () => {
+  const trace = createFlowTrace({
+    file: import.meta.url,
+    test: "pin edits and clear-pins are no-ops in Trace mode",
+  });
+  const state = referenceImageLoadedState({
+    mode: "trace",
+    pins: [{
+      id: 1,
+      imagePx: {
+        x: 320,
+        y: 240,
+      },
+      mapLatLon: {
+        lat: -1.23,
+        lon: 36.84,
+      },
+    }],
+  });
+
+  for (const command of [
+    createApplicationCommand(
+      APPLICATION_COMMAND_KIND.TOGGLE_REGISTRATION_PIN,
+      {
+        existingPinId: null,
+        imagePx: {
+          x: 520,
+          y: 240,
+        },
+        mapLatLon: {
+          lat: -1.23,
+          lon: 38.84,
+        },
+      },
+    ),
+    createApplicationCommand(APPLICATION_COMMAND_KIND.CLEAR_REGISTRATION_PINS),
+  ]) {
+    assert.deepEqual(handleApplicationCommand({ state, command }), {
+      state,
+      effects: [],
+    });
+    const commandNode = `command.${command.kind}`;
+    trace.edge(flowEdge("source.application-command", commandNode, {
+      phase: command.kind,
+      provider: "application-transition-witness",
+    }));
+    trace.edge(flowEdge(commandNode, "sink.application-state", {
+      phase: command.kind,
+      terminal: "state-result",
+    }));
+    trace.edge(flowEdge(commandNode, "inert.no-effects", {
+      phase: command.kind,
+      terminal: "intentionally-inert",
+    }));
+  }
+});
+
+function referenceImageLoadedState({ mode, pins, placement }) {
+  const session = {
+    mode,
+    referenceImage: {
+      imageDataRef: "reference-image-data-1",
+      intrinsicSizePx: {
+        width: 640,
+        height: 480,
+      },
+    },
+  };
+  if (placement !== undefined) {
+    session.placement = placement;
+  }
+  if (pins !== undefined) {
+    session.registration = {
+      pins,
+    };
+  }
+  return {
+    session,
+  };
+}
+
+function placementHistoryRecord({ editKind, before, after }) {
+  return {
+    kind: "overlay-placement-edit",
+    editKind,
+    before,
+    after,
+  };
+}
+
+function placementRevision({ placement, solvedRegistration }) {
+  return {
+    placement,
+    solvedRegistration,
+  };
+}
+
+function originalPlacement() {
+  return {
+    x: 10,
+    y: 20,
+    scale: 1,
+    rotationRad: 0,
+  };
+}

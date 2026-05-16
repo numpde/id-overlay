@@ -10,6 +10,12 @@ import { isPlacementData, placementEquals } from "./placement.js";
 import { isPlainData } from "./plain-data.js";
 import { isReferenceImageData } from "./reference-image.js";
 import { createInitialApplicationState } from "./state.js";
+import {
+  createHistoryEmptyNotice,
+  createHistoryReplayedNotice,
+  withStatusNotice,
+  withTransientStatusFeedback,
+} from "./status-notice.js";
 import { selectDurableApplicationState } from "./view-model.js";
 
 export function handleApplicationCommand({ state, command }) {
@@ -27,7 +33,12 @@ export function handleApplicationCommand({ state, command }) {
       return reportReferenceImageInputOutcome(state, command);
     case APPLICATION_COMMAND_KIND.CLEAR_REFERENCE_IMAGE:
       return {
-        state: createInitialApplicationState(),
+        state: {
+          ...createInitialApplicationState(),
+          notice: {
+            kind: "reference-image-cleared",
+          },
+        },
         effects: [persistDurableStateEffect(null)],
       };
     case APPLICATION_COMMAND_KIND.SELECT_MODE:
@@ -125,7 +136,10 @@ function undoHistory(state) {
   const history = state.history ?? {};
   const record = history.past?.at(-1);
   if (!record) {
-    return inertResult(state);
+    return {
+      state: withStatusNotice(state, createHistoryEmptyNotice("undo")),
+      effects: [],
+    };
   }
 
   const nextHistory = {
@@ -133,11 +147,12 @@ function undoHistory(state) {
     future: [...(history.future ?? []), record],
   };
   const durableState = applyHistoryRecord(state, record, "before");
+  const nextState = withTransientStatusFeedback({
+    ...stateFromDurableState(durableState),
+    history: nextHistory,
+  }, createHistoryReplayedNotice({ record, direction: "undo" }));
   return {
-    state: {
-      ...stateFromDurableState(durableState),
-      history: nextHistory,
-    },
+    state: nextState,
     effects: [persistDurableStateEffect(durableState)],
   };
 }
@@ -146,7 +161,10 @@ function redoHistory(state) {
   const history = state.history ?? {};
   const record = history.future?.at(-1);
   if (!record) {
-    return inertResult(state);
+    return {
+      state: withStatusNotice(state, createHistoryEmptyNotice("redo")),
+      effects: [],
+    };
   }
 
   const nextHistory = {
@@ -154,11 +172,12 @@ function redoHistory(state) {
     future: history.future.slice(0, -1),
   };
   const durableState = applyHistoryRecord(state, record, "after");
+  const nextState = withTransientStatusFeedback({
+    ...stateFromDurableState(durableState),
+    history: nextHistory,
+  }, createHistoryReplayedNotice({ record, direction: "redo" }));
   return {
-    state: {
-      ...stateFromDurableState(durableState),
-      history: nextHistory,
-    },
+    state: nextState,
     effects: [persistDurableStateEffect(durableState)],
   };
 }
@@ -211,6 +230,10 @@ function commitPlacementEdit(state, command) {
       before,
       after,
     }),
+    notice: {
+      kind: "placement-changed",
+      editKind: command.editKind,
+    },
   };
   return {
     state: nextState,
@@ -228,12 +251,17 @@ function placementRevisionFromSession(session) {
 }
 
 function solvedRegistrationRevisionFromSession(session) {
-  if (!session.registration?.solvedPlacement) {
+  if (!session.registration?.solvedPlacement && !session.registration?.solvedTransform) {
     return null;
   }
   return {
     pinIds: (session.registration.pins ?? []).map((pin) => pin.id),
-    placement: session.registration.solvedPlacement,
+    ...(session.registration.solvedPlacement === undefined ? {} : {
+      placement: session.registration.solvedPlacement,
+    }),
+    ...(session.registration.solvedTransform === undefined ? {} : {
+      transform: session.registration.solvedTransform,
+    }),
   };
 }
 
@@ -263,7 +291,12 @@ function withSolvedRegistrationRevision(session, solvedRegistration) {
     ...session,
     registration: {
       pins,
-      solvedPlacement: solvedRegistration.placement,
+      ...(solvedRegistration.placement === undefined ? {} : {
+        solvedPlacement: solvedRegistration.placement,
+      }),
+      ...(solvedRegistration.transform === undefined ? {} : {
+        solvedTransform: solvedRegistration.transform,
+      }),
     },
   };
 }
@@ -443,6 +476,9 @@ function clearReferenceImageWithHistory(state) {
   return {
     state: {
       history: pushHistory(state.history, record),
+      notice: {
+        kind: "reference-image-cleared",
+      },
     },
     effects: [persistDurableStateEffect(null)],
   };
@@ -490,11 +526,25 @@ function reportReferenceImageInputOutcome(state, command) {
     mode: "align",
     referenceImage: command.outcome.referenceImage,
   };
+  if (command.outcome.placement !== undefined) {
+    session.placement = command.outcome.placement;
+  }
+  const durableState = { session };
+  const record = {
+    kind: "load-reference-image",
+    before: null,
+    after: durableState,
+  };
   return {
     state: {
       session,
+      history: pushHistory(state.history, record),
+      notice: {
+        kind: "reference-image-loaded",
+        referenceImage: command.outcome.referenceImage,
+      },
     },
-    effects: [persistDurableStateEffect({ session })],
+    effects: [persistDurableStateEffect(durableState)],
   };
 }
 
@@ -542,6 +592,10 @@ function reportReferenceImageReplacementOutcome(state, command) {
     state: {
       session,
       history: pushHistory(state.history, record),
+      notice: {
+        kind: "reference-image-loaded",
+        referenceImage: command.outcome.referenceImage,
+      },
     },
     effects: [persistDurableStateEffect(nextDurableState)],
   };
@@ -569,6 +623,11 @@ function selectMode(state, command) {
       ...state.session,
       mode,
     },
+    ...historyState(state),
+    notice: {
+      kind: "mode-selected",
+      mode,
+    },
   };
   return {
     state: nextState,
@@ -588,8 +647,18 @@ function clearRegistrationPins(state) {
   }
 
   const pinCount = state.session.registration.pins.length;
+  const afterSession = withoutRegistration(state.session);
   const nextState = {
-    session: withoutRegistration(state.session),
+    session: afterSession,
+    history: pushHistory(state.history, {
+      kind: "clear-registration-pins",
+      before: {
+        session: state.session,
+      },
+      after: {
+        session: afterSession,
+      },
+    }),
     notice: {
       kind: "cleared-pins",
       count: pinCount,
@@ -614,8 +683,18 @@ function toggleRegistrationPin(state, command) {
     if (nextPins.length === pins.length) {
       return inertResult(state);
     }
+    const nextSession = withRegistrationPins(state.session, nextPins);
     const nextState = {
-      session: withRegistrationPins(state.session, nextPins),
+      session: nextSession,
+      history: pushHistory(state.history, {
+        kind: "registration-pin-edit",
+        before: {
+          session: state.session,
+        },
+        after: {
+          session: nextSession,
+        },
+      }),
       notice: {
         kind: "removed-pin",
         pinId: command.existingPinId,
@@ -634,8 +713,18 @@ function toggleRegistrationPin(state, command) {
     imagePx: command.imagePx,
     mapLatLon: command.mapLatLon,
   };
+  const nextSession = withRegistrationPins(state.session, [...pins, pin]);
   const nextState = {
-    session: withRegistrationPins(state.session, [...pins, pin]),
+    session: nextSession,
+    history: pushHistory(state.history, {
+      kind: "registration-pin-edit",
+      before: {
+        session: state.session,
+      },
+      after: {
+        session: nextSession,
+      },
+    }),
     notice: {
       kind: "added-pin",
       pinId: pin.id,
@@ -880,7 +969,7 @@ function isRegistrationData(registration) {
     return false;
   }
   for (const key of Object.keys(registration)) {
-    if (!["pins", "solvedPlacement"].includes(key)) {
+    if (!["pins", "solvedPlacement", "solvedTransform"].includes(key)) {
       return false;
     }
   }
@@ -889,6 +978,30 @@ function isRegistrationData(registration) {
     && (
       registration.solvedPlacement === undefined
         || isPlacementData(registration.solvedPlacement)
+    )
+    && (
+      registration.solvedTransform === undefined
+        || isSolvedTransformData(registration.solvedTransform)
+    );
+}
+
+function isSolvedTransformData(transform) {
+  return transform
+    && typeof transform === "object"
+    && !Array.isArray(transform)
+    && transform.type === "image-to-map-world"
+    && Number.isFinite(transform.a)
+    && Number.isFinite(transform.b)
+    && Number.isFinite(transform.tx)
+    && Number.isFinite(transform.ty)
+    && Number.isFinite(transform.scale)
+    && Number.isFinite(transform.rotationRad)
+    && (
+      transform.pinIds === undefined
+        || (
+          Array.isArray(transform.pinIds)
+            && transform.pinIds.every((id) => Number.isInteger(id) && id > 0)
+        )
     );
 }
 
