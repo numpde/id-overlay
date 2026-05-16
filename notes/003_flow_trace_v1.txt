@@ -1,0 +1,103 @@
+Flow trace v1
+
+Purpose
+
+Flow traces are executable evidence emitted by behavior tests. They are not a
+central product state machine and tests must not read them as a source of
+truth. The tests remain the behavioral authority; the trace artifact lets the
+audit ask generic structural questions about the behavior the tests exercised.
+
+The audit can prove only that emitted evidence is well formed, connected, and
+closed under the trace convention. It cannot prove that every desired product
+flow exists unless a witness emits evidence for that flow.
+
+Record shape
+
+Each JSONL line is one directed edge:
+
+  file, test, from, to
+
+Optional fields, in canonical order:
+
+  case, phase, request, resource, surface, obligation, fulfills, provider,
+  terminal
+
+The writer emits fields in that order. The audit rejects unknown fields and
+out-of-order fields so the artifact is a stable interface.
+
+Node kinds
+
+- source.*: external/user/harness entry into the witnessed behavior
+- check.*: static or vocabulary check entry
+- command.*: semantic application command
+- effect.*: application effect
+- port.*: host or adapter boundary operation
+- callback.*: host or adapter callback back into the app or next boundary
+- resource.*: live host resource or pending capability
+- view.*: rendered view fact
+- sink.*: completed observable result
+- inert.*: intentionally absent result
+
+Terminal edges must end at sink.* or inert.* and carry terminal evidence.
+Non-terminal edges carry provider evidence.
+
+Identity and scope
+
+case names one behavior case inside one witness. request and resource are
+optional identities, but when present they must be scoped by case.
+
+Edges touching resource.* must carry both case and resource. If a resource
+lifecycle carries request on any edge, all edges for that resource instance
+must carry the same request.
+
+surface names evidence strength or composition surface, such as shell-harness,
+browser-adapter, or composed-browser-shell. The audit does not rank surfaces;
+it only preserves the distinction so harness evidence cannot silently look like
+composition evidence.
+
+Resources
+
+resource.* is non-terminal. A resource instance must have incoming evidence and
+resolving outgoing evidence in the same witness case. This prevents tests from
+pretending that "armed", "registered", "started", or "open" means done.
+
+Examples:
+
+  port.paste-listener.add -> resource.paste-listener.active
+  resource.paste-listener.active -> callback.paste-event
+  resource.paste-listener.active -> sink.paste-listener.disposed
+
+or:
+
+  port.paste-listener.add -> resource.paste-listener.active
+  resource.paste-listener.active -> sink.paste-listener.disposed
+  source.manual-paste-event -> inert.no-active-paste-listener
+
+Obligations
+
+obligation marks an assumption emitted by one witness. fulfills marks evidence
+that covers that assumption. Both must carry surface so the audit can preserve
+where the evidence came from. The audit only checks that emitted obligations
+have matching fulfillment evidence and that fulfillments are not orphaned.
+
+This is deliberately not a product checklist. Obligations emerge from tests.
+
+Pass meaning
+
+A passing flow audit means:
+
+- every emitted JSONL line is strict trace-v1
+- every edge has exactly one of provider or terminal
+- transitions use allowed generic node kinds
+- repeated edges are disambiguated
+- emitted graph evidence is reachable and can terminate
+- case-scoped evidence is also closed inside the case
+- resource instances are not left open inside their witness case
+- emitted obligations have matching fulfillment evidence
+
+It does not mean:
+
+- every user flow has been witnessed
+- every witness uses production composition
+- harness evidence is as strong as browser/composition evidence
+- inferred graph structure is a complete state machine

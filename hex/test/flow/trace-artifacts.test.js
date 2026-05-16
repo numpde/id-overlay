@@ -11,12 +11,22 @@ const REPO_ROOT = path.resolve(
 const EXPECTED_TRACE_DIR = path.join(REPO_ROOT, ".tmp", "flow-traces");
 
 const REQUIRED_FIELDS = Object.freeze(["file", "test", "from", "to"]);
-const OPTIONAL_FIELDS = Object.freeze(["phase", "provider", "terminal"]);
+const OPTIONAL_FIELDS = Object.freeze([
+  "case",
+  "phase",
+  "request",
+  "resource",
+  "surface",
+  "obligation",
+  "fulfills",
+  "provider",
+  "terminal",
+]);
 const FIELD_ORDER = Object.freeze([
   ...REQUIRED_FIELDS,
   ...OPTIONAL_FIELDS,
 ]);
-const NODE_PATTERN = /^(callback|check|command|effect|inert|port|sink|source|view)\.[a-z0-9]+(?:[.-][a-z0-9]+)*$/u;
+const NODE_PATTERN = /^(callback|check|command|effect|inert|port|resource|sink|source|view)\.[a-z0-9]+(?:[.-][a-z0-9]+)*$/u;
 const LABEL_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
 const WITNESS_FILE_PATTERN = /^hex\/test\/.+\.flow-witness\.test\.js$/u;
 const ARTIFACT_FILE_PATTERN = /^[1-9][0-9]*\.jsonl$/u;
@@ -26,8 +36,9 @@ const ALLOWED_TRANSITIONS = Object.freeze({
   check: new Set(["command", "sink"]),
   command: new Set(["effect", "inert", "sink"]),
   effect: new Set(["port"]),
-  port: new Set(["callback", "sink"]),
-  source: new Set(["callback", "command", "inert", "port", "sink"]),
+  port: new Set(["callback", "resource", "sink"]),
+  resource: new Set(["callback", "inert", "sink"]),
+  source: new Set(["callback", "command", "inert", "port", "resource", "sink"]),
   view: new Set(["sink"]),
 });
 
@@ -40,6 +51,9 @@ test("flow trace artifacts follow the witness graph convention", () => {
   auditDuplicateRecords(records, violations);
   auditPhaseDisambiguation(records, violations);
   auditGraphShape(records, violations);
+  auditResourceLifecycle(records, violations);
+  auditObligationFulfillment(records, violations);
+  auditScopedGraphClosure(records, violations);
   auditGraphReachability(records, violations);
 
   violations.sort();
@@ -138,8 +152,34 @@ function auditRecordShape(record, locator) {
   if (hasTerminal) {
     assertLabel(record.terminal, locator, "terminal");
   }
-  if (Object.hasOwn(record, "phase")) {
-    assertLabel(record.phase, locator, "phase");
+  for (const field of ["case", "phase", "request", "resource", "surface", "obligation", "fulfills"]) {
+    if (Object.hasOwn(record, field)) {
+      assertLabel(record[field], locator, field);
+    }
+  }
+
+  const hasCase = Object.hasOwn(record, "case");
+  const hasRequest = Object.hasOwn(record, "request");
+  const hasResource = Object.hasOwn(record, "resource");
+  if ((hasRequest || hasResource) && !hasCase) {
+    assert.fail(`${locator}: request and resource identities must be scoped by case`);
+  }
+
+  const touchesResourceNode = (
+    nodeKind(record.from) === "resource"
+      || nodeKind(record.to) === "resource"
+  );
+  if (touchesResourceNode && (!hasCase || !hasResource)) {
+    assert.fail(`${locator}: resource node edges must carry case and resource identity`);
+  }
+
+  const hasObligation = Object.hasOwn(record, "obligation");
+  const hasFulfills = Object.hasOwn(record, "fulfills");
+  if (hasObligation && hasFulfills) {
+    assert.fail(`${locator}: edge cannot both create and fulfill an obligation`);
+  }
+  if ((hasObligation || hasFulfills) && !Object.hasOwn(record, "surface")) {
+    assert.fail(`${locator}: obligation evidence must carry surface`);
   }
 
   auditEdgeTransition(record, locator);
@@ -213,6 +253,12 @@ function auditPhaseDisambiguation(records, violations) {
     const key = JSON.stringify({
       file: record.file,
       test: record.test,
+      case: record.case,
+      request: record.request,
+      resource: record.resource,
+      surface: record.surface,
+      obligation: record.obligation,
+      fulfills: record.fulfills,
       from: record.from,
       to: record.to,
       provider: record.provider,
@@ -240,7 +286,7 @@ function auditPhaseDisambiguation(records, violations) {
   }
 }
 
-function auditGraphShape(records, violations) {
+function auditGraphShape(records, violations, scope = "") {
   const outgoing = nodeMap(records, "from");
   const incoming = nodeMap(records, "to");
   const nodes = new Set([
@@ -251,21 +297,130 @@ function auditGraphShape(records, violations) {
   for (const node of [...nodes].sort()) {
     const kind = nodeKind(node);
     if (!["sink", "inert"].includes(kind) && incoming.has(node) && !outgoing.has(node)) {
-      violations.push(`${node}: non-terminal target has no outgoing evidence`);
+      violations.push(`${scope}${node}: non-terminal target has no outgoing evidence`);
     }
     if (!incoming.has(node) && isDisallowedRoot(node)) {
-      violations.push(`${node}: non-entry node has no incoming evidence`);
+      violations.push(`${scope}${node}: non-entry node has no incoming evidence`);
     }
   }
 
   for (const { locator, record } of records) {
     if (isTerminalNode(record.to) && !Object.hasOwn(record, "terminal")) {
-      violations.push(`${locator}: terminal node must be reached by terminal evidence`);
+      violations.push(`${scope}${locator}: terminal node must be reached by terminal evidence`);
     }
   }
 }
 
-function auditGraphReachability(records, violations) {
+function auditResourceLifecycle(records, violations) {
+  const groups = new Map();
+  for (const entry of records) {
+    const { record } = entry;
+    for (const field of ["from", "to"]) {
+      if (nodeKind(record[field]) !== "resource") {
+        continue;
+      }
+      const key = JSON.stringify({
+        file: record.file,
+        test: record.test,
+        case: record.case,
+        resource: record.resource,
+        node: record[field],
+      });
+      const group = groups.get(key) ?? {
+        file: record.file,
+        test: record.test,
+        case: record.case,
+        resource: record.resource,
+        node: record[field],
+        incoming: [],
+        outgoing: [],
+      };
+      group[field === "from" ? "outgoing" : "incoming"].push(entry);
+      groups.set(key, group);
+    }
+  }
+
+  for (const group of groups.values()) {
+    if (group.incoming.length === 0) {
+      violations.push(`${group.file} :: ${group.test} :: ${group.case} :: ${group.resource} :: ${group.node}: resource has outgoing evidence but is never acquired or entered in this witness case`);
+    }
+    if (group.outgoing.length === 0) {
+      violations.push(`${group.file} :: ${group.test} :: ${group.case} :: ${group.resource} :: ${group.node}: resource is acquired or entered but has no resolving evidence in this witness case`);
+    }
+
+    const requests = new Set();
+    let missingRequest = false;
+    for (const { record } of [...group.incoming, ...group.outgoing]) {
+      if (Object.hasOwn(record, "request")) {
+        requests.add(record.request);
+      } else {
+        missingRequest = true;
+      }
+    }
+    if (requests.size > 1) {
+      violations.push(`${group.file} :: ${group.test} :: ${group.case} :: ${group.resource} :: ${group.node}: resource lifecycle carries multiple request identities`);
+    }
+    if (requests.size > 0 && missingRequest) {
+      violations.push(`${group.file} :: ${group.test} :: ${group.case} :: ${group.resource} :: ${group.node}: resource lifecycle mixes request-scoped and unscoped evidence`);
+    }
+  }
+}
+
+function auditObligationFulfillment(records, violations) {
+  const obligations = new Map();
+  const fulfillments = new Map();
+  for (const entry of records) {
+    const { record } = entry;
+    if (Object.hasOwn(record, "obligation")) {
+      obligations.set(record.obligation, [...(obligations.get(record.obligation) ?? []), entry]);
+    }
+    if (Object.hasOwn(record, "fulfills")) {
+      fulfillments.set(record.fulfills, [...(fulfillments.get(record.fulfills) ?? []), entry]);
+    }
+  }
+
+  for (const [obligation, entries] of obligations) {
+    if (fulfillments.has(obligation)) {
+      continue;
+    }
+    for (const { locator } of entries) {
+      violations.push(`${locator}: obligation ${JSON.stringify(obligation)} has no fulfillment evidence`);
+    }
+  }
+  for (const [fulfills, entries] of fulfillments) {
+    if (obligations.has(fulfills)) {
+      continue;
+    }
+    for (const { locator } of entries) {
+      violations.push(`${locator}: fulfillment ${JSON.stringify(fulfills)} has no obligation evidence`);
+    }
+  }
+}
+
+function auditScopedGraphClosure(records, violations) {
+  const groups = new Map();
+  for (const entry of records) {
+    const { record } = entry;
+    if (!Object.hasOwn(record, "case")) {
+      continue;
+    }
+    const key = JSON.stringify({
+      file: record.file,
+      test: record.test,
+      case: record.case,
+    });
+    groups.set(key, [...(groups.get(key) ?? []), entry]);
+  }
+
+  for (const entries of groups.values()) {
+    const { file, test, case: caseId } = entries[0].record;
+    const scope = `${file} :: ${test} :: ${caseId}: `;
+    auditGraphShape(entries, violations, scope);
+    auditGraphReachability(entries, violations, scope);
+  }
+}
+
+function auditGraphReachability(records, violations, scope = "") {
   const adjacency = adjacencyMap(records, "from", "to");
   const reverseAdjacency = adjacencyMap(records, "to", "from");
   const nodes = graphNodes(records);
@@ -275,14 +430,14 @@ function auditGraphReachability(records, violations) {
   const reachableFromEntries = traverseGraph(adjacency, entryNodes);
   for (const node of [...nodes].sort()) {
     if (!reachableFromEntries.has(node)) {
-      violations.push(`${node}: node is not reachable from any graph entry`);
+      violations.push(`${scope}${node}: node is not reachable from any graph entry`);
     }
   }
 
   const canReachTerminal = traverseGraph(reverseAdjacency, terminalNodes);
   for (const node of [...nodes].sort()) {
     if (!isTerminalNode(node) && !canReachTerminal.has(node)) {
-      violations.push(`${node}: node cannot reach a terminal sink/inert node`);
+      violations.push(`${scope}${node}: node cannot reach a terminal sink/inert node`);
     }
   }
 }

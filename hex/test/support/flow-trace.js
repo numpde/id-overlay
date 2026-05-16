@@ -3,6 +3,22 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
+const EDGE_FIELD_ORDER = Object.freeze([
+  "case",
+  "phase",
+  "request",
+  "resource",
+  "surface",
+  "obligation",
+  "fulfills",
+  "provider",
+  "terminal",
+]);
+const KNOWN_EDGE_FIELDS = new Set([
+  "from",
+  "to",
+  ...EDGE_FIELD_ORDER,
+]);
 
 export function createFlowTrace({ file, test } = {}) {
   const edges = [];
@@ -12,9 +28,13 @@ export function createFlowTrace({ file, test } = {}) {
   return {
     edges,
     edge(edge) {
-      assertEdge(edge);
-      edges.push(edge);
-      writeArtifactEdge({ file, test, edge });
+      const attributedEdge = {
+        ...currentAttributes,
+        ...edge,
+      };
+      assertEdge(attributedEdge);
+      edges.push(attributedEdge);
+      writeArtifactEdge({ file, test, edge: attributedEdge });
     },
     activeSource() {
       return currentSource;
@@ -80,15 +100,31 @@ function writeArtifactEdge({ file, test, edge }) {
   assertNonEmptyString(file, "file");
   assertNonEmptyString(test, "test");
 
-  const record = {
-    file: normalizeFilePath(file),
-    test,
-    ...edge,
-  };
+  const record = canonicalRecord({ file, test, edge });
   fs.appendFileSync(
     path.join(traceDir, `${process.pid}.jsonl`),
     `${JSON.stringify(record)}\n`,
   );
+}
+
+function canonicalRecord({ file, test, edge }) {
+  const record = {
+    file: normalizeFilePath(file),
+    test,
+    from: edge.from,
+    to: edge.to,
+  };
+  for (const field of EDGE_FIELD_ORDER) {
+    if (Object.hasOwn(edge, field)) {
+      record[field] = edge[field];
+    }
+  }
+  for (const [field, value] of Object.entries(edge)) {
+    if (!KNOWN_EDGE_FIELDS.has(field)) {
+      record[field] = value;
+    }
+  }
+  return record;
 }
 
 function normalizeFilePath(file) {

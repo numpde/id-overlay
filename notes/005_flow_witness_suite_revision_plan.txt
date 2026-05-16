@@ -1,0 +1,319 @@
+Flow witness suite revision plan
+
+Context
+
+The flow trace mechanism is now useful enough to reveal its own failure mode.
+An artifact audit can pass while the emitted graph is low value, because the
+audit can only judge the evidence that tests produce. It cannot infer missing
+user flows or distinguish a meaningful cross-boundary witness from a trivial
+static check unless the suite follows a stricter conversion discipline.
+
+The companion discipline note is:
+
+  notes/004_flow_witness_conversion_discipline.txt
+
+That note describes how an individual test should be converted. This note
+describes how to revise the test suite end to end.
+
+Goal
+
+Revise the test suite so that flow witnesses are honest evidence of the
+strongest real boundary exercised by each test.
+
+The desired end state is not:
+
+  every test emits any trace edge
+
+The desired end state is:
+
+  every trace-emitting test tells the truth about its evidence strength
+
+and:
+
+  important user-visible flows have real witnesses from source to observable
+  sink, rather than only isolated unit evidence
+
+Non-goals
+
+- Do not create a central product flow SSoT that tests import.
+- Do not make the artifact audit a product-flow checklist.
+- Do not edit implementation code during the suite-revision pass.
+- Do not make a scoped artifact-audit pass sound like full flow health.
+- Do not convert a test by adding decorative check-to-sink edges if trace
+  emission adds no evidence value.
+
+Current known risks
+
+1. Trivial closed graphs
+
+   A trace such as:
+
+     check.opacity-normalization -> sink.domain-law
+
+   is valid for a pure-law witness, but it should not be counted as user-flow
+   coverage.
+
+2. Harness shortcuts
+
+   A test that directly calls:
+
+     dispatchCommand({ kind: "select-mode" })
+
+   does not prove that a rendered Trace button works. It proves the lower-level
+   command path.
+
+3. Manual narration drift
+
+   A test can write a trace edge next to behavior without the two being coupled.
+   Trace edges should be emitted from the helper or harness primitive that does
+   the work.
+
+4. Cross-test accidental closure
+
+   A command or resource node in one test can appear closed only because another
+   test emits a matching edge. Behavioral witnesses need case identity so their
+   local graph closes in its own scenario.
+
+5. Existing failing witnesses
+
+   Some current witnesses intentionally fail because they specify a long-term
+   display-resource boundary that the implementation does not yet satisfy. That
+   is acceptable. A suite-revision pass should not hide those failures by
+   weakening the tests.
+
+Evidence classes
+
+Every test file should be classified before editing:
+
+1. architecture/static
+
+   Source scans, dependency rules, file and manifest shape, vocabulary bans.
+
+   Honest root:
+
+     check.*
+
+   Typical sink:
+
+     sink.architecture-boundary
+
+   These are not user flows.
+
+2. domain-law
+
+   Pure domain invariants over values.
+
+   Honest root:
+
+     check.*
+
+   Typical sink:
+
+     sink.domain-law
+
+   These are not user flows.
+
+3. application-transition
+
+   Semantic command enters the application; state and effects leave.
+
+   Honest roots:
+
+     command.*
+     check.* only for meta-properties such as determinism or plain-data shape
+
+   Typical sinks:
+
+     sink.application-state
+     sink.declared-effects
+     effect.* when the effect is intentionally part of the witnessed boundary
+
+4. adapter-boundary
+
+   DOM, browser, page, storage, timer, or UI mechanics become semantic facts,
+   commands, callbacks, or terminal host observations.
+
+   Honest roots:
+
+     source.*
+     port.*
+
+   Typical examples:
+
+     source.panel.trace.click -> command.select-mode
+     source.keyboard.escape.keydown -> callback.interaction-fact.trace-mode-requested
+     port.timer.schedule-application-command -> callback.timer.status-notice
+
+5. shell-integration
+
+   Bootstrap/runtime composition connects rendered commands, application
+   effects, ports, callbacks, persistence, render, host errors, and disposal.
+
+   Honest examples:
+
+     source.rendered-command.select-mode -> command.select-mode
+     effect.persist-durable-state -> port.durable-state.write
+     port.durable-state.write -> sink.durable-state.write
+     source.rendered-command.select-mode -> sink.render
+
+6. user-flow
+
+   A user-observable path through multiple boundaries, preferably from rendered
+   DOM or browser event to a visible or durable sink.
+
+   Honest examples:
+
+     source.panel.primary.click
+       -> command.activate-primary-action
+       -> effect.request-reference-image-input
+       -> port.reference-image-input.start
+       -> resource.paste-listener.active
+       -> callback.paste-event
+       -> sink.durable-state.write
+       -> sink.overlay-image.painted
+
+Revision order
+
+Phase 1: inventory
+
+- Produce an inventory of all tests, classified by evidence class.
+- Mark which files already emit traces.
+- Mark weak witnesses that need revision, especially behavioral tests using
+  trivial check-to-sink evidence.
+- Mark tests that should remain non-flow because trace emission adds no value.
+
+Phase 2: existing witness review
+
+Review current *.flow-witness.test.js files before converting many more tests.
+Look for:
+
+- command.* roots with no local source or case
+- effect.* nodes with no port continuation or declared-effects sink
+- behavioral witnesses without case
+- manual traces that sit beside behavior
+- source claims that are actually harness shortcuts
+- missing provider or surface on adapter and shell evidence
+
+This phase prevents the suite from accumulating more low-value traces.
+
+Phase 3: convert application transitions
+
+Convert remaining class-a application transition tests.
+
+Rules:
+
+- If the test handles an application command, trace command.*.
+- If the test checks a meta-property such as determinism or plain-data shape,
+  trace check.*.
+- Do not emit effect.* unless the effect is part of the asserted behavior.
+- If the boundary stops at returned effects, prefer sink.declared-effects over
+  leaving an effect node dangling.
+- Preserve all existing assertions.
+
+Phase 4: convert adapter boundaries
+
+Convert adapter tests by tracing the real external input they exercise.
+
+Rules:
+
+- DOM click, wheel, key, pointer, paste, page snapshot, storage, or timer input
+  should be source.* or port.*.
+- The trace should cross into semantic facts, commands, callbacks, or boundary
+  sinks.
+- Do not replace adapter input with direct command dispatch and still claim a
+  rendered-source edge.
+
+Phase 5: convert shell and integration tests
+
+Convert shell tests by tracing the composition route:
+
+- bootstrap/start source
+- rendered command source
+- application command
+- application effect
+- effect handler port
+- callback or terminal sink
+- render sink
+- disposal or host-error sink when relevant
+
+Shell witnesses should normally carry case, surface, and provider.
+
+Phase 6: add missing user-flow witnesses
+
+Add focused witnesses for known live gaps. These are allowed to fail if the app
+is not yet wired correctly.
+
+Known candidates:
+
+- rendered Trace button click changes rendered mode and persists when loaded
+- rendered Align button click restores Align behavior when loaded
+- no-image Align button stays disabled or inert through rendered UI
+- rendered overlay input surface is bound to overlay adapter input
+- Shift-drag on overlay reaches placement-edit projection and either commits or
+  explicitly fails at a projection boundary
+- Alt-wheel on overlay reaches opacity selection and either sets opacity or
+  explicitly fails at selection boundary
+- plain drag or wheel reaches native-map gesture forwarding or an explicit
+  unavailable sink
+- content-entrypoint composition wires UI host, overlay adapter, interaction
+  runtime, and needed projection/selection/forwarding ports
+
+These witnesses answer the question manual testing exposed: not "does each
+layer have a unit test?", but "does the user-visible route have no broken end?"
+
+Phase 7: tighten the artifact audit generically
+
+Only add generic convention checks, not product checklists.
+
+Candidates:
+
+- behavioral witnesses with source.*, command.*, effect.*, port.*, callback.*,
+  or resource.* must normally carry case
+- architecture/static and domain-law paths may use check.* without case
+- effect.* must continue to port.* or be represented as sink.declared-effects
+  at application-boundary tests
+- adapter and shell witnesses should carry provider and surface
+- vague sinks remain forbidden
+- resource lifecycle checks remain strict and instance-scoped
+
+The audit should say "this emitted graph is not honest under the convention",
+not "the product forgot a specific flow".
+
+Phase 8: verification and reporting
+
+For each batch:
+
+1. Run the touched tests normally.
+2. Run the touched witnesses with FLOW_TRACE_DIR.
+3. Run the artifact audit on that generated trace set.
+4. Record whether the batch added static, domain, app, adapter, shell, or
+   user-flow evidence.
+
+For the final pass:
+
+1. Run npm test.
+2. Run npm run test:flow.
+3. If failures remain, classify them:
+   - intended failing spec
+   - conversion bug
+   - real app gap exposed by witness
+4. Report evidence inventory counts by class.
+5. Report known missing user-flow witnesses, if any remain.
+
+Done criteria
+
+The suite-revision pass is done when:
+
+- every flow witness has an honest evidence class
+- weak existing witnesses have been revised or explicitly classified as static
+  or domain evidence
+- remaining non-flow tests are intentionally non-flow, not forgotten
+- important user-visible seams have at least one user-flow or shell-integration
+  witness
+- the artifact audit enforces generic discipline without encoding product
+  flows
+- final reporting distinguishes audit health from product-flow coverage
+
+The core rule
+
+  Do not optimize for a green graph. Optimize for a truthful graph.

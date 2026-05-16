@@ -1,0 +1,305 @@
+Flow witness conversion discipline
+
+Context
+
+The first trace conversions proved that JSONL emission and strict artifact
+reading work mechanically. They also exposed a risk: it is easy to make the
+flow graph bigger without making it more truthful.
+
+For example, this edge is valid trace-v1:
+
+  check.opacity-normalization -> sink.domain-law
+
+It is well formed, reachable, and terminal. The audit should accept it as a
+static or pure-law witness. But it is not a user flow, and it does not prove
+that any application, adapter, shell, or browser composition edge exists.
+
+That means conversion needs a discipline. The goal is not "every test emits
+some edge". The goal is:
+
+  converted tests preserve the strongest real boundary they already witness
+
+The trace artifact should make the test's evidence visible. It should not add a
+parallel story that is stronger than the behavior the test actually exercised.
+
+Test kinds
+
+Before converting a test, classify it.
+
+1. architecture/static
+
+   Source scans, dependency guards, vocabulary bans, file-shape checks, manifest
+   derivation checks, and other tests that inspect artifacts rather than execute
+   product behavior.
+
+   These may start with check.* and may terminate directly:
+
+     check.bootstrap-product-boundary -> sink.architecture-boundary
+
+   These are evidence witnesses, not behavioral flows.
+
+2. domain law
+
+   Pure domain invariants over values: geometry, opacity, registration solve,
+   image-size policy. They do not cross the application boundary.
+
+   These may start with check.* and terminate directly:
+
+     check.registration-solve -> sink.domain-law
+
+   They should not pretend to be command, adapter, or user flows.
+
+3. application transition
+
+   Application command in; state and effects out. These should use command.*
+   when the test actually constructs and handles a semantic application command.
+
+   Good:
+
+     command.select-mode -> sink.application-state
+     command.select-mode -> effect.persist-durable-state
+
+   If the test is only checking determinism or plain-data shape, use check.*:
+
+     check.application-determinism -> sink.application-state
+
+4. adapter boundary
+
+   Browser, DOM, page, storage, timer, or UI mechanics become semantic facts,
+   commands, port calls, callbacks, or terminal host results.
+
+   Good:
+
+     source.panel.trace.click -> command.select-mode
+     source.keyboard.escape.keydown -> callback.interaction-fact.trace-mode-requested
+     port.timer.schedule-application-command -> callback.timer.status-notice
+
+   Avoid replacing real adapter input with a direct command dispatch unless the
+   test is explicitly below the adapter boundary.
+
+5. shell integration
+
+   Bootstrap/runtime composition connects rendered commands, application
+   effects, ports, callbacks, durable writes, renders, host errors, and
+   disposal.
+
+   Good:
+
+     source.rendered-command.select-mode -> command.select-mode
+     effect.persist-durable-state -> port.durable-state.write
+     port.durable-state.write -> sink.durable-state.write
+     source.rendered-command.select-mode -> sink.render
+
+6. user flow
+
+   A user-observable path through multiple boundaries, ideally from rendered DOM
+   or browser event to a user-visible sink.
+
+   Good:
+
+     source.panel.primary.click
+       -> command.activate-primary-action
+       -> effect.request-reference-image-input
+       -> port.reference-image-input.start
+       -> resource.paste-listener.active
+       -> callback.paste-event
+       -> sink.durable-state.write
+       -> sink.overlay-image.painted
+
+   These are the traces that can expose missing composition edges.
+
+Normative rules
+
+1. Do not strengthen the evidence by narration
+
+   The trace must not claim a boundary that the test did not exercise.
+
+   Bad:
+
+     trace.edge(source.panel.trace.click -> command.select-mode)
+     await host.latestRender.dispatchCommand({ kind: "select-mode", mode: "trace" })
+
+   The test did not click a panel button. It directly dispatched a command.
+
+   Better:
+
+     panelHarness.clickControl(root, "trace")
+
+   where clickControl records the source edge and performs the click.
+
+2. Trace from the primitive that does the work
+
+   Within-test drift happens when traces sit beside behavior as a second script.
+   The helper or harness method that performs the action should emit the edge.
+
+   Good:
+
+     storage.writeDurableState(value) records
+       port.durable-state.write -> sink.durable-state.write
+
+     input.accept(requestId, outcome) records
+       callback.reference-image-input.accepted -> command.report-reference-image-input-outcome
+
+3. Use case identity for behavioral witnesses
+
+   Application, adapter, shell, and user-flow witnesses should normally carry a
+   case field. This prevents a node in one scenario from being accidentally
+   closed by another scenario in the same file or artifact.
+
+   Architecture/static and simple domain-law witnesses may omit case when they
+   are single-edge checks.
+
+4. Use source/check roots intentionally
+
+   source.* means an external or harness entry into behavior.
+
+   check.* means inspection or invariant checking.
+
+   Do not use check.* to avoid tracing a real source. If a test starts from a
+   rendered click, key event, wheel event, paste event, timer callback, storage
+   read, or bootstrap call, the root should normally be source.* or port.*,
+   not check.*.
+
+5. Sinks must be boundary observables
+
+   Good sinks:
+
+     sink.application-state
+     sink.declared-effects
+     sink.durable-state.write
+     sink.panel-dom
+     sink.overlay-dom
+     sink.overlay-image.painted
+     sink.render
+     sink.host-error
+     sink.architecture-boundary
+     sink.domain-law
+
+   Avoid vague terminals such as:
+
+     sink.test-passed
+     sink.assertion
+     sink.ok
+
+6. Effects must either continue or terminate honestly
+
+   If a witness emits an application effect, then either:
+
+   - continue to the port or handler that consumes it, or
+   - use a terminal sink representing the effect list as the observable boundary.
+
+   Good application-level boundary:
+
+     command.select-mode -> sink.application-state
+     command.select-mode -> sink.declared-effects
+
+   Good shell-level boundary:
+
+     command.select-mode -> effect.persist-durable-state
+     effect.persist-durable-state -> port.durable-state.write
+     port.durable-state.write -> sink.durable-state.write
+
+   Bad:
+
+     command.select-mode -> effect.persist-durable-state
+
+   with no effect consumer and no terminal.
+
+7. Resource lifetimes are instance-scoped
+
+   Anything live, pending, armed, registered, or installed is resource.* and
+   needs case and resource identity.
+
+   Good:
+
+     port.paste-listener.add -> resource.paste-listener.active
+     resource.paste-listener.active -> callback.paste-event
+     resource.paste-listener.active -> sink.paste-listener.disposed
+
+   "Active" is not terminal. It must resolve inside the witness case.
+
+8. Provider and surface are evidence strength, not decoration
+
+   provider says who supplied the edge. surface says where the evidence came
+   from.
+
+   Examples:
+
+     provider: panel-adapter
+     provider: browser-shell-effect-handler
+     provider: harness-injected
+     surface: extension-content
+     surface: shell-harness
+     surface: browser-adapter
+
+   A harness-injected port and a content-entrypoint-created port are not the
+   same strength of evidence. Preserve the distinction.
+
+9. A converted test may reveal that it is not a flow witness
+
+   If the strongest honest trace is:
+
+     check.some-static-rule -> sink.architecture-boundary
+
+   then the test may still be valuable, but it is not evidence that a user flow
+   closes. Do not count it as flow coverage.
+
+   Possible outcomes:
+
+   - keep it as a static flow-witness because the artifact authority still
+     benefits from seeing the check
+   - leave it as a normal test if trace emission adds no value
+   - strengthen it to exercise a real boundary
+   - demote or delete it if it no longer provides useful evidence
+
+Audit implications
+
+The audit should remain the convention carrier, but it should not become a
+central product flow spec. It may enforce generic discipline:
+
+- check.* roots are acceptable for architecture/static and domain-law files
+- behavioral witnesses with command.*, effect.*, port.*, callback.*, resource.*,
+  or source.* should normally carry case
+- resource nodes require resource identity and same-case resolution
+- terminal sinks must be specific and known
+- repeated edge evidence needs phase
+- emitted obligations need matching fulfillments
+
+The audit should not contain a checklist of product flows such as "paste must
+paint" or "Trace must solve registration". Those belong in local witnesses.
+
+Pass meaning after disciplined conversion
+
+A passing audit means:
+
+  every emitted witness graph is strict, closed, scoped, and honest under the
+  trace convention
+
+It still does not mean:
+
+  every important user flow has a witness
+
+That second question needs a separate review of witness inventory and evidence
+strength. The audit can make weak evidence visible; it cannot invent missing
+behavioral witnesses.
+
+Practical conversion checklist
+
+For each test:
+
+1. Classify the test kind.
+2. Name the real boundary the test already exercises.
+3. Pick the strongest honest root: source.*, check.*, command.*, port.*, or
+   view.*.
+4. Emit trace edges from helpers or harness primitives where possible.
+5. Add case/resource/request identity when behavior is scoped.
+6. Continue non-terminal nodes to the next real boundary, or terminate at a
+   specific observable sink.
+7. Keep the original assertions.
+8. Run the test normally.
+9. Run the test with FLOW_TRACE_DIR and then the artifact audit.
+10. If the trace is trivial, say so. Do not count it as user-flow coverage.
+
+The core rule
+
+  A converted test should make the graph more truthful, not just bigger.
