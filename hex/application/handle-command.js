@@ -17,6 +17,10 @@ import {
   requestReferenceImageReplacement,
 } from "./reference-image-commands.js";
 import {
+  clearRegistrationPins,
+  toggleRegistrationPin,
+} from "./registration-commands.js";
+import {
   ApplicationBoundaryError,
   APPLICATION_BOUNDARY_ERROR_CODE,
 } from "./errors.js";
@@ -61,11 +65,11 @@ export function handleApplicationCommand({ state, command }) {
     case APPLICATION_COMMAND_KIND.SELECT_MODE:
       return selectMode(state, command);
     case APPLICATION_COMMAND_KIND.TOGGLE_REGISTRATION_PIN:
-      return toggleRegistrationPin(state, command);
+      return toggleRegistrationPin(state, command, { inertResult });
     case APPLICATION_COMMAND_KIND.COMMIT_PLACEMENT_EDIT:
       return commitPlacementEdit(state, command);
     case APPLICATION_COMMAND_KIND.CLEAR_REGISTRATION_PINS:
-      return clearRegistrationPins(state);
+      return clearRegistrationPins(state, { inertResult });
     case APPLICATION_COMMAND_KIND.CLEAR_STATUS_NOTICE:
       return clearStatusNotice(state, command.requestId);
     case APPLICATION_COMMAND_KIND.CLEAR_PANEL_INTENT:
@@ -242,7 +246,7 @@ function activatePrimaryAction(state) {
     };
   }
   if (state.panelIntent?.kind === "confirm-clear-pins") {
-    return clearRegistrationPins(state);
+    return clearRegistrationPins(state, { inertResult });
   }
   if (state.panelIntent?.kind === "confirm-clear-reference-image") {
     return clearReferenceImageWithHistory(state);
@@ -319,133 +323,6 @@ function selectMode(state, command) {
       persistDurableStateEffect(selectDurableApplicationState(nextState)),
     ],
   };
-}
-
-function clearRegistrationPins(state) {
-  if (
-    !state.session
-      || state.session.mode !== "align"
-      || (state.session.registration?.pins ?? []).length === 0
-  ) {
-    return inertResult(state);
-  }
-
-  const pinCount = state.session.registration.pins.length;
-  const afterSession = withoutRegistration(state.session);
-  const nextState = {
-    session: afterSession,
-    history: pushHistory(state.history, {
-      kind: "clear-registration-pins",
-      before: {
-        session: state.session,
-      },
-      after: {
-        session: afterSession,
-      },
-    }),
-    notice: {
-      kind: "cleared-pins",
-      count: pinCount,
-    },
-  };
-  return {
-    state: nextState,
-    effects: [
-      persistDurableStateEffect(selectDurableApplicationState(nextState)),
-    ],
-  };
-}
-
-function toggleRegistrationPin(state, command) {
-  if (!state.session || state.session.mode !== "align") {
-    return inertResult(state);
-  }
-
-  const pins = state.session.registration?.pins ?? [];
-  if (command.existingPinId !== null && command.existingPinId !== undefined) {
-    const nextPins = pins.filter((pin) => pin.id !== command.existingPinId);
-    if (nextPins.length === pins.length) {
-      return inertResult(state);
-    }
-    const nextSession = withRegistrationPins(state.session, nextPins);
-    const nextState = {
-      session: nextSession,
-      history: pushHistory(state.history, {
-        kind: "registration-pin-edit",
-        before: {
-          session: state.session,
-        },
-        after: {
-          session: nextSession,
-        },
-      }),
-      notice: {
-        kind: "removed-pin",
-        pinId: command.existingPinId,
-      },
-    };
-    return {
-      state: nextState,
-      effects: [
-        persistDurableStateEffect(selectDurableApplicationState(nextState)),
-      ],
-    };
-  }
-
-  const pin = {
-    id: nextPinId(pins),
-    imagePx: command.imagePx,
-    mapLatLon: command.mapLatLon,
-  };
-  const nextSession = withRegistrationPins(state.session, [...pins, pin]);
-  const nextState = {
-    session: nextSession,
-    history: pushHistory(state.history, {
-      kind: "registration-pin-edit",
-      before: {
-        session: state.session,
-      },
-      after: {
-        session: nextSession,
-      },
-    }),
-    notice: {
-      kind: "added-pin",
-      pinId: pin.id,
-    },
-  };
-  return {
-    state: nextState,
-    effects: [
-      persistDurableStateEffect(selectDurableApplicationState(nextState)),
-    ],
-  };
-}
-
-function withRegistrationPins(session, pins) {
-  if (pins.length === 0) {
-    return withoutRegistration(session);
-  }
-  return {
-    ...session,
-    registration: {
-      pins,
-    },
-  };
-}
-
-function nextPinId(pins) {
-  return Math.max(0, ...pins.map((pin) => pin.id)) + 1;
-}
-
-function withoutRegistration(session) {
-  const nextSession = {};
-  for (const [key, value] of Object.entries(session)) {
-    if (key !== "registration") {
-      nextSession[key] = value;
-    }
-  }
-  return nextSession;
 }
 
 function clearStatusNotice(state, requestId) {
