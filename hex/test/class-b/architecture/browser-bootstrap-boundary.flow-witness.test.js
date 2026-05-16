@@ -22,6 +22,7 @@ const STARTUP_DURABLE_STATE_SOURCE = hexPath("bootstrap/startup-durable-state.js
 const MAP_LOCKED_PLACEMENT_SOURCE = hexPath("bootstrap/map-locked-placement.js");
 const PANEL_CHROME_SOURCE = hexPath("bootstrap/panel-chrome.js");
 const BROWSER_EFFECT_HANDLERS_SOURCE = hexPath("bootstrap/browser-effect-handlers.js");
+const BROWSER_RENDER_PROJECTION_SOURCE = hexPath("bootstrap/browser-render-projection.js");
 
 // Class-b: browser entrypoint lifecycle is shell behavior, not product law. The
 // extension bootstrap should wait for DOM readiness before mounting visible UI
@@ -273,6 +274,29 @@ test("browser bootstrap delegates host effect handling", () => {
   assert.match(effectSource, /\bcreateInitialReferencePlacement\b/);
   assert.match(effectSource, /\bscheduleApplicationCommand\b/);
   trace.edge(flowEdge("check.bootstrap-effect-handler-delegation", "sink.architecture-boundary", {
+    terminal: "architecture-check",
+  }));
+});
+
+// Class-b: rendering projection and debug summaries are shell presentation
+// plumbing. Bootstrap should render the selected view, but page-snapshot
+// projection, projection-port lookup, and event-debug payload shaping belong in
+// a focused helper.
+test("browser bootstrap delegates render projection diagnostics", () => {
+  const trace = createFlowTrace({
+    file: import.meta.url,
+    test: "browser bootstrap delegates render projection diagnostics",
+  });
+  const shellSource = readSource(hexPath("bootstrap/index.js"));
+  const projectionSource = readSource(BROWSER_RENDER_PROJECTION_SOURCE);
+
+  assert.match(shellSource, /from\s+["']\.\/browser-render-projection\.js["']/);
+  assert.doesNotMatch(shellSource, /\bfunction\s+(?:projectApplicationView|logRenderProjection|summarizePageSnapshot|summarizeOverlay)\b/);
+  assert.match(projectionSource, /\bexport\s+function\s+projectApplicationView\b/);
+  assert.match(projectionSource, /\bexport\s+function\s+createRenderProjectionLogger\b/);
+  assert.match(projectionSource, /\bprojectTraceOverlayForPageSnapshot\b/);
+  assert.match(projectionSource, /\beventDebugLogger\b/);
+  trace.edge(flowEdge("check.bootstrap-render-projection-delegation", "sink.architecture-boundary", {
     terminal: "architecture-check",
   }));
 });
