@@ -15,6 +15,26 @@ import {
 } from "../../support/flow-trace.js";
 
 const EXTENSION_UI_HOST_SOURCE = hexPath("adapters/ui/extension-ui-host.js");
+const EXTENSION_UI_ROOT_SOURCE = hexPath("adapters/ui/extension-ui-root.js");
+const EXTENSION_UI_STYLES_SOURCE = hexPath("adapters/ui/extension-ui-styles.js");
+
+// Class-b, deliberately not class-a: the exact internal modules may change,
+// but the host facade must stay a composition boundary. If it starts creating
+// DOM, embedding CSS, constructing panel/overlay adapters, or formatting debug
+// summaries directly again, the old mixed-role smell has returned.
+test("extension UI host facade delegates concrete UI roles", () => {
+  const trace = createExtensionUiHostTrace("extension UI host facade delegates concrete UI roles");
+  trace.edge(flowEdge("check.extension-ui-host-role-boundary", "sink.architecture-boundary", {
+    terminal: "architecture-check",
+  }));
+
+  assert.deepEqual(collectHostFacadeViolations(readSource(EXTENSION_UI_HOST_SOURCE)), []);
+  assert.deepEqual(trace.edges, [
+    flowEdge("check.extension-ui-host-role-boundary", "sink.architecture-boundary", {
+      terminal: "architecture-check",
+    }),
+  ]);
+});
 
 // Class-b, deliberately not class-a: shadow DOM is a browser-adapter tactic,
 // not an eternal architecture law. The stable boundary is that the extension UI
@@ -26,7 +46,10 @@ test("extension UI host does not assert ambient page style policy", () => {
     terminal: "architecture-check",
   }));
 
-  assert.deepEqual(collectAmbientStylePolicyViolations(readSource(EXTENSION_UI_HOST_SOURCE)), []);
+  assert.deepEqual(collectAmbientStylePolicyViolations({
+    rootSource: readSource(EXTENSION_UI_ROOT_SOURCE),
+    stylesSource: readSource(EXTENSION_UI_STYLES_SOURCE),
+  }), []);
   assert.deepEqual(trace.edges, [
     flowEdge("check.extension-ui-host-style-policy", "sink.architecture-boundary", {
       terminal: "architecture-check",
@@ -1050,15 +1073,57 @@ function flowAttrs({
   return attributes;
 }
 
-function collectAmbientStylePolicyViolations(source) {
+function collectHostFacadeViolations(source) {
+  const violations = [];
+  for (const { label, pattern } of [
+    {
+      label: "direct dom construction",
+      pattern: /\bdocument\.createElement\b/u,
+    },
+    {
+      label: "inline stylesheet ownership",
+      pattern: /\bstyle\.textContent\b/u,
+    },
+    {
+      label: "direct overlay adapter ownership",
+      pattern: /\bcreateOverlayAdapter\b/u,
+    },
+    {
+      label: "direct panel adapter ownership",
+      pattern: /\bcreatePanelAdapter\b/u,
+    },
+    {
+      label: "direct debug probe ownership",
+      pattern: /\bcreateEventDebugProbe\b/u,
+    },
+    {
+      label: "render signature ownership",
+      pattern: /\b(?:overlayStructuralRenderSignature|panelRenderSignature)\b/u,
+    },
+    {
+      label: "debug summary ownership",
+      pattern: /\boverlayDomDebugSummary\b/u,
+    },
+  ]) {
+    if (pattern.test(source)) {
+      violations.push(label);
+    }
+  }
+  return violations;
+}
+
+function collectAmbientStylePolicyViolations({
+  rootSource,
+  stylesSource,
+}) {
   return [
-    ...collectStyleTextViolations(source),
-    ...collectSourceMutationViolations(source),
+    ...collectStyleTextViolations(stylesSource),
+    ...collectSourceMutationViolations(rootSource),
   ];
 }
 
 function collectStyleTextViolations(source) {
-  const styleText = /style\.textContent\s*=\s*`(?<css>[\s\S]*?)`;/u.exec(source)?.groups.css ?? "";
+  const styleText = /EXTENSION_UI_STYLES\s*=\s*`(?<css>[\s\S]*?)`;/u.exec(source)?.groups.css ?? "";
   const violations = [];
   for (const { label, pattern } of [
     {
