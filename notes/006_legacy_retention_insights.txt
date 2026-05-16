@@ -1,0 +1,510 @@
+Legacy retention insights with provenance
+
+Context
+
+This note records what should survive deletion of ./legacy. Each retained
+behavior below is traceable to a specific legacy test or source reference. When
+an item is an engineering rule rather than a direct legacy assertion, it is
+marked as a derived rule and cites the legacy evidence it generalizes from.
+
+References use repo-relative paths and line numbers from the legacy tree.
+
+1. Interaction ownership
+
+Retain these legacy-observed behaviors:
+
+- Plain overlay drag is native-map pan and keeps placement unchanged.
+  Evidence: legacy/test/unit/interactions.test.js:173
+
+- Shift-drag edits overlay placement through page projection only.
+  Evidence: legacy/test/unit/interactions.test.js:64
+
+- Shift-drag stays anchored to the visible overlay while live surface motion is
+  active.
+  Evidence: legacy/test/unit/interactions.test.js:122
+
+- Ctrl-wheel rotates the overlay and does not zoom the map.
+  Evidence: legacy/test/unit/interactions.test.js:376,
+  legacy/test/unit/interactions.test.js:550
+
+- Ctrl-wheel rotates around the image point under the mouse.
+  Evidence: legacy/test/unit/interactions.test.js:411
+
+- Shift-wheel scales around the image point under the mouse.
+  Evidence: legacy/test/unit/interactions.test.js:463
+
+- Plain wheel zooms the map and leaves overlay placement unchanged.
+  Evidence: legacy/test/unit/interactions.test.js:445
+
+- Alt-wheel adjusts opacity in Align without zooming the map, and also adjusts
+  opacity in Trace.
+  Evidence: legacy/test/unit/interactions.test.js:565,
+  legacy/test/unit/interactions.test.js:583
+
+- Double-click pin toggles are consumed only when pin handling succeeds;
+  unhandled double-clicks are not consumed.
+  Evidence: legacy/test/unit/overlay-mounted-input-dispatcher.test.js:135,
+  legacy/test/unit/overlay-mounted-input-dispatcher.test.js:155
+
+- Below-threshold overlay pointer movement is consumed as ownership but does
+  not become an active edit.
+  Evidence: legacy/test/unit/overlay-pointer-sequence-router.test.js:35
+
+- Pointercancel clears active/pending gesture ownership.
+  Evidence: legacy/test/unit/overlay-global-pointer-dispatcher.test.js:105,
+  legacy/test/unit/overlay-global-pointer-dispatcher.test.js:107
+
+- Switching mode and clearing image end active map pan through the same
+  transition path.
+  Evidence: legacy/test/unit/interactions.test.js:659,
+  legacy/test/unit/interactions.test.js:681
+
+- Space activates temporary pass-through while aligning.
+  Evidence: legacy/test/unit/interactions.test.js:703
+
+- P toggles a pin at the current pointer location, including when focus is on an
+  extension button.
+  Evidence: legacy/test/unit/interactions.test.js:719,
+  legacy/test/unit/interactions.test.js:737
+
+Derived rule:
+
+Gesture ownership must be explicit. Adapter inputs should become semantic
+overlay interaction facts, explicit native-map forwarding facts, or inert
+terminal facts. This rule generalizes the tests above and is also reflected by
+the legacy single-source policy tests at legacy/test/unit/interactions.test.js:810,
+legacy/test/unit/interactions.test.js:823, legacy/test/unit/interactions.test.js:885,
+legacy/test/unit/interactions.test.js:923, and
+legacy/test/unit/interactions.test.js:961.
+
+2. Page observation and OSM/iD heuristics
+
+Retain these legacy-observed behaviors:
+
+- Active map context uses the native page when no embedded iD frame exists.
+  Evidence: legacy/test/unit/page-adapter-active-map-context.test.js:50
+
+- Active map context prefers the embedded iD frame when present.
+  Evidence: legacy/test/unit/page-adapter-active-map-context.test.js:65
+
+- Page adapter prefers embedded iD iframe facts for viewport, map view, and
+  surface motion.
+  Evidence: legacy/test/unit/page-adapter.test.js:160
+
+- Page adapter derives a more precise map view from rendered tiles when
+  available.
+  Evidence: legacy/test/unit/page-adapter.test.js:266
+
+- Page adapter retains the last coherent map view while live surface motion is
+  active.
+  Evidence: legacy/test/unit/page-adapter.test.js:311
+
+- Page adapter keeps the same viewport mount through style churn while it
+  remains visible.
+  Evidence: legacy/test/unit/page-adapter.test.js:363
+
+- Page adapter replaces a cached viewport mount after it becomes hidden.
+  Evidence: legacy/test/unit/page-adapter.test.js:412
+
+- Viewport resolver invalidates hidden or disconnected cached viewports.
+  Evidence: legacy/test/unit/page-adapter-upstream-viewport.test.js:41
+
+- Map zoom gesture facts resolve iframe-local point before hit-testing.
+  Evidence: legacy/test/unit/page-adapter-map-gesture-facts.test.js:26
+
+- Page snapshot factory preserves a canonical snapshot shape including
+  provenance.
+  Evidence: legacy/test/unit/page-adapter-page-snapshot.test.js:17,
+  legacy/test/unit/page-adapter-page-snapshot.test.js:36
+
+- Fallback snapshots carry synthetic provenance.
+  Evidence: legacy/test/unit/page-adapter-page-snapshot.test.js:51,
+  legacy/test/unit/page-adapter-snapshot-reader.test.js:52
+
+- Stale snapshots preserve facts and mark stale provenance.
+  Evidence: legacy/test/unit/page-adapter-page-snapshot.test.js:98,
+  legacy/test/unit/page-adapter-snapshot-reader.test.js:25
+
+- Page snapshot liveness is derived from canonical provenance.
+  Evidence: legacy/test/unit/page-adapter-page-snapshot.test.js:127
+
+Derived rule:
+
+Page adapters should emit explicit page facts rather than product conclusions.
+This follows from the legacy page observation graph tests at
+legacy/test/unit/page-adapter-observation-graph.test.js:11,
+legacy/test/unit/page-adapter-observation-graph.test.js:29, and
+legacy/test/unit/page-adapter-observation-graph.test.js:50.
+
+3. Fallback taxonomy
+
+Retain these legacy-observed distinctions:
+
+- Unavailable, stale, and synthetic page snapshots are not equivalent for
+  initial paste placement; stale snapshots are rejected.
+  Evidence: legacy/test/unit/initial-paste-placement.test.js:44
+
+- Synthetic page snapshots are also rejected for initial paste placement.
+  Evidence: legacy/test/unit/initial-paste-placement.test.js:55
+
+- Bounded projection centralizes projection fallback values.
+  Evidence: legacy/test/unit/page-adapter-bounded-projection.test.js:43
+
+- Bounded map gesture port centralizes failed gesture fallback values.
+  Evidence: legacy/test/unit/page-adapter-bounded-map-gesture.test.js:43
+
+- Bounded map pan sessions centralize failed move and finish fallbacks.
+  Evidence: legacy/test/unit/page-adapter-bounded-map-gesture.test.js:57
+
+- Map view resolver marks hash-derived and retained-motion views distinctly.
+  Evidence: legacy/test/unit/page-adapter-map-view.test.js:9
+
+- Map view resolver does not retain default fallback views.
+  Evidence: legacy/test/unit/page-adapter-map-view.test.js:36
+
+- Malformed persisted session data is dropped or normalized rather than
+  poisoning runtime state.
+  Evidence: legacy/test/unit/machine-persistence.test.js:199,
+  legacy/test/unit/machine-persistence.test.js:230
+
+- Unsupported pages do not inject extension UI.
+  Evidence: legacy/test/integration/bootstrap.test.js:350
+
+Derived rule:
+
+Adapters should fail closed with typed facts. The application should receive
+only facts strong enough for the product decision being made. This rule is
+derived from the fallback and rejection tests above.
+
+4. Reference-image input lifecycle
+
+Retain these legacy-observed behaviors:
+
+- Missing Clipboard API read support is reported as unavailable.
+  Evidence: legacy/test/unit/paste-adapter.test.js:11
+
+- Clipboard API image blobs are read as image input.
+  Evidence: legacy/test/unit/paste-adapter.test.js:26
+
+- Clipboard API with no image item reports missing image.
+  Evidence: legacy/test/unit/paste-adapter.test.js:57
+
+- Paste-event image files are read as image input.
+  Evidence: legacy/test/unit/paste-adapter.test.js:87
+
+- Unreadable paste-event images are reported explicitly.
+  Evidence: legacy/test/unit/paste-adapter.test.js:113
+
+- Decoded clipboard image fact becomes an explicitly placed paste outcome.
+  Evidence: legacy/test/unit/paste-outcome.test.js:19
+
+- Clipboard failure facts become paste failure outcomes.
+  Evidence: legacy/test/unit/paste-outcome.test.js:32
+
+- Clipboard unavailable fact keeps paste armed for manual paste fallback.
+  Evidence: legacy/test/unit/paste-outcome.test.js:52
+
+- Content paste service leaves unavailable Clipboard API reads as manual
+  fallback.
+  Evidence: legacy/test/unit/paste-effect-service.test.js:45
+
+- Content paste service completes manual paste capture with an initially placed
+  paste outcome.
+  Evidence: legacy/test/unit/paste-effect-service.test.js:61
+
+- Content paste service replaces manual paste captures atomically.
+  Evidence: legacy/test/unit/paste-effect-service.test.js:97
+
+- Content paste service ignores async manual paste results after cancellation.
+  Evidence: legacy/test/unit/paste-effect-service.test.js:118
+
+- Content machine host owns manual paste capture and removes it on destroy.
+  Evidence: legacy/test/unit/content-machine-host.test.js:93
+
+- Manual paste failure cancels paste before reporting status.
+  Evidence: legacy/test/unit/machine-effects.test.js:439
+
+- Request replacement cancels previous panel request and stale status before
+  starting the next request.
+  Evidence: legacy/test/unit/machine-effects.test.js:254
+
+- Read-paste-image reports null Clipboard API completion for manual fallback.
+  Evidence: legacy/test/unit/machine-effect-runner.test.js:314
+
+Derived rule:
+
+The product should speak in source-neutral reference-image outcomes. Clipboard,
+paste-event, file input, drag/drop, and listener mechanics belong behind ports.
+This is an interpretation of the convergence and fallback tests above.
+
+5. Panel chrome and viewport safety
+
+Retain these legacy-observed behaviors:
+
+- Panel drag controller moves and releases the panel.
+  Evidence: legacy/test/unit/panel-drag.test.js:11
+
+- Panel drag controller clamps position on resize.
+  Evidence: legacy/test/unit/panel-drag.test.js:62
+
+- Panel drag controller destroy removes active listeners.
+  Evidence: legacy/test/unit/panel-drag.test.js:104
+
+- Panel drag controller ignores interactive header descendants.
+  Evidence: legacy/test/unit/panel-drag.test.js:148
+
+- Panel drag controller ignores secondary pointer starts.
+  Evidence: legacy/test/unit/panel-drag.test.js:195
+
+- Panel position captures finite panel coordinates.
+  Evidence: legacy/test/unit/panel-position.test.js:11
+
+- Panel position clamps coordinates to the visible viewport.
+  Evidence: legacy/test/unit/panel-position.test.js:33
+
+- Panel position applies explicit absolute positioning styles.
+  Evidence: legacy/test/unit/panel-position.test.js:67
+
+- Panel bindings preserve disabled guards and wheel event ownership.
+  Evidence: legacy/test/unit/panel-bindings.test.js:55
+
+- Panel bindings remove control listeners on destroy.
+  Evidence: legacy/test/unit/panel-bindings.test.js:135
+
+Current retained interpretation:
+
+Legacy clamped panel position on resize. Hex should keep the panel reachable
+without necessarily persisting resize-clamped coordinates, because viewport
+resize is environmental pressure rather than direct user intent. The reachability
+requirement is legacy-derived; the non-persistence policy is a current hex
+engineering decision, now covered by hex tests.
+
+6. Undo/redo posture
+
+Retain these legacy-observed behaviors:
+
+- Pure mode switches are not history and do not clear redo.
+  Evidence: legacy/test/unit/undo-redo-posture.test.js:25
+
+- Trace switch with dirty computable pins is an undoable fit transition.
+  Evidence: legacy/test/unit/undo-redo-posture.test.js:40
+
+- Trace switch with ready unsolved pins is still an undoable fit transition.
+  Evidence: legacy/test/unit/undo-redo-posture.test.js:67
+
+- Pin undo and redo land in Align because pins are the visible editable object.
+  Evidence: legacy/test/unit/undo-redo-posture.test.js:94
+
+- Clear-pins undo and redo land in Align because pin state is invisible in Trace.
+  Evidence: legacy/test/unit/undo-redo-posture.test.js:110
+
+- Placement undo and redo preserve the user's current mode.
+  Evidence: legacy/test/unit/undo-redo-posture.test.js:127
+
+- Redoing a loaded image restores the authored image-load context, not a later
+  pure mode switch.
+  Evidence: legacy/test/unit/undo-redo-posture.test.js:145
+
+- Clear-image undo restores image context and redo returns to native Trace.
+  Evidence: legacy/test/unit/undo-redo-posture.test.js:160
+
+- New semantic edits clear redo, but pure mode switches do not.
+  Evidence: legacy/test/unit/undo-redo-posture.test.js:179
+
+- Opacity changes do not create undo steps and survive placement undo.
+  Evidence: legacy/test/unit/interactions.test.js:603
+
+Derived rule:
+
+History should record semantic user edits, not mechanical UI operations. This
+is a direct generalization of the undo/redo posture tests above.
+
+7. Lifecycle and disposal discipline
+
+Retain these legacy-observed behaviors:
+
+- Host lifecycle destroys and clears only the active session.
+  Evidence: legacy/test/unit/host-lifecycle.test.js:28
+
+- Content session installs one active beforeunload teardown.
+  Evidence: legacy/test/unit/content-session.test.js:19
+
+- Content session replacement destroys only the active session.
+  Evidence: legacy/test/unit/content-session.test.js:43
+
+- Draggable surface destroy ends the active drag and removes listeners.
+  Evidence: legacy/test/unit/draggable-surface.test.js:86
+
+- Panel bindings remove control listeners on destroy.
+  Evidence: legacy/test/unit/panel-bindings.test.js:135
+
+- Page snapshot stream starts on first subscriber and stops on last unsubscribe.
+  Evidence: legacy/test/unit/page-adapter-snapshot-stream.test.js:6
+
+- Page snapshot stream destroy clears listeners and is inert after destroy.
+  Evidence: legacy/test/unit/page-adapter-snapshot-stream.test.js:63,
+  legacy/test/unit/page-adapter-snapshot-stream.test.js:84
+
+- Page navigation observation detaches listeners and history patches on destroy.
+  Evidence: legacy/test/unit/page-adapter-navigation-observation.test.js:61
+
+- Snapshot watcher removes the same event listeners it installed.
+  Evidence: legacy/test/unit/page-adapter-snapshot-watcher.test.js:69
+
+- Request timer registry replaces matching request timers and clears
+  outstanding timers.
+  Evidence: legacy/test/unit/request-timers.test.js:6,
+  legacy/test/unit/request-timers.test.js:34
+
+- Machine host starts, replaces, expires, cancels, and destroys request-bound
+  panel/status timers.
+  Evidence: legacy/test/unit/machine-host.test.js:169,
+  legacy/test/unit/machine-host.test.js:200,
+  legacy/test/unit/machine-host.test.js:227
+
+- Storage wrapper supports callback-style Chrome storage and promise-style
+  browser storage, and rejects callback-style Chrome errors.
+  Evidence: legacy/test/unit/storage.test.js:29,
+  legacy/test/unit/storage.test.js:63,
+  legacy/test/unit/storage.test.js:133
+
+Derived rule:
+
+Every adapter resource must have an owner and terminal cleanup path. Late or
+stale callbacks must cross an inert path instead of reviving disposed state.
+This is generalized from the teardown, timer, stream, and storage tests above.
+
+8. Status and feedback semantics
+
+Retain these legacy-observed behaviors:
+
+- Status notice is canonical machine state with timeout effects.
+  Evidence: legacy/test/unit/machine-status.test.js:22
+
+- Clearing a current status notice falls back to derived baseline status.
+  Evidence: legacy/test/unit/machine-status.test.js:42
+
+- Stale status notice clear is ignored.
+  Evidence: legacy/test/unit/machine-status.test.js:60
+
+- Clipboard-missing notice composes with active paste instructions.
+  Evidence: legacy/test/unit/machine-status.test.js:73
+
+- New panel intent clears stale status notice and its timeout.
+  Evidence: legacy/test/unit/machine-status.test.js:87
+
+- Clear and fit status notices describe the concrete visible edit.
+  Evidence: legacy/test/unit/machine-registration.test.js:77
+
+- History labels include concrete user-facing undo/redo labels such as Remove
+  image and Reload image.
+  Evidence: legacy/test/unit/transition-result.test.js:99,
+  legacy/test/unit/transition-result.test.js:100,
+  legacy/test/unit/transition-result.test.js:101,
+  legacy/test/unit/panel-render.test.js:58,
+  legacy/test/unit/panel-render.test.js:59
+
+- Commit finalization applies history before status in one canonical pipeline.
+  Evidence: legacy/test/unit/transition-result.test.js:208
+
+Derived rule:
+
+User feedback is product behavior. It belongs in application/view-model tests,
+not as incidental adapter copy. This follows from machine-owned status tests and
+panel render assertions above.
+
+9. Boundary vocabulary
+
+Retain this vocabulary because it is directly present in legacy product,
+adapter, or boundary tests:
+
+- Product vocabulary: session mode, opacity, placement, registration pins,
+  semantic history, and status notices.
+  Evidence: legacy/src/core/session.js:3,
+  legacy/src/core/session.js:34,
+  legacy/src/core/session.js:36,
+  legacy/src/core/session.js:22,
+  legacy/src/core/session.js:73,
+  legacy/src/core/machine/history.js:20,
+  legacy/src/core/machine/history.js:33,
+  legacy/src/core/machine/history.js:34,
+  legacy/src/core/machine/history.js:35,
+  legacy/src/core/machine/status-notices.js:1
+
+- Adapter vocabulary: page snapshot, viewport, map view, surface motion,
+  projection, and native-map gesture facts.
+  Evidence: legacy/src/content/page-adapter/page-snapshot.js:6,
+  legacy/src/content/page-adapter/page-snapshot.js:24,
+  legacy/src/content/page-adapter/page-snapshot.js:41,
+  legacy/src/content/page-adapter/page-snapshot.js:43,
+  legacy/src/content/page-adapter/page-snapshot.js:44,
+  legacy/src/content/page-adapter/projection-facts.js:7,
+  legacy/src/content/page-adapter/gesture-forwarding.js:12
+
+- Legacy boundary constraints: core must not import live content/platform
+  adapters; the clean-room machine must not import legacy semantic ownership
+  modules; machine paste outcomes must not carry page snapshots or placement
+  construction.
+  Evidence: legacy/test/contracts/machine-boundary-contracts.js:99,
+  legacy/test/contracts/machine-boundary-contracts.js:127,
+  legacy/test/contracts/machine-boundary-contracts.js:188
+
+- Current hex boundary policy additionally bans raw DOM/platform objects from
+  application state and commands.
+  Evidence: notes/001_hexagonal_rebuild_charter.txt:97,
+  notes/001_hexagonal_rebuild_charter.txt:98
+
+Avoid carrying forward these legacy-coupled shapes:
+
+- Deleted legacy bridge/store/mode files should remain deleted.
+  Evidence: legacy/test/contracts/machine-boundary-contracts.js:91
+
+- Core should not import live content or platform adapters.
+  Evidence: legacy/test/contracts/machine-boundary-contracts.js:99
+
+- Source should not reintroduce legacy state-store vocabulary.
+  Evidence: legacy/test/contracts/machine-boundary-contracts.js:113
+
+- Clean-room machine should not import legacy semantic ownership modules.
+  Evidence: legacy/test/contracts/machine-boundary-contracts.js:127
+
+- Machine paste read outcomes should not carry page snapshots or map placement
+  construction.
+  Evidence: legacy/test/contracts/machine-boundary-contracts.js:188
+
+Derived rule:
+
+Names should reveal the boundary being crossed. If a name leaks browser tactics
+into product code, it belongs at a different layer. This is derived from the
+legacy boundary contract tests above and the current hex charter.
+
+10. Deletion readiness
+
+Retain these deletion constraints:
+
+- Legacy is reference material only; hex source must not import it.
+  Evidence: notes/001_hexagonal_rebuild_charter.txt:5,
+  notes/001_hexagonal_rebuild_charter.txt:40,
+  hex/test/class-a/architecture/legacy-quarantine.flow-witness.test.js:23,
+  hex/test/class-a/architecture/legacy-quarantine.flow-witness.test.js:41,
+  hex/test/class-a/architecture/legacy-quarantine.flow-witness.test.js:73
+
+- Class-c and unclassified tests are not authority; promote, rewrite, or delete
+  them before treating them as retained behavior.
+  Evidence: hex/test/README.md:9, hex/test/README.md:11,
+  hex/test/README.md:21, hex/test/README.md:36
+
+- Flow witnesses should expose real sources, ports, callbacks, resources,
+  sinks, and inert paths instead of ungrounded narratives.
+  Evidence: notes/004_flow_witness_conversion_discipline.txt:73,
+  notes/004_flow_witness_conversion_discipline.txt:91,
+  notes/004_flow_witness_conversion_discipline.txt:100,
+  notes/004_flow_witness_conversion_discipline.txt:159,
+  notes/004_flow_witness_conversion_discipline.txt:215
+
+Deletion criterion:
+
+Delete ./legacy only when it no longer answers a product question more directly
+than current class-a/class-b tests, flow witnesses, or notes. This criterion is
+a current project policy derived from the charter and the legacy quarantine
+tests cited above.
