@@ -3,18 +3,12 @@ import {
   createApplicationCommand,
 } from "../application/command.js";
 import {
-  ApplicationBoundaryError,
-} from "../application/errors.js";
-import {
   handleApplicationCommand,
 } from "../application/handle-command.js";
 import {
   createOverlayFittedNotice,
   withStatusNotice,
 } from "../application/status-notice.js";
-import {
-  createInitialApplicationState,
-} from "../application/state.js";
 import {
   selectApplicationView,
 } from "../application/view-model.js";
@@ -27,6 +21,16 @@ import {
 import {
   createInteractionRuntime,
 } from "./interaction-runtime.js";
+import {
+  deriveMapLockedPlacementFromScreenPlacement,
+  isLiveMapSnapshot,
+  isMapLockedMode,
+  tryNormalizeDurablePlacementCoordinateSpace,
+} from "./map-locked-placement.js";
+import {
+  hydrateStartupState,
+  readStartupDurableState,
+} from "./startup-durable-state.js";
 
 const OWNER_ID = "id-overlay";
 const ROOT_RECORD = Symbol.for("id-overlay.browser-session");
@@ -49,7 +53,6 @@ const HOST_PORT = Object.freeze({
   projectOverlayForPageSnapshot: "projectTraceOverlayForPageSnapshot",
 });
 const REGISTRATION_SOLVER_METHOD = "solveRegistrationPlacement";
-const LEGACY_PLACEMENT_MIGRATION_METHOD = "reconcileLegacyPlacement";
 
 export async function bootstrapBrowserExtension(host) {
   if (host.pageContext?.kind !== "supported-map-editor-page") {
@@ -75,8 +78,12 @@ export async function bootstrapBrowserExtension(host) {
     runtime: null,
   };
 
-  const initialDurableState = await readStartupDurableState(host);
-  const initialState = await hydrateStartupState({ host, durableState: initialDurableState });
+  const initialDurableState = await readStartupDurableState({ host, reportHostError });
+  const initialState = await hydrateStartupState({
+    host,
+    durableState: initialDurableState,
+    reportHostError,
+  });
 
   const runtime = host.startRuntime?.(createRuntimeDriver({
     initialState,
@@ -674,217 +681,6 @@ function withInitialPlacement({ host, intent, outcome }) {
   return {
     ...outcome,
     [STATE_KEY.placement]: placement,
-  };
-}
-
-function isLiveMapSnapshot(snapshot) {
-  return snapshot?.kind === "supported-map-page"
-    && snapshot.provenance?.mapView?.kind !== "retained-during-surface-motion";
-}
-
-function isMapLockedMode(mode) {
-  return mode === MODE.trace || mode === MODE.align;
-}
-
-function deriveMapLockedPlacementFromScreenPlacement({ placement, pageSnapshot }) {
-  const centerWorld = projectLatLonToWorld(pageSnapshot.mapView.centerLatLon);
-  const zoomScale = 2 ** pageSnapshot.mapView.zoom;
-  const viewportCenter = {
-    x: (pageSnapshot.viewportScreenPx?.x ?? 0) + pageSnapshot.viewportPx.width / 2,
-    y: (pageSnapshot.viewportScreenPx?.y ?? 0) + pageSnapshot.viewportPx.height / 2,
-  };
-  return {
-    x: centerWorld.x + (placement.x - viewportCenter.x) / zoomScale,
-    y: centerWorld.y + (placement.y - viewportCenter.y) / zoomScale,
-    scale: placement.scale / zoomScale,
-    rotationRad: placement.rotationRad,
-    coordinateSpace: "map-world",
-  };
-}
-
-function projectLatLonToWorld({ lat, lon }) {
-  const sinLat = Math.sin((lat * Math.PI) / 180);
-  const clampedSin = Math.min(0.9999, Math.max(-0.9999, sinLat));
-  return {
-    x: 256 * ((lon + 180) / 360),
-    y: 256 * (0.5 - Math.log((1 + clampedSin) / (1 - clampedSin)) / (4 * Math.PI)),
-  };
-}
-
-async function readStartupDurableState(host) {
-  try {
-    return await host.durableStatePort?.readDurableState?.() ?? null;
-  } catch (error) {
-    reportHostError(host, error);
-    return null;
-  }
-}
-
-async function hydrateStartupState({ host, durableState }) {
-  const migrated = tryMigrateLegacyState({ host, durableState });
-  if (migrated.status === "migrated") {
-    await writeStartupRecovery(host, migrated.durableState);
-    return stateFromDurableState(migrated.durableState);
-  }
-  if (migrated.status === "recovered") {
-    return stateFromDurableState(migrated.durableState);
-  }
-  const normalized = tryNormalizeStartupPlacementCoordinateSpace({ host, durableState });
-  if (normalized.status === "normalized") {
-    await writeStartupRecovery(host, normalized.durableState);
-    return stateFromDurableState(normalized.durableState);
-  }
-  try {
-    return handleApplicationCommand({
-      state: createInitialApplicationState(),
-      command: createApplicationCommand(APPLICATION_COMMAND_KIND.HYDRATE, {
-        durableState,
-      }),
-    }).state;
-  } catch (error) {
-    if (error instanceof ApplicationBoundaryError) {
-      await writeStartupRecovery(host, null);
-      return createInitialApplicationState();
-    }
-    throw error;
-  }
-}
-
-function tryNormalizeStartupPlacementCoordinateSpace({ host, durableState }) {
-  if (!hasStartupPlacementNormalizationCandidate(durableState)) {
-    return {
-      status: "none",
-    };
-  }
-  return tryNormalizeDurablePlacementCoordinateSpace({
-    durableState,
-    snapshot: host.pageSnapshotPort?.readSnapshot?.(),
-  });
-}
-
-function hasStartupPlacementNormalizationCandidate(durableState) {
-  const current = durableState?.[STATE_KEY.session];
-  const placement = current?.[STATE_KEY.placement];
-  return Boolean(
-    current
-      && current[STATE_KEY.mode] === MODE.align
-      && placement
-      && placement.coordinateSpace !== "map-world",
-  );
-}
-
-function tryNormalizeDurablePlacementCoordinateSpace({ durableState, snapshot }) {
-  const current = durableState?.[STATE_KEY.session];
-  const placement = current?.[STATE_KEY.placement];
-  if (
-    !current
-      || current[STATE_KEY.mode] !== MODE.align
-      || !placement
-      || placement.coordinateSpace === "map-world"
-  ) {
-    return {
-      status: "none",
-    };
-  }
-  if (!isLiveMapSnapshot(snapshot)) {
-    return {
-      status: "none",
-    };
-  }
-  if (
-    placement.coordinateSpace !== "screen"
-      && snapshot.provenance?.activeEditor !== "embedded-id-frame"
-  ) {
-    return {
-      status: "none",
-    };
-  }
-  return {
-    status: "normalized",
-    durableState: {
-      [STATE_KEY.session]: {
-        ...current,
-        [STATE_KEY.placement]: deriveMapLockedPlacementFromScreenPlacement({
-          placement,
-          pageSnapshot: snapshot,
-        }),
-      },
-    },
-  };
-}
-
-function tryMigrateLegacyState({ host, durableState }) {
-  const current = durableState?.[STATE_KEY.session];
-  const legacyPlace = current?.[STATE_KEY.placement];
-  if (!current || !isLegacyMapCenteredPlace(legacyPlace)) {
-    return {
-      status: "none",
-    };
-  }
-  const snapshot = host.pageSnapshotPort?.readSnapshot?.();
-  if (snapshot?.kind !== "supported-map-page") {
-    return {
-      status: "recovered",
-      durableState: withoutKey(durableState, [STATE_KEY.session, STATE_KEY.placement]),
-    };
-  }
-  const migrate = host.legacyPlacementMigrationPort?.[LEGACY_PLACEMENT_MIGRATION_METHOD];
-  const nextPlace = migrate?.({
-    [STATE_KEY.referenceImage]: current[STATE_KEY.referenceImage],
-    legacyPlacement: legacyPlace,
-    pageSnapshot: snapshot,
-  });
-  if (!nextPlace) {
-    return {
-      status: "recovered",
-      durableState: withoutKey(durableState, [STATE_KEY.session, STATE_KEY.placement]),
-    };
-  }
-  return {
-    status: "migrated",
-    durableState: {
-      [STATE_KEY.session]: {
-        ...current,
-        [STATE_KEY.placement]: nextPlace,
-      },
-    },
-  };
-}
-
-function isLegacyMapCenteredPlace(value) {
-  return Boolean(value?.centerMapLatLon);
-}
-
-function withoutKey(durableState, [outerKey, innerKey]) {
-  const current = durableState?.[outerKey];
-  if (!current) {
-    return durableState;
-  }
-  const nextInner = {};
-  for (const [key, value] of Object.entries(current)) {
-    if (key !== innerKey) {
-      nextInner[key] = value;
-    }
-  }
-  return {
-    [outerKey]: nextInner,
-  };
-}
-
-async function writeStartupRecovery(host, durableState) {
-  try {
-    await host.durableStatePort?.writeDurableState?.(durableState);
-  } catch (error) {
-    reportHostError(host, error);
-  }
-}
-
-function stateFromDurableState(durableState) {
-  if (durableState === null) {
-    return createInitialApplicationState();
-  }
-  return {
-    [STATE_KEY.session]: durableState[STATE_KEY.session],
   };
 }
 

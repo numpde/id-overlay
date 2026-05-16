@@ -18,6 +18,8 @@ const MAP_STATE_DEBUG_PROBE_SOURCE = hexPath("adapters/page-osm-id/map-state-deb
 const NATIVE_MAP_GESTURE_FORWARDER_SOURCE = hexPath("adapters/page-osm-id/native-map-gesture-forwarder.js");
 const NATIVE_MAP_WHEEL_SUPPRESSION_SOURCE = hexPath("adapters/page-osm-id/native-map-wheel-suppression.js");
 const CONTENT_SCRIPT_BRIDGES_SOURCE = hexPath("bootstrap/content-script-bridges.js");
+const STARTUP_DURABLE_STATE_SOURCE = hexPath("bootstrap/startup-durable-state.js");
+const MAP_LOCKED_PLACEMENT_SOURCE = hexPath("bootstrap/map-locked-placement.js");
 
 // Class-b: browser entrypoint lifecycle is shell behavior, not product law. The
 // extension bootstrap should wait for DOM readiness before mounting visible UI
@@ -198,6 +200,33 @@ test("browser bootstrap delegates page script bridge plumbing", () => {
   assert.match(bridgeSource, /\bexport\s+function\s+createContentEventDebugLogger\b/);
   assert.match(bridgeSource, /\bruntime\?\.getURL\b/);
   trace.edge(flowEdge("check.bootstrap-page-script-bridge-delegation", "sink.architecture-boundary", {
+    terminal: "architecture-check",
+  }));
+});
+
+// Class-b: startup state reconciliation is shell policy, but it is not runtime
+// composition. Bootstrap should call the reconciliation module; migration
+// detection, startup recovery writes, and map-lock normalization should live
+// behind focused helpers with the map-lock math kept separate.
+test("browser bootstrap delegates startup durable-state reconciliation", () => {
+  const trace = createFlowTrace({
+    file: import.meta.url,
+    test: "browser bootstrap delegates startup durable-state reconciliation",
+  });
+  const bootstrapSource = readSource(EXTENSION_CONTENT_SOURCE);
+  const shellSource = readSource(hexPath("bootstrap/index.js"));
+  const startupSource = readSource(STARTUP_DURABLE_STATE_SOURCE);
+  const mapLockSource = readSource(MAP_LOCKED_PLACEMENT_SOURCE);
+
+  assert.match(shellSource, /from\s+["']\.\/startup-durable-state\.js["']/);
+  assert.match(shellSource, /from\s+["']\.\/map-locked-placement\.js["']/);
+  assert.doesNotMatch(shellSource, /\bfunction\s+(?:hydrateStartupState|tryMigrateLegacyState|writeStartupRecovery|projectLatLonToWorld)\b/);
+  assert.match(startupSource, /\bexport\s+async\s+function\s+hydrateStartupState\b/);
+  assert.match(startupSource, /\breconcileLegacyPlacement\b/);
+  assert.match(mapLockSource, /\bexport\s+function\s+tryNormalizeDurablePlacementCoordinateSpace\b/);
+  assert.match(mapLockSource, /\bfunction\s+projectLatLonToWorld\b/);
+  assert.doesNotMatch(bootstrapSource, /\breconcileLegacyPlacement\b/);
+  trace.edge(flowEdge("check.bootstrap-startup-state-delegation", "sink.architecture-boundary", {
     terminal: "architecture-check",
   }));
 });
