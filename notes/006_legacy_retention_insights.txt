@@ -2,6 +2,12 @@ Legacy retention insights with provenance
 
 Context
 
+Evidence snapshot:
+
+- Branch: main
+- Commit: afda198167b4df84f6bc239858646b7e193004a8
+- Short commit: afda198 Document legacy retention evidence
+
 This note records what should survive deletion of ./legacy. Each retained
 behavior below is traceable to a specific legacy test or source reference. When
 an item is an engineering rule rather than a direct legacy assertion, it is
