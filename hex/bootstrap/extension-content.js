@@ -55,9 +55,9 @@ import {
 const BOOTSTRAP_KEY = "__idOverlayBootstrap";
 const STORE_KEY = "id-overlay.durable-state";
 const HOST_PORT = Object.freeze({
-  projectOverlayForPageSnapshot: ["project", "Tr", "ace", "Overlay", "For", "Page", "Snapshot"].join(""),
-  registrationSolver: ["regis", "tration", "SolverPort"].join(""),
-  fitPins: ["solve", "Regis", "tration", "Placement"].join(""),
+  projectOverlayForPageSnapshot: "projectTraceOverlayForPageSnapshot",
+  registrationSolver: "registrationSolverPort",
+  fitPins: "solveRegistrationPlacement",
 });
 const SURFACE_MOTION_BRIDGE_RESOURCE = "hex/bootstrap/surface-motion-page-bridge.js";
 const DEBUG_CONSOLE_BRIDGE_RESOURCE = "hex/bootstrap/event-debug-console-bridge.js";

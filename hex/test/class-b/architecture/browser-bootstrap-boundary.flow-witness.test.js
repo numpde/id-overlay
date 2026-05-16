@@ -73,22 +73,18 @@ test("extension content clears failed bootstrap state so later evaluation can re
 // Class-b, deliberately not class-a: this is a source-level anti-regression
 // guard around a still-thin composition layer. The no-regret boundary is narrow:
 // bootstrap may wire ports and application functions, but it must not recreate
-// product state shape or own user-facing product copy.
+// product state shape or own user-facing product copy. Canonical key/method
+// dictionaries and command payloads are allowed to use honest names; hiding
+// vocabulary behind string construction is not the boundary.
 test("bootstrap source does not define product state or product copy", () => {
   const trace = createFlowTrace({
     file: import.meta.url,
     test: "bootstrap source does not define product state or product copy",
   });
-  assert.deepEqual(collectPatternViolations([
-    {
-      label: "inline product state shape",
-      pattern: /\b(session|referenceImage|registration|placement|history|notice|inputOverride|mode|pins)\s*:/,
-    },
-    {
-      label: "product copy",
-      pattern: /["'`][^"'`]*(?:Paste|Clear image|Clear pins|Trace|Align|Reload image|No image|Paste cancelled)[^"'`]*["'`]/i,
-    },
-  ]), []);
+  assert.deepEqual([
+    ...collectInlineProductStateShapeViolations(),
+    ...collectProductCopyViolations(),
+  ], []);
   trace.edge(flowEdge("check.bootstrap-product-boundary", "sink.architecture-boundary", {
     terminal: "architecture-check",
   }));
@@ -183,15 +179,36 @@ test("browser bootstrap delegates native-map interaction mechanics to the page a
   }));
 });
 
-function collectPatternViolations(forbiddenPatterns) {
+function collectInlineProductStateShapeViolations() {
   const violations = [];
   for (const filePath of listJavaScriptFiles(hexPath("bootstrap"))) {
-    const source = readSource(filePath);
-    for (const { label, pattern } of forbiddenPatterns) {
-      if (pattern.test(source)) {
-        violations.push(`${relativeToRepo(filePath)} uses ${label}`);
+    const source = withoutCanonicalDictionaries(readSource(filePath));
+    if (/\b(session|registration|history|notice|inputOverride|pins)\s*:|\b(referenceImage|placement)\s*:\s*\{/.test(source)) {
+      violations.push(`${relativeToRepo(filePath)} defines inline product state shape`);
+    }
+  }
+  return violations;
+}
+
+function collectProductCopyViolations() {
+  const violations = [];
+  for (const filePath of listJavaScriptFiles(hexPath("bootstrap"))) {
+    for (const literal of extractStringLiterals(readSource(filePath))) {
+      if (/\b(?:Paste|Clear image|Clear pins|Trace|Align|Reload image|No image|Paste cancelled)\b/.test(literal)) {
+        violations.push(`${relativeToRepo(filePath)} defines product copy: ${JSON.stringify(literal)}`);
       }
     }
   }
   return violations;
+}
+
+function withoutCanonicalDictionaries(source) {
+  return source.replace(
+    /const\s+(?:STATE_KEY|MODE|HOST_PORT)\s*=\s*Object\.freeze\s*\(\s*\{[\s\S]*?\}\s*\);/g,
+    "",
+  );
+}
+
+function extractStringLiterals(source) {
+  return Array.from(source.matchAll(/(["'`])((?:\\.|(?!\1)[\s\S])*?)\1/g), (match) => match[2]);
 }

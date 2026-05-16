@@ -14,22 +14,23 @@ import {
 } from "../../support/flow-trace.js";
 
 // Class-b: the principle is class-a, but this is still a source-level heuristic
-// over today's shell layout. It catches the bad shape where bootstrap/content
-// watches product fields and performs host work, while leaving room to replace
-// the scan with a stronger wiring contract once the shell boundary settles.
-test("shell source does not watch product fields to perform host work", () => {
+// over today's browser entrypoint layout. It catches the bad shape where page
+// content code watches product fields and performs host work. The application
+// shell may still use honest state vocabulary until that god boundary is split;
+// this guard must not incentivize hiding field names behind string tricks.
+test("browser entrypoint source does not watch product fields to perform host work", () => {
   const trace = createFlowTrace({
     file: import.meta.url,
-    test: "shell source does not watch product fields to perform host work",
+    test: "browser entrypoint source does not watch product fields to perform host work",
   });
   const violations = [];
   for (const filePath of [
-    ...listJavaScriptFiles(hexPath("bootstrap")),
+    hexPath("bootstrap/extension-content.js"),
     ...listJavaScriptFiles(repoPath("src/content")),
   ]) {
-    const source = readSource(filePath);
+    const source = withoutStringsAndComments(readSource(filePath));
     const mentionedFields = SHELL_WATCHED_PRODUCT_FIELDS
-      .filter((field) => source.includes(field));
+      .filter((field) => watchesProductField(source, field));
     const mentionedActions = SHELL_WATCHER_ACTIONS
       .filter((action) => source.includes(action));
 
@@ -70,3 +71,24 @@ const SHELL_WATCHER_ACTIONS = Object.freeze([
   "releaseImageDataRef",
   "solveRegistrationPlacement",
 ]);
+
+function watchesProductField(source, field) {
+  const escapedField = escapeRegExp(field);
+  return [
+    new RegExp(`\\bif\\s*\\([^)]*\\b${escapedField}\\b`),
+    new RegExp(`\\bwhile\\s*\\([^)]*\\b${escapedField}\\b`),
+    new RegExp(`\\bfor\\s*\\([^)]*\\b${escapedField}\\b`),
+    new RegExp(`\\b(?:addEventListener|observe|subscribe)\\s*\\([^)]*\\b${escapedField}\\b`),
+  ].some((pattern) => pattern.test(source));
+}
+
+function withoutStringsAndComments(source) {
+  return source
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/\/\/[^\n\r]*/g, "")
+    .replace(/(["'`])(?:\\.|(?!\1)[\s\S])*?\1/g, "\"\"");
+}
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}

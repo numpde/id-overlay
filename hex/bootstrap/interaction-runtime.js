@@ -6,12 +6,6 @@ export function createInteractionRuntime({
   forwardNativeMapGesture = async () => {},
   reportRuntimeError = () => {},
 }) {
-  const modeKey = ["mo", "de"].join("");
-  const tValue = ["tr", "ace"].join("");
-  const tFactKind = ["tr", "ace-mo", "de-requested"].join("");
-  const commitEditKind = ["commit-place", "ment-edit"].join("");
-  const requestedEditKind = ["place", "ment-edit-requested"].join("");
-  const committedPlaceKey = ["place", "ment"].join("");
   return {
     async handleInteractionFact(fact) {
       try {
@@ -45,23 +39,23 @@ export function createInteractionRuntime({
           return;
         }
 
-        if (fact.kind === tFactKind) {
+        if (fact.kind === "trace-mode-requested") {
           await dispatchApplicationCommand({
             kind: "select-mode",
-            [modeKey]: tValue,
+            mode: "trace",
           });
           return;
         }
 
-        if (fact.kind === requestedEditKind) {
+        if (fact.kind === "placement-edit-requested") {
           const projection = projectPlacementEdit(fact);
           if (projection.kind !== "committed") {
             return;
           }
           await dispatchApplicationCommand({
-            kind: commitEditKind,
+            kind: "commit-placement-edit",
             editKind: projection.editKind,
-            [committedPlaceKey]: projection[committedPlaceKey],
+            placement: projection.placement,
           });
           return;
         }

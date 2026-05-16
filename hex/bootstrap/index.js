@@ -30,24 +30,26 @@ import {
 
 const OWNER_ID = "id-overlay";
 const ROOT_RECORD = Symbol.for("id-overlay.browser-session");
-const KEY = Object.freeze({
-  ses: ["ses", "sion"].join(""),
-  ref: ["reference", "Image"].join(""),
-  reg: ["regis", "tration"].join(""),
-  pinList: ["pi", "ns"].join(""),
-  place: ["place", "ment"].join(""),
-  solvedPlace: ["solved", "Placement"].join(""),
-  opaque: ["opac", "ity"].join(""),
-  modeName: ["mo", "de"].join(""),
-  hist: ["his", "tory"].join(""),
+const STATE_KEY = Object.freeze({
+  session: "session",
+  referenceImage: "referenceImage",
+  registration: "registration",
+  pins: "pins",
+  placement: "placement",
+  solvedPlacement: "solvedPlacement",
+  opacity: "opacity",
+  mode: "mode",
+  history: "history",
 });
-const VALUE = Object.freeze({
-  a: ["al", "ign"].join(""),
-  t: ["tr", "ace"].join(""),
+const MODE = Object.freeze({
+  align: "align",
+  trace: "trace",
 });
 const HOST_PORT = Object.freeze({
-  projectOverlayForPageSnapshot: ["project", "Tr", "ace", "Overlay", "For", "Page", "Snapshot"].join(""),
+  projectOverlayForPageSnapshot: "projectTraceOverlayForPageSnapshot",
 });
+const REGISTRATION_SOLVER_METHOD = "solveRegistrationPlacement";
+const LEGACY_PLACEMENT_MIGRATION_METHOD = "reconcileLegacyPlacement";
 
 export async function bootstrapBrowserExtension(host) {
   if (host.pageContext?.kind !== "supported-map-editor-page") {
@@ -418,21 +420,21 @@ function withSelectedModePlacement({
 function maybeSolveBeforeStep({ host, state, command }) {
   if (
     command.kind !== APPLICATION_COMMAND_KIND.SELECT_MODE
-      || command[KEY.modeName] !== VALUE.t
+      || command[STATE_KEY.mode] !== MODE.trace
       || host.registrationSolverPort === undefined
   ) {
     return null;
   }
-  const pinList = state[KEY.ses]?.[KEY.reg]?.[KEY.pinList] ?? [];
+  const pinList = state[STATE_KEY.session]?.[STATE_KEY.registration]?.[STATE_KEY.pins] ?? [];
   if (pinList.length < 2) {
     return null;
   }
-  const solver = host.registrationSolverPort[["solve", "Registration", "Placement"].join("")];
+  const solver = host.registrationSolverPort[REGISTRATION_SOLVER_METHOD];
   if (typeof solver !== "function") {
     return null;
   }
   const solve = solver({
-    [KEY.pinList]: pinList,
+    [STATE_KEY.pins]: pinList,
   });
   return solve?.kind === "solved" ? solve : null;
 }
@@ -447,13 +449,13 @@ function withSolvedFit({ previousState, result, solve }) {
   return {
     state: withStatusNotice({
       ...state,
-      [KEY.hist]: pushHistory(state[KEY.hist], {
+      [STATE_KEY.history]: pushHistory(state[STATE_KEY.history], {
         kind: "fit-registration-placement",
         before: selectDurableState(previousState),
         after: durableState,
       }),
     }, createOverlayFittedNotice({
-      pinCount: state[KEY.ses]?.[KEY.reg]?.[KEY.pinList]?.length ?? 0,
+      pinCount: state[STATE_KEY.session]?.[STATE_KEY.registration]?.[STATE_KEY.pins]?.length ?? 0,
     })),
     effects: result.effects.map((effect) => (
       effect.kind === "persist-durable-state"
@@ -472,17 +474,17 @@ function withMapLockedPlacement({
   result,
   command,
 }) {
-  const selectedMode = command[KEY.modeName];
+  const selectedMode = command[STATE_KEY.mode];
   if (
     command.kind !== APPLICATION_COMMAND_KIND.SELECT_MODE
       || !isMapLockedMode(selectedMode)
-      || previousState?.[KEY.ses]?.[KEY.modeName] === selectedMode
-      || result.state?.[KEY.ses]?.[KEY.modeName] !== selectedMode
+      || previousState?.[STATE_KEY.session]?.[STATE_KEY.mode] === selectedMode
+      || result.state?.[STATE_KEY.session]?.[STATE_KEY.mode] !== selectedMode
       || !isLiveMapSnapshot(pageSnapshot)
   ) {
     return result;
   }
-  const placement = previousState[KEY.ses]?.[KEY.place];
+  const placement = previousState[STATE_KEY.session]?.[STATE_KEY.placement];
   if (!placement || placement.coordinateSpace === "map-world") {
     return result;
   }
@@ -492,9 +494,9 @@ function withMapLockedPlacement({
   });
   const state = {
     ...result.state,
-    [KEY.ses]: {
-      ...result.state[KEY.ses],
-      [KEY.place]: nextPlacement,
+    [STATE_KEY.session]: {
+      ...result.state[STATE_KEY.session],
+      [STATE_KEY.placement]: nextPlacement,
     },
   };
   const durableState = selectDurableState(state);
@@ -543,16 +545,16 @@ function plainDataEqual(left, right) {
 }
 
 function selectDurableState(state) {
-  if (!state?.[KEY.ses]) {
+  if (!state?.[STATE_KEY.session]) {
     return null;
   }
   return {
-    [KEY.ses]: state[KEY.ses],
+    [STATE_KEY.session]: state[STATE_KEY.session],
   };
 }
 
 function applySolvedFit(value, solve) {
-  const current = value?.[KEY.ses];
+  const current = value?.[STATE_KEY.session];
   if (!current) {
     return value;
   }
@@ -562,19 +564,19 @@ function applySolvedFit(value, solve) {
   });
   return {
     ...value,
-    [KEY.ses]: {
+    [STATE_KEY.session]: {
       ...current,
       ...(solvedPlacementFromSolve(solve) === undefined ? {} : {
-        [KEY.place]: solvedPlacementFromSolve(solve),
+        [STATE_KEY.placement]: solvedPlacementFromSolve(solve),
       }),
-      [KEY.reg]: solvedRegistration,
+      [STATE_KEY.registration]: solvedRegistration,
     },
   };
 }
 
 function solvedPlacementFromSolve(solve) {
-  if (solve[KEY.place] !== undefined) {
-    return solve[KEY.place];
+  if (solve[STATE_KEY.placement] !== undefined) {
+    return solve[STATE_KEY.placement];
   }
   if (solve.solvedTransform === undefined) {
     return undefined;
@@ -590,10 +592,10 @@ function solvedPlacementFromSolve(solve) {
 
 function solvedRegistrationFromSolve({ current, solve }) {
   const registration = {
-    ...(current[KEY.reg] ?? {}),
+    ...(current[STATE_KEY.registration] ?? {}),
   };
-  if (solve[KEY.place] !== undefined) {
-    registration[KEY.solvedPlace] = solve[KEY.place];
+  if (solve[STATE_KEY.placement] !== undefined) {
+    registration[STATE_KEY.solvedPlacement] = solve[STATE_KEY.placement];
   }
   if (solve.solvedTransform !== undefined) {
     registration.solvedTransform = solve.solvedTransform;
@@ -663,7 +665,7 @@ function withInitialPlacement({ host, intent, outcome }) {
     return outcome;
   }
   const placement = host.initialReferencePlacementPort?.createInitialReferencePlacement?.({
-    [KEY.ref]: outcome[KEY.ref],
+    [STATE_KEY.referenceImage]: outcome[STATE_KEY.referenceImage],
     pageSnapshot,
   });
   if (!placement) {
@@ -671,7 +673,7 @@ function withInitialPlacement({ host, intent, outcome }) {
   }
   return {
     ...outcome,
-    [KEY.place]: placement,
+    [STATE_KEY.placement]: placement,
   };
 }
 
@@ -681,7 +683,7 @@ function isLiveMapSnapshot(snapshot) {
 }
 
 function isMapLockedMode(mode) {
-  return mode === VALUE.t || mode === VALUE.a;
+  return mode === MODE.trace || mode === MODE.align;
 }
 
 function deriveMapLockedPlacementFromScreenPlacement({ placement, pageSnapshot }) {
@@ -761,22 +763,22 @@ function tryNormalizeStartupPlacementCoordinateSpace({ host, durableState }) {
 }
 
 function hasStartupPlacementNormalizationCandidate(durableState) {
-  const current = durableState?.[KEY.ses];
-  const placement = current?.[KEY.place];
+  const current = durableState?.[STATE_KEY.session];
+  const placement = current?.[STATE_KEY.placement];
   return Boolean(
     current
-      && current[KEY.modeName] === VALUE.a
+      && current[STATE_KEY.mode] === MODE.align
       && placement
       && placement.coordinateSpace !== "map-world",
   );
 }
 
 function tryNormalizeDurablePlacementCoordinateSpace({ durableState, snapshot }) {
-  const current = durableState?.[KEY.ses];
-  const placement = current?.[KEY.place];
+  const current = durableState?.[STATE_KEY.session];
+  const placement = current?.[STATE_KEY.placement];
   if (
     !current
-      || current[KEY.modeName] !== VALUE.a
+      || current[STATE_KEY.mode] !== MODE.align
       || !placement
       || placement.coordinateSpace === "map-world"
   ) {
@@ -800,9 +802,9 @@ function tryNormalizeDurablePlacementCoordinateSpace({ durableState, snapshot })
   return {
     status: "normalized",
     durableState: {
-      [KEY.ses]: {
+      [STATE_KEY.session]: {
         ...current,
-        [KEY.place]: deriveMapLockedPlacementFromScreenPlacement({
+        [STATE_KEY.placement]: deriveMapLockedPlacementFromScreenPlacement({
           placement,
           pageSnapshot: snapshot,
         }),
@@ -812,8 +814,8 @@ function tryNormalizeDurablePlacementCoordinateSpace({ durableState, snapshot })
 }
 
 function tryMigrateLegacyState({ host, durableState }) {
-  const current = durableState?.[KEY.ses];
-  const legacyPlace = current?.[KEY.place];
+  const current = durableState?.[STATE_KEY.session];
+  const legacyPlace = current?.[STATE_KEY.placement];
   if (!current || !isLegacyMapCenteredPlace(legacyPlace)) {
     return {
       status: "none",
@@ -823,27 +825,27 @@ function tryMigrateLegacyState({ host, durableState }) {
   if (snapshot?.kind !== "supported-map-page") {
     return {
       status: "recovered",
-      durableState: withoutKey(durableState, [KEY.ses, KEY.place]),
+      durableState: withoutKey(durableState, [STATE_KEY.session, STATE_KEY.placement]),
     };
   }
-  const migrate = host.legacyPlacementMigrationPort?.[["reconcile", "Legacy", "Placement"].join("")];
+  const migrate = host.legacyPlacementMigrationPort?.[LEGACY_PLACEMENT_MIGRATION_METHOD];
   const nextPlace = migrate?.({
-    [KEY.ref]: current[KEY.ref],
+    [STATE_KEY.referenceImage]: current[STATE_KEY.referenceImage],
     legacyPlacement: legacyPlace,
     pageSnapshot: snapshot,
   });
   if (!nextPlace) {
     return {
       status: "recovered",
-      durableState: withoutKey(durableState, [KEY.ses, KEY.place]),
+      durableState: withoutKey(durableState, [STATE_KEY.session, STATE_KEY.placement]),
     };
   }
   return {
     status: "migrated",
     durableState: {
-      [KEY.ses]: {
+      [STATE_KEY.session]: {
         ...current,
-        [KEY.place]: nextPlace,
+        [STATE_KEY.placement]: nextPlace,
       },
     },
   };
@@ -882,7 +884,7 @@ function stateFromDurableState(durableState) {
     return createInitialApplicationState();
   }
   return {
-    [KEY.ses]: durableState[KEY.ses],
+    [STATE_KEY.session]: durableState[STATE_KEY.session],
   };
 }
 
@@ -901,12 +903,12 @@ function createPublicRuntime(runtime) {
 }
 
 function withoutRuntimeLocalState(state) {
-  if (!state || !Object.hasOwn(state, KEY.hist)) {
+  if (!state || !Object.hasOwn(state, STATE_KEY.history)) {
     return state;
   }
   const nextState = {};
   for (const [key, value] of Object.entries(state)) {
-    if (key !== KEY.hist) {
+    if (key !== STATE_KEY.history) {
       nextState[key] = value;
     }
   }
