@@ -2,16 +2,9 @@ import {
   APPLICATION_COMMAND_KIND,
 } from "./command.js";
 import {
-  cancelReferenceImageInputEffect,
-  loadReferenceImageInputIntent,
   persistDurableStateEffect,
-  requestReferenceImageInputEffect,
-  scheduleClearPanelIntentEffect,
-  scheduleClearStatusNoticeEffect,
 } from "./effects.js";
 import {
-  clearReferenceImageWithHistory,
-  isReplacementReferenceImageInput,
   reportReferenceImageInputOutcome,
   requestReferenceImageReplacement,
 } from "./reference-image-commands.js";
@@ -33,6 +26,9 @@ import {
   assertValidCommand,
   assertValidState,
 } from "./validation.js";
+import {
+  activatePrimaryAction,
+} from "./primary-action-command.js";
 
 export function handleApplicationCommand({ state, command }) {
   assertValidState(state);
@@ -42,7 +38,7 @@ export function handleApplicationCommand({ state, command }) {
     case APPLICATION_COMMAND_KIND.HYDRATE:
       return hydrate(command.durableState);
     case APPLICATION_COMMAND_KIND.ACTIVATE_PRIMARY_ACTION:
-      return activatePrimaryAction(state);
+      return activatePrimaryAction(state, { inertResult });
     case APPLICATION_COMMAND_KIND.REQUEST_REFERENCE_IMAGE_REPLACEMENT:
       return requestReferenceImageReplacement(state, { inertResult });
     case APPLICATION_COMMAND_KIND.REPORT_REFERENCE_IMAGE_INPUT_OUTCOME:
@@ -153,98 +149,6 @@ function hydrate(durableState) {
   return {
     state: stateFromDurableState(durableState),
     effects: [],
-  };
-}
-
-function activatePrimaryAction(state) {
-  if (state.referenceImageInput?.status === "awaiting-input") {
-    const requestId = state.referenceImageInput.requestId;
-    if (isReplacementReferenceImageInput(state)) {
-      return {
-        state: {
-          session: state.session,
-          ...historyState(state),
-          notice: {
-            kind: "reference-image-replacement-cancelled",
-            requestId,
-          },
-        },
-        effects: [
-          cancelReferenceImageInputEffect(requestId),
-          scheduleClearStatusNoticeEffect(requestId),
-        ],
-      };
-    }
-    return {
-      state: {
-        notice: {
-          kind: "reference-image-input-cancelled",
-          requestId,
-        },
-      },
-      effects: [
-        cancelReferenceImageInputEffect(requestId),
-        scheduleClearStatusNoticeEffect(requestId),
-      ],
-    };
-  }
-  if (!state.session) {
-    const requestId = 1;
-    const intent = loadReferenceImageInputIntent();
-    return {
-      state: {
-        referenceImageInput: {
-          status: "awaiting-input",
-          requestId,
-          intent,
-        },
-      },
-      effects: [requestReferenceImageInputEffect({ requestId, intent })],
-    };
-  }
-  if (state.panelIntent?.kind === "confirm-clear-pins") {
-    return clearRegistrationPins(state, { inertResult });
-  }
-  if (state.panelIntent?.kind === "confirm-clear-reference-image") {
-    return clearReferenceImageWithHistory(state);
-  }
-  if (
-    state.session.mode === "align"
-      && (state.session.registration?.pins ?? []).length > 0
-  ) {
-    const requestId = 1;
-    return {
-      state: {
-        session: state.session,
-        panelIntent: {
-          kind: "confirm-clear-pins",
-          requestId,
-        },
-      },
-      effects: [
-        scheduleClearPanelIntentEffect({
-          requestId,
-          intentKind: "confirm-clear-pins",
-        }),
-      ],
-    };
-  }
-
-  const requestId = 1;
-  return {
-    state: {
-      session: state.session,
-      panelIntent: {
-        kind: "confirm-clear-reference-image",
-        requestId,
-      },
-    },
-    effects: [
-      scheduleClearPanelIntentEffect({
-        requestId,
-        intentKind: "confirm-clear-reference-image",
-      }),
-    ],
   };
 }
 
