@@ -15,9 +15,7 @@ import {
 import { createInitialApplicationState } from "./state.js";
 import {
   replayHistory,
-  withoutRedoHistory,
 } from "./history.js";
-import { selectDurableApplicationState } from "./view-model.js";
 import {
   commitPlacementEdit,
 } from "./placement-commands.js";
@@ -29,6 +27,11 @@ import {
 import {
   activatePrimaryAction,
 } from "./primary-action-command.js";
+import {
+  selectMode,
+  setOpacity,
+  setTemporaryInputPosture,
+} from "./session-commands.js";
 
 export function handleApplicationCommand({ state, command }) {
   assertValidState(state);
@@ -54,7 +57,7 @@ export function handleApplicationCommand({ state, command }) {
         effects: [persistDurableStateEffect(null)],
       };
     case APPLICATION_COMMAND_KIND.SELECT_MODE:
-      return selectMode(state, command);
+      return selectMode(state, command, { inertResult });
     case APPLICATION_COMMAND_KIND.TOGGLE_REGISTRATION_PIN:
       return toggleRegistrationPin(state, command, { inertResult });
     case APPLICATION_COMMAND_KIND.COMMIT_PLACEMENT_EDIT:
@@ -70,63 +73,12 @@ export function handleApplicationCommand({ state, command }) {
     case APPLICATION_COMMAND_KIND.REDO:
       return replayHistory(state, "redo");
     case APPLICATION_COMMAND_KIND.SET_OPACITY:
-      return setOpacity(state, command);
+      return setOpacity(state, command, { inertResult });
     case APPLICATION_COMMAND_KIND.SET_TEMPORARY_INPUT_POSTURE:
-      return setTemporaryInputPosture(state, command);
+      return setTemporaryInputPosture(state, command, { inertResult });
     default:
       throw new Error("Unreachable application command dispatch.");
   }
-}
-
-function setTemporaryInputPosture(state, command) {
-  if (command.posture === "native-map") {
-    if (state.inputOverride?.kind === "temporary-native-map-access") {
-      return inertResult(state);
-    }
-    return {
-      state: {
-        ...state,
-        inputOverride: {
-          kind: "temporary-native-map-access",
-        },
-      },
-      effects: [],
-    };
-  }
-
-  if (state.inputOverride?.kind !== "temporary-native-map-access") {
-    return inertResult(state);
-  }
-  const nextState = {};
-  for (const [key, value] of Object.entries(state)) {
-    if (key !== "inputOverride") {
-      nextState[key] = value;
-    }
-  }
-  return {
-    state: nextState,
-    effects: [],
-  };
-}
-
-function setOpacity(state, command) {
-  if (!state.session || (state.session.opacity ?? 1) === command.opacity) {
-    return inertResult(state);
-  }
-
-  const nextState = {
-    session: {
-      ...state.session,
-      opacity: command.opacity,
-    },
-    ...withoutRedoHistory(state.history),
-  };
-  return {
-    state: nextState,
-    effects: [
-      persistDurableStateEffect(selectDurableApplicationState(nextState)),
-    ],
-  };
 }
 
 function stateFromDurableState(durableState) {
@@ -149,40 +101,6 @@ function hydrate(durableState) {
   return {
     state: stateFromDurableState(durableState),
     effects: [],
-  };
-}
-
-function historyState(state) {
-  if (!state.history) {
-    return {};
-  }
-  return {
-    history: state.history,
-  };
-}
-
-function selectMode(state, command) {
-  const { mode } = command;
-  if (!state.session || state.session.mode === mode) {
-    return inertResult(state);
-  }
-
-  const nextState = {
-    session: {
-      ...state.session,
-      mode,
-    },
-    ...historyState(state),
-    notice: {
-      kind: "mode-selected",
-      mode,
-    },
-  };
-  return {
-    state: nextState,
-    effects: [
-      persistDurableStateEffect(selectDurableApplicationState(nextState)),
-    ],
   };
 }
 
