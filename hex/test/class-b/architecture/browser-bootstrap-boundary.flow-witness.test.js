@@ -15,6 +15,8 @@ const EXTENSION_CONTENT_SOURCE = hexPath("bootstrap/extension-content.js");
 const PAGE_DOM_READER_SOURCE = hexPath("adapters/page-osm-id/page-dom-reader.js");
 const PAGE_OBSERVATION_RUNTIME_SOURCE = hexPath("adapters/page-osm-id/page-observation-runtime.js");
 const MAP_STATE_DEBUG_PROBE_SOURCE = hexPath("adapters/page-osm-id/map-state-debug-probe.js");
+const NATIVE_MAP_GESTURE_FORWARDER_SOURCE = hexPath("adapters/page-osm-id/native-map-gesture-forwarder.js");
+const NATIVE_MAP_WHEEL_SUPPRESSION_SOURCE = hexPath("adapters/page-osm-id/native-map-wheel-suppression.js");
 
 // Class-b: browser entrypoint lifecycle is shell behavior, not product law. The
 // extension bootstrap should wait for DOM readiness before mounting visible UI
@@ -152,6 +154,31 @@ test("browser bootstrap delegates map-state debug probing to the page adapter", 
   assert.match(debugProbeSource, /\bmapDebugSnapshot\b/);
   assert.match(debugProbeSource, /\bzoom-changed\b/);
   trace.edge(flowEdge("check.bootstrap-map-state-debug-delegation", "sink.architecture-boundary", {
+    terminal: "architecture-check",
+  }));
+});
+
+// Class-b: native-map interaction is page adapter behavior. Bootstrap should
+// forward semantic gesture facts, but iframe hit testing, forwarded DOM events,
+// extension-owned target filtering, and pan/wheel suppression belong at the
+// OpenStreetMap page boundary.
+test("browser bootstrap delegates native-map interaction mechanics to the page adapter", () => {
+  const trace = createFlowTrace({
+    file: import.meta.url,
+    test: "browser bootstrap delegates native-map interaction mechanics to the page adapter",
+  });
+  const bootstrapSource = readSource(EXTENSION_CONTENT_SOURCE);
+  const nativeMapGestureSource = readSource(NATIVE_MAP_GESTURE_FORWARDER_SOURCE);
+  const nativeMapWheelSource = readSource(NATIVE_MAP_WHEEL_SUPPRESSION_SOURCE);
+
+  assert.match(bootstrapSource, /from\s+["']\.\.\/adapters\/page-osm-id\/native-map-gesture-forwarder\.js["']/);
+  assert.match(bootstrapSource, /from\s+["']\.\.\/adapters\/page-osm-id\/native-map-wheel-suppression\.js["']/);
+  assert.doesNotMatch(bootstrapSource, /\bfunction\s+(?:createNativeMapGestureForwarder|createNativeMapWheelSuppression|dispatchForwardedPointerEvent|dispatchForwardedWheelEvent|isExtensionOwnedNode)\b/);
+  assert.match(nativeMapGestureSource, /\bexport\s+function\s+createNativeMapGestureForwarder\b/);
+  assert.match(nativeMapGestureSource, /__idOverlayForwardedNativeMap/);
+  assert.match(nativeMapWheelSource, /\bexport\s+function\s+createNativeMapWheelSuppression\b/);
+  assert.match(nativeMapWheelSource, /wheel-suppressed-during-pan/);
+  trace.edge(flowEdge("check.bootstrap-native-map-interaction-delegation", "sink.architecture-boundary", {
     terminal: "architecture-check",
   }));
 });
