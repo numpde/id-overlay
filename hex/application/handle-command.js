@@ -7,15 +7,18 @@ import {
   APPLICATION_BOUNDARY_ERROR_CODE,
 } from "./errors.js";
 import { isPlacementData, placementEquals } from "./placement.js";
+import {
+  applyPlacementRevision,
+  placementRevisionFromSession,
+} from "./placement-history.js";
 import { isPlainData } from "./plain-data.js";
 import { isReferenceImageData } from "./reference-image.js";
 import { createInitialApplicationState } from "./state.js";
 import {
-  createHistoryEmptyNotice,
-  createHistoryReplayedNotice,
-  createViewFeedbackStatusNotice,
-  withStatusNotice,
-} from "./status-notice.js";
+  pushHistory,
+  replayHistory,
+  withoutRedoHistory,
+} from "./history.js";
 import { selectDurableApplicationState } from "./view-model.js";
 
 export function handleApplicationCommand({ state, command }) {
@@ -54,9 +57,9 @@ export function handleApplicationCommand({ state, command }) {
     case APPLICATION_COMMAND_KIND.CLEAR_PANEL_INTENT:
       return clearPanelIntent(state, command);
     case APPLICATION_COMMAND_KIND.UNDO:
-      return undoHistory(state);
+      return replayHistory(state, "undo");
     case APPLICATION_COMMAND_KIND.REDO:
-      return redoHistory(state);
+      return replayHistory(state, "redo");
     case APPLICATION_COMMAND_KIND.SET_OPACITY:
       return setOpacity(state, command);
     case APPLICATION_COMMAND_KIND.SET_TEMPORARY_INPUT_POSTURE:
@@ -120,91 +123,6 @@ function setOpacity(state, command) {
   };
 }
 
-function withoutRedoHistory(history) {
-  if (!history) {
-    return {};
-  }
-  return {
-    history: {
-      past: history.past ?? [],
-      future: [],
-    },
-  };
-}
-
-function undoHistory(state) {
-  const history = state.history ?? {};
-  const record = history.past?.at(-1);
-  if (!record) {
-    return {
-      state: withStatusNotice(state, createHistoryEmptyNotice("undo")),
-      effects: [],
-    };
-  }
-
-  const nextHistory = {
-    past: history.past.slice(0, -1),
-    future: [...(history.future ?? []), record],
-  };
-  const durableState = applyHistoryRecord(state, record, "before");
-  const nextState = {
-    ...stateFromDurableState(durableState),
-    history: nextHistory,
-  };
-  return {
-    state: nextState,
-    effects: [persistDurableStateEffect(durableState)],
-    viewFeedback: createViewFeedbackStatusNotice(
-      createHistoryReplayedNotice({ record, direction: "undo" }),
-    ),
-  };
-}
-
-function redoHistory(state) {
-  const history = state.history ?? {};
-  const record = history.future?.at(-1);
-  if (!record) {
-    return {
-      state: withStatusNotice(state, createHistoryEmptyNotice("redo")),
-      effects: [],
-    };
-  }
-
-  const nextHistory = {
-    past: [...(history.past ?? []), record],
-    future: history.future.slice(0, -1),
-  };
-  const durableState = applyHistoryRecord(state, record, "after");
-  const nextState = {
-    ...stateFromDurableState(durableState),
-    history: nextHistory,
-  };
-  return {
-    state: nextState,
-    effects: [persistDurableStateEffect(durableState)],
-    viewFeedback: createViewFeedbackStatusNotice(
-      createHistoryReplayedNotice({ record, direction: "redo" }),
-    ),
-  };
-}
-
-function applyHistoryRecord(state, record, side) {
-  if (record.kind === "overlay-placement-edit") {
-    return applyPlacementHistoryRevision(state, record[side]);
-  }
-  return record[side];
-}
-
-function applyPlacementHistoryRevision(state, revision) {
-  const durableState = selectDurableApplicationState(state);
-  if (!durableState?.session) {
-    return durableState;
-  }
-  return {
-    session: applyPlacementRevision(durableState.session, revision),
-  };
-}
-
 function stateFromDurableState(durableState) {
   if (durableState === null) {
     return createInitialApplicationState();
@@ -247,94 +165,6 @@ function commitPlacementEdit(state, command) {
       persistDurableStateEffect(selectDurableApplicationState(nextState)),
     ],
   };
-}
-
-function placementRevisionFromSession(session) {
-  return {
-    placement: session.placement ?? null,
-    solvedRegistration: solvedRegistrationRevisionFromSession(session),
-  };
-}
-
-function solvedRegistrationRevisionFromSession(session) {
-  if (!session.registration?.solvedPlacement && !session.registration?.solvedTransform) {
-    return null;
-  }
-  return {
-    pinIds: (session.registration.pins ?? []).map((pin) => pin.id),
-    ...(session.registration.solvedPlacement === undefined ? {} : {
-      placement: session.registration.solvedPlacement,
-    }),
-    ...(session.registration.solvedTransform === undefined ? {} : {
-      transform: session.registration.solvedTransform,
-    }),
-  };
-}
-
-function applyPlacementRevision(session, revision) {
-  return withSolvedRegistrationRevision(
-    withPlacementRevision(session, revision.placement),
-    revision.solvedRegistration,
-  );
-}
-
-function withPlacementRevision(session, placement) {
-  if (placement === null) {
-    return withoutSessionKeys(session, ["placement"]);
-  }
-  return {
-    ...session,
-    placement,
-  };
-}
-
-function withSolvedRegistrationRevision(session, solvedRegistration) {
-  const pins = session.registration?.pins ?? [];
-  if (!solvedRegistration || !pinIdsEqual(pins, solvedRegistration.pinIds)) {
-    return withoutSolvedRegistration(session);
-  }
-  return {
-    ...session,
-    registration: {
-      pins,
-      ...(solvedRegistration.placement === undefined ? {} : {
-        solvedPlacement: solvedRegistration.placement,
-      }),
-      ...(solvedRegistration.transform === undefined ? {} : {
-        solvedTransform: solvedRegistration.transform,
-      }),
-    },
-  };
-}
-
-function withoutSolvedRegistration(session) {
-  if (!session.registration) {
-    return session;
-  }
-  if ((session.registration.pins ?? []).length === 0) {
-    return withoutSessionKeys(session, ["registration"]);
-  }
-  return {
-    ...session,
-    registration: {
-      pins: session.registration.pins,
-    },
-  };
-}
-
-function withoutSessionKeys(session, keys) {
-  const nextSession = {};
-  for (const [key, value] of Object.entries(session)) {
-    if (!keys.includes(key)) {
-      nextSession[key] = value;
-    }
-  }
-  return nextSession;
-}
-
-function pinIdsEqual(pins, pinIds) {
-  return pins.length === pinIds.length
-    && pins.every((pin, index) => pin.id === pinIds[index]);
 }
 
 function hydrate(durableState) {
@@ -487,13 +317,6 @@ function clearReferenceImageWithHistory(state) {
       },
     },
     effects: [persistDurableStateEffect(null)],
-  };
-}
-
-function pushHistory(history, record) {
-  return {
-    past: [...(history?.past ?? []), record],
-    future: [],
   };
 }
 
