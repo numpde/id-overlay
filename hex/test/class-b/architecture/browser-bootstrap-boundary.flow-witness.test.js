@@ -13,6 +13,7 @@ import {
 
 const EXTENSION_CONTENT_SOURCE = hexPath("bootstrap/extension-content.js");
 const PAGE_DOM_READER_SOURCE = hexPath("adapters/page-osm-id/page-dom-reader.js");
+const PAGE_OBSERVATION_RUNTIME_SOURCE = hexPath("adapters/page-osm-id/page-observation-runtime.js");
 
 // Class-b: browser entrypoint lifecycle is shell behavior, not product law. The
 // extension bootstrap should wait for DOM readiness before mounting visible UI
@@ -108,6 +109,27 @@ test("browser bootstrap delegates OpenStreetMap page DOM reading to the page ada
   assert.match(readerSource, /\bexport\s+function\s+findViewportElement\b/);
   assert.match(readerSource, /\bexport\s+function\s+readSurfaceMotion\b/);
   trace.edge(flowEdge("check.bootstrap-page-dom-reader-delegation", "sink.architecture-boundary", {
+    terminal: "architecture-check",
+  }));
+});
+
+// Class-b: page observation is browser adapter mechanics. Bootstrap should
+// subscribe to it, but DOM mutation observers, polling signatures, and
+// coalescing policy belong with the OpenStreetMap page adapter.
+test("browser bootstrap delegates page observation lifecycle to the page adapter", () => {
+  const trace = createFlowTrace({
+    file: import.meta.url,
+    test: "browser bootstrap delegates page observation lifecycle to the page adapter",
+  });
+  const bootstrapSource = readSource(EXTENSION_CONTENT_SOURCE);
+  const observationSource = readSource(PAGE_OBSERVATION_RUNTIME_SOURCE);
+
+  assert.match(bootstrapSource, /from\s+["']\.\.\/adapters\/page-osm-id\/page-observation-runtime\.js["']/);
+  assert.doesNotMatch(bootstrapSource, /\bfunction\s+(?:observePageSnapshots|observationSignature|shouldDeferPolledObservationChange|queueObservationForWindow)\b/);
+  assert.match(observationSource, /\bexport\s+function\s+observePageSnapshots\b/);
+  assert.match(observationSource, /\bexport\s+function\s+readableObservationDocuments\b/);
+  assert.match(observationSource, /\bMutationObserver\b/);
+  trace.edge(flowEdge("check.bootstrap-page-observation-delegation", "sink.architecture-boundary", {
     terminal: "architecture-check",
   }));
 });
