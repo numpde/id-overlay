@@ -31,6 +31,7 @@ export function createExtensionUiHost({
         eventDebugLogger,
         onDispose() {
           overlayRenderer.destroy();
+          panelRenderer.destroy();
         },
       });
     },

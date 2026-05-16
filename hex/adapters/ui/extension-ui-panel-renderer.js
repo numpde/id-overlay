@@ -1,11 +1,16 @@
 import {
   createPanelAdapter,
 } from "./panel-adapter.js";
+import {
+  createPanelViewportPositioner,
+} from "./panel-viewport-positioner.js";
 
 export function createExtensionPanelRenderer({
   document,
   eventDebugLogger = null,
 }) {
+  let positioner = null;
+
   return {
     renderPanel({
       root,
@@ -18,6 +23,12 @@ export function createExtensionPanelRenderer({
         panel: root.panel,
         panelChrome,
       });
+      bindPanelPositioner({
+        ownerWindow: document.defaultView,
+        panel: root.panel,
+        eventDebugLogger,
+      });
+      positioner?.setPreferredScreenPx(panelChrome?.position?.screenPx ?? null);
       const panelSignature = panelRenderSignature(view);
       if (root.panelRenderSignature === panelSignature) {
         return;
@@ -35,7 +46,30 @@ export function createExtensionPanelRenderer({
       root.panel.replaceChildren(panelAdapter.render(view));
       root.panelRenderSignature = panelSignature;
     },
+    destroy() {
+      positioner?.destroy();
+      positioner = null;
+    },
   };
+
+  function bindPanelPositioner({
+    ownerWindow,
+    panel,
+    eventDebugLogger,
+  }) {
+    if (!ownerWindow) {
+      return;
+    }
+    if (!positioner) {
+      positioner = createPanelViewportPositioner({
+        ownerWindow,
+        panel,
+        eventDebugLogger,
+      });
+      return;
+    }
+    positioner.setPanel(panel);
+  }
 }
 
 function applyPanelChrome({

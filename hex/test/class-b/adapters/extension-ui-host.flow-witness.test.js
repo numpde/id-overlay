@@ -356,6 +356,183 @@ test("extension UI host routes panel header drag to panel chrome", () => {
   ]);
 });
 
+// Class-b: restored or dragged panel chrome is the user's preference; viewport
+// resize is environmental pressure. The host must keep the rendered panel
+// reachable without rewriting shell preference, and restore the preference when
+// the viewport can fit it again.
+test("extension UI host keeps panel visible on resize without rewriting panel chrome", () => {
+  const trace = createExtensionUiHostTrace("extension UI host keeps panel visible on resize without rewriting panel chrome");
+  const { window } = new JSDOM("<!doctype html><body></body>");
+  const panelChromeChanges = [];
+  const uiHost = createExtensionUiHost({
+    document: window.document,
+  });
+  const root = trace.withSource("source.extension-ui-host.mount", () => {
+    const mountedRoot = uiHost.mountOwnedRoot("id-overlay");
+    trace.edge(flowEdge("source.extension-ui-host.mount", "sink.extension-ui-root", {
+      terminal: "shell-resource",
+    }));
+    return mountedRoot;
+  });
+
+  trace.withSource("source.extension-ui-host.render", () => {
+    uiHost.renderApplicationView({
+      root,
+      panelChrome: {
+        position: {
+          screenPx: {
+            x: 700,
+            y: 500,
+          },
+        },
+      },
+      view: createMinimalViewModel(),
+      dispatchCommand() {},
+      dispatchPanelChromeChange(change) {
+        panelChromeChanges.push(change);
+      },
+    });
+    trace.edge(flowEdge("source.extension-ui-host.render", "sink.panel-dom", {
+      terminal: "render-result",
+    }));
+  });
+
+  root.panel.getBoundingClientRect = () => ({
+    left: Number.parseFloat(root.panel.style.left) || 0,
+    top: Number.parseFloat(root.panel.style.top) || 0,
+    width: 280,
+    height: 220,
+    right: (Number.parseFloat(root.panel.style.left) || 0) + 280,
+    bottom: (Number.parseFloat(root.panel.style.top) || 0) + 220,
+    x: Number.parseFloat(root.panel.style.left) || 0,
+    y: Number.parseFloat(root.panel.style.top) || 0,
+    toJSON() {
+      return this;
+    },
+  });
+  Object.defineProperty(window, "innerWidth", {
+    configurable: true,
+    value: 800,
+  });
+  Object.defineProperty(window, "innerHeight", {
+    configurable: true,
+    value: 600,
+  });
+
+  trace.withSource("source.window.resize", () => {
+    window.dispatchEvent(new window.Event("resize"));
+    trace.edge(flowEdge("source.window.resize", "sink.panel-dom", {
+      phase: "clamped-for-small-viewport",
+      terminal: "render-result",
+    }));
+  });
+
+  assert.equal(root.panel.style.left, "520px");
+  assert.equal(root.panel.style.top, "380px");
+
+  Object.defineProperty(window, "innerWidth", {
+    configurable: true,
+    value: 1200,
+  });
+  Object.defineProperty(window, "innerHeight", {
+    configurable: true,
+    value: 900,
+  });
+  trace.withSource("source.window.resize", () => {
+    window.dispatchEvent(new window.Event("resize"));
+    trace.edge(flowEdge("source.window.resize", "sink.panel-dom", {
+      phase: "preferred-position-restored",
+      terminal: "render-result",
+    }));
+  });
+
+  assert.deepEqual(panelChromeChanges, []);
+  assert.equal(root.panel.style.left, "700px");
+  assert.equal(root.panel.style.top, "500px");
+  assert.deepEqual(trace.edges, [
+    flowEdge("source.extension-ui-host.mount", "sink.extension-ui-root", {
+      terminal: "shell-resource",
+    }),
+    flowEdge("source.extension-ui-host.render", "sink.panel-dom", {
+      terminal: "render-result",
+    }),
+    flowEdge("source.window.resize", "sink.panel-dom", {
+      phase: "clamped-for-small-viewport",
+      terminal: "render-result",
+    }),
+    flowEdge("source.window.resize", "sink.panel-dom", {
+      phase: "preferred-position-restored",
+      terminal: "render-result",
+    }),
+  ]);
+});
+
+// Class-b: resize re-normalization is a browser resource owned by the mounted
+// UI host. Disposing the owned root must release that listener with the rest of
+// the host chrome.
+test("extension UI host removes panel resize listener on dispose", () => {
+  const trace = createExtensionUiHostTrace("extension UI host removes panel resize listener on dispose");
+  const { window } = new JSDOM("<!doctype html><body></body>");
+  const added = [];
+  const removed = [];
+  const nativeAddEventListener = window.addEventListener.bind(window);
+  const nativeRemoveEventListener = window.removeEventListener.bind(window);
+  window.addEventListener = (type, listener, options) => {
+    if (type === "resize") {
+      added.push(type);
+    }
+    return nativeAddEventListener(type, listener, options);
+  };
+  window.removeEventListener = (type, listener, options) => {
+    if (type === "resize") {
+      removed.push(type);
+    }
+    return nativeRemoveEventListener(type, listener, options);
+  };
+  const uiHost = createExtensionUiHost({
+    document: window.document,
+  });
+  const root = trace.withSource("source.extension-ui-host.mount", () => {
+    const mountedRoot = uiHost.mountOwnedRoot("id-overlay");
+    trace.edge(flowEdge("source.extension-ui-host.mount", "sink.extension-ui-root", {
+      terminal: "shell-resource",
+    }));
+    return mountedRoot;
+  });
+
+  trace.withSource("source.extension-ui-host.render", () => {
+    uiHost.renderApplicationView({
+      root,
+      view: createMinimalViewModel(),
+      dispatchCommand() {},
+      dispatchPanelChromeChange() {},
+    });
+    trace.edge(flowEdge("source.extension-ui-host.render", "sink.panel-dom", {
+      terminal: "render-result",
+    }));
+  });
+  trace.withSource("source.extension-ui-host.dispose", () => {
+    root.dispose();
+    trace.edge(flowEdge("source.extension-ui-host.dispose", "sink.extension-ui-root-disposed", {
+      terminal: "shell-resource",
+    }));
+  });
+
+  assert.deepEqual(added, ["resize"]);
+  assert.deepEqual(removed, ["resize"]);
+  assert.deepEqual(trace.edges, [
+    flowEdge("source.extension-ui-host.mount", "sink.extension-ui-root", {
+      terminal: "shell-resource",
+    }),
+    flowEdge("source.extension-ui-host.render", "sink.panel-dom", {
+      terminal: "render-result",
+    }),
+    flowEdge("source.extension-ui-host.dispose", "sink.extension-ui-root-disposed", {
+      terminal: "shell-resource",
+    }),
+  ]);
+});
+
 // Class-b: extension UI host owns the browser stylesheet that makes the panel
 // legible. The panel adapter owns markup; without host CSS, the live page shows
 // raw controls and text over the map.
