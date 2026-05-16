@@ -12,6 +12,7 @@ import {
 } from "../../support/flow-trace.js";
 
 const EXTENSION_CONTENT_SOURCE = hexPath("bootstrap/extension-content.js");
+const PAGE_DOM_READER_SOURCE = hexPath("adapters/page-osm-id/page-dom-reader.js");
 
 // Class-b: browser entrypoint lifecycle is shell behavior, not product law. The
 // extension bootstrap should wait for DOM readiness before mounting visible UI
@@ -85,6 +86,28 @@ test("bootstrap source does not define product state or product copy", () => {
     },
   ]), []);
   trace.edge(flowEdge("check.bootstrap-product-boundary", "sink.architecture-boundary", {
+    terminal: "architecture-check",
+  }));
+});
+
+// Class-b: this is an adapter-ownership boundary. Browser bootstrap should
+// compose the OpenStreetMap page reader, while map DOM interpretation lives in
+// the page adapter where selectors, tile facts, and surface motion can evolve
+// together.
+test("browser bootstrap delegates OpenStreetMap page DOM reading to the page adapter", () => {
+  const trace = createFlowTrace({
+    file: import.meta.url,
+    test: "browser bootstrap delegates OpenStreetMap page DOM reading to the page adapter",
+  });
+  const bootstrapSource = readSource(EXTENSION_CONTENT_SOURCE);
+  const readerSource = readSource(PAGE_DOM_READER_SOURCE);
+
+  assert.match(bootstrapSource, /from\s+["']\.\.\/adapters\/page-osm-id\/page-dom-reader\.js["']/);
+  assert.doesNotMatch(bootstrapSource, /\bfunction\s+(?:readOpenStreetMapPage|readEmbeddedEditorFrame|readSurfaceMotion|findViewportElement)\b/);
+  assert.match(readerSource, /\bexport\s+function\s+readOpenStreetMapPage\b/);
+  assert.match(readerSource, /\bexport\s+function\s+findViewportElement\b/);
+  assert.match(readerSource, /\bexport\s+function\s+readSurfaceMotion\b/);
+  trace.edge(flowEdge("check.bootstrap-page-dom-reader-delegation", "sink.architecture-boundary", {
     terminal: "architecture-check",
   }));
 });
