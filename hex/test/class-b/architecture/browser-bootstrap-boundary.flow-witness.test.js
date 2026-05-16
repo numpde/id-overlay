@@ -21,6 +21,7 @@ const CONTENT_SCRIPT_BRIDGES_SOURCE = hexPath("bootstrap/content-script-bridges.
 const STARTUP_DURABLE_STATE_SOURCE = hexPath("bootstrap/startup-durable-state.js");
 const MAP_LOCKED_PLACEMENT_SOURCE = hexPath("bootstrap/map-locked-placement.js");
 const PANEL_CHROME_SOURCE = hexPath("bootstrap/panel-chrome.js");
+const BROWSER_EFFECT_HANDLERS_SOURCE = hexPath("bootstrap/browser-effect-handlers.js");
 
 // Class-b: browser entrypoint lifecycle is shell behavior, not product law. The
 // extension bootstrap should wait for DOM readiness before mounting visible UI
@@ -249,6 +250,29 @@ test("browser bootstrap delegates panel chrome normalization", () => {
   assert.match(panelChromeSource, /\bexport\s+function\s+normalizePanelChrome\b/);
   assert.match(panelChromeSource, /\bresolvePanelPosition\b/);
   trace.edge(flowEdge("check.bootstrap-panel-chrome-delegation", "sink.architecture-boundary", {
+    terminal: "architecture-check",
+  }));
+});
+
+// Class-b: application effects are executed through browser ports. Bootstrap
+// should pass the handlers into the runtime, while durable writes, image input
+// callback composition, timer scheduling, and initial-placement enrichment live
+// behind an effect handler helper.
+test("browser bootstrap delegates host effect handling", () => {
+  const trace = createFlowTrace({
+    file: import.meta.url,
+    test: "browser bootstrap delegates host effect handling",
+  });
+  const shellSource = readSource(hexPath("bootstrap/index.js"));
+  const effectSource = readSource(BROWSER_EFFECT_HANDLERS_SOURCE);
+
+  assert.match(shellSource, /from\s+["']\.\/browser-effect-handlers\.js["']/);
+  assert.doesNotMatch(shellSource, /\bfunction\s+(?:createEffectHandlers|withInitialPlacement)\b/);
+  assert.match(effectSource, /\bexport\s+function\s+createBrowserEffectHandlers\b/);
+  assert.match(effectSource, /\bstartReferenceImageInput\b/);
+  assert.match(effectSource, /\bcreateInitialReferencePlacement\b/);
+  assert.match(effectSource, /\bscheduleApplicationCommand\b/);
+  trace.edge(flowEdge("check.bootstrap-effect-handler-delegation", "sink.architecture-boundary", {
     terminal: "architecture-check",
   }));
 });
