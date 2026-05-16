@@ -13,6 +13,10 @@ import {
   buildChromeExtension,
   collectBrowserResources,
 } from "../../../../scripts/build-chrome.mjs";
+import {
+  createFlowTrace,
+  flowEdge,
+} from "../../support/flow-trace.js";
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../..");
 const EXTENSION_CONTENT_MODULE = "hex/bootstrap/extension-content.js";
@@ -23,6 +27,8 @@ const BUILD_INFO_MODULE = "hex/bootstrap/build-info.js";
 // resources from the hex extension content graph and never expose tests or
 // legacy code to the browser.
 test("chrome manifest is generated from the hex extension content graph", async () => {
+  const trace = createBuildBoundaryTrace("chrome manifest is generated from the hex extension content graph");
+
   assert.equal(
     fs.existsSync(repoPath(EXTENSION_CONTENT_MODULE)),
     true,
@@ -34,6 +40,10 @@ test("chrome manifest is generated from the hex extension content graph", async 
     root: REPO_ROOT,
     sourceManifest,
   });
+  assert.deepEqual(manifest.content_scripts[0].matches, [
+    "https://www.openstreetmap.org/edit*",
+  ]);
+  assert.equal(manifest.content_scripts[0].all_frames, false);
 
   assert.equal(
     manifest.web_accessible_resources[0].resources.includes(EXTENSION_CONTENT_MODULE),
@@ -44,12 +54,15 @@ test("chrome manifest is generated from the hex extension content graph", async 
       || resource.startsWith("legacy/")
       || resource.includes("/legacy/")
   )), []);
+  trace.edge(buildBoundaryEdge("check.chrome-manifest-content-graph", "manifest-content-graph"));
 });
 
 // Class-b, deliberately not class-a: copied resource categories may grow with
 // browser features. The build boundary is that copy input stays
 // manifest-derived, avoiding a second source/assets list that can drift.
 test("chrome build resources are derived from the generated manifest", () => {
+  const trace = createBuildBoundaryTrace("chrome build resources are derived from the generated manifest");
+
   assert.deepEqual(collectBrowserResources({
     content_scripts: [{
       js: ["src/content/content-loader.js"],
@@ -68,6 +81,7 @@ test("chrome build resources are derived from the generated manifest", () => {
     "src/content/content-loader.js",
     "src/content/content.css",
   ].sort());
+  trace.edge(buildBoundaryEdge("check.chrome-build-resource-derivation", "manifest-derived-resources"));
 });
 
 // Class-b, deliberately not class-a: copying files into a Chromium extension
@@ -76,6 +90,7 @@ test("chrome build resources are derived from the generated manifest", () => {
 // exist in the build output, so runtime loading cannot depend on a stale manual
 // copy list.
 test("chrome build copies runtime modules reachable from content bootstrap", async () => {
+  const trace = createBuildBoundaryTrace("chrome build copies runtime modules reachable from content bootstrap");
   const outputDir = await fsp.mkdtemp(path.join(os.tmpdir(), "id-overlay-build-"));
   try {
     const manifest = await buildChromeExtension({
@@ -91,6 +106,9 @@ test("chrome build copies runtime modules reachable from content bootstrap", asy
       "hex/adapters/ui/panel-adapter.js",
       "hex/adapters/ui/overlay-adapter.js",
       "hex/adapters/extension/storage-port.js",
+      "hex/adapters/page-osm-id/page-adapter.js",
+      "hex/adapters/ui/overlay-page-projection.js",
+      "hex/domain/registration.js",
     ]) {
       assert.equal(resources.has(resource), true, `manifest missing ${resource}`);
       assert.equal(await fileExists(path.join(outputDir, resource)), true, `dist missing ${resource}`);
@@ -101,12 +119,14 @@ test("chrome build copies runtime modules reachable from content bootstrap", asy
       force: true,
     });
   }
+  trace.edge(buildBoundaryEdge("check.chrome-build-runtime-copy", "content-bootstrap-modules"));
 });
 
 // Class-b: build metadata is browser packaging behavior, not product state. The
 // extension runtime should receive stamped package metadata without exposing the
 // source-tree placeholder in Chromium builds.
 test("chrome build stamps browser build metadata into packaged runtime", async () => {
+  const trace = createBuildBoundaryTrace("chrome build stamps browser build metadata into packaged runtime");
   const outputDir = await fsp.mkdtemp(path.join(os.tmpdir(), "id-overlay-build-info-"));
   try {
     await buildChromeExtension({
@@ -136,12 +156,14 @@ test("chrome build stamps browser build metadata into packaged runtime", async (
       force: true,
     });
   }
+  trace.edge(buildBoundaryEdge("check.chrome-build-metadata-stamp", "build-metadata"));
 });
 
 // Class-b: stamping the module is insufficient if Chromium cannot load it. The
 // generated manifest and copied dist tree must keep build metadata reachable
 // through the same content graph as the runtime modules.
 test("chrome build metadata is loadable through the generated content graph", async () => {
+  const trace = createBuildBoundaryTrace("chrome build metadata is loadable through the generated content graph");
   const outputDir = await fsp.mkdtemp(path.join(os.tmpdir(), "id-overlay-build-info-"));
   try {
     const manifest = await buildChromeExtension({
@@ -158,7 +180,22 @@ test("chrome build metadata is loadable through the generated content graph", as
       force: true,
     });
   }
+  trace.edge(buildBoundaryEdge("check.chrome-build-metadata-graph", "build-metadata-content-graph"));
 });
+
+function createBuildBoundaryTrace(testName) {
+  return createFlowTrace({
+    file: import.meta.url,
+    test: testName,
+  });
+}
+
+function buildBoundaryEdge(from, phase) {
+  return flowEdge(from, "sink.build-artifact", {
+    phase,
+    terminal: "build-boundary",
+  });
+}
 
 function readSource(filePath) {
   return fs.readFileSync(filePath, "utf8");

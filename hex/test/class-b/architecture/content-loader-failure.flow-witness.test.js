@@ -4,6 +4,11 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import {
+  createFlowTrace,
+  flowEdge,
+} from "../../support/flow-trace.js";
+
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../..");
 const CONTENT_LOADER = path.join(REPO_ROOT, "src/content/content-loader.js");
 
@@ -12,10 +17,18 @@ const CONTENT_LOADER = path.join(REPO_ROOT, "src/content/content-loader.js");
 // bootstrap loading breaks, the loader reports a clear error and leaves the page
 // alive instead of throwing an unhandled promise into the host page.
 test("content loader reports dynamic import/bootstrap failure without rethrowing", () => {
+  const trace = createFlowTrace({
+    file: import.meta.url,
+    test: "content loader reports dynamic import/bootstrap failure without rethrowing",
+  });
   const source = fs.readFileSync(CONTENT_LOADER, "utf8");
 
   assert.match(source, /\bimport\s*\(\s*chrome\.runtime\.getURL\(EXTENSION_CONTENT_MODULE\)\s*\)/);
   assert.match(source, /\.catch\s*\(/);
   assert.match(source, /id-overlay: failed to bootstrap/);
   assert.doesNotMatch(source, /\bthrow\s+error\b/);
+  trace.edge(flowEdge("check.content-loader-failure-posture", "sink.architecture-boundary", {
+    phase: "dynamic-import-failure",
+    terminal: "source-contract",
+  }));
 });

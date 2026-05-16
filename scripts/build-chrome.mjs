@@ -51,7 +51,24 @@ async function copyBrowserResource({ rootDir, outputDir, resource }) {
   const source = path.join(rootDir, resource);
   const target = path.join(outputDir, resource);
   await mkdir(path.dirname(target), { recursive: true });
+  if (resource === "hex/bootstrap/build-info.js") {
+    await writeFile(target, await stampedBuildInfoSource({ rootDir }));
+    return;
+  }
   await copyFile(source, target);
+}
+
+async function stampedBuildInfoSource({ rootDir }) {
+  const sourceManifest = JSON.parse(String(
+    await readFile(path.join(rootDir, "manifest.chrome.json")),
+  ));
+  return [
+    "export const BUILD_INFO = Object.freeze({",
+    `  version: ${JSON.stringify(sourceManifest.version)},`,
+    `  builtAt: ${JSON.stringify(new Date().toISOString())},`,
+    "});",
+    "",
+  ].join("\n");
 }
 
 async function main() {

@@ -5,12 +5,20 @@ import {
   hexPath,
   readSource,
 } from "../../class-a/architecture/source-files.js";
+import {
+  createFlowTrace,
+  flowEdge,
+} from "../../support/flow-trace.js";
 
 // Class-b: the interaction runtime is a mapper, not a second reducer. This is
 // a source-level guard over today's file shape, so it is not class-a, but it
 // catches a real SSoT break: branching on product state here would duplicate the
 // application's transition validity rules.
 test("interaction runtime source does not inspect product state", () => {
+  const trace = createFlowTrace({
+    file: import.meta.url,
+    test: "interaction runtime source does not inspect product state",
+  });
   const source = readSource(hexPath("bootstrap/interaction-runtime.js"));
 
   assert.deepEqual(
@@ -19,6 +27,9 @@ test("interaction runtime source does not inspect product state", () => {
       .map(({ label }) => label),
     [],
   );
+  trace.edge(flowEdge("check.interaction-runtime-state-boundary", "sink.architecture-boundary", {
+    terminal: "architecture-check",
+  }));
 });
 
 const FORBIDDEN_INTERACTION_RUNTIME_STATE_READS = Object.freeze([

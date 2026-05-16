@@ -2,7 +2,10 @@ import fs from "node:fs/promises";
 import path from "node:path";
 
 export const WEB_ACCESSIBLE_CONTENT_ENTRYPOINT = "hex/bootstrap/extension-content.js";
-export const WEB_ACCESSIBLE_STATIC_RESOURCES = Object.freeze([]);
+export const WEB_ACCESSIBLE_STATIC_RESOURCES = Object.freeze([
+  "hex/bootstrap/event-debug-console-bridge.js",
+  "hex/bootstrap/surface-motion-page-bridge.js",
+]);
 
 export async function createChromeManifest({ root, sourceManifest }) {
   return {
