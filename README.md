@@ -1,124 +1,101 @@
 # id-overlay
 
-`id-overlay` is a Chromium-targeted browser extension that adds a movable reference-image overlay to the OpenStreetMap iD editor.
+`id-overlay` is a Chromium extension for the OpenStreetMap iD editor. It lets
+you place a reference image over the map, line it up, and then trace from it
+while editing in iD.
 
-It is built for one narrow workflow:
-- paste a reference screenshot over the map
-- align it roughly
-- place screenshot-to-map pin correspondences
-- switch to `Trace` to fit from the current pins
-- trace in iD while the overlay follows the map
+The project is intentionally narrow: it targets the iD editor on
+`openstreetmap.org`, builds as an unpacked Chromium extension, and focuses on
+making the overlay behavior predictable.
 
 ![Reference Overlay screenshot](docs/reference-overlay-screenshot.jpg)
 
-## Current Scope
+## What It Does
 
-- targets Chromium Manifest V3 browsers
-  - directly targeted: `Google Chrome`, `Chromium`
-  - likely usable in other Chromium-based browsers, but not claimed or tested as a supported target yet
-- targets `https://www.openstreetmap.org/edit?editor=id`
-- runs as a Manifest V3 content-script extension
-- supports two modes:
-  - `Align`: register the overlay to the map
-  - `Trace`: leave the overlay passive while tracing in iD
+The normal workflow is:
 
-The current alignment workflow is:
-- paste an image
-- move/scale/rotate until it roughly matches
-- double-click to add or remove pins
-- switch to `Trace` to fit the overlay from the current pins
+1. Open the OpenStreetMap iD editor.
+2. Paste a reference image.
+3. Use `Align` mode to move, scale, rotate, and pin the image to the map.
+4. Switch to `Trace` mode.
+5. Trace in iD while the image follows the map.
+
+There are two modes:
+
+- `Align` is for positioning the reference image.
+- `Trace` is for editing the map. The overlay becomes passive, and iD receives
+  the normal map interactions.
 
 ## Controls
 
 ### Align Mode
 
-| Control | Effect |
-| --- | --- |
-| Drag | Move the map and overlay together |
-| `Shift` + drag | Move only the overlay |
-| Wheel | Zoom the map and overlay together |
-| `Shift` + wheel | Scale only the overlay around the point under the cursor |
-| `Ctrl` + wheel | Rotate only the overlay around the point under the cursor |
-| `Alt` + wheel | Adjust only the overlay opacity |
-| Double-click on overlay | Add a pin at that screenshot/map correspondence |
-| Double-click on an existing pin | Remove that pin |
-| Mode switch to `Trace` | Fit from the current pins, then leave registration mode and keep the overlay passive |
+Use `Align` when the image needs to be positioned.
 
-Notes:
-- Plain drag and plain wheel stay map-native in `Align`; the overlay follows that shared map motion.
-- Dropped pins render in two places from the same stored pin state:
-  - a primary pin on the overlay image
-  - a subtle inert counterpart on the map
+| Control | Result |
+| --- | --- |
+| Drag | Pan the map; the overlay follows the map |
+| `Shift` + drag | Move only the overlay |
+| Wheel | Zoom the map; the overlay follows the map |
+| `Shift` + wheel | Scale only the overlay around the cursor |
+| `Ctrl` + wheel | Rotate only the overlay around the cursor |
+| `Alt` + wheel | Change only the overlay opacity |
+| Double-click the overlay | Add a pin at that image/map point |
+| Double-click an existing pin | Remove that pin |
+| Switch to `Trace` | Fit the overlay from the current pins, when possible |
+
+Pins are correspondence points: one point on the image, one matching point on
+the map. After there are enough useful pins, switching to `Trace` computes a
+placement that stays tied to the map as you pan and zoom.
 
 ### Trace Mode
 
-| Control | Effect |
+Use `Trace` when you want to edit in iD.
+
+| Control | Result |
 | --- | --- |
-| Drag on map | Pan the map; overlay follows |
-| Wheel on map | Zoom the map; overlay follows |
-| `Alt` + wheel over overlay | Adjust only the overlay opacity |
-| Mode switch to `Align` | Re-enter registration mode |
+| Drag the map | Pan the map; the overlay follows |
+| Wheel the map | Zoom the map; the overlay follows |
+| `Alt` + wheel over the overlay | Change overlay opacity |
+| Switch to `Align` | Return to overlay positioning |
 
-Notes:
-- In `Trace`, the overlay is passive. The map remains editable in iD.
-- Switching from `Align` to `Trace` computes the fitted transform when the current pins are dirty and sufficient.
+In `Trace`, the overlay should not block normal iD editing. The image stays
+registered to the map as the map moves.
 
-## Install In Chromium
+## Install in Chromium
 
-This extension is currently distributed as an **unpacked Chromium extension**.
+This extension is distributed as an unpacked Chromium extension.
 
 That means:
-- it is **not** installed from the Chrome Web Store
-- the GitHub release asset is **not** a one-click installer
-- you must **extract the zip** and then point Chromium at the extracted folder with `Load unpacked`
 
-There are two supported install paths:
-- download a release zip from GitHub and load the extracted folder
-- build locally and load [`dist`](dist)
+- it is not installed from the Chrome Web Store
+- the release zip is not a one-click installer
+- you must extract the zip, then load the extracted folder in Chromium
 
-### Local build
+Supported browsers today:
 
-1. Build the extension:
+- Google Chrome
+- Chromium
 
-```bash
-npm run build:chrome
-```
+Other Chromium-based browsers may work, but they are not the supported target
+yet.
 
-2. Open `chrome://extensions`
-3. Enable `Developer mode`
-4. Click `Load unpacked`
-5. Select [`dist`](dist)
-
-Then open `https://www.openstreetmap.org/edit?editor=id`.
-
-Notes:
-- the supported install path today is `Load unpacked` from a folder, not direct zip installation
-- release assets are zip packages, not signed store installs or `.crx` files
-- Firefox/Safari packaging is not implemented yet
-
-### GitHub release zip
+### Install from a Release Zip
 
 1. Open the releases page:
-   - `https://github.com/numpde/id-overlay/releases`
-2. Download the latest asset named like:
-   - `id-overlay-chrome-0.0.1.zip`
-3. Extract that zip somewhere you want to keep it.
+   `https://github.com/numpde/id-overlay/releases`
+2. Download the latest `id-overlay-chrome-<version>.zip` asset.
+3. Extract the zip somewhere you want to keep the extension.
+4. Open `chrome://extensions`.
+5. Enable `Developer mode`.
+6. Click `Load unpacked`.
+7. Select the extracted extension folder, not the zip file.
+8. Open `https://www.openstreetmap.org/edit?editor=id`.
 
-Why extract it?
-- Chromium’s `Load unpacked` expects a **directory**
-- the release zip is just a convenient way to ship that directory through GitHub
+If Chromium says files are missing, you probably selected the zip itself, the
+wrong parent folder, or a folder that was moved after loading.
 
-4. Open `chrome://extensions`
-5. Enable `Developer mode`
-6. Click `Load unpacked`
-7. Select the **extracted folder**, not the zip file itself
-8. Open `https://www.openstreetmap.org/edit?editor=id`
-
-If Chromium says the extension is missing files, you probably selected:
-- the zip itself instead of the extracted folder, or
-- the parent directory instead of the actual extracted extension directory
-
-## Development
+### Build and Install Locally
 
 Install dependencies:
 
@@ -126,74 +103,113 @@ Install dependencies:
 npm install
 ```
 
-Build:
+Build the extension:
 
 ```bash
 npm run build:chrome
 ```
 
-Run tests:
+Then load the local [`dist`](dist) folder:
+
+1. Open `chrome://extensions`.
+2. Enable `Developer mode`.
+3. Click `Load unpacked`.
+4. Select [`dist`](dist).
+5. Open `https://www.openstreetmap.org/edit?editor=id`.
+
+## Development
+
+Run the main test suite:
 
 ```bash
 npm test
 ```
 
-Targeted test layers:
+Build the Chromium package:
 
 ```bash
-npm run test:unit
-npm run test:integration
-npm run test:contracts
-npm run test:build
+npm run build:chrome
 ```
 
-## GitHub CI and Releases
+Useful focused checks:
 
-GitHub Actions now handles two paths:
+```bash
+npm run test:hex:class-a
+npm run test:hex:class-b
+npm run test:hex:class-c
+npm run test:hex:candidates
+npm run test:flow
+```
 
-- `CI`
-  - runs on pushes to `main` and on pull requests
-  - installs dependencies and runs `npm test`
-- `Release`
-  - runs on version tags matching `v*`
-  - runs `npm test`
-  - builds [`dist`](dist)
-  - packages a Chromium zip asset
-  - creates a GitHub Release and uploads the zip
+Tests are grouped by how much design weight they carry:
 
-The current GitHub release artifact is a Chromium extension package:
-- `id-overlay-chrome-<version>.zip`
+- `class-a`: settled behavior and architecture rules
+- `class-b`: strong behavior examples that still leave some design room
+- `class-c`: suspicious or speculative tests kept away from stronger claims
+- `unclassified`: proposals that still need to be judged
 
-Current release:
-- [`v0.0.1`](https://github.com/numpde/id-overlay/releases/tag/v0.0.1)
+Some tests are flow witnesses: they exercise a user or system flow and can emit
+trace files. Those traces help review whether the flow has clear starting
+points, steps, and outcomes.
 
-Versioning is currently single-source in [`manifest.chrome.json`](manifest.chrome.json). The release flow is:
+## Repository Layout
 
-1. Update `manifest.chrome.json` `version`
-2. Commit the change
-3. Create a matching tag, for example:
+- [`hex/domain`](hex/domain): pure domain rules such as placement,
+  registration, opacity, and image policy
+- [`hex/application`](hex/application): application state, commands, effects,
+  history, validation, and view models
+- [`hex/ports`](hex/ports): browser-neutral port definitions
+- [`hex/adapters`](hex/adapters): browser, OpenStreetMap/iD, storage, timer,
+  input, overlay, and panel adapters
+- [`hex/bootstrap`](hex/bootstrap): extension composition and runtime wiring
+- [`hex/test`](hex/test): grouped tests and flow witnesses
+- [`src/content/content-loader.js`](src/content/content-loader.js): the small
+  content-script loader used by the packaged extension
+- [`scripts`](scripts): build and manifest tooling
+- [`notes`](notes): design notes and retained legacy evidence
+- [`docs`](docs): screenshots and project documentation assets
+
+The old legacy app has been removed from the working tree. The retained lessons
+from it are summarized in
+[`notes/006_legacy_retention_insights.txt`](notes/006_legacy_retention_insights.txt).
+
+## CI and Releases
+
+GitHub Actions runs CI on pushes to `main` and on pull requests. CI installs
+dependencies and runs:
+
+```bash
+npm test
+```
+
+The release workflow runs for tags named `v*`. It tests, builds [`dist`](dist),
+creates a zip named `id-overlay-chrome-<version>.zip`, and publishes it as a
+GitHub Release asset.
+
+The extension version lives in [`manifest.chrome.json`](manifest.chrome.json).
+To publish a new release:
+
+1. Update the `version` in [`manifest.chrome.json`](manifest.chrome.json).
+2. Commit the change.
+3. Create and push a matching tag:
 
 ```bash
 git tag v0.0.2
 git push origin main --tags
 ```
 
-That tag triggers the release workflow and publishes:
+Current release tag:
 
-- `id-overlay-chrome-<version>.zip`
-
-## Repo Layout
-
-- [`src/content`](src/content): DOM integration, panel, overlay, page adapter
-- [`src/core`](src/core): state, transitions, transforms, presentation, storage
-- [`scripts`](scripts): build tooling
-- [`test`](test): unit, integration, contract, and build tests
-- [`notes`](notes): design and refactor notes
+- [`v0.0.1`](https://github.com/numpde/id-overlay/releases/tag/v0.0.1)
 
 ## Status
 
-This repo is still intentionally narrow:
-- Chromium-targeted first
-- GitHub releases publish a Chromium package only
-- no cross-browser manifest build yet
-- focused on strict state/transition ownership and test coverage before broader feature work
+This is still a focused tool, not a general browser extension platform.
+
+Current limits:
+
+- Chromium only
+- OpenStreetMap iD only
+- unpacked-extension install path
+- no Firefox or Safari package yet
+- no Chrome Web Store distribution yet
