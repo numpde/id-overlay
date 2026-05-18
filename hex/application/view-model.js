@@ -1,3 +1,10 @@
+import {
+  solveRegistrationPlacement,
+} from "../domain/registration.js";
+import {
+  isTraceMapLockedSession,
+} from "./map-lock.js";
+
 export function selectDurableApplicationState(state) {
   if (!state.session) {
     return null;
@@ -9,22 +16,24 @@ export function selectDurableApplicationState(state) {
 
 export function selectApplicationView(state, viewFeedback = null) {
   const mode = state.session?.mode ?? "trace";
+  const overlay = overlayRenderFacts(state, mode);
   return {
     mode,
-    overlay: overlayRenderFacts(state, mode),
+    overlay,
     overlayInput: overlayInputForState(state, mode),
     modeSwitch: {
       selected: mode,
       align: {
         enabled: Boolean(state.session),
       },
+      trace: {
+        enabled: Boolean(state.session),
+      },
     },
     opacityControl: opacityControl(state),
     history: historyControls(state),
-    primaryAction: {
-      label: primaryActionLabel(state),
-      enabled: true,
-    },
+    primaryAction: primaryAction(state),
+    centerOverlayInViewAction: centerOverlayInViewAction(state),
     status: statusText(state, viewFeedback),
   };
 }
@@ -52,7 +61,7 @@ function overlayRenderFacts(state, mode) {
     placement: state.session.placement ?? null,
     opacity: state.session.opacity ?? 1,
     pins: areRegistrationPinsVisible(state, mode)
-      ? state.session.registration?.pins ?? []
+      ? registrationPinsForView(state)
       : [],
   };
   if (mode === "trace" && !overlay.placement && state.session.registration?.solvedTransform) {
@@ -101,26 +110,72 @@ function historyLabel(record, direction) {
   return historyPresentation(record.kind)?.controlLabel?.(direction, record) ?? null;
 }
 
-function primaryActionLabel(state) {
+function primaryAction(state) {
   if (state.referenceImageInput?.status === "awaiting-input") {
-    return "Cancel paste";
+    return primaryActionDescriptor({
+      kind: "cancel-reference-image-input",
+      label: "Cancel paste",
+    });
   }
   if (!state.session) {
-    return "Paste";
+    return primaryActionDescriptor({
+      kind: "request-reference-image",
+      label: "Paste",
+    });
   }
   if (state.panelIntent?.kind === "confirm-clear-pins") {
-    return "Clear pins?";
+    return primaryActionDescriptor({
+      kind: "confirm-clear-pins",
+      label: "Clear pins?",
+      tone: "danger",
+      confirmation: "armed",
+    });
   }
   if (state.panelIntent?.kind === "confirm-clear-reference-image") {
-    return "Clear image?";
+    return primaryActionDescriptor({
+      kind: "confirm-clear-reference-image",
+      label: "Clear image?",
+      tone: "danger",
+      confirmation: "armed",
+    });
   }
   if (
     state.session.mode === "align"
       && (state.session.registration?.pins ?? []).length > 0
   ) {
-    return "Clear pins";
+    return primaryActionDescriptor({
+      kind: "arm-clear-pins",
+      label: "Clear pins",
+    });
   }
-  return "Clear image";
+  return primaryActionDescriptor({
+    kind: "arm-clear-reference-image",
+    label: "Clear image",
+  });
+}
+
+function primaryActionDescriptor({
+  kind,
+  label,
+  tone = "normal",
+  confirmation = "none",
+}) {
+  return {
+    kind,
+    label,
+    enabled: true,
+    tone,
+    confirmation,
+  };
+}
+
+function centerOverlayInViewAction(state) {
+  return {
+    kind: "center-overlay-in-view",
+    label: "Center overlay in view",
+    enabled: Boolean(state.session) && !isTraceMapLockedSession(state.session),
+    icon: "center-overlay",
+  };
 }
 
 function statusText(state, viewFeedback) {
@@ -133,7 +188,10 @@ function statusText(state, viewFeedback) {
   if (state.panelIntent?.kind === "confirm-clear-pins") {
     return "Click Clear pins? again to remove the current registration pins.";
   }
-  const noticeText = formatStatusNotice(viewFeedback?.statusNotice ?? state.notice);
+  const noticeText = formatStatusNotice({
+    notice: viewFeedback?.statusNotice ?? state.notice,
+    state,
+  });
   if (noticeText !== null) {
     return noticeText;
   }
@@ -145,11 +203,11 @@ function statusText(state, viewFeedback) {
     : "Trace using the aligned image.";
 }
 
-function formatStatusNotice(notice) {
+function formatStatusNotice({ notice, state }) {
   if (!notice) {
     return null;
   }
-  return statusNoticePresentation(notice.kind)?.(notice) ?? null;
+  return statusNoticePresentation(notice.kind)?.(notice, state) ?? null;
 }
 
 function historyReplayText(notice) {
@@ -167,6 +225,9 @@ function loadedScreenshotText(referenceImage) {
 }
 
 function placementChangedText(editKind) {
+  if (editKind === "center-overlay") {
+    return "Overlay centered in view.";
+  }
   return `${overlayEditCopy(editKind).changedVerb} overlay.`;
 }
 
@@ -176,6 +237,36 @@ function pasteInstructions() {
 
 function pluralizePin(count) {
   return count === 1 ? "pin" : "pins";
+}
+
+function registrationPinsForView(state) {
+  const pins = state.session.registration?.pins ?? [];
+  const dangerousPinIds = dangerousRegistrationPinIds(pins);
+  return pins.map((pin, index) => ({
+    ...pin,
+    label: String(index + 1),
+    ...(dangerousPinIds.has(pin.id) ? {
+      tone: "danger",
+    } : {}),
+  }));
+}
+
+function registrationPinTone(pins) {
+  return dangerousRegistrationPinIds(pins).size > 0 ? "danger" : "normal";
+}
+
+function dangerousRegistrationPinIds(pins) {
+  if (pins.length < 2) {
+    return new Set();
+  }
+  const solve = solveRegistrationPlacement({ pins });
+  if (solve.kind === "solved") {
+    return new Set(solve.incoherentPinIds ?? []);
+  }
+  if (solve.reason === "insufficient-pins") {
+    return new Set();
+  }
+  return new Set(solve.pinIds ?? pins.map((pin) => pin.id));
 }
 
 const HISTORY_PRESENTATION = Object.freeze({
@@ -211,10 +302,16 @@ const HISTORY_PRESENTATION = Object.freeze({
   },
   "overlay-placement-edit": {
     controlLabel(direction, record) {
+      if (record.editKind === "center-overlay") {
+        return `${historyDirectionVerb(direction)} center overlay`;
+      }
       return `${historyDirectionVerb(direction)} ${record.editKind} overlay`;
     },
     replayStatus(direction, notice) {
       const noun = overlayEditCopy(notice.editKind).noun;
+      if (notice.editKind === "center-overlay") {
+        return `${noun} ${historyReplayVerb(direction)}.`;
+      }
       return `Overlay ${noun} ${historyReplayVerb(direction)}.`;
     },
   },
@@ -248,8 +345,8 @@ const STATUS_NOTICE_PRESENTATION = Object.freeze({
   "reference-image-loaded": (notice) => loadedScreenshotText(notice.referenceImage),
   "reference-image-cleared": () => `${statusImageNoun()} cleared.`,
   "mode-selected": (notice) => `Switched to ${notice.mode}.`,
-  "added-pin": (notice) => `Added pin ${notice.pinId}.`,
-  "removed-pin": (notice) => `Removed pin ${notice.pinId}.`,
+  "added-pin": addedPinText,
+  "removed-pin": (notice) => `Removed pin ${statusPinLabel(notice)}.`,
   "cleared-pins": (notice) => (
     `Cleared ${notice.count} ${pluralizePin(notice.count)}.`
   ),
@@ -282,6 +379,10 @@ const OVERLAY_EDIT_COPY = Object.freeze({
     changedVerb: "Scaled",
     noun: "scale",
   },
+  "center-overlay": {
+    changedVerb: "Centered",
+    noun: "Overlay center",
+  },
 });
 
 function historyPresentation(kind) {
@@ -305,6 +406,17 @@ function overlayEditCopy(editKind) {
     changedVerb: "Adjusted",
     noun: "change",
   };
+}
+
+function addedPinText(notice, state) {
+  const base = `Added pin ${statusPinLabel(notice)}.`;
+  return registrationPinTone(state.session?.registration?.pins ?? []) === "danger"
+    ? `${base} Pins cannot fit one transform; red pins need adjustment.`
+    : base;
+}
+
+function statusPinLabel(notice) {
+  return notice.pinLabel ?? String(notice.pinId);
 }
 
 function pasteCancelledText() {

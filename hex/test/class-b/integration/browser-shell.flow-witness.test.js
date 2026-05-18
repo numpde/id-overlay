@@ -240,7 +240,10 @@ test("browser shell mode switching hides and restores Align pins", async () => {
     canEditOverlay: true,
     arePinsVisible: true,
   });
-  assert.deepEqual(host.latestRender.view.overlay.pins, [firstPin()]);
+  assert.deepEqual(host.latestRender.view.overlay.pins, [{
+    ...firstPin(),
+    label: "1",
+  }]);
 
   await host.latestRender.dispatchCommand({
     kind: "select-mode",
@@ -262,7 +265,10 @@ test("browser shell mode switching hides and restores Align pins", async () => {
     canEditOverlay: true,
     arePinsVisible: true,
   });
-  assert.deepEqual(host.latestRender.view.overlay.pins, [firstPin()]);
+  assert.deepEqual(host.latestRender.view.overlay.pins, [{
+    ...firstPin(),
+    label: "1",
+  }]);
 
   assert.deepEqual(storage.writes, [
     durableImageState({
@@ -446,6 +452,261 @@ test("browser shell renders durable placement and opacity on fresh bootstrap", a
     pins: [],
   });
   traceShellHydration(trace, "durable-placement-opacity");
+});
+
+// Class-b: the panel's center-overlay button is a source-neutral product intent. The
+// browser shell owns viewport measurement, enriches the command with a concrete
+// placement, and then lets the application own durability and undo history.
+test("browser shell centers the overlay in the current map viewport", async () => {
+  const trace = createShellTrace("browser shell centers the overlay in the current map viewport");
+  const pageSnapshots = createPageSnapshotHarness({
+    initialSnapshot: traceSnapshot(),
+  });
+  const storage = createDurableStorageHarness({
+    durableState: durableImageState({
+      mode: "align",
+      referenceImage: normalizedReferenceImage(),
+    }),
+  });
+  const host = createBrowserHostHarness({
+    pageContext: {
+      kind: "supported-map-editor-page",
+    },
+    durableStatePort: storage.port,
+    pageSnapshotPort: pageSnapshots.port,
+  });
+
+  const result = await bootstrapBrowserExtension(host);
+  await host.latestRender.dispatchCommand({
+    kind: "center-overlay-in-view",
+  });
+
+  assert.deepEqual(result.runtime.getState().session.placement, placement({
+    x: -112,
+    y: -52,
+    scale: 0.75,
+    rotationRad: 0,
+    coordinateSpace: "map-world",
+  }));
+  assert.deepEqual(host.latestRender.view.history.undo, {
+    enabled: true,
+    label: "Undo center overlay",
+  });
+  assert.deepEqual(storage.writes.at(-1), {
+    session: result.runtime.getState().session,
+  });
+  traceShellHydration(trace, "center-overlay");
+  trace.edge(flowEdge("port.page-snapshot.subscribe", "callback.live-map-snapshot", {
+    phase: "center-overlay",
+    provider: "page-snapshot-port",
+  }));
+  trace.edge(flowEdge("callback.live-map-snapshot", "sink.render", {
+    phase: "center-overlay",
+    terminal: "render-result",
+  }));
+  traceShellCommand(trace, "center-overlay-in-view", "center-overlay", true);
+});
+
+// Class-b: map lock does not make center-overlay redundant. Centering the map
+// moves the map view to the existing overlay, while centering the overlay changes
+// the overlay placement so it appears centered in the current map viewport.
+test("browser shell centers a map-locked overlay in the current map viewport", async () => {
+  const trace = createShellTrace("browser shell centers a map-locked overlay in the current map viewport");
+  const pageSnapshots = createPageSnapshotHarness({
+    initialSnapshot: traceSnapshot(),
+  });
+  const lockedPlacement = placement({
+    x: 20,
+    y: 30,
+    scale: 0.25,
+    rotationRad: 0,
+    coordinateSpace: "map-world",
+  });
+  const storage = createDurableStorageHarness({
+    durableState: durableImageState({
+      mode: "align",
+      referenceImage: normalizedReferenceImage(),
+      placement: lockedPlacement,
+    }),
+  });
+  const host = createBrowserHostHarness({
+    pageContext: {
+      kind: "supported-map-editor-page",
+    },
+    durableStatePort: storage.port,
+    pageSnapshotPort: pageSnapshots.port,
+  });
+
+  const result = await bootstrapBrowserExtension(host);
+  assert.deepEqual(host.latestRender.view.centerOverlayInViewAction, {
+    kind: "center-overlay-in-view",
+    label: "Center overlay in view",
+    enabled: true,
+    icon: "center-overlay",
+  });
+
+  await host.latestRender.dispatchCommand({
+    kind: "center-overlay-in-view",
+  });
+  await host.latestRender.dispatchCommand({
+    kind: "center-overlay-in-view",
+    placement: placement({
+      x: 111,
+      y: 222,
+      scale: 3,
+      rotationRad: 0,
+      coordinateSpace: "screen",
+    }),
+  });
+
+  assert.deepEqual(result.runtime.getState().session.placement, placement({
+    x: -112,
+    y: -52,
+    scale: 0.75,
+    rotationRad: 0,
+    coordinateSpace: "map-world",
+  }));
+  assert.equal(storage.writes.length, 1);
+  assert.deepEqual(storage.writes.at(-1), {
+    session: result.runtime.getState().session,
+  });
+  assert.deepEqual(host.latestRender.view.history.undo, {
+    enabled: true,
+    label: "Undo center overlay",
+  });
+  traceShellHydration(trace, "center-overlay-map-locked");
+  traceShellCommand(trace, "center-overlay-in-view", "center-overlay-map-locked", true);
+});
+
+// Class-b: a Trace solved transform is already locked to the live map. The
+// screen-centering overlay action is therefore unavailable, and a stale command
+// from older chrome must not replace the fit-derived map lock.
+test("browser shell keeps center-overlay disabled for solved Trace overlay", async () => {
+  const trace = createShellTrace(
+    "browser shell keeps center-overlay disabled for solved Trace overlay",
+  );
+  const pageSnapshots = createPageSnapshotHarness({
+    initialSnapshot: traceSnapshot(),
+  });
+  const storage = createDurableStorageHarness({
+    durableState: durableImageState({
+      mode: "trace",
+      referenceImage: normalizedReferenceImage(),
+      pins: [firstPin()],
+      solvedTransform: solvedTransform(),
+    }),
+  });
+  const host = createBrowserHostHarness({
+    pageContext: {
+      kind: "supported-map-editor-page",
+    },
+    durableStatePort: storage.port,
+    pageSnapshotPort: pageSnapshots.port,
+  });
+
+  const result = await bootstrapBrowserExtension(host);
+  assert.equal(result.runtime.getState().session.placement, undefined);
+  assert.deepEqual(host.latestRender.view.centerOverlayInViewAction, {
+    kind: "center-overlay-in-view",
+    label: "Center overlay in view",
+    enabled: false,
+    icon: "center-overlay",
+  });
+
+  await host.latestRender.dispatchCommand({
+    kind: "center-overlay-in-view",
+  });
+  await host.latestRender.dispatchCommand({
+    kind: "center-overlay-in-view",
+    placement: placement({
+      x: 111,
+      y: 222,
+      scale: 3,
+      rotationRad: 0,
+      coordinateSpace: "screen",
+    }),
+  });
+
+  assert.equal(result.runtime.getState().session.placement, undefined);
+  assert.deepEqual(result.runtime.getState().session.registration?.solvedTransform, solvedTransform());
+  assert.equal(storage.writes.length, 0);
+  traceShellHydration(trace, "center-overlay-solved-trace");
+  traceShellCommand(trace, "center-overlay-in-view", "center-overlay-solved-trace", false);
+});
+
+// Class-b: centering the map on the overlay is a host-map operation, not an
+// application placement edit. The shell computes the target map view from the
+// current durable overlay placement and live map snapshot, then crosses the page
+// port without writing application state.
+test("browser shell centers the map viewport on the current overlay", async () => {
+  const trace = createShellTrace("browser shell centers the map viewport on the current overlay");
+  const pageSnapshots = createPageSnapshotHarness({
+    initialSnapshot: traceSnapshot(),
+  });
+  const storage = createDurableStorageHarness({
+    durableState: durableImageState({
+      mode: "align",
+      referenceImage: normalizedReferenceImage(),
+      placement: placement({
+        x: 20,
+        y: 30,
+        scale: 0.25,
+        rotationRad: 0,
+        coordinateSpace: "map-world",
+      }),
+    }),
+  });
+  const mapViewPort = createMapViewPortHarness();
+  const host = createBrowserHostHarness({
+    pageContext: {
+      kind: "supported-map-editor-page",
+    },
+    durableStatePort: storage.port,
+    pageSnapshotPort: pageSnapshots.port,
+    mapViewPort: mapViewPort.port,
+  });
+
+  const result = await bootstrapBrowserExtension(host);
+  assert.deepEqual(host.latestRender.view.centerOverlayInViewAction, {
+    kind: "center-overlay-in-view",
+    label: "Center overlay in view",
+    enabled: true,
+    icon: "center-overlay",
+  });
+  assert.deepEqual(host.latestRender.view.centerMapOnOverlayAction, {
+    kind: "center-map-on-overlay",
+    label: "Center map on overlay",
+    enabled: true,
+    icon: "center-map",
+  });
+  const beforeState = result.runtime.getState();
+  await host.latestRender.dispatchCommand({
+    kind: "center-map-on-overlay",
+  });
+
+  assert.equal(result.runtime.getState(), beforeState);
+  assert.equal(storage.writes.length, 0);
+  assert.equal(mapViewPort.sets.length, 1);
+  assert.equal(mapViewPort.sets[0].centerLatLon.lon, -39.375);
+  assert.ok(Math.abs(mapViewPort.sets[0].centerLatLon.lat - 47.04018214480666) < 0.0000001);
+  assert.ok(Math.abs(mapViewPort.sets[0].zoom - 1.584962500721156) < 0.0000001);
+  traceShellHydration(trace, "center-map");
+  trace.edge(flowEdge("port.page-snapshot.subscribe", "callback.live-map-snapshot", {
+    phase: "center-map",
+    provider: "page-snapshot-port",
+  }));
+  trace.edge(flowEdge("callback.live-map-snapshot", "sink.render", {
+    phase: "center-map",
+    terminal: "render-result",
+  }));
+  trace.edge(flowEdge("source.rendered-command.center-map-on-overlay", "port.map-view.set", {
+    phase: "center-map",
+    provider: "browser-shell",
+  }));
+  trace.edge(flowEdge("port.map-view.set", "sink.host-map-view", {
+    phase: "center-map",
+    terminal: "host-map-navigation",
+  }));
 });
 
 // Class-b: a locked Trace overlay is page-observed rendering. Once the session
@@ -993,6 +1254,7 @@ function createBrowserHostHarness({
   pageContext,
   durableStatePort = createDurableStorageHarness({ durableState: null }).port,
   pageSnapshotPort = undefined,
+  mapViewPort = undefined,
   projectTraceOverlayForPageSnapshot = undefined,
 }) {
   const ownedRoots = new Map();
@@ -1000,6 +1262,7 @@ function createBrowserHostHarness({
     pageContext,
     durableStatePort,
     pageSnapshotPort,
+    mapViewPort,
     projectTraceOverlayForPageSnapshot,
     latestRender: null,
     startedRuntimeCount: 0,
@@ -1016,6 +1279,18 @@ function createBrowserHostHarness({
     startRuntime(runtime) {
       this.startedRuntimeCount += 1;
       return runtime;
+    },
+  };
+}
+
+function createMapViewPortHarness() {
+  const sets = [];
+  return {
+    sets,
+    port: {
+      setMapView(mapView) {
+        sets.push(mapView);
+      },
     },
   };
 }

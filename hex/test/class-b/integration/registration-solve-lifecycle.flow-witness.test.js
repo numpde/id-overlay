@@ -113,6 +113,66 @@ test("selecting Trace with two pins normalizes solved transform to map-locked pl
   traceRegistrationSolve(trace, "solved-map-locked-placement", true);
 });
 
+// Class-b: the solver may identify a coherent subset when one registration pin
+// is an outlier. The shell must preserve every durable pin, but the fitted
+// transform and user-facing fit count come from the coherent pin evidence.
+test("selecting Trace with an outlier pin fits from coherent pins", async () => {
+  const trace = createRegistrationSolveTrace("selecting Trace with an outlier pin fits from coherent pins");
+  const pins = [firstPin(), secondPin(), thirdPin(), outlierPin()];
+  const storage = createDurableStorageHarness({
+    durableState: durableImageState({
+      mode: "align",
+      pins,
+    }),
+  });
+  const solver = createRegistrationSolverHarness({
+    result: {
+      kind: "solved",
+      solvedTransform: coherentSubsetSolvedTransform(),
+      coherentPinIds: [1, 2, 3],
+      incoherentPinIds: [4],
+      isCoherent: false,
+    },
+  });
+  const host = createBrowserHostHarness({
+    durableStatePort: storage.port,
+    registrationSolverPort: solver.port,
+  });
+
+  const result = await bootstrapBrowserExtension(host);
+  await host.latestRender.dispatchCommand({
+    kind: "select-mode",
+    mode: "trace",
+  });
+
+  assert.deepEqual(solver.solvedPins, pins);
+  assert.deepEqual(result.runtime.getState().session.registration, {
+    pins,
+    solvedTransform: coherentSubsetSolvedTransform(),
+  });
+  assert.equal(host.latestRender.view.status, "Fit overlay from 3 pins.");
+  assert.deepEqual(storage.writes, [{
+    session: {
+      ...durableImageState({
+        mode: "trace",
+        pins,
+      }).session,
+      placement: {
+        x: coherentSubsetSolvedTransform().tx,
+        y: coherentSubsetSolvedTransform().ty,
+        scale: coherentSubsetSolvedTransform().scale,
+        rotationRad: coherentSubsetSolvedTransform().rotationRad,
+        coordinateSpace: "map-world",
+      },
+      registration: {
+        pins,
+        solvedTransform: coherentSubsetSolvedTransform(),
+      },
+    },
+  }]);
+  traceRegistrationSolve(trace, "solved-coherent-subset", true);
+});
+
 // Class-b: the legacy fallback entered Trace without fabricating a solved
 // placement when fitting failed. Exact failure copy/retry UX can evolve, but
 // a failed solve must not invent placement data.
@@ -482,6 +542,34 @@ function secondPin() {
   };
 }
 
+function thirdPin() {
+  return {
+    id: 3,
+    imagePx: {
+      x: 320,
+      y: 420,
+    },
+    mapLatLon: {
+      lat: -2.23,
+      lon: 36.84,
+    },
+  };
+}
+
+function outlierPin() {
+  return {
+    id: 4,
+    imagePx: {
+      x: 520,
+      y: 420,
+    },
+    mapLatLon: {
+      lat: 10,
+      lon: 10,
+    },
+  };
+}
+
 function solvedPlacement() {
   return {
     x: 100,
@@ -511,5 +599,12 @@ function solvedTransform() {
     scale: 0.01,
     rotationRad: 0,
     pinIds: [1, 2],
+  };
+}
+
+function coherentSubsetSolvedTransform() {
+  return {
+    ...solvedTransform(),
+    pinIds: [1, 2, 3],
   };
 }

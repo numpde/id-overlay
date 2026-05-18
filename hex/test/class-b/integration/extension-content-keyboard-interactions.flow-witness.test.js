@@ -56,6 +56,37 @@ test("extension content Space toggles temporary native-map access without durabi
   traceKeyboardFact(trace, "space-up", "temporary-native-map-access-ended", "command.set-temporary-input-posture");
 });
 
+// Class-b: temporary native-map access is a held-key posture. If the browser
+// window loses focus before keyup, the content keyboard boundary must reset the
+// posture through the same semantic interaction fact path.
+test("extension content window blur resets temporary native-map access", async () => {
+  const trace = createTrace("extension content window blur resets temporary native-map access");
+  const { window, chromeApi } = createStartedContentHarness({
+    durableState: durableImageState({
+      mode: "align",
+      pins: [firstPin()],
+    }),
+  });
+
+  const result = await startAndReturnRuntime({ trace, window, chromeApi });
+  dispatchKeyboard(window, window.document, "keydown", {
+    key: " ",
+    code: "Space",
+  });
+  await flushMicrotasks();
+  assert.deepEqual(result.runtime.getState().inputOverride, {
+    kind: "temporary-native-map-access",
+  });
+  traceKeyboardFact(trace, "space-down-before-blur", "temporary-native-map-access-started", "command.set-temporary-input-posture");
+
+  window.dispatchEvent(new window.Event("blur"));
+  await flushMicrotasks();
+
+  assert.equal(result.runtime.getState().inputOverride, undefined);
+  assert.deepEqual(chromeApi.latestSet, undefined);
+  traceKeyboardFact(trace, "window-blur", "interaction-reset-requested", "command.set-temporary-input-posture");
+});
+
 // Class-b: Escape is the content keyboard route to Trace. It should cross the
 // same rendered/shell command path as clicking Trace, persist mode, and re-render.
 test("extension content Escape switches a loaded session to Trace", async () => {

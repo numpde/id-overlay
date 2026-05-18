@@ -530,6 +530,60 @@ test("page observation retains the last coherent map view during live surface mo
   ]);
 });
 
+// Class-b: compositor-promoted identity transforms are still settled map
+// surfaces. Treating identity matrix3d as active motion retains stale map facts
+// and makes the overlay lag after a pan has already settled.
+test("page observation treats identity matrix3d surface motion as settled", () => {
+  const trace = createPageObservationTrace(
+    "page observation treats identity matrix3d surface motion as settled",
+  );
+  const pages = [
+    {
+      hash: "#map=16/-1.24401/36.82412",
+      viewport: {
+        width: 1280,
+        height: 720,
+      },
+      tileTransform: null,
+      surfaceMotion: {
+        transformCss: "none",
+        transformOriginCss: "0px 0px",
+      },
+    },
+    {
+      hash: "#map=16/-1.22000/36.83000",
+      viewport: {
+        width: 1280,
+        height: 720,
+      },
+      tileTransform: null,
+      surfaceMotion: {
+        transformCss: "matrix3d(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1)",
+        transformOriginCss: "0px 0px",
+      },
+    },
+  ];
+  let index = 0;
+  const adapter = createPageSnapshotAdapter({
+    readPage() {
+      return pages[index++];
+    },
+  });
+
+  readSnapshot({ trace, adapter, phase: "coherent" });
+  const settled = readSnapshot({ trace, adapter, phase: "settled-matrix3d" });
+
+  assert.deepEqual(settled.mapView.centerLatLon, {
+    lat: -1.22,
+    lon: 36.83,
+  });
+  assert.equal(settled.provenance, undefined);
+  assert.deepEqual(trace.edges, [
+    ...pageSnapshotReadEdges("coherent"),
+    ...pageSnapshotReadEdges("settled-matrix3d"),
+  ]);
+});
+
 // Class-b: a live pan can update both the embedded iD hash and the CSS surface
 // transform. Those are not independent movements. While the surface is moving,
 // observation must retain the previous coherent map view and expose the surface

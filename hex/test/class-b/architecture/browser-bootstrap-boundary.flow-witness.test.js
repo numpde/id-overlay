@@ -372,7 +372,7 @@ function collectProductCopyViolations() {
 
 function withoutCanonicalDictionaries(source) {
   return source.replace(
-    /const\s+(?:STATE_KEY|MODE|HOST_PORT)\s*=\s*Object\.freeze\s*\(\s*\{[\s\S]*?\}\s*\);/g,
+    /(?:export\s+)?const\s+(?:APPLICATION_STATE_KEY|APPLICATION_MODE|PLACEMENT_COORDINATE_SPACE|PAGE_SNAPSHOT_KIND|PAGE_SNAPSHOT_PROVENANCE_KIND|STATE_KEY|MODE|HOST_PORT)\s*=\s*Object\.freeze\s*\(\s*\{[\s\S]*?\}\s*\);/g,
     "",
   );
 }

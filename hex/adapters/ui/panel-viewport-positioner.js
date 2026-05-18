@@ -9,26 +9,48 @@ export function createPanelViewportPositioner({
 }) {
   let panelElement = panel;
   let preferredScreenPx = null;
+  let resizeObserver = null;
 
-  ownerWindow?.addEventListener("resize", sync);
+  ownerWindow?.addEventListener("resize", syncSmooth);
+  observePanel();
 
   return {
     setPanel(nextPanel) {
+      unobservePanel();
       panelElement = nextPanel;
-      sync();
+      observePanel();
+      syncSmooth();
     },
     setPreferredScreenPx(nextPreferredScreenPx) {
       preferredScreenPx = isFinitePoint(nextPreferredScreenPx) ? nextPreferredScreenPx : null;
-      sync();
+      syncDirect();
+    },
+    syncAfterContentChange({ smooth = true } = {}) {
+      sync({
+        motion: smooth ? "smooth" : "direct",
+      });
     },
     destroy() {
-      ownerWindow?.removeEventListener("resize", sync);
+      ownerWindow?.removeEventListener("resize", syncSmooth);
+      unobservePanel();
       panelElement = null;
       preferredScreenPx = null;
     },
   };
 
-  function sync() {
+  function syncDirect() {
+    sync({
+      motion: "direct",
+    });
+  }
+
+  function syncSmooth() {
+    sync({
+      motion: "smooth",
+    });
+  }
+
+  function sync({ motion }) {
     if (!ownerWindow || !panelElement || !preferredScreenPx) {
       return;
     }
@@ -48,6 +70,7 @@ export function createPanelViewportPositioner({
       },
     };
     const resolved = resolvePanelPosition(position);
+    panelElement.dataset.idOverlayPanelMotion = motion;
     panelElement.style.left = `${resolved.x}px`;
     panelElement.style.top = `${resolved.y}px`;
     panelElement.style.right = "auto";
@@ -63,6 +86,20 @@ export function createPanelViewportPositioner({
         viewportPx: position.viewportPx,
       });
     }
+  }
+
+  function observePanel() {
+    const ResizeObserver = ownerWindow?.ResizeObserver;
+    if (!panelElement || typeof ResizeObserver !== "function") {
+      return;
+    }
+    resizeObserver = new ResizeObserver(syncSmooth);
+    resizeObserver.observe(panelElement);
+  }
+
+  function unobservePanel() {
+    resizeObserver?.disconnect?.();
+    resizeObserver = null;
   }
 }
 

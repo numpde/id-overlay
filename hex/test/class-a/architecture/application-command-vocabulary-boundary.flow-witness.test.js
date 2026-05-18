@@ -48,6 +48,7 @@ const REQUIRED_PRODUCT_COMMAND_KINDS = Object.freeze([
   "activate-primary-action",
   "toggle-registration-pin",
   "commit-placement-edit",
+  "center-overlay-in-view",
   "set-opacity",
   "set-temporary-input-posture",
   "report-reference-image-input-outcome",

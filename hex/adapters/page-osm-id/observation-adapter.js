@@ -1,3 +1,7 @@
+import {
+  cssTransformIsIdentity,
+} from "../shared/css-transform.js";
+
 export function createPageSnapshotAdapter({ readPage, observeHistory = null }) {
   let lastCoherentMapView = null;
 
@@ -265,16 +269,8 @@ function isActiveSurfaceMotion(surfaceMotion) {
   return Boolean(
     surfaceMotion
       && surfaceMotion.transformCss
-      && !isIdentityTransform(surfaceMotion.transformCss),
+      && !cssTransformIsIdentity(surfaceMotion.transformCss),
   );
-}
-
-function isIdentityTransform(transformCss) {
-  return transformCss === "none"
-    || transformCss === "matrix(1, 0, 0, 1, 0, 0)"
-    || transformCss === "matrix(1,0,0,1,0,0)"
-    || transformCss === "translate3d(0px, 0px, 0px)"
-    || transformCss === "translate(0px, 0px)";
 }
 
 function compactPlainObject(value) {

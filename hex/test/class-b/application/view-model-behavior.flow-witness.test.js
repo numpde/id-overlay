@@ -7,16 +7,22 @@ import {
   flowEdge,
 } from "../../support/flow-trace.js";
 
-// Class-b, deliberately not class-a: class-a owns the no-session Paste law and
-// the command transitions behind each action. This test protects the current
-// panel vocabulary plus one ownership boundary: adapters render the primary
-// action selected by the view model instead of inventing button copy locally.
-test("view model exposes primary action labels for each product posture", () => {
-  const trace = createViewTrace("view model exposes primary action labels for each product posture");
+// Class-b, deliberately not class-a: class-a owns the command transitions behind
+// each action. This test protects the panel boundary: the view model exposes the
+// primary action as semantic UI state, so adapters do not infer destructive or
+// confirmation state from English copy.
+test("view model exposes semantic primary action descriptors", () => {
+  const trace = createViewTrace("view model exposes semantic primary action descriptors");
   const cases = [
     {
       state: {},
-      label: "Paste",
+      primaryAction: {
+        kind: "request-reference-image",
+        label: "Paste",
+        enabled: true,
+        tone: "normal",
+        confirmation: "none",
+      },
     },
     {
       state: {
@@ -25,17 +31,35 @@ test("view model exposes primary action labels for each product posture", () => 
           requestId: 1,
         },
       },
-      label: "Cancel paste",
+      primaryAction: {
+        kind: "cancel-reference-image-input",
+        label: "Cancel paste",
+        enabled: true,
+        tone: "normal",
+        confirmation: "none",
+      },
     },
     {
       state: referenceImageLoadedState(),
-      label: "Clear image",
+      primaryAction: {
+        kind: "arm-clear-reference-image",
+        label: "Clear image",
+        enabled: true,
+        tone: "normal",
+        confirmation: "none",
+      },
     },
     {
       state: referenceImageLoadedState({
         pins: [firstPin()],
       }),
-      label: "Clear pins",
+      primaryAction: {
+        kind: "arm-clear-pins",
+        label: "Clear pins",
+        enabled: true,
+        tone: "normal",
+        confirmation: "none",
+      },
     },
     {
       state: referenceImageLoadedState({
@@ -45,7 +69,13 @@ test("view model exposes primary action labels for each product posture", () => 
           requestId: 1,
         },
       }),
-      label: "Clear pins?",
+      primaryAction: {
+        kind: "confirm-clear-pins",
+        label: "Clear pins?",
+        enabled: true,
+        tone: "danger",
+        confirmation: "armed",
+      },
     },
     {
       state: referenceImageLoadedState({
@@ -54,15 +84,91 @@ test("view model exposes primary action labels for each product posture", () => 
           requestId: 1,
         },
       }),
-      label: "Clear image?",
+      primaryAction: {
+        kind: "confirm-clear-reference-image",
+        label: "Clear image?",
+        enabled: true,
+        tone: "danger",
+        confirmation: "armed",
+      },
     },
   ];
 
   assert.deepEqual(
-    cases.map(({ state }) => selectApplicationView(state).primaryAction.label),
-    cases.map(({ label }) => label),
+    cases.map(({ state }) => selectApplicationView(state).primaryAction),
+    cases.map(({ primaryAction }) => primaryAction),
   );
-  traceViewProjection(trace, "primary-action-labels");
+  traceViewProjection(trace, "primary-action-descriptors");
+});
+
+// Class-b: centering the overlay in the current map viewport is a secondary panel
+// action. The view model exposes it as icon-addressable action state instead of
+// making the panel infer availability from image copy or overlay markup.
+test("view model exposes center-overlay action state", () => {
+  const trace = createViewTrace("view model exposes center-overlay action state");
+  const enabledAction = {
+    kind: "center-overlay-in-view",
+    label: "Center overlay in view",
+    enabled: true,
+    icon: "center-overlay",
+  };
+  const disabledAction = {
+    ...enabledAction,
+    enabled: false,
+  };
+
+  assert.deepEqual(selectApplicationView({}).centerOverlayInViewAction, disabledAction);
+  assert.deepEqual(
+    selectApplicationView(referenceImageLoadedState()).centerOverlayInViewAction,
+    enabledAction,
+  );
+  assert.deepEqual(
+    selectApplicationView(referenceImageLoadedState({
+      placement: {
+        x: 100,
+        y: 200,
+        scale: 1,
+        rotationRad: 0,
+        coordinateSpace: "map-world",
+      },
+    })).centerOverlayInViewAction,
+    enabledAction,
+  );
+  assert.deepEqual(
+    selectApplicationView(referenceImageLoadedState({
+      mode: "trace",
+      placement: {
+        x: 100,
+        y: 200,
+        scale: 1,
+        rotationRad: 0,
+        coordinateSpace: "screen",
+      },
+    })).centerOverlayInViewAction,
+    enabledAction,
+  );
+  assert.deepEqual(
+    selectApplicationView(referenceImageLoadedState({
+      mode: "trace",
+      placement: {
+        x: 100,
+        y: 200,
+        scale: 1,
+        rotationRad: 0,
+        coordinateSpace: "map-world",
+      },
+    })).centerOverlayInViewAction,
+    disabledAction,
+  );
+  assert.deepEqual(
+    selectApplicationView(referenceImageLoadedState({
+      mode: "trace",
+      pins: [firstPin(), secondPin()],
+      solvedTransform: imageToMapWorldTransform(),
+    })).centerOverlayInViewAction,
+    disabledAction,
+  );
+  traceViewProjection(trace, "center-overlay-action");
 });
 
 // Class-b, deliberately not class-a: exact history wording may be tuned. What
@@ -205,7 +311,7 @@ test("view model exposes overlay render facts", () => {
     },
     placement,
     opacity: 0.6,
-    pins: [firstPin()],
+    pins: labeledPins([firstPin()]),
   });
   assert.equal(JSON.stringify(view).includes("objectUrl"), false);
   assert.equal(JSON.stringify(view).includes("blob:"), false);
@@ -299,7 +405,7 @@ test("view model exposes Align map-surface overlay source with pins", () => {
     },
     placement,
     opacity: 1,
-    pins: [firstPin()],
+    pins: labeledPins([firstPin()]),
     pageProjectionSource: {
       kind: "map-locked-placement",
       mode: "align",
@@ -311,6 +417,112 @@ test("view model exposes Align map-surface overlay source with pins", () => {
     arePinsVisible: true,
   });
   traceViewProjection(trace, "align-live-map-surface-source");
+});
+
+// Class-b: durable pin ids are stable identities for commands/history/solver
+// evidence. They are not user-facing ordinals. The view model must expose dense
+// visible labels for the current pin set so removing old pins cannot leak gaps
+// like 1, 2, 5, 6 into the UI.
+test("view model exposes dense registration pin labels separate from durable ids", () => {
+  const trace = createViewTrace("view model exposes dense registration pin labels separate from durable ids");
+  const pins = [
+    {
+      ...firstPin(),
+      id: 1,
+    },
+    {
+      ...secondPin(),
+      id: 2,
+    },
+    {
+      ...thirdPin(),
+      id: 5,
+    },
+    {
+      ...fourthPin(),
+      id: 6,
+    },
+  ];
+  const view = selectApplicationView(referenceImageLoadedState({
+    mode: "align",
+    pins,
+  }));
+
+  assert.deepEqual(view.overlay.pins.map((pin) => ({
+    id: pin.id,
+    label: pin.label,
+  })), [
+    {
+      id: 1,
+      label: "1",
+    },
+    {
+      id: 2,
+      label: "2",
+    },
+    {
+      id: 5,
+      label: "3",
+    },
+    {
+      id: 6,
+      label: "4",
+    },
+  ]);
+  traceViewProjection(trace, "dense-pin-labels");
+});
+
+// Class-b: pin color is selected from registration evidence before the UI
+// adapter. A pin set that cannot be represented by one similarity transform is
+// dangerous because accepting it would require warping the reference image; the
+// adapter should only render the selected tone.
+test("view model marks impossible registration pins as danger", () => {
+  const trace = createViewTrace("view model marks impossible registration pins as danger");
+  const pins = inconsistentPins();
+  const view = selectApplicationView(referenceImageLoadedState({
+    mode: "align",
+    pins,
+  }));
+
+  assert.deepEqual(view.overlay.pins, pins.map((pin, index) => ({
+    ...pin,
+    label: String(index + 1),
+    tone: "danger",
+  })));
+  traceViewProjection(trace, "impossible-registration-pin-tone");
+});
+
+// Class-b: the view model should use registration residual evidence, not a
+// blanket "all pins are bad" tone, when three or more pins agree on one
+// similarity and another pin is the visible outlier.
+test("view model marks only incoherent registration pins as danger", () => {
+  const trace = createViewTrace("view model marks only incoherent registration pins as danger");
+  const pins = outlierPins();
+  const view = selectApplicationView(referenceImageLoadedState({
+    mode: "align",
+    pins,
+  }));
+
+  assert.deepEqual(view.overlay.pins, [
+    {
+      ...pins[0],
+      label: "1",
+    },
+    {
+      ...pins[1],
+      label: "2",
+    },
+    {
+      ...pins[2],
+      label: "3",
+    },
+    {
+      ...pins[3],
+      label: "4",
+      tone: "danger",
+    },
+  ]);
+  traceViewProjection(trace, "incoherent-registration-pin-tone");
 });
 
 // Class-b, deliberately not class-a: this is view-model projection of a class-a
@@ -408,19 +620,31 @@ test("view model exposes user-visible status copy", () => {
       state: referenceImageLoadedState({
         notice: {
           kind: "added-pin",
-          pinId: 1,
+          pinId: 5,
+          pinLabel: "3",
         },
       }),
-      status: "Added pin 1.",
+      status: "Added pin 3.",
+    },
+    {
+      state: referenceImageLoadedState({
+        pins: inconsistentPins(),
+        notice: {
+          kind: "added-pin",
+          pinId: 3,
+        },
+      }),
+      status: "Added pin 3. Pins cannot fit one transform; red pins need adjustment.",
     },
     {
       state: referenceImageLoadedState({
         notice: {
           kind: "removed-pin",
-          pinId: 1,
+          pinId: 5,
+          pinLabel: "3",
         },
       }),
-      status: "Removed pin 1.",
+      status: "Removed pin 3.",
     },
     {
       state: referenceImageLoadedState({
@@ -466,6 +690,15 @@ test("view model exposes user-visible status copy", () => {
         },
       }),
       status: "Scaled overlay.",
+    },
+    {
+      state: referenceImageLoadedState({
+        notice: {
+          kind: "placement-changed",
+          editKind: "center-overlay",
+        },
+      }),
+      status: "Overlay centered in view.",
     },
     {
       state: {
@@ -655,6 +888,138 @@ function secondPin() {
       lat: -1.23,
       lon: 36.85,
     },
+  };
+}
+
+function thirdPin() {
+  return {
+    id: 3,
+    imagePx: {
+      x: 420,
+      y: 340,
+    },
+    mapLatLon: {
+      lat: -1.24,
+      lon: 36.85,
+    },
+  };
+}
+
+function fourthPin() {
+  return {
+    id: 4,
+    imagePx: {
+      x: 320,
+      y: 340,
+    },
+    mapLatLon: {
+      lat: -1.24,
+      lon: 36.84,
+    },
+  };
+}
+
+function labeledPins(pins) {
+  return pins.map((pin, index) => ({
+    ...pin,
+    label: String(index + 1),
+  }));
+}
+
+function inconsistentPins() {
+  return [
+    {
+      id: 1,
+      imagePx: {
+        x: 0,
+        y: 0,
+      },
+      mapLatLon: {
+        lat: 0,
+        lon: -180,
+      },
+    },
+    {
+      id: 2,
+      imagePx: {
+        x: 100,
+        y: 0,
+      },
+      mapLatLon: {
+        lat: 0,
+        lon: -178.59375,
+      },
+    },
+    {
+      id: 3,
+      imagePx: {
+        x: 0,
+        y: 100,
+      },
+      mapLatLon: {
+        lat: 0,
+        lon: -180,
+      },
+    },
+  ];
+}
+
+function outlierPins() {
+  return [
+    {
+      id: 1,
+      imagePx: {
+        x: 0,
+        y: 0,
+      },
+      mapLatLon: worldPointLatLon({
+        x: 10,
+        y: 20,
+      }),
+    },
+    {
+      id: 2,
+      imagePx: {
+        x: 100,
+        y: 0,
+      },
+      mapLatLon: worldPointLatLon({
+        x: 10,
+        y: 220,
+      }),
+    },
+    {
+      id: 3,
+      imagePx: {
+        x: 0,
+        y: 100,
+      },
+      mapLatLon: worldPointLatLon({
+        x: -190,
+        y: 20,
+      }),
+    },
+    {
+      id: 4,
+      imagePx: {
+        x: 100,
+        y: 100,
+      },
+      mapLatLon: worldPointLatLon({
+        x: 500,
+        y: 500,
+      }),
+    },
+  ];
+}
+
+function worldPointLatLon({ x, y }) {
+  const lon = (x / 256) * 360 - 180;
+  const mercator = 0.5 - y / 256;
+  const latRad = 2 * Math.atan(Math.exp(mercator * 2 * Math.PI)) - Math.PI / 2;
+  return {
+    lat: (latRad * 180) / Math.PI,
+    lon,
   };
 }
 

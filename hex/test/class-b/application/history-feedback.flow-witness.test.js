@@ -52,6 +52,13 @@ test("undo and redo expose transient history feedback", () => {
       redoStatus: "Overlay move redone.",
     },
     {
+      phase: "center-overlay",
+      record: placementHistoryRecord({ editKind: "center-overlay" }),
+      loaded: true,
+      undoStatus: "Overlay center undone.",
+      redoStatus: "Overlay center redone.",
+    },
+    {
       phase: "registration-pin-edit",
       record: registrationPinHistoryRecord(),
       loaded: true,

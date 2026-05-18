@@ -13,6 +13,7 @@ export const APPLICATION_COMMAND_KIND = Object.freeze({
   TOGGLE_REGISTRATION_PIN: "toggle-registration-pin",
   CLEAR_REGISTRATION_PINS: "clear-registration-pins",
   COMMIT_PLACEMENT_EDIT: "commit-placement-edit",
+  CENTER_OVERLAY_IN_VIEW: "center-overlay-in-view",
   ACTIVATE_PRIMARY_ACTION: "activate-primary-action",
   REQUEST_REFERENCE_IMAGE_REPLACEMENT: "request-reference-image-replacement",
   REPORT_REFERENCE_IMAGE_INPUT_OUTCOME: "report-reference-image-input-outcome",
@@ -53,6 +54,10 @@ export function createApplicationCommand(kind, payload = {}) {
     return createPlacementEditCommand(payload);
   }
 
+  if (kind === APPLICATION_COMMAND_KIND.CENTER_OVERLAY_IN_VIEW) {
+    return createCenterReferenceInViewCommand(payload);
+  }
+
   if (kind === APPLICATION_COMMAND_KIND.SET_OPACITY) {
     return createSetOpacityCommand(payload);
   }
@@ -78,6 +83,25 @@ function createSelectModeCommand(payload) {
   return {
     kind: APPLICATION_COMMAND_KIND.SELECT_MODE,
     mode: payload.mode,
+  };
+}
+
+function createCenterReferenceInViewCommand(payload) {
+  const keys = Object.keys(payload);
+  if (keys.length === 0) {
+    return {
+      kind: APPLICATION_COMMAND_KIND.CENTER_OVERLAY_IN_VIEW,
+    };
+  }
+  if (
+    keys.length !== 1
+      || !isPlacementData(payload.placement)
+  ) {
+    throwInvalidApplicationCommand();
+  }
+  return {
+    kind: APPLICATION_COMMAND_KIND.CENTER_OVERLAY_IN_VIEW,
+    placement: payload.placement,
   };
 }
 

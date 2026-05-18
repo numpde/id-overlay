@@ -73,6 +73,50 @@ test("surface motion page bridge publishes motion facts without owning overlay D
   }
 });
 
+// Class-b: the page-world bridge is injected into the page lifetime, so it
+// should be driven by DOM/hash/resize evidence instead of an unconditional
+// polling interval that the content-session cannot later dispose.
+test("surface motion page bridge is event-driven without page-lifetime polling", async () => {
+  const trace = createFlowTrace({
+    file: import.meta.url,
+    test: "surface motion page bridge is event-driven without page-lifetime polling",
+  });
+  const dom = new JSDOM(
+    "<!doctype html><html><body><div class='supersurface'></div></body></html>",
+    {
+      pretendToBeVisual: true,
+      runScripts: "dangerously",
+      url: "https://www.openstreetmap.org/id#map=10/22.9/120.2",
+    },
+  );
+  const { window } = dom;
+  const { document } = window;
+  const surface = document.querySelector(".supersurface");
+  let intervalCount = 0;
+  window.setInterval = () => {
+    intervalCount += 1;
+    return 1;
+  };
+
+  try {
+    window.eval(BRIDGE_SOURCE);
+    surface.style.transform = "matrix(1, 0, 0, 1, 12, -9)";
+    await waitFor(() => document.documentElement.dataset.idOverlaySurfaceMotion?.includes("matrix(1, 0, 0, 1, 12, -9)"));
+
+    assert.equal(intervalCount, 0);
+    trace.edge(flowEdge("source.page-world-surface-motion-mutation", "port.surface-motion-page", {
+      phase: "mutation-driven",
+      provider: "surface-motion-page-bridge",
+    }));
+    trace.edge(flowEdge("port.surface-motion-page", "sink.surface-motion-artifact", {
+      phase: "mutation-driven",
+      terminal: "published-fact",
+    }));
+  } finally {
+    window.close();
+  }
+});
+
 async function waitFor(predicate) {
   const deadline = Date.now() + 500;
   let lastError = null;

@@ -66,11 +66,15 @@ test("owner-window teardown disposes active browser-session resources once", asy
   ownerWindow.dispatch("beforeunload");
 
   assert.equal(ownerWindow.listenerCount("beforeunload"), 0);
+  assert.equal(countEvents(host.events, "dispose-host"), 1);
   assert.equal(countEvents(host.events, "dispose-root:id-overlay"), 1);
   assert.equal(countEvents(host.events, "dispose-runtime"), 1);
-  assert.deepEqual(trace.edges.slice(-3), [
+  assert.deepEqual(trace.edges.slice(-4), [
     flowEdge("source.owner-window.beforeunload", "callback.owner-window.beforeunload", {
       provider: "browser-session-harness",
+    }),
+    flowEdge("callback.owner-window.beforeunload", "sink.browser-host.dispose", {
+      terminal: "shell-resource-disposed",
     }),
     flowEdge("callback.owner-window.beforeunload", "sink.owned-root.dispose", {
       terminal: "shell-resource-disposed",
@@ -199,6 +203,12 @@ function createBrowserSessionHostHarness({
           originalDispose?.();
         },
       };
+    },
+    dispose() {
+      trace.edge(flowEdge(trace.activeSource() ?? "source.shell-dispose", "sink.browser-host.dispose", {
+        terminal: "shell-resource-disposed",
+      }));
+      events.push("dispose-host");
     },
   };
 }

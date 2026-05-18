@@ -109,24 +109,25 @@ test("keyboard adapter emits a source-neutral Trace request for Escape", () => {
   ]);
 });
 
-// Class-b, deliberately not class-a: blur handling is adapter/runtime posture,
-// not product state. Losing keyboard focus should enter the application shell as
-// one semantic interaction reset request, without exposing the browser event.
-test("keyboard adapter emits an interaction reset request on blur", () => {
+// Class-b, deliberately not class-a: focus-loss handling is adapter/runtime
+// posture, not product state. Losing the owner window should enter the
+// application shell as one semantic interaction reset request, without exposing
+// the browser event.
+test("keyboard adapter emits an interaction reset request on owner-window blur", () => {
   const harness = createKeyboardHarness({
-    test: "keyboard adapter emits an interaction reset request on blur",
+    test: "keyboard adapter emits an interaction reset request on owner-window blur",
   });
   harness.keyboard.bindInput();
 
-  harness.trace.withSource("source.keyboard.blur", () => {
-    harness.window.document.dispatchEvent(new harness.window.Event("blur"));
+  harness.trace.withSource("source.keyboard.window-blur", () => {
+    harness.window.dispatchEvent(new harness.window.Event("blur"));
   });
 
   assert.deepEqual(harness.facts, [{
     kind: "interaction-reset-requested",
   }]);
   assert.deepEqual(harness.trace.edges, [
-    flowEdge("source.keyboard.blur", "callback.interaction-fact.interaction-reset-requested", {
+    flowEdge("source.keyboard.window-blur", "callback.interaction-fact.interaction-reset-requested", {
       provider: "keyboard-adapter",
     }),
   ]);
@@ -170,6 +171,40 @@ test("keyboard adapter ignores editable targets but accepts extension buttons", 
   ]);
 });
 
+// Class-b: keyboard capture is a browser-adapter resource. Binding must be
+// idempotent, and teardown must remove the exact listeners it installed so a
+// disposed browser session cannot keep emitting interaction facts.
+test("keyboard adapter owns a disposable, idempotent listener lifecycle", () => {
+  const harness = createKeyboardHarness({
+    test: "keyboard adapter owns a disposable, idempotent listener lifecycle",
+  });
+
+  harness.keyboard.bindInput();
+  harness.keyboard.bindInput();
+  harness.dispatchDocumentKeyboard("source.keyboard.bound.p.keydown", "keydown", {
+    key: "p",
+    code: "KeyP",
+  });
+  harness.keyboard.destroy();
+  harness.keyboard.destroy();
+  harness.dispatchDisposedDocumentKeyboard("source.keyboard.disposed.p.keydown", "keydown", {
+    key: "p",
+    code: "KeyP",
+  });
+
+  assert.deepEqual(harness.facts, [{
+    kind: "registration-pin-toggle-requested",
+  }]);
+  assert.deepEqual(harness.trace.edges, [
+    flowEdge("source.keyboard.bound.p.keydown", "callback.interaction-fact.registration-pin-toggle-requested", {
+      provider: "keyboard-adapter",
+    }),
+    flowEdge("source.keyboard.disposed.p.keydown", "inert.disposed-keyboard-adapter", {
+      terminal: "intentionally-inert",
+    }),
+  ]);
+});
+
 function createKeyboardHarness({
   test,
   html = "<!doctype html><body></body>",
@@ -182,6 +217,7 @@ function createKeyboardHarness({
   const facts = [];
   const keyboard = createKeyboardAdapter({
     document: window.document,
+    ownerWindow: window,
     emitInteractionFact(fact) {
       facts.push(fact);
       trace.edge(flowEdge(
@@ -203,6 +239,17 @@ function createKeyboardHarness({
       trace.withSource(source, () => {
         window.document.dispatchEvent(keyboardEvent(window, type, options));
       });
+    },
+    dispatchDisposedDocumentKeyboard(source, type, options) {
+      const factCount = facts.length;
+      trace.withSource(source, () => {
+        window.document.dispatchEvent(keyboardEvent(window, type, options));
+      });
+      if (facts.length === factCount) {
+        trace.edge(flowEdge(source, "inert.disposed-keyboard-adapter", {
+          terminal: "intentionally-inert",
+        }));
+      }
     },
     dispatchTargetKeyboard(target, source, event) {
       const factCount = facts.length;

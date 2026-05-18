@@ -251,6 +251,81 @@ test("registration pin edits create undoable Align-authored history", () => {
   assert.equal(undo.state.session.registration, undefined);
 });
 
+// Class-a: durable pin ids are stable identities, but pin-edit notices carry
+// the dense visible label for the pin at the time of the edit. Status copy must
+// not have to infer a removed pin's former ordinal after the fact.
+test("registration pin edit notices carry dense visible labels", () => {
+  const trace = createFlowTrace({
+    file: import.meta.url,
+    test: "registration pin edit notices carry dense visible labels",
+  });
+  const pins = [
+    firstPin(),
+    secondPin(),
+    {
+      ...thirdPin(),
+      id: 5,
+    },
+  ];
+
+  const addCommand = createApplicationCommand(
+    APPLICATION_COMMAND_KIND.TOGGLE_REGISTRATION_PIN,
+    {
+      existingPinId: null,
+      imagePx: {
+        x: 90,
+        y: 110,
+      },
+      mapLatLon: {
+        lat: 3,
+        lon: 4,
+      },
+    },
+  );
+  const add = handleApplicationCommand({
+    state: referenceImageLoadedState({
+      pins,
+    }),
+    command: addCommand,
+  });
+  traceApplicationResult({
+    trace,
+    command: addCommand,
+    result: add,
+    phase: "add-with-visible-label",
+  });
+
+  assert.equal(add.state.session.registration.pins.at(-1).id, 6);
+  assert.deepEqual(add.state.notice, {
+    kind: "added-pin",
+    pinId: 6,
+    pinLabel: "4",
+  });
+
+  const removeCommand = createApplicationCommand(
+    APPLICATION_COMMAND_KIND.TOGGLE_REGISTRATION_PIN,
+    pinTogglePayload({ existingPinId: 5 }),
+  );
+  const remove = handleApplicationCommand({
+    state: referenceImageLoadedState({
+      pins,
+    }),
+    command: removeCommand,
+  });
+  traceApplicationResult({
+    trace,
+    command: removeCommand,
+    result: remove,
+    phase: "remove-with-visible-label",
+  });
+
+  assert.deepEqual(remove.state.notice, {
+    kind: "removed-pin",
+    pinId: 5,
+    pinLabel: "3",
+  });
+});
+
 function traceApplicationResult({
   trace,
   command,

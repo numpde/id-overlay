@@ -24,12 +24,23 @@ test("panel adapter renders from the view model only", () => {
       label: "Paste",
       enabled: true,
     },
+    ...centerActions({
+      hasImage: false,
+      overlayLabel: "Move overlay into view",
+      mapLabel: "Move map to overlay",
+    }),
     modeSwitch: {
       selected: "trace",
       align: {
         enabled: false,
       },
+      trace: {
+        enabled: false,
+      },
     },
+    opacityControl: opacityControlView({
+      enabled: false,
+    }),
     history: {
       undo: {
         enabled: false,
@@ -44,6 +55,12 @@ test("panel adapter renders from the view model only", () => {
   });
 
   assert.equal(root.querySelector("[data-control='primary']").textContent, "Paste");
+  assert.equal(root.querySelector("[data-control='center-overlay']").textContent, "");
+  assert.equal(root.querySelector("[data-control='center-overlay']").getAttribute("aria-label"), "Move overlay into view");
+  assert.ok(root.querySelector("[data-control='center-overlay'] svg"));
+  assert.equal(root.querySelector("[data-control='center-map']").textContent, "");
+  assert.equal(root.querySelector("[data-control='center-map']").getAttribute("aria-label"), "Move map to overlay");
+  assert.ok(root.querySelector("[data-control='center-map'] svg"));
   assert.equal(root.querySelector("[data-control='mode-switch'] input").disabled, true);
   assert.equal(root.querySelector("[data-control='redo']").title, "Reload image");
   assert.equal(
@@ -115,17 +132,35 @@ test("panel adapter emits semantic commands only", () => {
   const harness = createPanelHarness({
     test: "panel adapter emits semantic commands only",
   });
+  const centerOverlayCommandKind = "test-center-overlay-command";
+  const centerMapCommandKind = "test-center-map-command";
   const root = harness.render({
     primaryAction: {
       label: "Paste",
       enabled: true,
+    },
+    centerOverlayInViewAction: {
+      kind: centerOverlayCommandKind,
+      label: "Center overlay in view",
+      enabled: true,
+      icon: "center-overlay",
+    },
+    centerMapOnOverlayAction: {
+      kind: centerMapCommandKind,
+      label: "Center map on overlay",
+      enabled: true,
+      icon: "center-map",
     },
     modeSwitch: {
       selected: "trace",
       align: {
         enabled: true,
       },
+      trace: {
+        enabled: true,
+      },
     },
+    opacityControl: opacityControlView(),
     history: {
       undo: {
         enabled: true,
@@ -140,6 +175,14 @@ test("panel adapter emits semantic commands only", () => {
   });
 
   harness.clickControl(root, "primary");
+  harness.clickControl(root, "center-overlay");
+  harness.clickControl(root, "center-map");
+  harness.trace.edge(flowEdge(`command.${centerOverlayCommandKind}`, "sink.application-command", {
+    terminal: "adapter-emitted-command",
+  }));
+  harness.trace.edge(flowEdge(`command.${centerMapCommandKind}`, "sink.browser-shell-command", {
+    terminal: "shell-owned-command",
+  }));
   harness.clickModeSwitch(root);
   harness.clickControl(root, "undo");
   harness.clickControl(root, "redo");
@@ -147,6 +190,12 @@ test("panel adapter emits semantic commands only", () => {
   assert.deepEqual(harness.commands, [
     {
       kind: "activate-primary-action",
+    },
+    {
+      kind: centerOverlayCommandKind,
+    },
+    {
+      kind: centerMapCommandKind,
     },
     {
       kind: "select-mode",
@@ -162,6 +211,18 @@ test("panel adapter emits semantic commands only", () => {
   assert.deepEqual(harness.trace.edges.slice(1), [
     flowEdge("source.panel.primary.click", "command.activate-primary-action", {
       provider: "panel-adapter",
+    }),
+    flowEdge("source.panel.center-overlay.click", `command.${centerOverlayCommandKind}`, {
+      provider: "panel-adapter",
+    }),
+    flowEdge("source.panel.center-map.click", `command.${centerMapCommandKind}`, {
+      provider: "panel-adapter",
+    }),
+    flowEdge(`command.${centerOverlayCommandKind}`, "sink.application-command", {
+      terminal: "adapter-emitted-command",
+    }),
+    flowEdge(`command.${centerMapCommandKind}`, "sink.browser-shell-command", {
+      terminal: "shell-owned-command",
     }),
     flowEdge("source.panel.mode-switch.click", "command.select-mode", {
       provider: "panel-adapter",
@@ -248,6 +309,7 @@ test("panel opacity wheel emits a semantic opacity command", () => {
   harness.countBodyWheelEvents();
   const root = harness.render(panelView({
     opacity: 0.6,
+    opacityStep: 0.1,
   }));
   harness.window.document.body.append(root);
   const opacityControl = root.querySelector("[data-control='opacity']");
@@ -266,6 +328,38 @@ test("panel opacity wheel emits a semantic opacity command", () => {
   assert.equal(harness.bubbledWheelCount, 0);
   assert.deepEqual(commandEdges(harness.trace), [
     flowEdge("source.panel.opacity.wheel", "command.set-opacity", {
+      provider: "panel-adapter",
+    }),
+  ]);
+});
+
+// Class-b: the visible opacity control is a range input, not only a wheel
+// target. Dragging the slider must cross the same semantic command boundary as
+// wheel changes so the application owns durability and rerender state.
+test("panel opacity slider input emits a semantic opacity command", () => {
+  const harness = createPanelHarness({
+    test: "panel opacity slider input emits a semantic opacity command",
+  });
+  const root = harness.render(panelView({
+    opacity: 0.6,
+    opacityStep: 0.1,
+  }));
+  const opacityControl = root.querySelector("[data-control='opacity']");
+  assert.ok(opacityControl, "opacity control should be rendered");
+
+  opacityControl.value = "0.35";
+  harness.trace.withSource("source.panel.opacity.input", () => {
+    opacityControl.dispatchEvent(new harness.window.Event("input", {
+      bubbles: true,
+    }));
+  });
+
+  assert.deepEqual(harness.commands, [{
+    kind: "set-opacity",
+    opacity: 0.35,
+  }]);
+  assert.deepEqual(commandEdges(harness.trace), [
+    flowEdge("source.panel.opacity.input", "command.set-opacity", {
       provider: "panel-adapter",
     }),
   ]);
@@ -299,11 +393,80 @@ test("disabled panel wheel controls do not emit commands or consume wheel events
   assert.equal(modeWheel.defaultPrevented, false);
   assert.equal(opacityWheel.defaultPrevented, false);
   assert.equal(harness.bubbledWheelCount, 2);
-  assert.deepEqual(harness.trace.edges.filter((edge) => edge.to === "inert.disabled-panel-control"), [
-    flowEdge("source.panel.mode-switch.wheel", "inert.disabled-panel-control", {
+  assert.deepEqual(harness.trace.edges.filter((edge) => edge.to === "inert.panel-control"), [
+    flowEdge("source.panel.mode-switch.wheel", "inert.panel-control", {
       terminal: "intentionally-inert",
     }),
-    flowEdge("source.panel.opacity.wheel", "inert.disabled-panel-control", {
+    flowEdge("source.panel.opacity.wheel", "inert.panel-control", {
+      terminal: "intentionally-inert",
+    }),
+  ]);
+});
+
+// Class-b: wheel input that points at the currently selected mode is a UI
+// no-op. The adapter should not send redundant app commands for state the view
+// model already declares.
+test("panel mode switch wheel toward current mode stays inert", () => {
+  const harness = createPanelHarness({
+    test: "panel mode switch wheel toward current mode stays inert",
+  });
+  harness.countBodyWheelEvents();
+  const root = harness.render(panelView({
+    mode: "trace",
+  }));
+  harness.window.document.body.append(root);
+  const modeSwitch = root.querySelector("[data-control='mode-switch']");
+  const wheelTowardTrace = wheelEvent(harness.window, {
+    deltaY: 100,
+  });
+
+  harness.dispatchWheel(modeSwitch, "mode-switch", wheelTowardTrace, {
+    phase: "current-mode",
+  });
+
+  assert.deepEqual(harness.commands, []);
+  assert.equal(wheelTowardTrace.defaultPrevented, false);
+  assert.equal(harness.bubbledWheelCount, 1);
+  assert.deepEqual(harness.trace.edges.filter((edge) => edge.to === "inert.panel-control"), [
+    flowEdge("source.panel.mode-switch.wheel", "inert.panel-control", {
+      phase: "current-mode",
+      terminal: "intentionally-inert",
+    }),
+  ]);
+});
+
+// Class-b: mode availability is endpoint-specific view-model state. If the
+// view says Align is unavailable, browser gestures over the switch must not
+// smuggle an Align command inward just because Trace remains enabled.
+test("panel mode switch does not emit commands for disabled target modes", () => {
+  const harness = createPanelHarness({
+    test: "panel mode switch does not emit commands for disabled target modes",
+  });
+  harness.countBodyWheelEvents();
+  const root = harness.render(panelView({
+    mode: "trace",
+    alignEnabled: false,
+    traceEnabled: true,
+  }));
+  harness.window.document.body.append(root);
+  const modeSwitch = root.querySelector("[data-control='mode-switch']");
+  const modeInput = modeSwitch.querySelector("input");
+  const wheelToAlign = wheelEvent(harness.window, {
+    deltaY: -100,
+  });
+
+  harness.dispatchWheel(modeSwitch, "mode-switch", wheelToAlign, {
+    phase: "align-disabled",
+  });
+  harness.clickModeSwitch(root);
+
+  assert.equal(modeInput.disabled, true);
+  assert.deepEqual(harness.commands, []);
+  assert.equal(wheelToAlign.defaultPrevented, false);
+  assert.equal(harness.bubbledWheelCount, 1);
+  assert.deepEqual(harness.trace.edges.filter((edge) => edge.to === "inert.panel-control"), [
+    flowEdge("source.panel.mode-switch.wheel", "inert.panel-control", {
+      phase: "align-disabled",
       terminal: "intentionally-inert",
     }),
   ]);
@@ -382,12 +545,17 @@ test("panel adapter exposes accessible control names and selected mode state", (
       label: "Clear image",
       enabled: true,
     },
+    ...centerActions(),
     modeSwitch: {
       selected: "align",
       align: {
         enabled: true,
       },
+      trace: {
+        enabled: true,
+      },
     },
+    opacityControl: opacityControlView(),
     history: {
       undo: {
         enabled: true,
@@ -407,6 +575,58 @@ test("panel adapter exposes accessible control names and selected mode state", (
   assert.equal(root.querySelector("[data-control='mode-switch'] input").getAttribute("aria-label"), "Mode: Align");
   assert.equal(root.querySelector("[data-control='undo']").getAttribute("aria-label"), "Move overlay");
   assert.equal(root.querySelector("[data-control='redo']").getAttribute("aria-label"), "Redo");
+  assert.deepEqual(harness.trace.edges, [
+    flowEdge("view.panel", "sink.panel-dom", {
+      terminal: "render-result",
+    }),
+  ]);
+});
+
+// Class-b: the armed primary action is still the primary command, but the
+// adapter must expose its confirmation state to chrome styling from explicit
+// view facts. Copy is presentation, so punctuation must not control button
+// severity.
+test("panel adapter marks armed primary confirmation actions from view facts", () => {
+  const harness = createPanelHarness({
+    test: "panel adapter marks armed primary confirmation actions from view facts",
+  });
+
+  const root = harness.render({
+    primaryAction: {
+      label: "Clear image",
+      enabled: true,
+      tone: "danger",
+      confirmation: "armed",
+    },
+    ...centerActions(),
+    modeSwitch: {
+      selected: "align",
+      align: {
+        enabled: true,
+      },
+      trace: {
+        enabled: true,
+      },
+    },
+    opacityControl: opacityControlView(),
+    history: {
+      undo: {
+        enabled: false,
+        label: null,
+      },
+      redo: {
+        enabled: false,
+        label: null,
+      },
+    },
+    status: "Press again to clear the image.",
+  });
+
+  const primary = root.querySelector("[data-control='primary']");
+  assert.equal(primary.classList.contains("id-overlay-button--primary"), true);
+  assert.equal(primary.classList.contains("id-overlay-button--confirm"), true);
+  assert.equal(primary.dataset.tone, "danger");
+  assert.equal(primary.dataset.confirmation, "armed");
   assert.deepEqual(harness.trace.edges, [
     flowEdge("view.panel", "sink.panel-dom", {
       terminal: "render-result",
@@ -484,7 +704,7 @@ function createPanelHarness({ test }) {
         });
       });
       if (commands.length === commandCount) {
-        trace.edge(flowEdge(source, "inert.disabled-panel-control", {
+        trace.edge(flowEdge(source, "inert.panel-control", {
           ...attributes,
           terminal: "intentionally-inert",
         }));
@@ -530,7 +750,10 @@ function panelView({
   mode = "align",
   hasImage = true,
   opacity = 0.6,
+  opacityStep = 0.01,
   opacityEnabled = true,
+  alignEnabled = hasImage,
+  traceEnabled = hasImage,
 } = {}) {
   return {
     mode,
@@ -538,20 +761,21 @@ function panelView({
       label: hasImage ? "Clear image" : "Paste",
       enabled: true,
     },
+    ...centerActions({ hasImage }),
     modeSwitch: {
       selected: mode,
       align: {
-        enabled: hasImage,
+        enabled: alignEnabled,
       },
       trace: {
-        enabled: hasImage,
+        enabled: traceEnabled,
       },
     },
     opacityControl: {
       value: opacity,
       min: 0,
       max: 1,
-      step: 0.1,
+      step: opacityStep,
       enabled: hasImage && opacityEnabled,
     },
     history: {
@@ -565,6 +789,43 @@ function panelView({
       },
     },
     status: hasImage ? "Loaded screenshot 640x480." : "",
+  };
+}
+
+function opacityControlView({
+  value = 1,
+  min = 0,
+  max = 1,
+  step = 0.01,
+  enabled = true,
+} = {}) {
+  return {
+    value,
+    min,
+    max,
+    step,
+    enabled,
+  };
+}
+
+function centerActions({
+  hasImage = true,
+  overlayLabel = "Center overlay in view",
+  mapLabel = "Center map on overlay",
+} = {}) {
+  return {
+    centerOverlayInViewAction: {
+      kind: "center-overlay-in-view",
+      label: overlayLabel,
+      enabled: hasImage,
+      icon: "center-overlay",
+    },
+    centerMapOnOverlayAction: {
+      kind: "center-map-on-overlay",
+      label: mapLabel,
+      enabled: hasImage,
+      icon: "center-map",
+    },
   };
 }
 

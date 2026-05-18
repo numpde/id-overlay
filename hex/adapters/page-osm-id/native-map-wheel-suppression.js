@@ -14,6 +14,7 @@ export function createNativeMapWheelSuppression({
 }) {
   let forwardedPanActive = false;
   let directPan = null;
+  let destroyed = false;
 
   document.addEventListener("pointerdown", handlePointerDown, true);
   document.addEventListener("pointermove", handlePointerMove, true);
@@ -51,6 +52,25 @@ export function createNativeMapWheelSuppression({
         directPanPending: Boolean(directPan && !directPan.active),
         directPanAnchorScreenPx: directPan?.anchorScreenPx,
       };
+    },
+    destroy() {
+      if (destroyed) {
+        return;
+      }
+      destroyed = true;
+      forwardedPanActive = false;
+      directPan = null;
+      document.removeEventListener("pointerdown", handlePointerDown, true);
+      document.removeEventListener("pointermove", handlePointerMove, true);
+      document.removeEventListener("pointerup", clearDirectPan, true);
+      document.removeEventListener("pointercancel", clearDirectPan, true);
+      ownerWindow.removeEventListener("pointermove", handlePointerMove, true);
+      ownerWindow.removeEventListener("pointerup", clearDirectPan, true);
+      ownerWindow.removeEventListener("pointercancel", clearDirectPan, true);
+      document.removeEventListener("wheel", handleWheel, {
+        capture: true,
+        passive: false,
+      });
     },
   };
 

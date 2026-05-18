@@ -1,17 +1,17 @@
-const STATE_KEY = Object.freeze({
-  session: "session",
-  placement: "placement",
-  mode: "mode",
-});
+import {
+  APPLICATION_MODE,
+  APPLICATION_STATE_KEY,
+  PAGE_SNAPSHOT_KIND,
+  PAGE_SNAPSHOT_PROVENANCE_KIND,
+  PLACEMENT_COORDINATE_SPACE,
+} from "./application-state-vocabulary.js";
 
-const MODE = Object.freeze({
-  align: "align",
-  trace: "trace",
-});
+const STATE_KEY = APPLICATION_STATE_KEY;
+const MODE = APPLICATION_MODE;
 
 export function isLiveMapSnapshot(snapshot) {
-  return snapshot?.kind === "supported-map-page"
-    && snapshot.provenance?.mapView?.kind !== "retained-during-surface-motion";
+  return snapshot?.kind === PAGE_SNAPSHOT_KIND.supportedMapPage
+    && snapshot.provenance?.mapView?.kind !== PAGE_SNAPSHOT_PROVENANCE_KIND.retainedDuringSurfaceMotion;
 }
 
 export function isMapLockedMode(mode) {
@@ -25,7 +25,7 @@ export function tryNormalizeDurablePlacementCoordinateSpace({ durableState, snap
     !current
       || current[STATE_KEY.mode] !== MODE.align
       || !placement
-      || placement.coordinateSpace === "map-world"
+      || placement.coordinateSpace === PLACEMENT_COORDINATE_SPACE.mapWorld
   ) {
     return {
       status: "none",
@@ -37,7 +37,7 @@ export function tryNormalizeDurablePlacementCoordinateSpace({ durableState, snap
     };
   }
   if (
-    placement.coordinateSpace !== "screen"
+    placement.coordinateSpace !== PLACEMENT_COORDINATE_SPACE.screen
       && snapshot.provenance?.activeEditor !== "embedded-id-frame"
   ) {
     return {
@@ -70,15 +70,25 @@ export function deriveMapLockedPlacementFromScreenPlacement({ placement, pageSna
     y: centerWorld.y + (placement.y - viewportCenter.y) / zoomScale,
     scale: placement.scale / zoomScale,
     rotationRad: placement.rotationRad,
-    coordinateSpace: "map-world",
+    coordinateSpace: PLACEMENT_COORDINATE_SPACE.mapWorld,
   };
 }
 
-function projectLatLonToWorld({ lat, lon }) {
+export function projectLatLonToWorld({ lat, lon }) {
   const sinLat = Math.sin((lat * Math.PI) / 180);
   const clampedSin = Math.min(0.9999, Math.max(-0.9999, sinLat));
   return {
     x: 256 * ((lon + 180) / 360),
     y: 256 * (0.5 - Math.log((1 + clampedSin) / (1 - clampedSin)) / (4 * Math.PI)),
+  };
+}
+
+export function projectWorldToLatLon({ x, y }) {
+  const lon = x / 256 * 360 - 180;
+  const n = Math.PI - 2 * Math.PI * y / 256;
+  const lat = 180 / Math.PI * Math.atan(0.5 * (Math.exp(n) - Math.exp(-n)));
+  return {
+    lat,
+    lon,
   };
 }

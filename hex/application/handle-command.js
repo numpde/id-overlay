@@ -18,6 +18,7 @@ import {
 } from "./history.js";
 import {
   commitPlacementEdit,
+  centerOverlayInView,
 } from "./placement-commands.js";
 import {
   assertSupportedDurableState,
@@ -66,6 +67,8 @@ export function handleApplicationCommand({ state, command }) {
       return toggleRegistrationPin(state, command, { inertResult });
     case APPLICATION_COMMAND_KIND.COMMIT_PLACEMENT_EDIT:
       return commitPlacementEdit(state, command, { inertResult });
+    case APPLICATION_COMMAND_KIND.CENTER_OVERLAY_IN_VIEW:
+      return centerOverlayInView(state, command, { inertResult });
     case APPLICATION_COMMAND_KIND.CLEAR_REGISTRATION_PINS:
       return clearRegistrationPins(state, { inertResult });
     case APPLICATION_COMMAND_KIND.CLEAR_STATUS_NOTICE:

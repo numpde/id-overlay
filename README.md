@@ -16,7 +16,7 @@ The normal workflow is:
 
 1. Open the OpenStreetMap iD editor.
 2. Paste a reference image.
-3. Use `Align` mode to move, scale, rotate, and pin the image to the map.
+3. Use `Align` mode to line the image up with the map.
 4. Switch to `Trace` mode.
 5. Trace in iD while the image follows the map.
 
@@ -28,9 +28,35 @@ There are two modes:
 
 ## Controls
 
+The panel floats over the editor. You can drag the panel by its title bar. The
+panel position is remembered, but if the panel would go off-screen it is
+temporarily kept inside the viewport.
+
+The main button is context-sensitive:
+
+- `Paste` starts image input. Click it, then press `Ctrl+V` or `Cmd+V`.
+- `Clear image` arms removal. Click it again while armed to remove the current
+  image, placement, and pins.
+
+The small icon buttons beside the main button are:
+
+| Button | Result |
+| --- | --- |
+| Center overlay in view | Moves and scales the overlay so it is centered in the current map viewport. This is undoable. |
+| Center map on overlay | Pans and zooms the map so the current overlay is centered. This changes the map view, not the overlay placement. |
+| Mode switch | Switches between `Trace` and `Align`. |
+| Undo / redo | Replays undoable overlay, image, pin, and fit changes. |
+
+The status line reports the latest important state or result. If the message is
+long and the panel is near the bottom of the screen, the panel slides upward so
+the whole panel stays reachable.
+
 ### Align Mode
 
-Use `Align` when the image needs to be positioned.
+Use `Align` when the image needs to be positioned or registered to the map.
+Plain map gestures keep working: dragging and wheel zooming move the map, and
+the overlay follows the map. Use modifiers when you want to edit only the
+overlay.
 
 | Control | Result |
 | --- | --- |
@@ -44,9 +70,13 @@ Use `Align` when the image needs to be positioned.
 | Double-click an existing pin | Remove that pin |
 | Switch to `Trace` | Fit the overlay from the current pins, when possible |
 
-Pins are correspondence points: one point on the image, one matching point on
-the map. After there are enough useful pins, switching to `Trace` computes a
-placement that stays tied to the map as you pan and zoom.
+Pins are correspondence points. A pin says: this point on the image belongs at
+this point on the map. After there are enough useful pins, switching to `Trace`
+computes a placement that stays tied to the map as you pan and zoom.
+
+You can also align manually without pins. A manually placed overlay is still
+map-locked in `Align` and `Trace` once it has been placed against a live map
+view.
 
 ### Trace Mode
 
@@ -61,6 +91,21 @@ Use `Trace` when you want to edit in iD.
 
 In `Trace`, the overlay should not block normal iD editing. The image stays
 registered to the map as the map moves.
+
+### Practical Workflow
+
+1. Open iD at the area you want to work on.
+2. Click `Paste`, then paste a screenshot from your clipboard.
+3. In `Align`, use plain drag/wheel to move the map until the area is visible.
+4. Use `Shift` + drag, `Shift` + wheel, and `Ctrl` + wheel to move, scale, and
+   rotate the overlay.
+5. If useful, double-click matching points to add pins. Switch to `Trace` to
+   compute a pinned fit.
+6. Use the center-overlay button when the image has drifted out of the visible
+   viewport.
+7. Use the center-map button when the overlay is placed correctly but the map
+   view should move back to it.
+8. In `Trace`, edit normally in iD. The overlay follows pan and zoom.
 
 ## Install in Chromium
 

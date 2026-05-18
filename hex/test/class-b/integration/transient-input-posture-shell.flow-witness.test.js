@@ -139,7 +139,10 @@ test("registration pin interaction fact projects to a durable visible pin", asyn
   assert.deepEqual(projections, [{
     kind: "registration-pin-toggle-requested",
   }]);
-  assert.deepEqual(host.latestRender.view.overlay.pins, [firstPin()]);
+  assert.deepEqual(host.latestRender.view.overlay.pins, [{
+    ...firstPin(),
+    label: "1",
+  }]);
   assert.deepEqual(storage.writes, [durableImageState({
     mode: "align",
     pins: [firstPin()],

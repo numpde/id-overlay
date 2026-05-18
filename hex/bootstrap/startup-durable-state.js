@@ -12,20 +12,17 @@ import {
   createInitialApplicationState,
 } from "../application/state.js";
 import {
+  APPLICATION_MODE,
+  APPLICATION_STATE_KEY,
+  PAGE_SNAPSHOT_KIND,
+  PLACEMENT_COORDINATE_SPACE,
+} from "./application-state-vocabulary.js";
+import {
   tryNormalizeDurablePlacementCoordinateSpace,
 } from "./map-locked-placement.js";
 
-const STATE_KEY = Object.freeze({
-  session: "session",
-  referenceImage: "referenceImage",
-  placement: "placement",
-  mode: "mode",
-});
-
-const MODE = Object.freeze({
-  align: "align",
-});
-
+const STATE_KEY = APPLICATION_STATE_KEY;
+const MODE = APPLICATION_MODE;
 const LEGACY_PLACEMENT_MIGRATION_METHOD = "reconcileLegacyPlacement";
 
 export async function readStartupDurableState({ host, reportHostError }) {
@@ -86,7 +83,7 @@ function hasStartupPlacementNormalizationCandidate(durableState) {
     current
       && current[STATE_KEY.mode] === MODE.align
       && placement
-      && placement.coordinateSpace !== "map-world",
+      && placement.coordinateSpace !== PLACEMENT_COORDINATE_SPACE.mapWorld,
   );
 }
 
@@ -99,7 +96,7 @@ function tryMigrateLegacyState({ host, durableState }) {
     };
   }
   const snapshot = host.pageSnapshotPort?.readSnapshot?.();
-  if (snapshot?.kind !== "supported-map-page") {
+  if (snapshot?.kind !== PAGE_SNAPSHOT_KIND.supportedMapPage) {
     return {
       status: "recovered",
       durableState: withoutKey(durableState, [STATE_KEY.session, STATE_KEY.placement]),

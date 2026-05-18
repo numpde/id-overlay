@@ -1,51 +1,77 @@
-export function createKeyboardAdapter({ document, emitInteractionFact }) {
+export function createKeyboardAdapter({
+  document,
+  ownerWindow = document.defaultView,
+  emitInteractionFact,
+}) {
+  let bound = false;
+  const blurTarget = ownerWindow ?? document;
+
   return {
     bindInput() {
-      document.addEventListener("keydown", (event) => {
-        if (isEditableTarget(event.target)) {
-          return;
-        }
-        if (isSpaceKey(event)) {
-          event.preventDefault();
-          emitInteractionFact({
-            kind: "temporary-native-map-access-started",
-          });
-          return;
-        }
-        if (isEscapeKey(event)) {
-          event.preventDefault();
-          emitInteractionFact({
-            kind: "trace-mode-requested",
-          });
-          return;
-        }
-        if (!isPinToggleKey(event)) {
-          return;
-        }
-        event.preventDefault();
-        emitInteractionFact({
-          kind: "registration-pin-toggle-requested",
-        });
-      });
-      document.addEventListener("keyup", (event) => {
-        if (isEditableTarget(event.target)) {
-          return;
-        }
-        if (!isSpaceKey(event)) {
-          return;
-        }
-        event.preventDefault();
-        emitInteractionFact({
-          kind: "temporary-native-map-access-ended",
-        });
-      });
-      document.addEventListener("blur", () => {
-        emitInteractionFact({
-          kind: "interaction-reset-requested",
-        });
-      });
+      if (bound) {
+        return;
+      }
+      bound = true;
+      document.addEventListener("keydown", handleKeyDown);
+      document.addEventListener("keyup", handleKeyUp);
+      blurTarget.addEventListener("blur", handleBlur);
+    },
+    destroy() {
+      if (!bound) {
+        return;
+      }
+      bound = false;
+      document.removeEventListener("keydown", handleKeyDown);
+      document.removeEventListener("keyup", handleKeyUp);
+      blurTarget.removeEventListener("blur", handleBlur);
     },
   };
+
+  function handleKeyDown(event) {
+    if (isEditableTarget(event.target)) {
+      return;
+    }
+    if (isSpaceKey(event)) {
+      event.preventDefault();
+      emitInteractionFact({
+        kind: "temporary-native-map-access-started",
+      });
+      return;
+    }
+    if (isEscapeKey(event)) {
+      event.preventDefault();
+      emitInteractionFact({
+        kind: "trace-mode-requested",
+      });
+      return;
+    }
+    if (!isPinToggleKey(event)) {
+      return;
+    }
+    event.preventDefault();
+    emitInteractionFact({
+      kind: "registration-pin-toggle-requested",
+    });
+  }
+
+  function handleKeyUp(event) {
+    if (isEditableTarget(event.target)) {
+      return;
+    }
+    if (!isSpaceKey(event)) {
+      return;
+    }
+    event.preventDefault();
+    emitInteractionFact({
+      kind: "temporary-native-map-access-ended",
+    });
+  }
+
+  function handleBlur() {
+    emitInteractionFact({
+      kind: "interaction-reset-requested",
+    });
+  }
 }
 
 function isSpaceKey(event) {

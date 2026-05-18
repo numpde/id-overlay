@@ -1,0 +1,100 @@
+Interaction Ownership Rendering
+================================
+
+Principle
+---------
+
+Preserve browser interaction ownership.
+
+A browser interaction is attached to concrete DOM identity: the pointer target,
+focused input, active drag handle, wheel target, or text/range control currently
+being manipulated. Normal application refreshes must not replace that node while
+the interaction is still meaningful. Rebuilds are allowed when product state
+removes the affordance or changes its interaction contract; ordinary value
+updates must patch existing nodes.
+
+Fact Roles
+----------
+
+Renderers should classify view facts by role before deciding whether to rebuild.
+
+Structural facts change DOM shape, listener ownership, or command vocabulary.
+Examples:
+
+- whether a control exists
+- a command identity used directly by a bound listener
+- an icon/control role
+- range min/max/step if it changes the input contract
+- overlay image element kind and pin identity sets
+- overlay input posture when it changes whether input listeners are bound
+
+Mutable facts update existing DOM nodes in place.
+Examples:
+
+- range values
+- visible text and titles
+- disabled/pressed/selected flags when listeners remain valid
+- style values such as opacity, transform, position, surface motion, and status
+  copy
+- aria labels that describe the current value
+- action labels, enabled states, and data attributes when the listener emits a
+  stable generic command and the application chooses the semantic action
+
+Transient facts belong to the interaction boundary, not durable product state.
+Examples:
+
+- active pointer sequence
+- drag threshold state
+- temporary local preview during a gesture
+- focus/pointer capture continuity
+
+Renderer Discipline
+-------------------
+
+Renderers should be shaped as:
+
+1. Calculate a structural signature from structural facts only.
+2. If the signature changed, rebuild the owned subtree and bind listeners.
+3. Always patch mutable facts onto the current subtree.
+4. If a mutable patch can alter layout, run the same post-layout correction used
+   after rebuild, but without replacing the interaction target.
+
+High-churn facts must not enter structural signatures. A value that can change
+many times during one gesture is almost certainly mutable. Opacity slider value
+is the canonical example: committing every `input` event is fine, but the
+resulting app render must patch the same range input rather than replace it.
+
+Classify by listener contract, not by field name. For example, the primary
+panel button emits `activate-primary-action`; its visible action kind can change
+from `arm-clear-reference-image` to `confirm-clear-reference-image` without
+rebinding the click listener. Center-map actions emit their concrete action kind
+directly, so their kind is structural for that control.
+
+Testing Discipline
+------------------
+
+Witnesses should assert node identity for active surfaces, not just final
+visual output. The useful pattern is:
+
+1. Render the UI.
+2. Keep a reference to the active DOM node.
+3. Render again with one mutable fact changed.
+4. Assert the same node remains present and its visible value changed.
+
+This should cover:
+
+- opacity slider value changes
+- status text changes near the panel controls
+- overlay projection/surface-motion changes
+- active native-map pan forwarding while overlay geometry refreshes
+- panel position changes while the panel is being dragged
+
+When To Commit Later
+--------------------
+
+Delayed commit is a separate product choice, not the default rendering fix.
+
+Use live commits when feedback should be immediate and cheap, such as opacity.
+Use draft-local state and commit on release when the operation is expensive,
+irreversible until accepted, or semantically tentative. In either case, the DOM
+node under active browser ownership should remain stable during the interaction.

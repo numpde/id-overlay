@@ -86,6 +86,34 @@ test("extension UI host does not mutate document-level style state", () => {
   ]);
 });
 
+// Class-b: the host render boundary receives a complete application view. It
+// must not repair a missing overlay input posture because doing so can turn a
+// pass-through overlay into an editable one.
+test("extension UI host requires explicit overlay input view facts", () => {
+  const trace = createExtensionUiHostTrace("extension UI host requires explicit overlay input view facts");
+  const { window } = new JSDOM("<!doctype html><body></body>");
+  const uiHost = createExtensionUiHost({
+    document: window.document,
+  });
+  const root = uiHost.mountOwnedRoot("id-overlay");
+  const incompleteView = createMinimalViewModel();
+  delete incompleteView.overlayInput;
+
+  assert.throws(
+    () => uiHost.renderApplicationView({
+      root,
+      view: incompleteView,
+      dispatchCommand() {},
+      dispatchInteractionFact() {},
+    }),
+    /view\.overlayInput is required/u,
+  );
+  trace.edge(flowEdge("source.application-view", "sink.adapter-contract", {
+    phase: "missing-overlay-input",
+    terminal: "contract-error",
+  }));
+});
+
 // Class-b, deliberately not class-a: exact focus restoration may change if the
 // UI host gains active onboarding. The stable adapter boundary is passive
 // mounting: injecting extension chrome must not steal focus from the map editor.
@@ -467,6 +495,124 @@ test("extension UI host keeps panel visible on resize without rewriting panel ch
   ]);
 });
 
+// Class-b: status text is live UI content, not stored panel chrome. If a long
+// status makes a bottom-placed panel taller, the rendered wrapper should slide
+// upward just enough to remain reachable while preserving the user's preferred
+// chrome position.
+test("extension UI host smoothly reclamps bottom panel when status text grows", () => {
+  const trace = createExtensionUiHostTrace("extension UI host smoothly reclamps bottom panel when status text grows");
+  const { window } = new JSDOM("<!doctype html><body></body>");
+  const panelChromeChanges = [];
+  const uiHost = createExtensionUiHost({
+    document: window.document,
+  });
+  const root = trace.withSource("source.extension-ui-host.mount", () => {
+    const mountedRoot = uiHost.mountOwnedRoot("id-overlay");
+    trace.edge(flowEdge("source.extension-ui-host.mount", "sink.extension-ui-root", {
+      terminal: "shell-resource",
+    }));
+    return mountedRoot;
+  });
+  Object.defineProperty(window, "innerWidth", {
+    configurable: true,
+    value: 800,
+  });
+  Object.defineProperty(window, "innerHeight", {
+    configurable: true,
+    value: 600,
+  });
+  root.panel.getBoundingClientRect = () => {
+    const top = Number.parseFloat(root.panel.style.top) || 0;
+    const height = root.panel.textContent.includes("Click Clear image? again")
+      ? 220
+      : 80;
+    return {
+      left: Number.parseFloat(root.panel.style.left) || 0,
+      top,
+      width: 280,
+      height,
+      right: (Number.parseFloat(root.panel.style.left) || 0) + 280,
+      bottom: top + height,
+      x: Number.parseFloat(root.panel.style.left) || 0,
+      y: top,
+      toJSON() {
+        return this;
+      },
+    };
+  };
+
+  trace.withSource("source.extension-ui-host.render", () => {
+    uiHost.renderApplicationView({
+      root,
+      panelChrome: {
+        position: {
+          screenPx: {
+            x: 500,
+            y: 500,
+          },
+        },
+      },
+      view: createMinimalViewModel({
+        status: "Loaded screenshot 640x480.",
+      }),
+      dispatchCommand() {},
+      dispatchPanelChromeChange(change) {
+        panelChromeChanges.push(change);
+      },
+    });
+    trace.edge(flowEdge("source.extension-ui-host.render", "sink.panel-dom", {
+      phase: "short-status",
+      terminal: "render-result",
+    }));
+  });
+  assert.equal(root.panel.style.left, "500px");
+  assert.equal(root.panel.style.top, "500px");
+  assert.equal(root.panel.dataset.idOverlayPanelMotion, "direct");
+
+  trace.withSource("source.extension-ui-host.render", () => {
+    uiHost.renderApplicationView({
+      root,
+      panelChrome: {
+        position: {
+          screenPx: {
+            x: 500,
+            y: 500,
+          },
+        },
+      },
+      view: createMinimalViewModel({
+        status: "Click Clear image? again to remove the current screenshot, placement, and pins.",
+      }),
+      dispatchCommand() {},
+      dispatchPanelChromeChange(change) {
+        panelChromeChanges.push(change);
+      },
+    });
+    trace.edge(flowEdge("source.extension-ui-host.render", "sink.panel-dom", {
+      phase: "long-status",
+      terminal: "render-result",
+    }));
+  });
+
+  assert.equal(root.panel.style.left, "500px");
+  assert.equal(root.panel.style.top, "380px");
+  assert.equal(root.panel.dataset.idOverlayPanelMotion, "smooth");
+  assert.deepEqual(panelChromeChanges, []);
+  assert.deepEqual(trace.edges, [
+    flowEdge("source.extension-ui-host.mount", "sink.extension-ui-root", {
+      terminal: "shell-resource",
+    }),
+    flowEdge("source.extension-ui-host.render", "sink.panel-dom", {
+      phase: "short-status",
+      terminal: "render-result",
+    }),
+    flowEdge("source.extension-ui-host.render", "sink.panel-dom", {
+      phase: "long-status",
+      terminal: "render-result",
+    }),
+  ]);
+});
+
 // Class-b: resize re-normalization is a browser resource owned by the mounted
 // UI host. Disposing the owned root must release that listener with the rest of
 // the host chrome.
@@ -558,6 +704,10 @@ test("extension UI host ships panel chrome styles", () => {
   assert.match(css, /\.id-overlay-panel__controls-row\s*\{/);
   assert.match(css, /\.id-overlay-mode-switch\s*\{/);
   assert.match(css, /\.id-overlay-field__slider\s*\{/);
+  assert.ok(
+    css.indexOf(".id-overlay-button--confirm:hover:not(:disabled)") >
+      css.indexOf(".id-overlay-button--primary:hover:not(:disabled)"),
+  );
   assert.deepEqual(trace.edges, [
     flowEdge("source.extension-ui-host.mount", "sink.extension-ui-root", {
       terminal: "shell-resource",
@@ -660,6 +810,280 @@ test("extension UI host preserves panel controls across overlay-only refresh", (
   ]);
 });
 
+// Class-b: slider value changes are high-churn mutable panel facts. The host
+// must patch the existing opacity input instead of replacing it, otherwise a
+// browser drag loses its active target while the user is still moving the thumb.
+test("extension UI host patches opacity value without replacing the slider", () => {
+  const trace = createExtensionUiHostTrace("extension UI host patches opacity value without replacing the slider");
+  const { window } = new JSDOM("<!doctype html><body></body>");
+  const uiHost = createExtensionUiHost({
+    document: window.document,
+  });
+  const root = trace.withSource("source.extension-ui-host.mount", () => {
+    const mountedRoot = uiHost.mountOwnedRoot("id-overlay");
+    trace.edge(flowEdge("source.extension-ui-host.mount", "sink.extension-ui-root", {
+      terminal: "shell-resource",
+    }));
+    return mountedRoot;
+  });
+  const firstView = createMinimalViewModel({
+    opacityControl: {
+      value: 0.6,
+      min: 0,
+      max: 1,
+      step: 0.01,
+      enabled: true,
+    },
+  });
+
+  trace.withSource("source.extension-ui-host.render", () => {
+    uiHost.renderApplicationView({
+      root,
+      view: firstView,
+      dispatchCommand() {},
+      dispatchInteractionFact() {},
+    });
+    trace.edge(flowEdge("source.extension-ui-host.render", "sink.panel-dom", {
+      phase: "initial-opacity",
+      terminal: "render-result",
+    }));
+  });
+  const opacity = root.panel.querySelector("[data-control='opacity']");
+  assert.ok(opacity, "opacity control must render");
+
+  trace.withSource("source.panel.opacity-rerender", () => {
+    uiHost.renderApplicationView({
+      root,
+      view: {
+        ...firstView,
+        opacityControl: {
+          ...firstView.opacityControl,
+          value: 0.25,
+        },
+      },
+      dispatchCommand() {},
+      dispatchInteractionFact() {},
+    });
+    trace.edge(flowEdge("source.panel.opacity-rerender", "sink.panel-dom", {
+      phase: "opacity-value-patch",
+      terminal: "render-result",
+    }));
+  });
+
+  assert.equal(root.panel.querySelector("[data-control='opacity']"), opacity);
+  assert.equal(opacity.value, "0.25");
+  assert.deepEqual(trace.edges, [
+    flowEdge("source.extension-ui-host.mount", "sink.extension-ui-root", {
+      terminal: "shell-resource",
+    }),
+    flowEdge("source.extension-ui-host.render", "sink.panel-dom", {
+      phase: "initial-opacity",
+      terminal: "render-result",
+    }),
+    flowEdge("source.panel.opacity-rerender", "sink.panel-dom", {
+      phase: "opacity-value-patch",
+      terminal: "render-result",
+    }),
+  ]);
+});
+
+// Class-b: button labels, enabled flags, tooltips, and confirmation styling are
+// mutable panel affordance facts when the control identity and command boundary
+// stay the same. Refreshing them must not replace neighboring active controls.
+test("extension UI host patches panel action affordances without replacing controls", () => {
+  const trace = createExtensionUiHostTrace("extension UI host patches panel action affordances without replacing controls");
+  const { window } = new JSDOM("<!doctype html><body></body>");
+  const uiHost = createExtensionUiHost({
+    document: window.document,
+  });
+  const root = trace.withSource("source.extension-ui-host.mount", () => {
+    const mountedRoot = uiHost.mountOwnedRoot("id-overlay");
+    trace.edge(flowEdge("source.extension-ui-host.mount", "sink.extension-ui-root", {
+      terminal: "shell-resource",
+    }));
+    return mountedRoot;
+  });
+  const firstView = createMinimalViewModel({
+    primaryAction: {
+      kind: "arm-clear-reference-image",
+      label: "Clear image",
+      enabled: true,
+      tone: "normal",
+      confirmation: "none",
+    },
+    centerOverlayInViewAction: {
+      kind: "center-overlay-in-view",
+      label: "Center overlay in view",
+      enabled: false,
+      icon: "center-overlay",
+    },
+    history: {
+      undo: {
+        enabled: false,
+        label: null,
+      },
+      redo: {
+        enabled: false,
+        label: null,
+      },
+    },
+  });
+
+  trace.withSource("source.extension-ui-host.render", () => {
+    uiHost.renderApplicationView({
+      root,
+      view: firstView,
+      dispatchCommand() {},
+      dispatchInteractionFact() {},
+    });
+    trace.edge(flowEdge("source.extension-ui-host.render", "sink.panel-dom", {
+      phase: "initial-actions",
+      terminal: "render-result",
+    }));
+  });
+  const primary = root.panel.querySelector("[data-control='primary']");
+  const centerOverlay = root.panel.querySelector("[data-control='center-overlay']");
+  const undo = root.panel.querySelector("[data-control='undo']");
+  assert.ok(primary, "primary action must render");
+  assert.ok(centerOverlay, "center overlay action must render");
+  assert.ok(undo, "undo action must render");
+
+  trace.withSource("source.panel.action-rerender", () => {
+    uiHost.renderApplicationView({
+      root,
+      view: {
+        ...firstView,
+        primaryAction: {
+          kind: "confirm-clear-reference-image",
+          label: "Clear image?",
+          enabled: true,
+          tone: "danger",
+          confirmation: "armed",
+        },
+        centerOverlayInViewAction: {
+          ...firstView.centerOverlayInViewAction,
+          enabled: true,
+        },
+        history: {
+          ...firstView.history,
+          undo: {
+            enabled: true,
+            label: "Move overlay",
+          },
+        },
+      },
+      dispatchCommand() {},
+      dispatchInteractionFact() {},
+    });
+    trace.edge(flowEdge("source.panel.action-rerender", "sink.panel-dom", {
+      phase: "affordance-patch",
+      terminal: "render-result",
+    }));
+  });
+
+  assert.equal(root.panel.querySelector("[data-control='primary']"), primary);
+  assert.equal(root.panel.querySelector("[data-control='center-overlay']"), centerOverlay);
+  assert.equal(root.panel.querySelector("[data-control='undo']"), undo);
+  assert.equal(primary.textContent, "Clear image?");
+  assert.equal(primary.dataset.actionKind, "confirm-clear-reference-image");
+  assert.equal(primary.dataset.tone, "danger");
+  assert.equal(primary.dataset.confirmation, "armed");
+  assert.equal(primary.classList.contains("id-overlay-button--confirm"), true);
+  assert.equal(centerOverlay.disabled, false);
+  assert.equal(centerOverlay.title, "Center overlay in view");
+  assert.equal(undo.disabled, false);
+  assert.equal(undo.title, "Move overlay");
+  assert.equal(undo.getAttribute("aria-label"), "Move overlay");
+  assert.deepEqual(trace.edges, [
+    flowEdge("source.extension-ui-host.mount", "sink.extension-ui-root", {
+      terminal: "shell-resource",
+    }),
+    flowEdge("source.extension-ui-host.render", "sink.panel-dom", {
+      phase: "initial-actions",
+      terminal: "render-result",
+    }),
+    flowEdge("source.panel.action-rerender", "sink.panel-dom", {
+      phase: "affordance-patch",
+      terminal: "render-result",
+    }),
+  ]);
+});
+
+// Class-b: status copy is mutable panel content. Updating it must not replace
+// active controls next to it, but it still has to refresh both visible status
+// surfaces so bottom-panel reclamping can respond to the new content height.
+test("extension UI host patches status copy without replacing panel controls", () => {
+  const trace = createExtensionUiHostTrace("extension UI host patches status copy without replacing panel controls");
+  const { window } = new JSDOM("<!doctype html><body></body>");
+  const uiHost = createExtensionUiHost({
+    document: window.document,
+  });
+  const root = trace.withSource("source.extension-ui-host.mount", () => {
+    const mountedRoot = uiHost.mountOwnedRoot("id-overlay");
+    trace.edge(flowEdge("source.extension-ui-host.mount", "sink.extension-ui-root", {
+      terminal: "shell-resource",
+    }));
+    return mountedRoot;
+  });
+  const firstView = createMinimalViewModel({
+    status: "Loaded screenshot 640x480.",
+  });
+
+  trace.withSource("source.extension-ui-host.render", () => {
+    uiHost.renderApplicationView({
+      root,
+      view: firstView,
+      dispatchCommand() {},
+      dispatchInteractionFact() {},
+    });
+    trace.edge(flowEdge("source.extension-ui-host.render", "sink.panel-dom", {
+      phase: "initial-status",
+      terminal: "render-result",
+    }));
+  });
+  const opacity = root.panel.querySelector("[data-control='opacity']");
+  const status = root.panel.querySelector("[data-region='status']");
+  const statusDetail = root.panel.querySelector(".id-overlay-panel__status-detail-surface");
+  assert.ok(opacity, "opacity control must render");
+  assert.ok(status, "status must render");
+  assert.ok(statusDetail, "status detail must render");
+
+  trace.withSource("source.panel.status-rerender", () => {
+    uiHost.renderApplicationView({
+      root,
+      view: {
+        ...firstView,
+        status: "Click Clear image? again to remove the current screenshot, placement, and pins.",
+      },
+      dispatchCommand() {},
+      dispatchInteractionFact() {},
+    });
+    trace.edge(flowEdge("source.panel.status-rerender", "sink.panel-dom", {
+      phase: "status-text-patch",
+      terminal: "render-result",
+    }));
+  });
+
+  assert.equal(root.panel.querySelector("[data-control='opacity']"), opacity);
+  assert.equal(root.panel.querySelector("[data-region='status']"), status);
+  assert.equal(root.panel.querySelector(".id-overlay-panel__status-detail-surface"), statusDetail);
+  assert.equal(status.textContent, "Click Clear image? again to remove the current screenshot, placement, and pins.");
+  assert.equal(statusDetail.textContent, "Click Clear image? again to remove the current screenshot, placement, and pins.");
+  assert.deepEqual(trace.edges, [
+    flowEdge("source.extension-ui-host.mount", "sink.extension-ui-root", {
+      terminal: "shell-resource",
+    }),
+    flowEdge("source.extension-ui-host.render", "sink.panel-dom", {
+      phase: "initial-status",
+      terminal: "render-result",
+    }),
+    flowEdge("source.panel.status-rerender", "sink.panel-dom", {
+      phase: "status-text-patch",
+      terminal: "render-result",
+    }),
+  ]);
+});
+
 // Class-b: live map surface motion is high-churn page data. Refreshing that
 // fact must patch the existing map layer instead of rebuilding the whole
 // overlay subtree and risking flicker, stale nodes, or input teardown.
@@ -735,6 +1159,212 @@ test("extension UI host patches surface motion without replacing overlay DOM", (
   ]);
 });
 
+// Class-b: Align-mode plain drag is a live native-map gesture. The map editor
+// can report a new page snapshot after the first forwarded move, so the UI host
+// must patch projected overlay geometry without tearing down the active input
+// sequence.
+test("extension UI host preserves active native-map pan across projected overlay refresh", () => {
+  const testName = "extension UI host preserves active native-map pan across projected overlay refresh";
+  const trace = createExtensionUiHostTrace(testName);
+  const { window } = new JSDOM("<!doctype html><body></body>");
+  const interactionFacts = [];
+  const interactionFactCounts = new Map();
+  const uiHost = createExtensionUiHost({
+    document: window.document,
+  });
+  const root = trace.withSource("source.extension-ui-host.mount", () => {
+    const mountedRoot = uiHost.mountOwnedRoot("id-overlay");
+    trace.edge(flowEdge("source.extension-ui-host.mount", "sink.extension-ui-root", {
+      terminal: "shell-resource",
+    }));
+    return mountedRoot;
+  });
+  const firstView = createMinimalViewModel({
+    overlayInput: {
+      kind: "overlay-editing",
+      canEditOverlay: true,
+      arePinsVisible: true,
+    },
+    overlay: projectedOverlay({
+      imageLeft: 110,
+      imageTop: 80,
+      mapTranslateX: 0,
+      mapTranslateY: 0,
+    }),
+  });
+
+  trace.withSource("source.extension-ui-host.render", () => {
+    uiHost.renderApplicationView({
+      root,
+      view: firstView,
+      dispatchCommand() {},
+      dispatchInteractionFact(fact) {
+        recordNativePanFact({
+          fact,
+          interactionFacts,
+          interactionFactCounts,
+          trace,
+        });
+      },
+    });
+    trace.edge(flowEdge("source.extension-ui-host.render", "sink.overlay-dom", {
+      terminal: "render-result",
+    }));
+  });
+
+  const overlayRoot = root.overlay.firstElementChild;
+  const image = root.overlay.querySelector("[data-overlay-image]");
+  assert.ok(overlayRoot, "initial overlay root must render");
+  assert.ok(image, "projected overlay image must render");
+
+  trace.withSource("source.overlay.native-pan", () => {
+    image.dispatchEvent(new window.MouseEvent("pointerdown", {
+      bubbles: true,
+      cancelable: true,
+      button: 0,
+      clientX: 220,
+      clientY: 180,
+    }));
+    window.dispatchEvent(new window.MouseEvent("pointermove", {
+      bubbles: true,
+      cancelable: true,
+      button: 0,
+      clientX: 232,
+      clientY: 184,
+    }));
+  });
+
+  trace.withSource("source.page-projection-refresh", () => {
+    uiHost.renderApplicationView({
+      root,
+      view: {
+        ...firstView,
+        overlay: projectedOverlay({
+          imageLeft: 118,
+          imageTop: 83,
+          mapTranslateX: 8,
+          mapTranslateY: 3,
+        }),
+      },
+      dispatchCommand() {},
+      dispatchInteractionFact(fact) {
+        recordNativePanFact({
+          fact,
+          interactionFacts,
+          interactionFactCounts,
+          trace,
+        });
+      },
+    });
+    trace.edge(flowEdge("source.page-projection-refresh", "sink.overlay-dom", {
+      phase: "projection-patch",
+      terminal: "render-result",
+    }));
+  });
+
+  assert.equal(root.overlay.firstElementChild, overlayRoot);
+  assert.equal(root.overlay.querySelector("[data-overlay-image]"), image);
+  assert.equal(image.style.left, "118px");
+  assert.equal(image.style.top, "83px");
+
+  trace.withSource("source.overlay.native-pan", () => {
+    window.dispatchEvent(new window.MouseEvent("pointermove", {
+      bubbles: true,
+      cancelable: true,
+      button: 0,
+      clientX: 258,
+      clientY: 196,
+    }));
+    window.dispatchEvent(new window.MouseEvent("pointerup", {
+      bubbles: true,
+      cancelable: true,
+      button: 0,
+      clientX: 258,
+      clientY: 196,
+    }));
+  });
+
+  assert.deepEqual(interactionFacts, [
+    {
+      kind: "native-map-gesture-requested",
+      gestureKind: "pan",
+      phase: "start",
+      screenPx: {
+        x: 220,
+        y: 180,
+      },
+    },
+    {
+      kind: "native-map-gesture-requested",
+      gestureKind: "pan",
+      phase: "move",
+      screenPx: {
+        x: 232,
+        y: 184,
+      },
+    },
+    {
+      kind: "native-map-gesture-requested",
+      gestureKind: "pan",
+      phase: "move",
+      screenPx: {
+        x: 258,
+        y: 196,
+      },
+    },
+    {
+      kind: "native-map-gesture-requested",
+      gestureKind: "pan",
+      phase: "end",
+      screenPx: {
+        x: 258,
+        y: 196,
+      },
+    },
+  ]);
+  assert.deepEqual(trace.edges, [
+    flowEdge("source.extension-ui-host.mount", "sink.extension-ui-root", {
+      terminal: "shell-resource",
+    }),
+    flowEdge("source.extension-ui-host.render", "sink.overlay-dom", {
+      terminal: "render-result",
+    }),
+    flowEdge("source.overlay.native-pan", "callback.interaction-fact.start", {
+      provider: "extension-ui-host",
+    }),
+    flowEdge("callback.interaction-fact.start", "sink.interaction-fact", {
+      phase: "start",
+      terminal: "interaction-fact",
+    }),
+    flowEdge("source.overlay.native-pan", "callback.interaction-fact.move", {
+      provider: "extension-ui-host",
+    }),
+    flowEdge("callback.interaction-fact.move", "sink.interaction-fact", {
+      phase: "move",
+      terminal: "interaction-fact",
+    }),
+    flowEdge("source.page-projection-refresh", "sink.overlay-dom", {
+      phase: "projection-patch",
+      terminal: "render-result",
+    }),
+    flowEdge("source.overlay.native-pan", "callback.interaction-fact.move-2", {
+      provider: "extension-ui-host",
+      phase: "move-2",
+    }),
+    flowEdge("callback.interaction-fact.move-2", "sink.interaction-fact", {
+      phase: "move-2",
+      terminal: "interaction-fact",
+    }),
+    flowEdge("source.overlay.native-pan", "callback.interaction-fact.end", {
+      provider: "extension-ui-host",
+    }),
+    flowEdge("callback.interaction-fact.end", "sink.interaction-fact", {
+      phase: "end",
+      terminal: "interaction-fact",
+    }),
+  ]);
+});
+
 // Class-b: rendered overlay input must not stop at DOM paint. The UI host has
 // to bind the overlay adapter input surface to the interaction boundary so a
 // real browser gesture can cross inward as a semantic interaction fact.
@@ -762,6 +1392,11 @@ test("extension UI host routes rendered overlay wheel gestures to interaction fa
     uiHost.renderApplicationView({
       root,
       view: createMinimalViewModel({
+        overlayInput: {
+          kind: "overlay-editing",
+          canEditOverlay: true,
+          arePinsVisible: true,
+        },
         overlay: {
           visible: true,
           imageDataRef: "data:image/png;base64,b3ZlcmxheS1pbnB1dA==",
@@ -1003,6 +1638,11 @@ test("extension UI host routes overlay input through the shell interaction contr
     uiHost.renderApplicationView({
       root,
       view: createMinimalViewModel({
+        overlayInput: {
+          kind: "overlay-editing",
+          canEditOverlay: true,
+          arePinsVisible: true,
+        },
         overlay: {
           visible: true,
           imageDataRef: "data:image/png;base64,b3ZlcmxheS1pbnB1dA==",
@@ -1250,6 +1890,29 @@ function flowAttrs({
   return attributes;
 }
 
+function recordNativePanFact({
+  fact,
+  interactionFacts,
+  interactionFactCounts,
+  trace,
+}) {
+  interactionFacts.push(fact);
+  const count = (interactionFactCounts.get(fact.phase) ?? 0) + 1;
+  interactionFactCounts.set(fact.phase, count);
+  const evidencePhase = count === 1 ? fact.phase : `${fact.phase}-${count}`;
+  const callbackNode = `callback.interaction-fact.${evidencePhase}`;
+  trace.edge(flowEdge(trace.activeSource() ?? "source.overlay.native-pan", callbackNode, {
+    provider: "extension-ui-host",
+    ...(count === 1 ? {} : {
+      phase: evidencePhase,
+    }),
+  }));
+  trace.edge(flowEdge(callbackNode, "sink.interaction-fact", {
+    phase: evidencePhase,
+    terminal: "interaction-fact",
+  }));
+}
+
 function collectHostFacadeViolations(source) {
   const violations = [];
   for (const { label, pattern } of [
@@ -1357,11 +2020,33 @@ function createMinimalViewModel(overrides = {}) {
       label: "Paste",
       enabled: true,
     },
+    centerOverlayInViewAction: {
+      kind: "center-overlay-in-view",
+      label: "Center overlay in view",
+      enabled: false,
+      icon: "center-overlay",
+    },
+    centerMapOnOverlayAction: {
+      kind: "center-map-on-overlay",
+      label: "Center map on overlay",
+      enabled: false,
+      icon: "center-map",
+    },
     modeSwitch: {
       selected: "trace",
       align: {
         enabled: false,
       },
+      trace: {
+        enabled: false,
+      },
+    },
+    opacityControl: {
+      value: 1,
+      min: 0,
+      max: 1,
+      step: 0.01,
+      enabled: false,
     },
     history: {
       undo: {
@@ -1376,6 +2061,11 @@ function createMinimalViewModel(overrides = {}) {
     status: "",
     overlay: {
       visible: false,
+    },
+    overlayInput: {
+      kind: "native-map",
+      canEditOverlay: false,
+      arePinsVisible: false,
     },
     ...overrides,
   };
@@ -1394,4 +2084,45 @@ function visibleOverlay(overrides = {}) {
     pins: [],
     ...overrides,
   };
+}
+
+function projectedOverlay({
+  imageLeft,
+  imageTop,
+  mapTranslateX,
+  mapTranslateY,
+}) {
+  return visibleOverlay({
+    viewport: {
+      mode: "align",
+      isPassThrough: false,
+      rect: {
+        left: 0,
+        top: 55,
+        width: 1024,
+        height: 713,
+      },
+    },
+    mapLayer: {
+      transformCss: `matrix(1, 0, 0, 1, ${mapTranslateX}, ${mapTranslateY})`,
+      transformOriginCss: "0px 0px",
+    },
+    image: {
+      src: "blob:https://www.openstreetmap.org/reference-image",
+      left: imageLeft,
+      top: imageTop,
+      width: 320,
+      height: 240,
+      rotationDeg: 0,
+      opacity: 0.72,
+    },
+    frame: {
+      left: imageLeft,
+      top: imageTop,
+      width: 320,
+      height: 240,
+      rotationDeg: 0,
+      ownsPointerHitTesting: true,
+    },
+  });
 }

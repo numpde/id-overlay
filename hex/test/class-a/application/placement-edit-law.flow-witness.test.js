@@ -241,6 +241,171 @@ test("manual placement edits invalidate solved placement metadata", () => {
   assert.deepEqual(trace.edges, placementEditEdges());
 });
 
+// Class-a: centering the overlay in the current view is a product placement
+// edit once the shell supplies a concrete placement. It must be durable,
+// undoable, and clear stale solved-registration metadata just like direct hand
+// placement.
+test("center overlay in view commits supplied placement durably and undoably", () => {
+  const trace = createFlowTrace({
+    file: import.meta.url,
+    test: "center overlay in view commits supplied placement durably and undoably",
+  });
+  const command = createApplicationCommand(
+    APPLICATION_COMMAND_KIND.CENTER_OVERLAY_IN_VIEW,
+    {
+      placement: scaledPlacement(),
+    },
+  );
+  const result = handleApplicationCommand({
+    state: referenceImageLoadedState({
+      placement: solvedPlacement(),
+      pins: [firstPin(), secondPin()],
+      solvedPlacement: solvedPlacement(),
+    }),
+    command,
+  });
+  traceApplicationResult({ trace, command, result });
+
+  assert.deepEqual(result, {
+    state: {
+      session: {
+        ...normalizedReferenceImageSession(),
+        placement: scaledPlacement(),
+        registration: {
+          pins: [firstPin(), secondPin()],
+        },
+      },
+      history: {
+        past: [placementHistoryRecord({
+          editKind: "center-overlay",
+          before: placementRevision({
+            placement: solvedPlacement(),
+            solvedRegistration: {
+              pinIds: [1, 2],
+              placement: solvedPlacement(),
+            },
+          }),
+          after: placementRevision({
+            placement: scaledPlacement(),
+            solvedRegistration: null,
+          }),
+        })],
+        future: [],
+      },
+      notice: {
+        kind: "placement-changed",
+        editKind: "center-overlay",
+      },
+    },
+    effects: [
+      persistDurableStateEffect({
+        session: result.state.session,
+      }),
+    ],
+  });
+  assert.deepEqual(trace.edges, durableCommandEdges("command.center-overlay-in-view"));
+});
+
+// Class-a: the icon button expresses user intent, but the application only
+// commits a fit when the shell has supplied a concrete placement. Without a
+// loaded image or without measurement, the command is intentionally inert.
+test("center overlay in view is inert without image or measured placement", () => {
+  const trace = createFlowTrace({
+    file: import.meta.url,
+    test: "center overlay in view is inert without image or measured placement",
+  });
+  for (const { phase, state, command } of [
+    {
+      phase: "no-image",
+      state: {},
+      command: createApplicationCommand(
+        APPLICATION_COMMAND_KIND.CENTER_OVERLAY_IN_VIEW,
+        {
+          placement: scaledPlacement(),
+        },
+      ),
+    },
+    {
+      phase: "no-placement",
+      state: referenceImageLoadedState(),
+      command: createApplicationCommand(APPLICATION_COMMAND_KIND.CENTER_OVERLAY_IN_VIEW),
+    },
+    {
+      phase: "trace-map-locked-placement",
+      state: referenceImageLoadedState({
+        mode: "trace",
+        placement: mapLockedPlacement(),
+      }),
+      command: createApplicationCommand(
+        APPLICATION_COMMAND_KIND.CENTER_OVERLAY_IN_VIEW,
+        {
+          placement: scaledPlacement(),
+        },
+      ),
+    },
+    {
+      phase: "trace-solved-transform",
+      state: referenceImageLoadedState({
+        mode: "trace",
+        pins: [firstPin(), secondPin()],
+        solvedTransform: imageToMapWorldTransform(),
+      }),
+      command: createApplicationCommand(
+        APPLICATION_COMMAND_KIND.CENTER_OVERLAY_IN_VIEW,
+        {
+          placement: scaledPlacement(),
+        },
+      ),
+    },
+  ]) {
+    const result = handleApplicationCommand({ state, command });
+    traceApplicationResult({
+      trace,
+      command,
+      result,
+      phase,
+    });
+    assert.deepEqual(result, {
+      state,
+      effects: [],
+    });
+  }
+  assert.deepEqual(trace.edges, [
+    flowEdge("command.center-overlay-in-view", "sink.application-state", {
+      phase: "no-image",
+      terminal: "state-result",
+    }),
+    flowEdge("command.center-overlay-in-view", "inert.no-effects", {
+      phase: "no-image",
+      terminal: "intentionally-inert",
+    }),
+    flowEdge("command.center-overlay-in-view", "sink.application-state", {
+      phase: "no-placement",
+      terminal: "state-result",
+    }),
+    flowEdge("command.center-overlay-in-view", "inert.no-effects", {
+      phase: "no-placement",
+      terminal: "intentionally-inert",
+    }),
+    flowEdge("command.center-overlay-in-view", "sink.application-state", {
+      phase: "trace-map-locked-placement",
+      terminal: "state-result",
+    }),
+    flowEdge("command.center-overlay-in-view", "inert.no-effects", {
+      phase: "trace-map-locked-placement",
+      terminal: "intentionally-inert",
+    }),
+    flowEdge("command.center-overlay-in-view", "sink.application-state", {
+      phase: "trace-solved-transform",
+      terminal: "state-result",
+    }),
+    flowEdge("command.center-overlay-in-view", "inert.no-effects", {
+      phase: "trace-solved-transform",
+      terminal: "intentionally-inert",
+    }),
+  ]);
+});
+
 // Class-a: placement undo/redo is a semantic placement revision, not whole
 // session snapshot replay. Legacy preserves the user's current Align/Trace
 // posture while restoring the prior overlay transform and solved-registration
@@ -423,6 +588,26 @@ function solvedPlacement() {
   };
 }
 
+function mapLockedPlacement() {
+  return {
+    ...solvedPlacement(),
+    coordinateSpace: "map-world",
+  };
+}
+
+function imageToMapWorldTransform() {
+  return {
+    type: "image-to-map-world",
+    a: 1,
+    b: 0,
+    tx: 100,
+    ty: 200,
+    scale: 1,
+    rotationRad: 0,
+    pinIds: [1, 2],
+  };
+}
+
 function rotatedPlacement() {
   return {
     x: 80,
@@ -469,6 +654,7 @@ function referenceImageLoadedState({
   placement,
   pins,
   solvedPlacement: solvedPlacementData,
+  solvedTransform,
 } = {}) {
   const session = normalizedReferenceImageSession({ mode });
   if (placement !== undefined) {
@@ -480,6 +666,9 @@ function referenceImageLoadedState({
     };
     if (solvedPlacementData !== undefined) {
       session.registration.solvedPlacement = solvedPlacementData;
+    }
+    if (solvedTransform !== undefined) {
+      session.registration.solvedTransform = solvedTransform;
     }
   }
   return {

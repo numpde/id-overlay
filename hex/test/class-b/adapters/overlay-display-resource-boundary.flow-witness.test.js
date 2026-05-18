@@ -10,6 +10,12 @@ import {
   flowEdge,
 } from "../../support/flow-trace.js";
 
+const OVERLAY_RENDER_INPUT = Object.freeze({
+  kind: "overlay-editing",
+  canEditOverlay: true,
+  arePinsVisible: true,
+});
+
 // Class-b: durable image refs are application data, while display image URLs
 // are browser resources. The overlay adapter should render only the resolved
 // display URL.
@@ -23,18 +29,21 @@ test("overlay adapter renders display image URL instead of durable imageDataRef"
     document: window.document,
   });
 
-  const root = overlay.render({
-    visible: true,
-    imageDataRef: "reference-image-data-1",
-    displayImageUrl: "blob:https://www.openstreetmap.org/display-resource-1",
-    intrinsicSizePx: {
-      width: 640,
-      height: 480,
+  const root = overlay.render(
+    {
+      visible: true,
+      imageDataRef: "reference-image-data-1",
+      displayImageUrl: "blob:https://www.openstreetmap.org/display-resource-1",
+      intrinsicSizePx: {
+        width: 640,
+        height: 480,
+      },
+      placement: null,
+      opacity: 1,
+      pins: [],
     },
-    placement: null,
-    opacity: 1,
-    pins: [],
-  });
+    OVERLAY_RENDER_INPUT,
+  );
   trace.edge(flowEdge("view.overlay", "sink.overlay-dom", {
     terminal: "render-result",
   }));

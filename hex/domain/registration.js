@@ -1,3 +1,8 @@
+import {
+  fitSimilarityRegistration,
+  SIMILARITY_REGISTRATION_DEFAULT_RESIDUAL_IMAGE_PX_TOLERANCE,
+} from "./similarity-registration.js";
+
 export function solveRegistrationPlacement({ pins }) {
   if (pins.length < 2) {
     return {
@@ -6,43 +11,71 @@ export function solveRegistrationPlacement({ pins }) {
     };
   }
 
-  const [firstPin, secondPin] = pins;
-  const imageVector = vectorBetween(firstPin.imagePx, secondPin.imagePx);
-  const firstWorld = projectLatLonToWorld(firstPin.mapLatLon);
-  const secondWorld = projectLatLonToWorld(secondPin.mapLatLon);
-  const mapVector = vectorBetween(firstWorld, secondWorld);
-  const imageLength = vectorLength(imageVector);
-  const mapLength = vectorLength(mapVector);
-  if (imageLength === 0 || mapLength === 0) {
+  const fit = fitSimilarityRegistration({
+    residualImagePxTolerance: SIMILARITY_REGISTRATION_DEFAULT_RESIDUAL_IMAGE_PX_TOLERANCE,
+    pairs: pins.map((pin) => ({
+      id: pin.id,
+      source: pin.imagePx,
+      target: projectLatLonToWorld(pin.mapLatLon),
+    })),
+  });
+  if (fit.kind === "failed") {
+    return failedSolveFromFit(fit);
+  }
+  if (!hasAuthoritativeConsensus({ fit, pinCount: pins.length })) {
     return {
       kind: "failed",
-      reason: "degenerate-pins",
-      pinIds: [firstPin.id, secondPin.id],
+      reason: "inconsistent-pins",
+      pinIds: pins.map((pin) => pin.id),
+      residuals: fit.residuals,
     };
   }
 
-  const scale = mapLength / imageLength;
-  const rotationRad = Math.atan2(mapVector.y, mapVector.x)
-    - Math.atan2(imageVector.y, imageVector.x);
-  const cos = Math.cos(rotationRad);
-  const sin = Math.sin(rotationRad);
-  const transformedFirst = {
-    x: firstPin.imagePx.x * scale * cos - firstPin.imagePx.y * scale * sin,
-    y: firstPin.imagePx.x * scale * sin + firstPin.imagePx.y * scale * cos,
-  };
-
   return {
     kind: "solved",
-    solvedTransform: {
-      type: "image-to-map-world",
-      a: scale * cos,
-      b: scale * sin,
-      tx: firstWorld.x - transformedFirst.x,
-      ty: firstWorld.y - transformedFirst.y,
-      scale,
-      rotationRad,
-      pinIds: [firstPin.id, secondPin.id],
-    },
+    solvedTransform: solvedTransformFromFit(fit),
+    residuals: fit.residuals,
+    coherentPinIds: fit.coherentIds,
+    incoherentPinIds: fit.incoherentIds,
+    isCoherent: fit.isCoherent,
+  };
+}
+
+function failedSolveFromFit(fit) {
+  if (fit.reason === "insufficient-pairs") {
+    return {
+      kind: "failed",
+      reason: "insufficient-pins",
+    };
+  }
+  return {
+    kind: "failed",
+    reason: fit.reason === "invalid-pair" || fit.reason === "invalid-tolerance"
+      ? "invalid-pins"
+      : "degenerate-pins",
+    ...(fit.pairIds === undefined ? {} : {
+      pinIds: fit.pairIds,
+    }),
+  };
+}
+
+function hasAuthoritativeConsensus({ fit, pinCount }) {
+  if (fit.isCoherent) {
+    return true;
+  }
+  return pinCount === 2 || fit.coherentIds.length >= 3;
+}
+
+function solvedTransformFromFit(fit) {
+  return {
+    type: "image-to-map-world",
+    a: fit.transform.a,
+    b: fit.transform.b,
+    tx: fit.transform.tx,
+    ty: fit.transform.ty,
+    scale: fit.transform.scale,
+    rotationRad: fit.transform.rotationRad,
+    pinIds: fit.transform.pairIds,
   };
 }
 
@@ -53,15 +86,4 @@ function projectLatLonToWorld(point) {
     x: 256 * ((point.lon + 180) / 360),
     y: 256 * (0.5 - Math.log((1 + clampedSin) / (1 - clampedSin)) / (4 * Math.PI)),
   };
-}
-
-function vectorBetween(start, end) {
-  return {
-    x: end.x - start.x,
-    y: end.y - start.y,
-  };
-}
-
-function vectorLength(vector) {
-  return Math.hypot(vector.x, vector.y);
 }

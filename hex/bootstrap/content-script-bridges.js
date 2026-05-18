@@ -34,7 +34,8 @@ export function installSurfaceMotionBridge({
   chromeApi,
   onSurfaceMotion,
 }) {
-  ownerWindow.addEventListener("message", (event) => {
+  let destroyed = false;
+  const handleMessage = (event) => {
     if (
       event.data?.source !== "id-overlay"
         || event.data?.type !== SURFACE_MOTION_EVENT_TYPE
@@ -43,19 +44,32 @@ export function installSurfaceMotionBridge({
       return;
     }
     onSurfaceMotion(event.data.surfaceMotion);
-  });
-  ownerWindow.document?.addEventListener?.(SURFACE_MOTION_EVENT_TYPE, (event) => {
+  };
+  const handleDocumentSurfaceMotion = (event) => {
     if (!isSurfaceMotionPayload(event.detail)) {
       return;
     }
     onSurfaceMotion(event.detail);
-  });
+  };
+
+  ownerWindow.addEventListener("message", handleMessage);
+  ownerWindow.document?.addEventListener?.(SURFACE_MOTION_EVENT_TYPE, handleDocumentSurfaceMotion);
   installPageScriptBridge({
     ownerWindow,
     url: extensionResourceUrl(chromeApi, SURFACE_MOTION_BRIDGE_RESOURCE),
     enabled: true,
     dataAttribute: "idOverlaySurfaceMotionBridge",
   });
+  return {
+    destroy() {
+      if (destroyed) {
+        return;
+      }
+      destroyed = true;
+      ownerWindow.removeEventListener("message", handleMessage);
+      ownerWindow.document?.removeEventListener?.(SURFACE_MOTION_EVENT_TYPE, handleDocumentSurfaceMotion);
+    },
+  };
 }
 
 function installPageScriptBridge({

@@ -31,8 +31,18 @@ export function createExtensionPanelRenderer({
       positioner?.setPreferredScreenPx(panelChrome?.position?.screenPx ?? null);
       const panelSignature = panelRenderSignature(view);
       if (root.panelRenderSignature === panelSignature) {
+        const patchResult = patchMutablePanelFacts({
+          panel: root.panel,
+          view,
+        });
+        if (patchResult.contentSizeMayChange) {
+          positioner?.syncAfterContentChange({
+            smooth: true,
+          });
+        }
         return;
       }
+      const hasRenderedPanel = root.panelRenderSignature !== undefined;
       const panelAdapter = createPanelAdapter({
         document,
         emitCommand: dispatchCommand,
@@ -45,6 +55,13 @@ export function createExtensionPanelRenderer({
       });
       root.panel.replaceChildren(panelAdapter.render(view));
       root.panelRenderSignature = panelSignature;
+      patchMutablePanelFacts({
+        panel: root.panel,
+        view,
+      });
+      positioner?.syncAfterContentChange({
+        smooth: hasRenderedPanel,
+      });
     },
     destroy() {
       positioner?.destroy();
@@ -87,10 +104,198 @@ function applyPanelChrome({
 
 function panelRenderSignature(view) {
   return JSON.stringify({
-    primaryAction: view.primaryAction,
+    primaryAction: primaryActionStructuralSignature(view.primaryAction),
+    centerOverlayInViewAction: actionStructuralSignature(view.centerOverlayInViewAction),
+    centerMapOnOverlayAction: actionStructuralSignature(view.centerMapOnOverlayAction),
     modeSwitch: view.modeSwitch,
-    history: view.history,
-    opacityControl: view.opacityControl ?? null,
+    opacityControl: opacityControlStructuralSignature(view.opacityControl),
+  });
+}
+
+function primaryActionStructuralSignature(primaryAction) {
+  if (!primaryAction) {
+    return null;
+  }
+  return {
+    icon: primaryAction.icon ?? null,
+  };
+}
+
+function actionStructuralSignature(action) {
+  if (!action) {
+    return null;
+  }
+  return {
+    kind: action.kind,
+    icon: action.icon ?? null,
+  };
+}
+
+function opacityControlStructuralSignature(opacityControl) {
+  if (!opacityControl) {
+    return null;
+  }
+  return {
+    min: opacityControl.min,
+    max: opacityControl.max,
+    step: opacityControl.step,
+  };
+}
+
+function patchMutablePanelFacts({
+  panel,
+  view,
+}) {
+  const statusChanged = patchStatus({
+    panel,
     status: view.status,
   });
+  patchOpacityControl({
+    panel,
+    opacityControl: view.opacityControl,
+  });
+  patchActionControls({
+    panel,
+    view,
+  });
+  return {
+    contentSizeMayChange: statusChanged,
+  };
+}
+
+function patchActionControls({
+  panel,
+  view,
+}) {
+  patchButton(panel, {
+    control: "primary",
+    label: view.primaryAction?.label ?? "",
+    enabled: view.primaryAction?.enabled ?? false,
+    tone: view.primaryAction?.tone ?? "normal",
+    confirmation: view.primaryAction?.confirmation ?? "none",
+    actionKind: view.primaryAction?.kind ?? null,
+    ariaLabel: view.primaryAction?.label ?? "Primary action",
+  });
+  patchButton(panel, actionButtonPatch({
+    control: "center-overlay",
+    action: view.centerOverlayInViewAction,
+  }));
+  patchButton(panel, actionButtonPatch({
+    control: "center-map",
+    action: view.centerMapOnOverlayAction,
+  }));
+  patchButton(panel, historyButtonPatch({
+    control: "undo",
+    fallbackLabel: "Undo",
+    historyAction: view.history?.undo,
+  }));
+  patchButton(panel, historyButtonPatch({
+    control: "redo",
+    fallbackLabel: "Redo",
+    historyAction: view.history?.redo,
+  }));
+}
+
+function actionButtonPatch({
+  control,
+  action,
+}) {
+  return {
+    control,
+    label: action?.label ?? "",
+    enabled: action?.enabled ?? false,
+    tone: "normal",
+    confirmation: "none",
+    actionKind: action?.kind ?? null,
+    title: action?.label ?? null,
+    ariaLabel: action?.label ?? control,
+  };
+}
+
+function historyButtonPatch({
+  control,
+  fallbackLabel,
+  historyAction,
+}) {
+  return {
+    control,
+    enabled: historyAction?.enabled ?? false,
+    tone: "normal",
+    confirmation: "none",
+    title: historyAction?.label ?? null,
+    ariaLabel: historyAction?.label ?? fallbackLabel,
+  };
+}
+
+function patchButton(
+  panel,
+  {
+    control,
+    label = null,
+    enabled = false,
+    tone = "normal",
+    confirmation = "none",
+    actionKind = null,
+    title = null,
+    ariaLabel,
+  },
+) {
+  const button = panel.querySelector(`[data-control='${control}']`);
+  if (!button) {
+    return;
+  }
+  if (label !== null && !button.querySelector("svg")) {
+    button.textContent = label;
+  }
+  button.disabled = !enabled;
+  button.dataset.tone = tone;
+  button.dataset.confirmation = confirmation;
+  button.classList.toggle("id-overlay-button--confirm", confirmation === "armed");
+  setNullableDataset(button, "actionKind", actionKind);
+  setNullableAttribute(button, "title", title);
+  button.setAttribute("aria-label", ariaLabel);
+}
+
+function setNullableDataset(element, key, value) {
+  if (value === null || value === undefined) {
+    delete element.dataset[key];
+    return;
+  }
+  element.dataset[key] = String(value);
+}
+
+function setNullableAttribute(element, name, value) {
+  if (value === null || value === undefined) {
+    element.removeAttribute(name);
+    return;
+  }
+  element.setAttribute(name, String(value));
+}
+
+function patchOpacityControl({
+  panel,
+  opacityControl,
+}) {
+  const opacity = panel.querySelector("[data-control='opacity']");
+  if (!opacity || !opacityControl) {
+    return;
+  }
+  opacity.disabled = !opacityControl.enabled;
+  opacity.value = String(opacityControl.value);
+}
+
+function patchStatus({
+  panel,
+  status: statusText,
+}) {
+  const status = panel.querySelector("[data-region='status']");
+  const statusDetail = panel.querySelector(".id-overlay-panel__status-detail-surface");
+  if (!status || !statusDetail) {
+    return false;
+  }
+  const nextText = String(statusText ?? "");
+  const changed = status.textContent !== nextText || statusDetail.textContent !== nextText;
+  status.textContent = nextText;
+  statusDetail.textContent = nextText;
+  return changed;
 }

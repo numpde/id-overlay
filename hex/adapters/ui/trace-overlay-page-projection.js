@@ -19,6 +19,12 @@ export function projectTraceOverlayForPageSnapshot({ overlay, pageSnapshot }) {
       viewport: viewportFromPageSnapshot({ overlay, pageSnapshot }),
       placement: localPlacementForViewport({ placement, pageSnapshot }),
       pins: mode === "trace" ? [] : overlay.pins,
+      ...(mode === "align" ? {
+        mapPins: projectRegistrationMapPins({
+          pins: overlay.pins,
+          pageSnapshot,
+        }),
+      } : {}),
       pageSurfaceMotion: pageSnapshot.surfaceMotion,
     };
   }
@@ -41,6 +47,12 @@ export function projectTraceOverlayForPageSnapshot({ overlay, pageSnapshot }) {
       pageSnapshot,
     }),
     pins: mode === "trace" ? [] : overlay.pins,
+    ...(mode === "align" ? {
+      mapPins: projectRegistrationMapPins({
+        pins: overlay.pins,
+        pageSnapshot,
+      }),
+    } : {}),
     pageSurfaceMotion: pageSnapshot.surfaceMotion,
   };
 }
@@ -82,6 +94,43 @@ function projectMapLockedPlacement({ placement, pageSnapshot }) {
     y: viewportCenter.y + (placement.y - centerWorld.y) * zoomScale,
     scale: placement.scale * zoomScale,
     rotationRad: placement.rotationRad,
+  };
+}
+
+function projectRegistrationMapPins({ pins = [], pageSnapshot }) {
+  return pins
+    .filter((pin) => hasLatLon(pin.mapLatLon))
+    .map((pin) => {
+      const point = localPointForLatLon({
+        latLon: pin.mapLatLon,
+        pageSnapshot,
+      });
+      return {
+        id: pin.id,
+        ...(pin.label === undefined ? {} : {
+          label: pin.label,
+        }),
+        ...(pin.tone === undefined ? {} : {
+          tone: pin.tone,
+        }),
+        left: point.x,
+        top: point.y,
+      };
+    });
+}
+
+function hasLatLon(latLon) {
+  return Number.isFinite(latLon?.lat)
+    && Number.isFinite(latLon?.lon);
+}
+
+function localPointForLatLon({ latLon, pageSnapshot }) {
+  const centerWorld = projectLatLonToWorld(pageSnapshot.mapView.centerLatLon);
+  const pointWorld = projectLatLonToWorld(latLon);
+  const zoomScale = 2 ** pageSnapshot.mapView.zoom;
+  return {
+    x: pageSnapshot.viewportPx.width / 2 + (pointWorld.x - centerWorld.x) * zoomScale,
+    y: pageSnapshot.viewportPx.height / 2 + (pointWorld.y - centerWorld.y) * zoomScale,
   };
 }
 

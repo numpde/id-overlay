@@ -18,6 +18,9 @@ import {
 import {
   flowEdge,
 } from "../../support/flow-trace.js";
+import {
+  REGISTRATION_PIN_MARKER_HIT_RADIUS_SCREEN_PX,
+} from "../../../adapters/ui/registration-pin-marker.js";
 
 // Class-b: rendered overlay pin toggling must not stop at a DOM double-click.
 // The content host must project the point and persist the resulting Align pin.
@@ -70,6 +73,34 @@ test("extension content commits rendered Align double-click existing pin removal
     undefined,
   );
   traceContentOverlayEdit(trace, "double-click-existing-pin", "command.toggle-registration-pin");
+});
+
+// Class-b: deletion should follow the visible marker hit target, not an 8px
+// geometry kernel. Double-clicking the rendered pin edge should still remove
+// that pin instead of adding a second pin beside it.
+test("extension content removes existing pin from the visible marker hit target", async () => {
+  const trace = createTrace("extension content removes existing pin from the visible marker hit target");
+  const { window, chromeApi } = createStartedContentHarness({
+    durableState: durableImageState({
+      mode: "align",
+      placement: placement(),
+      pins: [firstPin()],
+    }),
+  });
+
+  await startContent({ trace, window, chromeApi });
+  dispatchMouse(window, renderedOverlayImage(window.document), "dblclick", {
+    clientX: 600 + REGISTRATION_PIN_MARKER_HIT_RADIUS_SCREEN_PX,
+    clientY: 320,
+  });
+  await flushMicrotasks();
+
+  assert.notEqual(chromeApi.latestSet, undefined);
+  assert.equal(
+    chromeApi.latestSet?.["id-overlay.durable-state"]?.session.registration,
+    undefined,
+  );
+  traceContentOverlayEdit(trace, "double-click-existing-pin-visible-hit-target", "command.toggle-registration-pin");
 });
 
 // Class-b: pin edits after a solved fit preserve the current visible placement

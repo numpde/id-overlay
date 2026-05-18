@@ -1,3 +1,8 @@
+import {
+  cssTransformIsIdentity,
+  cssTransformTileFacts,
+} from "../shared/css-transform.js";
+
 export function readOpenStreetMapPage({
   document,
   ownerWindow,
@@ -138,7 +143,7 @@ export function readSurfaceMotion({
     document,
     ownerWindow,
   });
-  if (directSurfaceMotion && !isIdentityTransformCss(directSurfaceMotion.transformCss)) {
+  if (directSurfaceMotion && !cssTransformIsIdentity(directSurfaceMotion.transformCss)) {
     return directSurfaceMotion;
   }
   const bridgedSurfaceMotion = readBridgedSurfaceMotion(document);
@@ -215,24 +220,7 @@ function readTileTransform(tile) {
     ? ownerWindow.getComputedStyle(tile)
     : null;
   const transformCss = style?.transform ?? tile.style?.transform ?? "";
-  const match = /matrix\(([^)]+)\)/u.exec(transformCss);
-  if (!match) {
-    return null;
-  }
-  const values = match[1].split(",").map((value) => Number(value.trim()));
-  if (values.length !== 6 || !values.every(Number.isFinite)) {
-    return null;
-  }
-  const [a, b, , , x, y] = values;
-  const scale = Math.hypot(a, b);
-  if (!Number.isFinite(scale) || scale <= 0) {
-    return null;
-  }
-  return {
-    x,
-    y,
-    scale,
-  };
+  return cssTransformTileFacts(transformCss);
 }
 
 function isVisibleElement(element) {
@@ -260,14 +248,6 @@ function readDirectSurfaceMotion({
     transformCss: style?.transform ?? surface.style.transform ?? "none",
     transformOriginCss: style?.transformOrigin ?? surface.style.transformOrigin ?? "0px 0px",
   };
-}
-
-function isIdentityTransformCss(transformCss) {
-  return transformCss === "none"
-    || transformCss === "matrix(1, 0, 0, 1, 0, 0)"
-    || transformCss === "matrix(1,0,0,1,0,0)"
-    || transformCss === "translate3d(0px, 0px, 0px)"
-    || transformCss === "translate(0px, 0px)";
 }
 
 function readBridgedSurfaceMotion(document) {

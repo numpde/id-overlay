@@ -28,6 +28,7 @@ const LAYERS = {
   adapters: hexPath("adapters"),
   bootstrap: hexPath("bootstrap"),
 };
+const SHARED_ADAPTER_DIR = hexPath("adapters", "shared");
 
 const TEST_CLASS_NAMES = [
   "class-a",
@@ -274,6 +275,7 @@ function canImportLayer({ sourceLayer, targetLayer, sourcePath, targetPath }) {
   }
   if (sourceLayer === "adapters") {
     return ["domain", "ports", "application"].includes(targetLayer)
+      || isSharedAdapterModule(targetPath)
       || isSameAdapter(sourcePath, targetPath);
   }
   if (sourceLayer === "bootstrap") {
@@ -304,6 +306,10 @@ function testClassOf(testArea) {
 function isSameAdapter(sourcePath, targetPath) {
   const sourceAdapter = adapterName(sourcePath);
   return sourceAdapter && sourceAdapter === adapterName(targetPath);
+}
+
+function isSharedAdapterModule(filePath) {
+  return isInsidePath(filePath, SHARED_ADAPTER_DIR);
 }
 
 function isFlowWitness(filePath) {

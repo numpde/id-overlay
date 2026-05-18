@@ -26,8 +26,20 @@ test("no-session view exposes Trace native-map posture and Paste primary action"
   assert.equal(view.overlayInput.arePinsVisible, false);
   assert.equal(view.modeSwitch.selected, "trace");
   assert.equal(view.modeSwitch.align.enabled, false);
-  assert.equal(view.primaryAction.label, "Paste");
-  assert.equal(view.primaryAction.enabled, true);
+  assert.equal(view.modeSwitch.trace.enabled, false);
+  assert.deepEqual(view.primaryAction, {
+    kind: "request-reference-image",
+    label: "Paste",
+    enabled: true,
+    tone: "normal",
+    confirmation: "none",
+  });
+  assert.deepEqual(view.centerOverlayInViewAction, {
+    kind: "center-overlay-in-view",
+    label: "Center overlay in view",
+    enabled: false,
+    icon: "center-overlay",
+  });
   assert.deepEqual(trace.edges, [
     flowEdge("view.application.no-session", "sink.application-view", {
       terminal: "view-result",

@@ -40,6 +40,10 @@ import {
 import {
   createNativeMapPanSession,
 } from "./native-map-pan-session.js";
+import {
+  isCenterMapOnOverlayCommand,
+  targetMapViewForOverlay,
+} from "./map-view-centering.js";
 
 const OWNER_ID = "id-overlay";
 const ROOT_RECORD = Symbol.for("id-overlay.browser-session");
@@ -127,11 +131,33 @@ export async function bootstrapBrowserExtension(host) {
     }
     try {
       await nativeMapPanSession.endForCommand(command);
+      if (isCenterMapOnOverlayCommand(command)) {
+        await centerMapOnOverlay();
+        render();
+        return;
+      }
       await runtime.dispatch(command);
       render();
     } catch (error) {
       reportHostError(host, error);
     }
+  }
+
+  async function centerMapOnOverlay() {
+    const mapView = targetMapViewForOverlay({
+      overlay: selectApplicationView(runtime.getState()).overlay,
+      pageSnapshot: shell.pageSnapshot,
+    });
+    if (!mapView) {
+      host.eventDebugLogger?.log?.("shell.command", "center-map-on-overlay-ignored", {
+        reason: "missing-target-map-view",
+      });
+      return;
+    }
+    await host.mapViewPort?.setMapView?.(mapView);
+    host.eventDebugLogger?.log?.("shell.command", "center-map-on-overlay", {
+      mapView,
+    });
   }
 
   async function handlePanelChromeChange(change) {
@@ -273,6 +299,7 @@ function bindOwnerWindowTeardown({ host, shell }) {
     for (const dispose of shell.disposers.splice(0)) {
       dispose();
     }
+    host.dispose?.();
     shell.root.dispose?.();
     shell.runtime.dispose?.();
     delete host[ROOT_RECORD];

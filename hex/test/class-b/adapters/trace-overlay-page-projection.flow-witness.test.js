@@ -275,6 +275,54 @@ test("trace overlay projection preserves Align editing while projecting map-lock
   }));
 });
 
+// Class-b: Align mode shows both sides of a registration pair. The image pin
+// stays on the overlay image, while a quieter map pin marks the lat/lon where
+// that registration point was placed on the live map.
+test("trace overlay projection exposes Align registration map pins", () => {
+  const trace = createFlowTrace({
+    file: import.meta.url,
+    test: "trace overlay projection exposes Align registration map pins",
+  });
+  const overlay = {
+    ...traceOverlayView(),
+    pins: [{
+      id: 7,
+      label: "3",
+      tone: "danger",
+      imagePx: {
+        x: 10,
+        y: 15,
+      },
+      mapLatLon: {
+        lat: 0,
+        lon: 0,
+      },
+    }],
+    pageProjectionSource: {
+      kind: "map-locked-placement",
+      mode: "align",
+    },
+  };
+
+  const projected = projectTraceOverlayForPageSnapshot({
+    overlay,
+    pageSnapshot: traceSnapshot(),
+  });
+
+  assert.deepEqual(projected.pins, overlay.pins);
+  assert.deepEqual(projected.mapPins, [{
+    id: 7,
+    label: "3",
+    tone: "danger",
+    left: 400,
+    top: 200,
+  }]);
+  trace.edge(flowEdge("view.overlay", "sink.overlay-projection", {
+    phase: "align-registration-map-pins",
+    terminal: "adapter-result",
+  }));
+});
+
 // Class-b: page observation can be temporarily unavailable while the editor is
 // booting or navigating. A map-locked Trace placement must never be returned as
 // raw screen placement; world-coordinate scale and translation would otherwise

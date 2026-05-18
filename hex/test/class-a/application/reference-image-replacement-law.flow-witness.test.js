@@ -112,7 +112,10 @@ test("replacement-pending view still renders the old image", () => {
     intrinsicSizePx: oldReferenceImage().intrinsicSizePx,
     placement: oldPlacement(),
     opacity: 1,
-    pins: [firstPin()],
+    pins: [{
+      ...firstPin(),
+      label: "1",
+    }],
   });
   assert.match(view.primaryAction.label, /cancel/i);
   assert.doesNotMatch(view.primaryAction.label, /clear/i);

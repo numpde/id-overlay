@@ -1,5 +1,6 @@
 import {
   createOverlayAdapter,
+  overlayStructuralRenderSignature,
 } from "./overlay-adapter.js";
 import {
   overlayDomDebugSummary,
@@ -20,9 +21,7 @@ export function createExtensionOverlayRenderer({
       dispatchInteractionFact = () => {},
     }) {
       latestDispatchInteractionFact = dispatchInteractionFact;
-      const overlayInput = view.overlayInput ?? {
-        kind: "overlay-editing",
-      };
+      const overlayInput = requireOverlayInputViewFact(view);
       const overlayView = withDisplayImageUrl({
         overlay: view.overlay,
         displayImageResourcePort,
@@ -35,13 +34,11 @@ export function createExtensionOverlayRenderer({
       if (
         root.overlayRenderSignature === overlaySignature
           && existingOverlayRoot
+          && activeOverlayAdapter
       ) {
-        applySurfaceMotion({
-          overlayRoot: existingOverlayRoot,
-          overlay: overlayView,
-          eventDebugLogger,
-        });
-        return;
+        if (activeOverlayAdapter.update(overlayView, overlayInput)) {
+          return;
+        }
       }
 
       activeOverlayAdapter?.destroy();
@@ -71,47 +68,6 @@ export function createExtensionOverlayRenderer({
       latestDispatchInteractionFact = () => {};
     },
   };
-}
-
-function overlayStructuralRenderSignature({
-  overlay,
-  overlayInput,
-}) {
-  return JSON.stringify({
-    overlay: withoutSurfaceMotion(overlay),
-    overlayInput,
-  });
-}
-
-function withoutSurfaceMotion(overlay) {
-  if (!overlay || typeof overlay !== "object") {
-    return overlay;
-  }
-  const {
-    mapLayer,
-    pageSurfaceMotion,
-    ...structuralOverlay
-  } = overlay;
-  return structuralOverlay;
-}
-
-function applySurfaceMotion({
-  overlayRoot,
-  overlay,
-  eventDebugLogger,
-}) {
-  const mapLayer = overlayRoot.querySelector(".id-overlay-map-layer");
-  if (!mapLayer) {
-    return;
-  }
-  const surfaceMotion = overlay?.mapLayer ?? overlay?.pageSurfaceMotion ?? null;
-  mapLayer.style.transform = surfaceMotion?.transformCss ?? "";
-  mapLayer.style.transformOrigin = surfaceMotion?.transformOriginCss ?? "";
-  eventDebugLogger?.log("overlay.dom", "surface-motion-applied", overlayDomDebugSummary({
-    overlayRoot,
-    overlay,
-    overlayInput: null,
-  }));
 }
 
 function withDisplayImageUrl({
@@ -144,4 +100,15 @@ function withDisplayImageUrl({
 
 function isRenderableImageDataUrl(value) {
   return typeof value === "string" && /^data:image\//u.test(value);
+}
+
+function requireOverlayInputViewFact(view) {
+  const overlayInput = view?.overlayInput;
+  if (!overlayInput || typeof overlayInput !== "object") {
+    throw new TypeError("view.overlayInput is required");
+  }
+  if (typeof overlayInput.kind !== "string") {
+    throw new TypeError("view.overlayInput.kind is required");
+  }
+  return overlayInput;
 }

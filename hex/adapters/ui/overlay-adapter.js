@@ -4,6 +4,18 @@ import {
 import {
   domEventPayload,
 } from "./event-debug-log.js";
+import {
+  overlayDomDebugSummary,
+} from "./extension-ui-overlay-debug.js";
+import {
+  OVERLAY_DOM_CLASS,
+  OVERLAY_DOM_SELECTOR,
+} from "./overlay-dom.js";
+import {
+  REGISTRATION_MAP_PIN_MARKER_PRESENTATION,
+  REGISTRATION_OVERLAY_PIN_MARKER_PRESENTATION,
+  registrationPinMarkerTonePresentation,
+} from "./registration-pin-marker.js";
 
 const DRAG_THRESHOLD_PX = 8;
 
@@ -16,6 +28,7 @@ export function createOverlayAdapter({
   let inputHost = null;
   let boundSurface = null;
   let renderedOverlay = null;
+  let renderedRoot = null;
 
   const globalPointerHandlers = {
     handleGlobalPointerMove(event) {
@@ -27,80 +40,52 @@ export function createOverlayAdapter({
   };
 
   return {
-    render(overlay, overlayInput = {
-      kind: "overlay-editing",
-    }) {
+    render(overlay, overlayInput) {
+      overlayInput = requireOverlayInput(overlayInput);
       renderedOverlay = overlay;
       const root = document.createElement("div");
-      root.className = "id-overlay-viewport";
+      renderedRoot = root;
+      root.className = OVERLAY_DOM_CLASS.viewport;
       root.dataset.region = "overlay";
       root.dataset.idOverlayOwned = "true";
       if (!overlay.visible) {
+        applyViewportChrome(root);
         root.hidden = true;
         return root;
       }
-      const viewport = overlay.viewport;
-      if (viewport) {
-        root.dataset.mode = viewport.mode;
-        root.dataset.passThrough = String(viewport.isPassThrough);
-        root.style.left = `${viewport.rect.left}px`;
-        root.style.top = `${viewport.rect.top}px`;
-        root.style.width = `${viewport.rect.width}px`;
-        root.style.height = `${viewport.rect.height}px`;
-      }
+      patchViewport(root, overlay.viewport);
       const mapLayer = document.createElement("div");
-      mapLayer.className = "id-overlay-map-layer";
-      mapLayer.style.position = "absolute";
-      mapLayer.style.left = "0";
-      mapLayer.style.top = "0";
-      mapLayer.style.right = "0";
-      mapLayer.style.bottom = "0";
-      mapLayer.style.pointerEvents = "none";
-      mapLayer.style.transform = overlay.mapLayer?.transformCss ?? overlay.pageSurfaceMotion?.transformCss ?? "";
-      mapLayer.style.transformOrigin = overlay.mapLayer?.transformOriginCss ?? overlay.pageSurfaceMotion?.transformOriginCss ?? "";
+      mapLayer.className = OVERLAY_DOM_CLASS.mapLayer;
+      applyMapLayerChrome(mapLayer);
+      patchMapLayer(mapLayer, overlay);
 
       const image = document.createElement(overlay.image ? "img" : "div");
-      image.className = "id-overlay-image";
+      image.className = OVERLAY_DOM_CLASS.image;
       image.dataset.overlayImage = "";
-      image.dataset.imageDataRef = overlay.imageDataRef;
       image.alt = "";
       image.decoding = "async";
-      applyImagePresentation(image, overlay);
-      image.style.position = "absolute";
-      image.style.pointerEvents = overlayInput.kind === "native-map" ? "none" : "auto";
-      image.style.touchAction = "none";
-      image.style.userSelect = "none";
-      image.style.backgroundRepeat = "no-repeat";
-      image.style.backgroundSize = "100% 100%";
-      if (overlay.displayImageUrl) {
-        image.style.backgroundImage = `url("${overlay.displayImageUrl}")`;
-      }
+      applyImageChrome(image);
+      patchImage(image, overlay, overlayInput);
       mapLayer.append(image);
 
       const frame = document.createElement("div");
-      frame.className = "id-overlay-frame";
+      frame.className = OVERLAY_DOM_CLASS.frame;
       applyFrameChrome(frame);
-      if (overlay.frame) {
-        applyPlacementBox(frame, overlay.frame);
-        frame.style.display = "block";
-        frame.style.pointerEvents = overlay.frame.ownsPointerHitTesting ? "auto" : "none";
-      } else {
-        applyInlineFramePresentation(frame, overlay);
-        frame.style.display = overlay.visible ? "block" : "none";
-        frame.style.pointerEvents = overlayInput.kind === "native-map" ? "none" : "auto";
-      }
+      patchFrame(frame, overlay, overlayInput);
       mapLayer.append(frame);
 
       const mapPinLayer = document.createElement("div");
-      mapPinLayer.className = "id-overlay-map-pin-layer";
+      mapPinLayer.className = OVERLAY_DOM_CLASS.mapPinLayer;
       applyPinLayerChrome(mapPinLayer);
       for (const pin of overlay.mapPins ?? []) {
-        mapPinLayer.append(renderMapPin(document, pin));
+        mapPinLayer.append(renderMapPin(document, pin, {
+          visualScale: mapPinMarkerScaleForInlinePlacement(overlay),
+        }));
       }
       mapLayer.append(mapPinLayer);
 
       const pinLayer = document.createElement("div");
-      pinLayer.className = "id-overlay-pin-layer";
+      pinLayer.className = OVERLAY_DOM_CLASS.pinLayer;
       applyPinLayerChrome(pinLayer);
       applyOverlayPinLayerPresentation(pinLayer, overlay);
       for (const pin of overlay.pins ?? []) {
@@ -111,7 +96,28 @@ export function createOverlayAdapter({
 
       return root;
     },
+    update(overlay, overlayInput) {
+      overlayInput = requireOverlayInput(overlayInput);
+      if (!patchRenderedOverlay({
+        root: renderedRoot,
+        overlay,
+        overlayInput,
+      })) {
+        return false;
+      }
+      renderedOverlay = overlay;
+      eventDebugLogger?.log("overlay.dom", "projection-patched", overlayDomDebugSummary({
+        overlayRoot: renderedRoot,
+        overlay,
+        overlayInput,
+      }));
+      return true;
+    },
     bindInput(surface) {
+      unbindSurfaceInput();
+      inputHost?.destroy();
+      inputHost = null;
+      activeSequence = null;
       boundSurface = surface;
       eventDebugLogger?.log("overlay", "bind-input", {
         target: "overlay-surface",
@@ -121,18 +127,17 @@ export function createOverlayAdapter({
         globalPointerHandlers,
         fallbackWindow: document.defaultView,
       });
-      surface.addEventListener("click", stopOwnedSequence);
-      surface.addEventListener("dblclick", handleDoubleClick);
-      surface.addEventListener("pointerdown", handlePointerDown);
-      surface.addEventListener("wheel", handleWheel);
+      bindSurfaceInput(surface);
     },
     destroy() {
       eventDebugLogger?.log("overlay", "destroy", {
         activeSequence: Boolean(activeSequence),
       });
+      unbindSurfaceInput();
       inputHost?.destroy();
       inputHost = null;
       activeSequence = null;
+      renderedRoot = null;
     },
   };
 
@@ -144,6 +149,24 @@ export function createOverlayAdapter({
       kind: "registration-pin-toggle-requested",
       screenPx: screenPxFromEvent(event),
     });
+  }
+
+  function bindSurfaceInput(surface) {
+    surface.addEventListener("click", stopOwnedSequence);
+    surface.addEventListener("dblclick", handleDoubleClick);
+    surface.addEventListener("pointerdown", handlePointerDown);
+    surface.addEventListener("wheel", handleWheel);
+  }
+
+  function unbindSurfaceInput() {
+    if (!boundSurface) {
+      return;
+    }
+    boundSurface.removeEventListener("click", stopOwnedSequence);
+    boundSurface.removeEventListener("dblclick", handleDoubleClick);
+    boundSurface.removeEventListener("pointerdown", handlePointerDown);
+    boundSurface.removeEventListener("wheel", handleWheel);
+    boundSurface = null;
   }
 
   function handlePointerDown(event) {
@@ -312,9 +335,9 @@ export function createOverlayAdapter({
       x: activeSequence.basePlacement.x + screenDeltaPx.x,
       y: activeSequence.basePlacement.y + screenDeltaPx.y,
     };
-    const image = boundSurface?.querySelector(".id-overlay-image");
-    const frame = boundSurface?.querySelector(".id-overlay-frame");
-    const pinLayer = boundSurface?.querySelector(".id-overlay-pin-layer");
+    const image = boundSurface?.querySelector(OVERLAY_DOM_SELECTOR.image);
+    const frame = boundSurface?.querySelector(OVERLAY_DOM_SELECTOR.frame);
+    const pinLayer = boundSurface?.querySelector(OVERLAY_DOM_SELECTOR.pinLayer);
     if (image && !renderedOverlay?.image) {
       image.style.transform = serializePlacement(previewPlacement);
     }
@@ -325,6 +348,218 @@ export function createOverlayAdapter({
       pinLayer.style.transform = serializePlacement(previewPlacement);
     }
   }
+}
+
+export function overlayStructuralRenderSignature({
+  overlay,
+  overlayInput,
+}) {
+  return JSON.stringify({
+    overlay: overlayStructuralShape(overlay),
+    overlayInput,
+  });
+}
+
+function overlayStructuralShape(overlay) {
+  if (!overlay || typeof overlay !== "object") {
+    return overlay;
+  }
+  if (!overlay.visible) {
+    return {
+      visible: false,
+    };
+  }
+  return {
+    visible: true,
+    imageDataRef: overlay.imageDataRef,
+    intrinsicSizePx: overlay.intrinsicSizePx,
+    imageElementKind: overlay.image ? "img" : "box",
+    hasFrameBox: Boolean(overlay.frame),
+    pinIds: (overlay.pins ?? []).map((pin) => pin.id),
+    mapPinIds: (overlay.mapPins ?? []).map((pin) => pin.id),
+  };
+}
+
+function patchRenderedOverlay({
+  root,
+  overlay,
+  overlayInput,
+}) {
+  if (!root) {
+    return false;
+  }
+  if (!overlay?.visible) {
+    root.hidden = true;
+    return true;
+  }
+
+  const mapLayer = root.querySelector(OVERLAY_DOM_SELECTOR.mapLayer);
+  const image = root.querySelector(OVERLAY_DOM_SELECTOR.image);
+  const frame = root.querySelector(OVERLAY_DOM_SELECTOR.frame);
+  const mapPinLayer = root.querySelector(OVERLAY_DOM_SELECTOR.mapPinLayer);
+  const pinLayer = root.querySelector(OVERLAY_DOM_SELECTOR.pinLayer);
+  if (!mapLayer || !image || !frame || !mapPinLayer || !pinLayer) {
+    return false;
+  }
+  if (overlay.image && image.tagName !== "IMG") {
+    return false;
+  }
+  if (!overlay.image && image.tagName !== "DIV") {
+    return false;
+  }
+
+  patchViewport(root, overlay.viewport);
+  patchMapLayer(mapLayer, overlay);
+  patchImage(image, overlay, overlayInput);
+  patchFrame(frame, overlay, overlayInput);
+  const mapPinsPatched = patchMapPinLayer({
+    pinLayer: mapPinLayer,
+    pins: overlay.mapPins ?? [],
+    visualScale: mapPinMarkerScaleForInlinePlacement(overlay),
+  });
+  const overlayPinsPatched = patchOverlayPinLayer({
+    pinLayer,
+    pins: overlay.pins ?? [],
+  });
+  if (!mapPinsPatched || !overlayPinsPatched) {
+    return false;
+  }
+  applyOverlayPinLayerPresentation(pinLayer, overlay);
+  return true;
+}
+
+function patchViewport(root, viewport) {
+  applyViewportChrome(root);
+  root.hidden = false;
+  if (!viewport) {
+    delete root.dataset.mode;
+    delete root.dataset.passThrough;
+    root.style.left = "";
+    root.style.top = "";
+    root.style.width = "";
+    root.style.height = "";
+    return;
+  }
+  root.dataset.mode = viewport.mode;
+  root.dataset.passThrough = String(viewport.isPassThrough);
+  root.style.left = `${viewport.rect.left}px`;
+  root.style.top = `${viewport.rect.top}px`;
+  root.style.width = `${viewport.rect.width}px`;
+  root.style.height = `${viewport.rect.height}px`;
+}
+
+function applyViewportChrome(root) {
+  root.style.position = "fixed";
+  root.style.overflow = "hidden";
+  root.style.pointerEvents = "none";
+}
+
+function applyMapLayerChrome(mapLayer) {
+  mapLayer.style.position = "absolute";
+  mapLayer.style.left = "0";
+  mapLayer.style.top = "0";
+  mapLayer.style.right = "0";
+  mapLayer.style.bottom = "0";
+  mapLayer.style.pointerEvents = "none";
+}
+
+function patchMapLayer(mapLayer, overlay) {
+  const surfaceMotion = overlay?.mapLayer ?? overlay?.pageSurfaceMotion ?? null;
+  mapLayer.style.transform = surfaceMotion?.transformCss ?? "";
+  mapLayer.style.transformOrigin = surfaceMotion?.transformOriginCss ?? "";
+}
+
+function applyImageChrome(image) {
+  image.style.position = "absolute";
+  image.style.touchAction = "none";
+  image.style.userSelect = "none";
+  image.style.backgroundRepeat = "no-repeat";
+  image.style.backgroundSize = "100% 100%";
+}
+
+function patchImage(image, overlay, overlayInput) {
+  image.dataset.imageDataRef = overlay.imageDataRef;
+  image.style.pointerEvents = overlayInput.kind === "native-map" ? "none" : "auto";
+  if (overlay.displayImageUrl) {
+    image.style.backgroundImage = cssUrl(overlay.displayImageUrl);
+  } else {
+    image.style.backgroundImage = "";
+  }
+  applyImagePresentation(image, overlay);
+}
+
+function patchFrame(frame, overlay, overlayInput) {
+  if (overlay.frame) {
+    applyPlacementBox(frame, overlay.frame);
+    frame.style.display = "block";
+    frame.style.pointerEvents = overlay.frame.ownsPointerHitTesting ? "auto" : "none";
+    return;
+  }
+  applyInlineFramePresentation(frame, overlay);
+  frame.style.display = overlay.visible ? "block" : "none";
+  frame.style.pointerEvents = overlayInput.kind === "native-map" ? "none" : "auto";
+}
+
+function patchMapPinLayer({
+  pinLayer,
+  pins,
+  visualScale,
+}) {
+  return patchRegistrationPinLayer({
+    pinLayer,
+    pins,
+    selector: OVERLAY_DOM_SELECTOR.mapPinAnchor,
+    markerFromElement: (element) => element.querySelector(OVERLAY_DOM_SELECTOR.mapPinMarker),
+    positionElement: (element, pin) => applyPinPosition(element, mapPinPoint(pin)),
+    markerOptions: () => ({
+      presentation: REGISTRATION_MAP_PIN_MARKER_PRESENTATION,
+      visualScale,
+    }),
+  });
+}
+
+function patchOverlayPinLayer({
+  pinLayer,
+  pins,
+}) {
+  return patchRegistrationPinLayer({
+    pinLayer,
+    pins,
+    selector: OVERLAY_DOM_SELECTOR.overlayPin,
+    markerFromElement: (element) => element,
+    positionElement: (element, pin) => applyPinPosition(element, overlayPinPoint(pin)),
+    markerOptions: () => ({
+      presentation: REGISTRATION_OVERLAY_PIN_MARKER_PRESENTATION,
+    }),
+  });
+}
+
+function patchRegistrationPinLayer({
+  pinLayer,
+  pins,
+  selector,
+  markerFromElement,
+  positionElement,
+  markerOptions,
+}) {
+  const elements = [...pinLayer.querySelectorAll(selector)];
+  if (elements.length !== pins.length) {
+    return false;
+  }
+  for (let index = 0; index < pins.length; index += 1) {
+    const pin = pins[index];
+    const element = elements[index];
+    if (element.dataset.pinId !== String(pin.id)) {
+      return false;
+    }
+    const marker = markerFromElement(element);
+    if (!marker) {
+      return false;
+    }
+    positionElement(element, pin);
+    applyRegistrationPinMarker(marker, pin, markerOptions(pin));
+  }
+  return true;
 }
 
 function placementFromOverlay(overlay) {
@@ -398,11 +633,8 @@ function applyImagePresentation(image, overlay) {
     return;
   }
 
-  image.style.width = `${overlay.intrinsicSizePx.width}px`;
-  image.style.height = `${overlay.intrinsicSizePx.height}px`;
+  applyInlinePlacementBox(image, overlay);
   image.style.opacity = String(overlay.opacity);
-  image.style.transform = serializePlacement(overlay.placement);
-  image.style.transformOrigin = "0 0";
 }
 
 function applyFrameChrome(frame) {
@@ -414,10 +646,7 @@ function applyFrameChrome(frame) {
 }
 
 function applyInlineFramePresentation(frame, overlay) {
-  frame.style.width = `${overlay.intrinsicSizePx.width}px`;
-  frame.style.height = `${overlay.intrinsicSizePx.height}px`;
-  frame.style.transform = serializePlacement(overlay.placement);
-  frame.style.transformOrigin = "0 0";
+  applyInlinePlacementBox(frame, overlay);
 }
 
 function applyPinLayerChrome(pinLayer) {
@@ -434,10 +663,14 @@ function applyOverlayPinLayerPresentation(pinLayer, overlay) {
     applyPlacementBox(pinLayer, overlay.image);
     return;
   }
-  pinLayer.style.width = `${overlay.intrinsicSizePx.width}px`;
-  pinLayer.style.height = `${overlay.intrinsicSizePx.height}px`;
-  pinLayer.style.transform = serializePlacement(overlay.placement);
-  pinLayer.style.transformOrigin = "0 0";
+  applyInlinePlacementBox(pinLayer, overlay);
+}
+
+function applyInlinePlacementBox(element, overlay) {
+  element.style.width = `${overlay.intrinsicSizePx.width}px`;
+  element.style.height = `${overlay.intrinsicSizePx.height}px`;
+  element.style.transform = serializePlacement(overlay.placement);
+  element.style.transformOrigin = "0 0";
 }
 
 function applyPlacementBox(element, box) {
@@ -450,44 +683,150 @@ function applyPlacementBox(element, box) {
 }
 
 function renderOverlayPin(document, pin) {
-  const pinElement = document.createElement("div");
-  pinElement.className = "id-overlay-pin";
+  const pinElement = createRegistrationPinMarker(document, {
+    className: OVERLAY_DOM_CLASS.overlayPin,
+    pin,
+    options: {
+      presentation: REGISTRATION_OVERLAY_PIN_MARKER_PRESENTATION,
+    },
+  });
   pinElement.dataset.registrationPin = "";
-  pinElement.dataset.pinId = String(pin.id);
-  const left = pin.left ?? pin.imagePx?.x ?? 0;
-  const top = pin.top ?? pin.imagePx?.y ?? 0;
-  applyPinMarkerChrome(pinElement);
-  pinElement.style.left = `${left}px`;
-  pinElement.style.top = `${top}px`;
-  pinElement.textContent = String(pin.id);
+  applyPinPosition(pinElement, overlayPinPoint(pin));
   return pinElement;
 }
 
-function renderMapPin(document, pin) {
-  const pinElement = document.createElement("div");
-  pinElement.className = "id-overlay-map-pin";
-  pinElement.dataset.pinId = String(pin.id);
-  applyPinMarkerChrome(pinElement);
-  pinElement.style.left = `${pin.left}px`;
-  pinElement.style.top = `${pin.top}px`;
-  pinElement.textContent = String(pin.id);
-  return pinElement;
+function renderMapPin(document, pin, {
+  visualScale = 1,
+} = {}) {
+  const anchor = document.createElement("div");
+  anchor.className = OVERLAY_DOM_CLASS.mapPinAnchor;
+  anchor.dataset.pinId = String(pin.id);
+  applyMapPinAnchorChrome(anchor);
+  applyPinPosition(anchor, mapPinPoint(pin));
+
+  anchor.append(createRegistrationPinMarker(document, {
+    className: OVERLAY_DOM_CLASS.mapPinMarker,
+    pin,
+    options: {
+      presentation: REGISTRATION_MAP_PIN_MARKER_PRESENTATION,
+      visualScale,
+    },
+  }));
+  return anchor;
 }
 
-function applyPinMarkerChrome(pinElement) {
+function createRegistrationPinMarker(document, {
+  className,
+  pin,
+  options,
+}) {
+  const marker = document.createElement("div");
+  marker.className = className;
+  marker.dataset.pinId = String(pin.id);
+  applyRegistrationPinMarker(marker, pin, options);
+  return marker;
+}
+
+function applyRegistrationPinMarker(marker, pin, options) {
+  marker.textContent = pinMarkerLabel(pin);
+  applyPinMarkerChrome(marker, pin.tone, options);
+}
+
+function overlayPinPoint(pin) {
+  return {
+    left: pin.left ?? pin.imagePx?.x ?? 0,
+    top: pin.top ?? pin.imagePx?.y ?? 0,
+  };
+}
+
+function mapPinPoint(pin) {
+  return {
+    left: pin.left,
+    top: pin.top,
+  };
+}
+
+function applyPinPosition(element, {
+  left,
+  top,
+}) {
+  element.style.left = `${left}px`;
+  element.style.top = `${top}px`;
+}
+
+function pinMarkerLabel(pin) {
+  return pin.label === undefined ? String(pin.id) : String(pin.label);
+}
+
+function applyPinMarkerChrome(pinElement, tone = "normal", {
+  presentation = REGISTRATION_OVERLAY_PIN_MARKER_PRESENTATION,
+  visualScale = 1,
+} = {}) {
+  const {
+    sizePx,
+    borderPx,
+    fontPx,
+    opacity,
+  } = presentation;
+  const tonePresentation = registrationPinMarkerTonePresentation(tone);
+  pinElement.dataset.pinTone = tonePresentation.tone;
   pinElement.style.position = "absolute";
-  pinElement.style.width = "14px";
-  pinElement.style.height = "14px";
-  pinElement.style.marginLeft = "-7px";
-  pinElement.style.marginTop = "-7px";
-  pinElement.style.border = "2px solid white";
+  pinElement.style.width = `${sizePx}px`;
+  pinElement.style.height = `${sizePx}px`;
+  pinElement.style.marginLeft = `${-sizePx / 2}px`;
+  pinElement.style.marginTop = `${-sizePx / 2}px`;
+  pinElement.style.border = `${borderPx}px solid white`;
   pinElement.style.borderRadius = "999px";
   pinElement.style.boxSizing = "border-box";
-  pinElement.style.background = "rgba(37, 99, 235, 0.92)";
+  pinElement.style.background = tonePresentation.background;
   pinElement.style.color = "white";
-  pinElement.style.font = "10px / 10px sans-serif";
+  pinElement.style.fontSize = `${fontPx}px`;
+  pinElement.style.lineHeight = `${fontPx}px`;
+  pinElement.style.fontFamily = "sans-serif";
   pinElement.style.textAlign = "center";
   pinElement.style.userSelect = "none";
+  pinElement.style.opacity = String(opacity);
+  pinElement.style.transform = visualScale === 1 ? "" : `scale(${visualScale})`;
+  pinElement.style.transformOrigin = "50% 50%";
+}
+
+function requireOverlayInput(overlayInput) {
+  if (!overlayInput || typeof overlayInput !== "object") {
+    throw new TypeError("overlayInput is required");
+  }
+  if (typeof overlayInput.kind !== "string") {
+    throw new TypeError("overlayInput.kind is required");
+  }
+  return overlayInput;
+}
+
+function applyMapPinAnchorChrome(anchor) {
+  anchor.style.position = "absolute";
+  anchor.style.left = "0";
+  anchor.style.top = "0";
+  anchor.style.width = "0";
+  anchor.style.height = "0";
+}
+
+function mapPinMarkerScaleForInlinePlacement(overlay) {
+  if (overlay?.image) {
+    return 1;
+  }
+  const scale = placementFromOverlay(overlay).scale;
+  return Number.isFinite(scale) && scale > 0 ? scale : 1;
+}
+
+function cssUrl(value) {
+  return `url("${cssString(value)}")`;
+}
+
+function cssString(value) {
+  return String(value)
+    .replace(/\\/gu, "\\\\")
+    .replace(/"/gu, "\\\"")
+    .replace(/\n/gu, "\\A ")
+    .replace(/\r/gu, "\\D ")
+    .replace(/\f/gu, "\\C ");
 }
 
 function screenPxFromEvent(event) {

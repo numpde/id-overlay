@@ -15,37 +15,105 @@ import {
   selectDurableApplicationState,
 } from "../application/view-model.js";
 import {
+  APPLICATION_MODE,
+  APPLICATION_STATE_KEY,
+  PAGE_SNAPSHOT_KIND,
+  PLACEMENT_COORDINATE_SPACE,
+} from "./application-state-vocabulary.js";
+import {
   deriveMapLockedPlacementFromScreenPlacement,
   isLiveMapSnapshot,
   isMapLockedMode,
 } from "./map-locked-placement.js";
 
-const STATE_KEY = Object.freeze({
-  session: "session",
-  registration: "registration",
-  pins: "pins",
-  placement: "placement",
-  solvedPlacement: "solvedPlacement",
-  mode: "mode",
-  history: "history",
-});
-const MODE = Object.freeze({
-  trace: "trace",
-});
+const CENTER_OVERLAY_VIEW_PADDING_RATIO = 0.9;
+const STATE_KEY = APPLICATION_STATE_KEY;
+const MODE = APPLICATION_MODE;
 const REGISTRATION_SOLVER_METHOD = "solveRegistrationPlacement";
 
 export function stepShellApplication({ host, pageSnapshot, state, command }) {
-  const solve = maybeSolveBeforeStep({ host, state, command });
-  const result = handleApplicationCommand({ state, command });
+  const effectiveCommand = withMeasuredCenterPlacement({
+    pageSnapshot,
+    state,
+    command,
+  });
+  const solve = maybeSolveBeforeStep({ host, state, command: effectiveCommand });
+  const result = handleApplicationCommand({ state, command: effectiveCommand });
   if (!solve) {
     return withSelectedModePlacement({
       previousState: state,
       pageSnapshot,
       result,
-      command,
+      command: effectiveCommand,
     });
   }
   return withSolvedFit({ previousState: state, result, solve });
+}
+
+function withMeasuredCenterPlacement({
+  pageSnapshot,
+  state,
+  command,
+}) {
+  if (
+    command.kind !== APPLICATION_COMMAND_KIND.CENTER_OVERLAY_IN_VIEW
+  ) {
+    return command;
+  }
+  const placement = centerPlacementForCurrentView({
+    pageSnapshot,
+    state,
+  });
+  if (!placement) {
+    return command;
+  }
+  return {
+    ...command,
+    placement,
+  };
+}
+
+function centerPlacementForCurrentView({
+  pageSnapshot,
+  state,
+}) {
+  const imageSize = state.session?.referenceImage?.intrinsicSizePx;
+  const viewport = pageSnapshot?.viewportPx;
+  if (
+    pageSnapshot?.kind !== PAGE_SNAPSHOT_KIND.supportedMapPage
+      || !Number.isFinite(imageSize?.width)
+      || !Number.isFinite(imageSize?.height)
+      || imageSize.width <= 0
+      || imageSize.height <= 0
+      || !Number.isFinite(viewport?.width)
+      || !Number.isFinite(viewport?.height)
+      || viewport.width <= 0
+      || viewport.height <= 0
+  ) {
+    return null;
+  }
+  const scale = CENTER_OVERLAY_VIEW_PADDING_RATIO * Math.min(
+    viewport.width / imageSize.width,
+    viewport.height / imageSize.height,
+  );
+  const origin = pageSnapshot.viewportScreenPx ?? {
+    x: 0,
+    y: 0,
+  };
+  const screenPlacement = {
+    x: origin.x + (viewport.width - imageSize.width * scale) / 2,
+    y: origin.y + (viewport.height - imageSize.height * scale) / 2,
+    scale,
+    rotationRad: 0,
+    coordinateSpace: PLACEMENT_COORDINATE_SPACE.screen,
+  };
+  if (!isLiveMapSnapshot(pageSnapshot)) {
+    return screenPlacement;
+  }
+  return deriveMapLockedPlacementFromScreenPlacement({
+    placement: screenPlacement,
+    pageSnapshot,
+  });
 }
 
 function withSelectedModePlacement({
@@ -100,7 +168,9 @@ function withSolvedFit({ previousState, result, solve }) {
         after: durableState,
       }),
     }, createOverlayFittedNotice({
-      pinCount: state[STATE_KEY.session]?.[STATE_KEY.registration]?.[STATE_KEY.pins]?.length ?? 0,
+      pinCount: solve.solvedTransform?.pinIds?.length
+        ?? state[STATE_KEY.session]?.[STATE_KEY.registration]?.[STATE_KEY.pins]?.length
+        ?? 0,
     })),
     effects: result.effects.map((effect) => (
       effect.kind === "persist-durable-state"
@@ -130,7 +200,7 @@ function withMapLockedPlacement({
     return result;
   }
   const placement = previousState[STATE_KEY.session]?.[STATE_KEY.placement];
-  if (!placement || placement.coordinateSpace === "map-world") {
+  if (!placement || placement.coordinateSpace === PLACEMENT_COORDINATE_SPACE.mapWorld) {
     return result;
   }
   const nextPlacement = deriveMapLockedPlacementFromScreenPlacement({
@@ -215,7 +285,7 @@ function solvedPlacementFromSolve(solve) {
     y: solve.solvedTransform.ty,
     scale: solve.solvedTransform.scale,
     rotationRad: solve.solvedTransform.rotationRad,
-    coordinateSpace: "map-world",
+    coordinateSpace: PLACEMENT_COORDINATE_SPACE.mapWorld,
   };
 }
 

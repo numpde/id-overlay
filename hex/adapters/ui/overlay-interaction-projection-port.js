@@ -6,6 +6,9 @@ import {
 import {
   normalizeOpacity,
 } from "../../domain/opacity.js";
+import {
+  REGISTRATION_PIN_MARKER_HIT_RADIUS_SCREEN_PX,
+} from "./registration-pin-marker.js";
 
 export function createOverlayInteractionProjectionPort({
   readState,
@@ -123,7 +126,8 @@ export function createOverlayInteractionProjectionPort({
       return {
         kind: "projected",
         existingPinId: nearestPinId({
-          imagePx,
+          screenPx,
+          screenPlacement: projection.screenPlacement,
           pins: state.session.registration?.pins ?? [],
         }),
         imagePx,
@@ -240,11 +244,22 @@ function projectLatLonToWorld({ lat, lon }) {
   };
 }
 
-function nearestPinId({ imagePx, pins }) {
-  const match = pins.find((pin) => (
-    Math.hypot(pin.imagePx.x - imagePx.x, pin.imagePx.y - imagePx.y) <= 8
-  ));
-  return match?.id ?? null;
+function nearestPinId({ screenPx, screenPlacement, pins }) {
+  let nearest = null;
+  for (const pin of pins) {
+    const pinScreenPx = applyPlacementToPoint(pin.imagePx, screenPlacement);
+    const distancePx = Math.hypot(pinScreenPx.x - screenPx.x, pinScreenPx.y - screenPx.y);
+    if (distancePx > REGISTRATION_PIN_MARKER_HIT_RADIUS_SCREEN_PX) {
+      continue;
+    }
+    if (!nearest || distancePx < nearest.distancePx) {
+      nearest = {
+        id: pin.id,
+        distancePx,
+      };
+    }
+  }
+  return nearest?.id ?? null;
 }
 
 function screenPxToMapLatLon({ screenPx, pageSnapshot }) {

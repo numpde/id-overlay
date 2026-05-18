@@ -1,11 +1,15 @@
+import {
+  OVERLAY_DOM_SELECTOR,
+} from "./overlay-dom.js";
+
 export function overlayDomDebugSummary({
   overlayRoot,
   overlay,
   overlayInput,
 }) {
-  const image = overlayRoot.querySelector(".id-overlay-image");
-  const frame = overlayRoot.querySelector(".id-overlay-frame");
-  const mapLayer = overlayRoot.querySelector(".id-overlay-map-layer");
+  const image = overlayRoot.querySelector(OVERLAY_DOM_SELECTOR.image);
+  const frame = overlayRoot.querySelector(OVERLAY_DOM_SELECTOR.frame);
+  const mapLayer = overlayRoot.querySelector(OVERLAY_DOM_SELECTOR.mapLayer);
   return {
     overlayInputKind: overlayInput?.kind,
     visible: overlay?.visible,

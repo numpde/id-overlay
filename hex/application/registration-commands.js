@@ -50,6 +50,7 @@ export function toggleRegistrationPin(state, command, { inertResult }) {
 
   const pins = state.session.registration?.pins ?? [];
   if (command.existingPinId !== null && command.existingPinId !== undefined) {
+    const removedPinIndex = pins.findIndex((pin) => pin.id === command.existingPinId);
     const nextPins = pins.filter((pin) => pin.id !== command.existingPinId);
     if (nextPins.length === pins.length) {
       return inertResult(state);
@@ -69,6 +70,7 @@ export function toggleRegistrationPin(state, command, { inertResult }) {
       notice: {
         kind: "removed-pin",
         pinId: command.existingPinId,
+        pinLabel: String(removedPinIndex + 1),
       },
     };
     return {
@@ -99,6 +101,7 @@ export function toggleRegistrationPin(state, command, { inertResult }) {
     notice: {
       kind: "added-pin",
       pinId: pin.id,
+      pinLabel: String(pins.length + 1),
     },
   };
   return {

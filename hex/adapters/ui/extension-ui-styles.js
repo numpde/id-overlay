@@ -5,6 +5,7 @@ export const EXTENSION_UI_STYLES = `
   --id-overlay-green: #16a34a;
   --id-overlay-green-strong: #15803d;
   --id-overlay-danger: #dc2626;
+  --id-overlay-danger-strong: #b91c1c;
   all: initial;
   position: fixed;
   inset: 0;
@@ -24,6 +25,12 @@ export const EXTENSION_UI_STYLES = `
   bottom: 16px;
   z-index: 20;
   pointer-events: auto;
+}
+:host > [data-region="panel"][data-id-overlay-panel-motion="smooth"] {
+  transition: left 160ms ease, top 160ms ease;
+}
+:host > [data-region="panel"][data-id-overlay-panel-motion="direct"] {
+  transition: none;
 }
 .id-overlay-panel {
   box-sizing: border-box;
@@ -50,8 +57,6 @@ export const EXTENSION_UI_STYLES = `
 .id-overlay-panel__title-row {
   display: flex;
   align-items: center;
-}
-.id-overlay-panel__title-row {
   gap: 8px;
   justify-content: space-between;
 }
@@ -132,17 +137,28 @@ export const EXTENSION_UI_STYLES = `
   background: var(--id-overlay-danger);
   color: #ffffff;
 }
+.id-overlay-button--confirm:hover:not(:disabled) {
+  border-color: rgba(248, 113, 113, 0.9);
+  background: var(--id-overlay-danger-strong);
+}
 .id-overlay-button--undo,
-.id-overlay-button--redo {
+.id-overlay-button--redo,
+.id-overlay-button--center-overlay,
+.id-overlay-button--center-map {
   min-width: 30px;
   inline-size: 30px;
   padding: 0;
   font-size: 18px;
   line-height: 1;
 }
+.id-overlay-button--center-overlay svg,
+.id-overlay-button--center-map svg {
+  inline-size: 16px;
+  block-size: 16px;
+}
 .id-overlay-panel__controls-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 42px 64px;
+  grid-template-columns: minmax(0, 1fr) 30px 30px 42px 64px;
   align-items: center;
   gap: 8px;
 }

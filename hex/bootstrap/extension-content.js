@@ -5,6 +5,9 @@ import {
   createBrowserReferenceImageInputPort,
 } from "../adapters/web/reference-image-input-port.js";
 import {
+  createTimerPortAdapter,
+} from "../adapters/web/timer-port.js";
+import {
   createActiveMapContextAdapter,
 } from "../adapters/page-osm-id/active-map-context-adapter.js";
 import {
@@ -16,6 +19,9 @@ import {
 import {
   installMapStateDebugProbe,
 } from "../adapters/page-osm-id/map-state-debug-probe.js";
+import {
+  createOpenStreetMapMapViewPort,
+} from "../adapters/page-osm-id/map-view-port-adapter.js";
 import {
   createNativeMapGestureForwarder,
 } from "../adapters/page-osm-id/native-map-gesture-forwarder.js";
@@ -109,13 +115,15 @@ function createBrowserHost({
   ownerWindow,
   chromeApi,
 }) {
+  const disposers = [];
+  let disposed = false;
   const eventDebugLogger = createContentEventDebugLogger({
     ownerWindow,
     chromeApi,
   });
   let pageWorldSurfaceMotion = null;
   let notifyPageSnapshotChange = () => {};
-  installSurfaceMotionBridge({
+  const surfaceMotionBridge = installSurfaceMotionBridge({
     ownerWindow,
     chromeApi,
     onSurfaceMotion(surfaceMotion) {
@@ -126,6 +134,7 @@ function createBrowserHost({
       notifyPageSnapshotChange();
     },
   });
+  disposers.push(() => surfaceMotionBridge.destroy?.());
   const uiHost = createExtensionUiHost({
     document,
     eventDebugLogger,
@@ -139,17 +148,19 @@ function createBrowserHost({
     ownerWindow,
     eventDebugLogger,
   });
+  disposers.push(() => nativeMapWheelSuppression.destroy?.());
   const nativeMapGestureForwarder = createNativeMapGestureForwarder({
     document,
     ownerWindow,
     eventDebugLogger,
     readPageContext: () => activeMapContextAdapter.readActiveMapContext(),
   });
-  installMapStateDebugProbe({
+  const mapStateDebugProbe = installMapStateDebugProbe({
     ownerWindow,
     eventDebugLogger,
     readPanState: () => nativeMapWheelSuppression.readDebugState(),
   });
+  disposers.push(() => mapStateDebugProbe.destroy?.());
   const pageSnapshotPort = createPageSnapshotAdapter({
     readPage: () => {
       const page = readOpenStreetMapPage({
@@ -196,12 +207,25 @@ function createBrowserHost({
       storageKey: STORE_KEY,
     }),
     pageSnapshotPort,
+    mapViewPort: createOpenStreetMapMapViewPort({
+      ownerWindow,
+      findEmbeddedEditorFrame: () => findEmbeddedEditorFrame(document),
+      eventDebugLogger,
+    }),
     [HOST_PORT.projectOverlayForPageSnapshot]: projectOverlayForPageSnapshot,
     [HOST_PORT.registrationSolver]: {
       [HOST_PORT.fitPins]: fitDomain[HOST_PORT.fitPins],
     },
     referenceImageInputPort: createBrowserReferenceImageInputPort({
       ownerWindow,
+    }),
+    timerPort: createTimerPortAdapter({
+      setTimer(delayMs, callback) {
+        return ownerWindow.setTimeout(callback, delayMs);
+      },
+      clearTimer(handle) {
+        ownerWindow.clearTimeout(handle);
+      },
     }),
     projectPlacementEdit: projectionPort.projectPlacementEdit,
     projectRegistrationPinToggle: projectionPort.projectRegistrationPinToggle,
@@ -258,6 +282,16 @@ function createBrowserHost({
       runtime = nextRuntime;
       return nextRuntime;
     },
+    dispose() {
+      if (disposed) {
+        return;
+      }
+      disposed = true;
+      for (const dispose of disposers.splice(0)) {
+        dispose();
+      }
+      eventDebugLogger.flush?.();
+    },
     reportRuntimeError(error) {
       console.error("id-overlay: runtime error", error);
     },
@@ -266,18 +300,23 @@ function createBrowserHost({
     url: String(location ?? ownerWindow.location ?? ""),
     pageContextKind: host.pageContext?.kind ?? null,
   });
-  document.addEventListener("pointermove", (event) => {
+  const rememberPointerScreenPx = (event) => {
     lastPointerScreenPx = {
       x: event.clientX,
       y: event.clientY,
     };
-  }, true);
-  createKeyboardAdapter({
+  };
+  document.addEventListener("pointermove", rememberPointerScreenPx, true);
+  disposers.push(() => document.removeEventListener("pointermove", rememberPointerScreenPx, true));
+  const keyboardAdapter = createKeyboardAdapter({
     document,
+    ownerWindow,
     emitInteractionFact(fact) {
       void host.handleInteractionFact?.(fact);
     },
-  }).bindInput();
+  });
+  keyboardAdapter.bindInput();
+  disposers.push(() => keyboardAdapter.destroy?.());
   return host;
 }
 

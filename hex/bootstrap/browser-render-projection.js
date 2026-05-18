@@ -1,3 +1,7 @@
+import {
+  PAGE_SNAPSHOT_KIND,
+} from "./application-state-vocabulary.js";
+
 const HOST_PORT = Object.freeze({
   projectOverlayForPageSnapshot: "projectTraceOverlayForPageSnapshot",
 });
@@ -40,7 +44,10 @@ export function projectApplicationView({ host, pageSnapshot, view }) {
       reason: !pageSnapshot ? "missing-page-snapshot" : "missing-projector",
       overlay: summarizeOverlay(view.overlay),
     });
-    return view;
+    return withMapViewActions({
+      view,
+      pageSnapshot,
+    });
   }
   const projectedOverlay = projectOverlay({
     overlay: view.overlay,
@@ -54,6 +61,34 @@ export function projectApplicationView({ host, pageSnapshot, view }) {
   return {
     ...view,
     overlay: projectedOverlay,
+    ...mapViewActions({
+      view: {
+        ...view,
+        overlay: projectedOverlay,
+      },
+      pageSnapshot,
+    }),
+  };
+}
+
+function withMapViewActions({ view, pageSnapshot }) {
+  return {
+    ...view,
+    ...mapViewActions({ view, pageSnapshot }),
+  };
+}
+
+function mapViewActions({ view, pageSnapshot }) {
+  return {
+    centerMapOnOverlayAction: {
+      kind: "center-map-on-overlay",
+      label: "Center map on overlay",
+      enabled: Boolean(
+        view.overlay?.visible
+          && pageSnapshot?.kind === PAGE_SNAPSHOT_KIND.supportedMapPage,
+      ),
+      icon: "center-map",
+    },
   };
 }
 

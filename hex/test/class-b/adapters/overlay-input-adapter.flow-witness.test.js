@@ -6,9 +6,52 @@ import {
   createOverlayAdapter,
 } from "../../../adapters/ui/overlay-adapter.js";
 import {
+  REGISTRATION_PIN_MARKER_TONE_PRESENTATION,
+} from "../../../adapters/ui/registration-pin-marker.js";
+import {
   createFlowTrace,
   flowEdge,
 } from "../../support/flow-trace.js";
+
+const OVERLAY_EDITING_INPUT = Object.freeze({
+  kind: "overlay-editing",
+  canEditOverlay: true,
+  arePinsVisible: true,
+});
+
+// Class-b: overlay input posture is a view fact, not an adapter default. The
+// concrete DOM adapter must fail loudly if its caller forgets whether the
+// rendered overlay is editable or native-map pass-through.
+test("overlay adapter requires explicit overlay input facts", () => {
+  const trace = createFlowTrace({
+    file: import.meta.url,
+    test: "overlay adapter requires explicit overlay input facts",
+  });
+  const { window } = new JSDOM("<!doctype html><body></body>");
+  const overlay = createOverlayAdapter({
+    document: window.document,
+  });
+
+  assert.throws(
+    () => overlay.render({
+      visible: false,
+    }),
+    /overlayInput is required/u,
+  );
+  renderOverlay(overlay, {
+    visible: false,
+  });
+  assert.throws(
+    () => overlay.update({
+      visible: false,
+    }),
+    /overlayInput is required/u,
+  );
+  trace.edge(flowEdge("view.overlay-render-facts", "sink.adapter-contract", {
+    phase: "missing-overlay-input",
+    terminal: "contract-error",
+  }));
+});
 
 // Class-b, deliberately not class-a: DOM tags, CSS serialization, and data
 // markers are adapter-local handles. The stable boundary is narrower: overlay
@@ -23,7 +66,7 @@ test("overlay adapter renders from overlay view facts only", () => {
     document: window.document,
   });
 
-  const root = overlay.render({
+  const root = renderOverlay(overlay, {
     visible: true,
     imageDataRef: "reference-image-data-1",
     intrinsicSizePx: {
@@ -84,7 +127,7 @@ test("overlay adapter applies page surface motion exactly once to rendered map l
     document: window.document,
   });
 
-  const root = overlay.render({
+  const root = renderOverlay(overlay, {
     visible: true,
     imageDataRef: "reference-image-data-1",
     intrinsicSizePx: {
@@ -120,6 +163,37 @@ test("overlay adapter applies page surface motion exactly once to rendered map l
   }));
 });
 
+// Class-b: display image URLs are browser-resource facts, not CSS fragments.
+// The adapter owns CSS serialization for the rendered background image so
+// resource URLs with CSS-significant characters cannot break create or patch
+// rendering paths.
+test("overlay adapter serializes display image URLs as CSS URL values", () => {
+  const trace = createFlowTrace({
+    file: import.meta.url,
+    test: "overlay adapter serializes display image URLs as CSS URL values",
+  });
+  const { window } = new JSDOM("<!doctype html><body></body>");
+  const overlay = createOverlayAdapter({
+    document: window.document,
+  });
+
+  const root = renderOverlay(overlay, overlayWithDisplayUrl({
+    displayImageUrl: "blob:https://example.test/ref\"one",
+  }));
+  const image = root.querySelector("[data-overlay-image]");
+  assert.equal(image.style.backgroundImage, 'url("blob:https://example.test/ref\\"one")');
+
+  assert.equal(updateOverlay(overlay, overlayWithDisplayUrl({
+    displayImageUrl: "blob:https://example.test/ref\\two",
+  })), true);
+
+  assert.equal(image.style.backgroundImage, 'url("blob:https://example.test/ref\\\\two")');
+  trace.edge(flowEdge("view.overlay-display-resource-url", "sink.rendered-overlay", {
+    phase: "css-url-serialized",
+    terminal: "render-result",
+  }));
+});
+
 // Class-b: legacy renders a separate thin frame around the reference image.
 // The frame is visible chrome, not input state: it must track the same rendered
 // box as the image whether or not the image is currently interactive.
@@ -133,7 +207,7 @@ test("overlay adapter draws a thin legacy frame around the reference image", () 
     document: window.document,
   });
 
-  const root = overlay.render({
+  const root = renderOverlay(overlay, {
     visible: true,
     imageDataRef: "reference-image-data-1",
     intrinsicSizePx: {
@@ -188,7 +262,7 @@ test("overlay adapter renders legacy viewport map-layer image-frame chrome", () 
     document: window.document,
   });
 
-  const root = overlay.render({
+  const root = renderOverlay(overlay, {
     visible: true,
     imageDataRef: "reference-image-data-1",
     intrinsicSizePx: {
@@ -214,7 +288,7 @@ test("overlay adapter renders legacy viewport map-layer image-frame chrome", () 
     },
     mapLayer: {
       transformOriginCss: "4px 5px",
-      transformCss: "matrix(1, 0, 0, 1, 7, 8)",
+      transformCss: "matrix(2, 0, 0, 2, 7, 8)",
     },
     image: {
       src: "https://example.test/reference.png",
@@ -251,6 +325,9 @@ test("overlay adapter renders legacy viewport map-layer image-frame chrome", () 
   assert.equal(root.dataset.idOverlayOwned, "true");
   assert.equal(root.dataset.mode, "align");
   assert.equal(root.dataset.passThrough, "false");
+  assert.equal(root.style.position, "fixed");
+  assert.equal(root.style.overflow, "hidden");
+  assert.equal(root.style.pointerEvents, "none");
   assert.equal(root.style.left, "10px");
   assert.equal(root.style.top, "20px");
   assert.equal(root.style.width, "300px");
@@ -263,7 +340,7 @@ test("overlay adapter renders legacy viewport map-layer image-frame chrome", () 
   assert.equal(mapLayer.style.right, "0px");
   assert.equal(mapLayer.style.bottom, "0px");
   assert.equal(mapLayer.style.transformOrigin, "4px 5px");
-  assert.equal(mapLayer.style.transform, "matrix(1, 0, 0, 1, 7, 8)");
+  assert.equal(mapLayer.style.transform, "matrix(2, 0, 0, 2, 7, 8)");
 
   const image = root.querySelector(".id-overlay-image");
   const frame = root.querySelector(".id-overlay-frame");
@@ -283,23 +360,36 @@ test("overlay adapter renders legacy viewport map-layer image-frame chrome", () 
   assert.equal(frame.style.transform, "rotate(15deg)");
 
   assert.deepEqual(
-    [...root.querySelectorAll(".id-overlay-map-pin")].map((pin) => ({
-      id: pin.dataset.pinId,
-      text: pin.textContent,
-      position: pin.style.position,
-      left: pin.style.left,
-      top: pin.style.top,
-      width: pin.style.width,
-      height: pin.style.height,
+    [...root.querySelectorAll(".id-overlay-map-pin")].map((anchor) => ({
+      id: anchor.dataset.pinId,
+      position: anchor.style.position,
+      left: anchor.style.left,
+      top: anchor.style.top,
+      width: anchor.style.width,
+      height: anchor.style.height,
+      marker: markerSummary(anchor.querySelector(".id-overlay-map-pin__marker")),
     })),
     [{
       id: "1",
-      text: "1",
       position: "absolute",
       left: "20px",
       top: "30px",
-      width: "14px",
-      height: "14px",
+      width: "0px",
+      height: "0px",
+      marker: {
+        text: "1",
+        position: "absolute",
+        width: "42px",
+        height: "42px",
+        marginLeft: "-21px",
+        marginTop: "-21px",
+        fontSize: "30px",
+        lineHeight: "30px",
+        background: REGISTRATION_PIN_MARKER_TONE_PRESENTATION.normal.background,
+        opacity: "0.55",
+        transform: "",
+        transformOrigin: "50% 50%",
+      },
     }],
   );
   const pinLayer = root.querySelector(".id-overlay-pin-layer");
@@ -314,14 +404,28 @@ test("overlay adapter renders legacy viewport map-layer image-frame chrome", () 
       top: pin.style.top,
       width: pin.style.width,
       height: pin.style.height,
+      marginLeft: pin.style.marginLeft,
+      marginTop: pin.style.marginTop,
+      fontSize: pin.style.fontSize,
+      lineHeight: pin.style.lineHeight,
+      background: pin.style.background,
+      opacity: pin.style.opacity,
+      transform: pin.style.transform,
     })),
     [{
       text: "2",
       position: "absolute",
       left: "40px",
       top: "50px",
-      width: "14px",
-      height: "14px",
+      width: "42px",
+      height: "42px",
+      marginLeft: "-21px",
+      marginTop: "-21px",
+      fontSize: "30px",
+      lineHeight: "30px",
+      background: REGISTRATION_PIN_MARKER_TONE_PRESENTATION.normal.background,
+      opacity: "1",
+      transform: "",
     }],
   );
   trace.edge(flowEdge("view.overlay-render-facts", "sink.rendered-overlay", {
@@ -329,3 +433,338 @@ test("overlay adapter renders legacy viewport map-layer image-frame chrome", () 
     terminal: "render-result",
   }));
 });
+
+// Class-b: map-location pins are the same registration markers rendered in map
+// coordinates. Their anchors remain in map coordinates, but their marker glyphs
+// scale with the current overlay placement so they visually match image pins.
+test("overlay adapter patch keeps map pin markers scaling with overlay placement", () => {
+  const trace = createFlowTrace({
+    file: import.meta.url,
+    test: "overlay adapter patch keeps map pin markers scaling with overlay placement",
+  });
+  const { window } = new JSDOM("<!doctype html><body></body>");
+  const overlay = createOverlayAdapter({
+    document: window.document,
+  });
+  const root = renderOverlay(overlay, overlayWithMapPin({
+    transformCss: "matrix(1, 0, 0, 1, 0, 0)",
+  }));
+  const anchor = root.querySelector(".id-overlay-map-pin");
+  const marker = root.querySelector(".id-overlay-map-pin__marker");
+
+  assert.equal(marker.style.transform, "");
+  assert.equal(updateOverlay(overlay, overlayWithMapPin({
+    transformCss: "matrix(2, 0, 0, 2, 7, 8)",
+    placementScale: 0.5,
+  })), true);
+
+  assert.equal(root.querySelector(".id-overlay-map-pin"), anchor);
+  assert.equal(root.querySelector(".id-overlay-map-pin__marker"), marker);
+  assert.equal(root.querySelector(".id-overlay-map-layer").style.transform, "matrix(2, 0, 0, 2, 7, 8)");
+  assert.equal(anchor.style.left, "20px");
+  assert.equal(anchor.style.top, "30px");
+  assert.equal(marker.style.transform, "scale(0.5)");
+  assert.equal(marker.style.transformOrigin, "50% 50%");
+  assert.equal(updateOverlay(overlay, overlayWithMapPin({
+    transformCss: "matrix(2, 0, 0, 2, 7, 8)",
+    placementScale: 0,
+  })), true);
+  assert.equal(marker.style.transform, "");
+  trace.edge(flowEdge("view.overlay-render-facts", "sink.rendered-overlay", {
+    phase: "patched-map-pin-overlay-placement-scale",
+    terminal: "render-result",
+  }));
+});
+
+// Class-b: explicit image/frame boxes are already rendered coordinates. Map
+// pin markers should not inherit stale inline placement scale when overlay pins
+// are rendered inside an explicit placement box.
+test("overlay adapter leaves map pin markers unscaled for explicit image boxes", () => {
+  const trace = createFlowTrace({
+    file: import.meta.url,
+    test: "overlay adapter leaves map pin markers unscaled for explicit image boxes",
+  });
+  const { window } = new JSDOM("<!doctype html><body></body>");
+  const overlay = createOverlayAdapter({
+    document: window.document,
+  });
+
+  const root = renderOverlay(overlay, {
+    ...overlayWithMapPin({
+      transformCss: "matrix(1, 0, 0, 1, 0, 0)",
+      placementScale: 0.25,
+    }),
+    image: {
+      src: "https://example.test/reference.png",
+      left: 11,
+      top: 12,
+      width: 100,
+      height: 80,
+      rotationDeg: 0,
+      opacity: 0.5,
+    },
+    frame: {
+      left: 11,
+      top: 12,
+      width: 100,
+      height: 80,
+      rotationDeg: 0,
+      ownsPointerHitTesting: true,
+    },
+  });
+
+  assert.equal(root.querySelector(".id-overlay-pin-layer").style.transform, "rotate(0deg)");
+  assert.equal(root.querySelector(".id-overlay-map-pin__marker").style.transform, "");
+  trace.edge(flowEdge("view.overlay-render-facts", "sink.rendered-overlay", {
+    phase: "explicit-box-map-pin-marker-scale",
+    terminal: "render-result",
+  }));
+});
+
+// Class-b: overlay input ownership is a lifecycle boundary. Surface listeners
+// must move when a new surface is bound and be released with the adapter so
+// stale DOM from a replaced render cannot keep emitting interaction facts.
+test("overlay adapter input listeners follow the owned surface lifecycle", () => {
+  const trace = createFlowTrace({
+    file: import.meta.url,
+    test: "overlay adapter input listeners follow the owned surface lifecycle",
+  });
+  const { window } = new JSDOM("<!doctype html><body></body>");
+  const emitted = [];
+  const overlay = createOverlayAdapter({
+    document: window.document,
+    emitInteractionFact: (fact) => emitted.push(fact),
+  });
+  const surface = renderOverlay(overlay, overlayWithMapPin({
+    transformCss: "matrix(1, 0, 0, 1, 0, 0)",
+  }));
+  overlay.bindInput(surface);
+
+  surface.dispatchEvent(new window.MouseEvent("dblclick", {
+    bubbles: true,
+    cancelable: true,
+    clientX: 11,
+    clientY: 12,
+  }));
+  assert.equal(emitted.length, 1);
+
+  const nextSurface = renderOverlay(overlay, overlayWithMapPin({
+    transformCss: "matrix(1, 0, 0, 1, 1, 2)",
+  }));
+  overlay.bindInput(nextSurface);
+  surface.dispatchEvent(new window.MouseEvent("dblclick", {
+    bubbles: true,
+    cancelable: true,
+    clientX: 13,
+    clientY: 14,
+  }));
+  assert.equal(emitted.length, 1);
+  nextSurface.dispatchEvent(new window.MouseEvent("dblclick", {
+    bubbles: true,
+    cancelable: true,
+    clientX: 15,
+    clientY: 16,
+  }));
+  assert.equal(emitted.length, 2);
+
+  overlay.destroy();
+  nextSurface.dispatchEvent(new window.MouseEvent("dblclick", {
+    bubbles: true,
+    cancelable: true,
+    clientX: 17,
+    clientY: 18,
+  }));
+  assert.equal(emitted.length, 2);
+  trace.edge(flowEdge("source.dom-overlay-input", "sink.interaction-facts", {
+    phase: "surface-listeners-are-owned",
+    terminal: "no-stale-emission",
+  }));
+});
+
+// Class-b: adapters render the pin tone selected by the view model. Blue is the
+// normal registration marker; danger/red means the pin set has already been
+// classified as an impossible transform upstream.
+test("overlay adapter renders dangerous registration pins red", () => {
+  const trace = createFlowTrace({
+    file: import.meta.url,
+    test: "overlay adapter renders dangerous registration pins red",
+  });
+  const { window } = new JSDOM("<!doctype html><body></body>");
+  const overlay = createOverlayAdapter({
+    document: window.document,
+  });
+
+  const root = renderOverlay(overlay, {
+    visible: true,
+    imageDataRef: "reference-image-data-1",
+    intrinsicSizePx: {
+      width: 640,
+      height: 480,
+    },
+    placement: {
+      x: 80,
+      y: 40,
+      scale: 1.25,
+      rotationRad: 0.1,
+    },
+    opacity: 0.5,
+    mapPins: [{
+      id: 1,
+      left: 20,
+      top: 30,
+      tone: "danger",
+    }],
+    pins: [{
+      id: 2,
+      tone: "danger",
+      imagePx: {
+        x: 320,
+        y: 240,
+      },
+    }],
+  });
+
+  assert.equal(
+    root.querySelector(".id-overlay-map-pin__marker").style.background,
+    REGISTRATION_PIN_MARKER_TONE_PRESENTATION.danger.background,
+  );
+  assert.equal(root.querySelector(".id-overlay-map-pin__marker").dataset.pinTone, "danger");
+  assert.equal(
+    root.querySelector(".id-overlay-pin").style.background,
+    REGISTRATION_PIN_MARKER_TONE_PRESENTATION.danger.background,
+  );
+  assert.equal(root.querySelector(".id-overlay-pin").dataset.pinTone, "danger");
+  trace.edge(flowEdge("view.overlay-render-facts", "sink.rendered-overlay", {
+    phase: "danger-pin-tone",
+    terminal: "render-result",
+  }));
+});
+
+// Class-b: marker text is user-facing and should come from view-model labels.
+// Durable ids still remain on data attributes for hit testing and removal, but
+// gaps in durable ids must not appear as visible pin numbers.
+test("overlay adapter renders registration pin labels without replacing durable ids", () => {
+  const trace = createFlowTrace({
+    file: import.meta.url,
+    test: "overlay adapter renders registration pin labels without replacing durable ids",
+  });
+  const { window } = new JSDOM("<!doctype html><body></body>");
+  const overlay = createOverlayAdapter({
+    document: window.document,
+  });
+
+  const root = renderOverlay(overlay, {
+    visible: true,
+    imageDataRef: "reference-image-data-1",
+    intrinsicSizePx: {
+      width: 640,
+      height: 480,
+    },
+    placement: {
+      x: 80,
+      y: 40,
+      scale: 1.25,
+      rotationRad: 0.1,
+    },
+    opacity: 0.5,
+    pins: [{
+      id: 5,
+      label: "3",
+      imagePx: {
+        x: 320,
+        y: 240,
+      },
+    }],
+    mapPins: [{
+      id: 6,
+      label: "4",
+      left: 20,
+      top: 30,
+    }],
+  });
+
+  assert.equal(root.querySelector(".id-overlay-pin").dataset.pinId, "5");
+  assert.equal(root.querySelector(".id-overlay-pin").textContent, "3");
+  assert.equal(root.querySelector(".id-overlay-map-pin").dataset.pinId, "6");
+  assert.equal(root.querySelector(".id-overlay-map-pin").textContent, "4");
+  trace.edge(flowEdge("view.overlay-render-facts", "sink.rendered-overlay", {
+    phase: "pin-labels",
+    terminal: "render-result",
+  }));
+});
+
+function markerSummary(marker) {
+  return {
+    text: marker.textContent,
+    position: marker.style.position,
+    width: marker.style.width,
+    height: marker.style.height,
+    marginLeft: marker.style.marginLeft,
+    marginTop: marker.style.marginTop,
+    fontSize: marker.style.fontSize,
+    lineHeight: marker.style.lineHeight,
+    background: marker.style.background,
+    opacity: marker.style.opacity,
+    transform: marker.style.transform,
+    transformOrigin: marker.style.transformOrigin,
+  };
+}
+
+function renderOverlay(overlay, overlayView) {
+  return overlay.render(overlayView, OVERLAY_EDITING_INPUT);
+}
+
+function updateOverlay(overlay, overlayView) {
+  return overlay.update(overlayView, OVERLAY_EDITING_INPUT);
+}
+
+function overlayWithMapPin({
+  transformCss,
+  placementScale = 1,
+}) {
+  return {
+    visible: true,
+    imageDataRef: "reference-image-data-1",
+    intrinsicSizePx: {
+      width: 100,
+      height: 80,
+    },
+    placement: {
+      x: 11,
+      y: 12,
+      scale: placementScale,
+      rotationRad: 0,
+    },
+    opacity: 0.5,
+    mapLayer: {
+      transformOriginCss: "0px 0px",
+      transformCss,
+    },
+    mapPins: [{
+      id: 1,
+      left: 20,
+      top: 30,
+    }],
+    pins: [],
+  };
+}
+
+function overlayWithDisplayUrl({ displayImageUrl }) {
+  return {
+    visible: true,
+    imageDataRef: "reference-image-data-1",
+    displayImageUrl,
+    intrinsicSizePx: {
+      width: 100,
+      height: 80,
+    },
+    placement: {
+      x: 11,
+      y: 12,
+      scale: 1,
+      rotationRad: 0,
+    },
+    opacity: 0.5,
+    pins: [],
+  };
+}

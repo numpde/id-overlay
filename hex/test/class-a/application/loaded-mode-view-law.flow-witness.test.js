@@ -28,7 +28,10 @@ test("loaded image view derives Align editing and Trace pass-through policies", 
   assert.deepEqual(selectApplicationView(referenceImageLoadedState({
     mode: "align",
     pins: [pin],
-  })).overlay.pins, [pin]);
+  })).overlay.pins, [{
+    ...pin,
+    label: "1",
+  }]);
 
   assert.deepEqual(selectApplicationView(referenceImageLoadedState({
     mode: "trace",

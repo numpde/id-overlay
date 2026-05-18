@@ -55,6 +55,5 @@
   }
   window.addEventListener("hashchange", syncSurfaceMotion);
   window.addEventListener("resize", syncSurfaceMotion);
-  window.setInterval(syncSurfaceMotion, 50);
   syncSurfaceMotion();
 })();
