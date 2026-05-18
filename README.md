@@ -10,7 +10,7 @@ making the overlay behavior predictable.
 
 ![Reference Overlay screenshot](docs/reference-overlay-screenshot.jpg)
 
-## What It Does
+## What it does
 
 The normal workflow is:
 
@@ -57,7 +57,7 @@ The status line reports the latest important state or result. If the message is
 long and the panel is near the bottom of the screen, the panel slides upward so
 the whole panel stays reachable.
 
-### Align Mode
+### Align mode
 
 Use `Align` when the image needs to be positioned or registered to the map.
 Plain map gestures keep working: dragging and wheel zooming move the map, and
@@ -84,7 +84,7 @@ You can also align manually without pins. A manually placed overlay is still
 map-locked in `Align` and `Trace` once it has been placed against a live map
 view.
 
-### Trace Mode
+### Trace mode
 
 Use `Trace` when you want to edit in iD.
 
@@ -97,7 +97,7 @@ Use `Trace` when you want to edit in iD.
 In `Trace`, the overlay should not block normal iD editing. The image stays
 registered to the map as the map moves.
 
-### Practical Workflow
+### Practical workflow
 
 1. Open iD at the area you want to work on.
 2. Click `Paste`, then paste a screenshot from your clipboard.
@@ -131,7 +131,7 @@ Supported browsers today:
 Other Chromium-based browsers may work, but they are not the supported target
 yet.
 
-### Install from a Release Zip
+### Install from a release zip
 
 1. Open the releases page:
    `https://github.com/numpde/id-overlay/releases`
@@ -175,7 +175,51 @@ The important caveat is that a content script running on the iD editor page can
 read and modify that page while it is active there. In practice, the permission
 boundary is OpenStreetMap/iD plus extension storage, not the whole browser.
 
-### Build and Install Locally
+### Recommended: build in Docker
+
+Use the Docker toolchain for normal development and release checks. It keeps the
+Node/npm toolchain out of the host environment and makes local verification
+match the project tooling more closely.
+
+The install step builds the toolchain image and runs `npm ci` inside the
+container. This step needs network access:
+
+```bash
+./scripts/docker-release-checks.sh --install
+```
+
+The normal check step reuses the cached image, runs without network, drops Linux
+capabilities, uses a read-only container filesystem, and writes only through the
+mounted repository plus a temporary filesystem:
+
+```bash
+./scripts/docker-release-checks.sh
+```
+
+That command runs the main tests, flow witnesses, flow artifact audit, Chromium
+extension build, and release zip packaging. It writes:
+
+- [`dist`](dist), for local unpacked-extension testing
+- `release/id-overlay-chrome-<version>.zip`, for release upload or manual
+  install testing
+
+If the Dockerfile changes, refresh the image explicitly:
+
+```bash
+./scripts/docker-release-checks.sh --build
+```
+
+Then load the generated [`dist`](dist) folder:
+
+1. Open `chrome://extensions`.
+2. Enable `Developer mode`.
+3. Click `Load unpacked`.
+4. Select [`dist`](dist).
+5. Open `https://www.openstreetmap.org/edit?editor=id`.
+
+### Host Node fallback
+
+Host Node works too, but it is no longer the recommended development path.
 
 Install dependencies:
 
@@ -189,23 +233,21 @@ Build the extension:
 npm run build:chrome
 ```
 
-Then load the local [`dist`](dist) folder:
-
-1. Open `chrome://extensions`.
-2. Enable `Developer mode`.
-3. Click `Load unpacked`.
-4. Select [`dist`](dist).
-5. Open `https://www.openstreetmap.org/edit?editor=id`.
-
 ## Development
 
-Run the main test suite:
+The recommended full local check is containerized:
+
+```bash
+./scripts/docker-release-checks.sh
+```
+
+If you are using the host Node fallback, run the main test suite:
 
 ```bash
 npm test
 ```
 
-Build the Chromium package:
+Build the Chromium package on the host:
 
 ```bash
 npm run build:chrome
@@ -232,7 +274,7 @@ Some tests are flow witnesses: they exercise a user or system flow and can emit
 trace files. Those traces help review whether the flow has clear starting
 points, steps, and outcomes.
 
-## Repository Layout
+## Repository layout
 
 - [`hex/domain`](hex/domain): pure domain rules such as placement,
   registration, opacity, and image policy
@@ -253,7 +295,7 @@ The old legacy app has been removed from the working tree. The retained lessons
 from it are summarized in
 [`notes/006_legacy_retention_insights.txt`](notes/006_legacy_retention_insights.txt).
 
-## CI and Releases
+## CI and releases
 
 GitHub Actions runs CI on pushes to `main` and on pull requests. CI installs
 dependencies and runs:
@@ -294,7 +336,9 @@ This is still a focused tool, not a general browser extension platform.
 
 Current limits:
 
-- Chromium only
+- Chromium-extension browsers only. The supported targets are Google Chrome and
+  Chromium; other Chromium-based browsers may work but are not tested as release
+  targets.
 - OpenStreetMap iD only
 - unpacked-extension install path
 - no Firefox or Safari package yet

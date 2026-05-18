@@ -1,0 +1,17 @@
+.codex
+.env
+.env.*
+.git
+.npmrc
+.tmp
+.tmp-chromium-profile*
+coverage
+dist
+node_modules
+npm-debug.log*
+*.key
+*.pem
+*.p12
+*.pfx
+release
+!.env.example
