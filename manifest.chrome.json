@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "id-overlay",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Paste a screenshot as a visual overlay on top of the OpenStreetMap iD editor.",
   "permissions": [
     "storage"

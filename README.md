@@ -32,17 +32,23 @@ The panel floats over the editor. You can drag the panel by its title bar. The
 panel position is remembered, but if the panel would go off-screen it is
 temporarily kept inside the viewport.
 
+The panel title reports the current overlay state, for example whether there is
+no image or whether the overlay is in `Align` or `Trace` mode.
+
 The main button is context-sensitive:
 
 - `Paste` starts image input. Click it, then press `Ctrl+V` or `Cmd+V`.
 - `Clear image` arms removal. Click it again while armed to remove the current
   image, placement, and pins.
 
+The opacity slider changes only image transparency. It does not move, scale, or
+rotate the overlay.
+
 The small icon buttons beside the main button are:
 
 | Button | Result |
 | --- | --- |
-| Center overlay in view | Moves and scales the overlay so it is centered in the current map viewport. This is undoable. |
+| Center overlay in view | Replaces the overlay placement so it is centered in the current map viewport. This is undoable. |
 | Center map on overlay | Pans and zooms the map so the current overlay is centered. This changes the map view, not the overlay placement. |
 | Mode switch | Switches between `Trace` and `Align`. |
 | Undo / redo | Replays undoable overlay, image, pin, and fit changes. |
@@ -62,10 +68,10 @@ overlay.
 | --- | --- |
 | Drag | Pan the map; the overlay follows the map |
 | `Shift` + drag | Move only the overlay |
+| `Ctrl` / `Alt` + drag | Disabled transform drag; the cursor changes, but no gesture is committed |
 | Wheel | Zoom the map; the overlay follows the map |
-| `Shift` + wheel | Scale only the overlay around the cursor |
-| `Ctrl` + wheel | Rotate only the overlay around the cursor |
-| `Alt` + wheel | Change only the overlay opacity |
+| `Ctrl` + wheel | Scale only the overlay around the cursor |
+| `Alt` + wheel | Rotate only the overlay around the cursor |
 | Double-click the overlay | Add a pin at that image/map point |
 | Double-click an existing pin | Remove that pin |
 | Switch to `Trace` | Fit the overlay from the current pins, when possible |
@@ -86,7 +92,6 @@ Use `Trace` when you want to edit in iD.
 | --- | --- |
 | Drag the map | Pan the map; the overlay follows |
 | Wheel the map | Zoom the map; the overlay follows |
-| `Alt` + wheel over the overlay | Change overlay opacity |
 | Switch to `Align` | Return to overlay positioning |
 
 In `Trace`, the overlay should not block normal iD editing. The image stays
@@ -97,8 +102,9 @@ registered to the map as the map moves.
 1. Open iD at the area you want to work on.
 2. Click `Paste`, then paste a screenshot from your clipboard.
 3. In `Align`, use plain drag/wheel to move the map until the area is visible.
-4. Use `Shift` + drag, `Shift` + wheel, and `Ctrl` + wheel to move, scale, and
-   rotate the overlay.
+4. Use `Shift` + drag, `Ctrl` + wheel, and `Alt` + wheel to move, scale, and
+   rotate the overlay. The cursor changes for each modifier so the active
+   posture is visible before you commit a wheel gesture.
 5. If useful, double-click matching points to add pins. Switch to `Trace` to
    compute a pinned fit.
 6. Use the center-overlay button when the image has drifted out of the visible
@@ -264,17 +270,23 @@ The extension version lives in [`manifest.chrome.json`](manifest.chrome.json).
 To publish a new release:
 
 1. Update the `version` in [`manifest.chrome.json`](manifest.chrome.json).
-2. Commit the change.
-3. Create and push a matching tag:
+2. Add release notes under [`docs/releases`](docs/releases), using the tag name
+   as the file name.
+3. Commit the changes.
+4. Create and push a matching tag:
 
 ```bash
-git tag v0.0.2
+git tag v0.0.3
 git push origin main --tags
 ```
 
-Current release tag:
+Prepared release tag:
 
-- [`v0.0.2`](https://github.com/numpde/id-overlay/releases/tag/v0.0.2)
+- `v0.0.3`
+
+Release notes are kept under [`docs/releases`](docs/releases). If a file named
+after the tag exists, for example [`docs/releases/v0.0.3.md`](docs/releases/v0.0.3.md),
+the release workflow uses that file as the GitHub Release body.
 
 ## Status
 
