@@ -32,6 +32,12 @@ test("loaded image view derives Align editing and Trace pass-through policies", 
     kind: "overlay-editing",
     canEditOverlay: true,
     arePinsVisible: true,
+    pointerAffordances: {
+      default: "native-map-pan",
+      shift: "move-overlay",
+      ctrl: "scale-overlay",
+      alt: "rotate-overlay",
+    },
   });
   assert.deepEqual(selectApplicationView(referenceImageLoadedState({
     mode: "align",
@@ -48,6 +54,9 @@ test("loaded image view derives Align editing and Trace pass-through policies", 
     kind: "native-map",
     canEditOverlay: false,
     arePinsVisible: false,
+    pointerAffordances: {
+      default: "native-map-pass-through",
+    },
   });
   assert.deepEqual(selectApplicationView(referenceImageLoadedState({
     mode: "trace",

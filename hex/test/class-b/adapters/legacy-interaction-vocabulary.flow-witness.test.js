@@ -13,15 +13,15 @@ import {
   flowEdge,
 } from "../../support/flow-trace.js";
 
-// Class-b: these are legacy-faithful interaction behaviors, but still UI
+// Class-b: these are concrete overlay interaction behaviors, but still UI
 // gesture policy rather than class-a product law.
 //
-// Legacy behavior says:
+// Current behavior says:
 // - double-click toggles a registration pin; plain click is not a pin toggle
 // - P toggles a registration pin at the current pointer
 // - shift-drag moves the overlay; plain drag remains native-map pan
-// - alt/ctrl/shift wheel map to opacity/rotate/scale; plain wheel remains
-//   native-map zoom
+// - ctrl/alt advertise disabled transform affordances without emitting gesture
+//   facts; plain wheel remains native-map zoom
 //
 // The boundary claim is that DOM/device details stay adapter-local. Public
 // facts name semantic intent, not overlay, pointer, keyboard, wheel, button, or
@@ -246,6 +246,37 @@ test("shift-drag requests overlay move and plain drag stays native-map", () => {
   traceInteractionFact(trace, "shift-drag", "placement-edit-requested");
 });
 
+test("ctrl and alt overlay drags are disabled transform affordances", () => {
+  const trace = createInteractionTrace("ctrl and alt overlay drags are disabled transform affordances");
+
+  for (const [phase, modifiers] of [
+    ["ctrl-drag", { ctrlKey: true }],
+    ["alt-drag", { altKey: true }],
+  ]) {
+    const { window, surface, facts } = createOverlayHarness();
+    dispatchPointer(window, surface, "pointerdown", {
+      clientX: 120,
+      clientY: 90,
+      ...modifiers,
+    });
+    dispatchPointer(window, window, "pointermove", {
+      clientX: 150,
+      clientY: 110,
+      ...modifiers,
+    });
+    dispatchPointer(window, window, "pointerup", {
+      clientX: 150,
+      clientY: 110,
+      ...modifiers,
+    });
+    assert.deepEqual(facts, []);
+    trace.edge(flowEdge("source.dom-input", "inert.disabled-transform-drag", {
+      phase,
+      terminal: "intentionally-inert",
+    }));
+  }
+});
+
 // Class-b: once a plain drag has started a native-map pan sequence, incidental
 // wheel input must not be reinterpreted as native-map zoom. The pan sequence is
 // the active gesture until pointerup/cancel clears ownership.
@@ -429,8 +460,8 @@ test("overlay pointercancel clears pending drag state", () => {
   }));
 });
 
-test("modifier wheels edit overlay while plain wheel requests native-map zoom", () => {
-  const trace = createInteractionTrace("modifier wheels edit overlay while plain wheel requests native-map zoom");
+test("ctrl and alt wheels edit overlay while plain wheel requests native-map zoom", () => {
+  const trace = createInteractionTrace("ctrl and alt wheels edit overlay while plain wheel requests native-map zoom");
   const { window, surface, facts } = createOverlayHarness();
 
   dispatchWheel(window, surface);
@@ -448,16 +479,6 @@ test("modifier wheels edit overlay while plain wheel requests native-map zoom", 
     {
       kind: "native-map-gesture-requested",
       gestureKind: "zoom",
-      inputDelta: {
-        y: -100,
-      },
-      anchorScreenPx: {
-        x: 120,
-        y: 90,
-      },
-    },
-    {
-      kind: "opacity-adjustment-requested",
       inputDelta: {
         y: -100,
       },
@@ -488,19 +509,29 @@ test("modifier wheels edit overlay while plain wheel requests native-map zoom", 
         y: 90,
       },
     },
+    {
+      kind: "native-map-gesture-requested",
+      gestureKind: "zoom",
+      inputDelta: {
+        y: -100,
+      },
+      anchorScreenPx: {
+        x: 120,
+        y: 90,
+      },
+    },
   ]);
   assertNoDomInputVocabulary(facts);
   traceInteractionFact(trace, "plain-wheel", "native-map-gesture-requested");
-  traceInteractionFact(trace, "alt-wheel", "opacity-adjustment-requested");
+  traceInteractionFact(trace, "alt-wheel", "placement-edit-requested");
   traceInteractionFact(trace, "ctrl-wheel", "placement-edit-requested");
-  traceInteractionFact(trace, "shift-wheel", "placement-edit-requested");
+  traceInteractionFact(trace, "shift-wheel", "native-map-gesture-requested");
 });
 
-// Class-b: legacy wheel policy gives Alt the strongest meaning. A wheel event
-// with multiple modifiers is still an opacity adjustment, not a rotate/scale
-// placement edit and not native-map zoom.
-test("alt-wheel priority wins over ctrl and shift modifiers", () => {
-  const trace = createInteractionTrace("alt-wheel priority wins over ctrl and shift modifiers");
+// Class-b: if Alt and Ctrl are both present, the rotate affordance wins. That
+// matches the cursor priority and avoids ambiguous dual transform input.
+test("alt wheel priority wins over ctrl modifier", () => {
+  const trace = createInteractionTrace("alt wheel priority wins over ctrl modifier");
   const { window, surface, facts } = createOverlayHarness();
 
   dispatchWheel(window, surface, {
@@ -510,7 +541,8 @@ test("alt-wheel priority wins over ctrl and shift modifiers", () => {
   });
 
   assert.deepEqual(facts, [{
-    kind: "opacity-adjustment-requested",
+    kind: "placement-edit-requested",
+    editKind: "rotate",
     inputDelta: {
       y: -100,
     },
@@ -520,7 +552,11 @@ test("alt-wheel priority wins over ctrl and shift modifiers", () => {
     },
   }]);
   assertNoDomInputVocabulary(facts);
-  traceInteractionFact(trace, "alt-ctrl-shift-wheel", "opacity-adjustment-requested");
+  traceInteractionFact(trace, "alt-ctrl-shift-wheel", "placement-edit-requested");
+  trace.edge(flowEdge("source.dom-input", "sink.modifier-priority", {
+    phase: "alt-ctrl-shift-wheel",
+    terminal: "rotate",
+  }));
 });
 
 function createInteractionTrace(testName) {

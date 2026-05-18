@@ -239,6 +239,12 @@ test("browser shell mode switching hides and restores Align pins", async () => {
     kind: "overlay-editing",
     canEditOverlay: true,
     arePinsVisible: true,
+    pointerAffordances: {
+      default: "native-map-pan",
+      shift: "move-overlay",
+      ctrl: "scale-overlay",
+      alt: "rotate-overlay",
+    },
   });
   assert.deepEqual(host.latestRender.view.overlay.pins, [{
     ...firstPin(),
@@ -253,6 +259,9 @@ test("browser shell mode switching hides and restores Align pins", async () => {
     kind: "native-map",
     canEditOverlay: false,
     arePinsVisible: false,
+    pointerAffordances: {
+      default: "native-map-pass-through",
+    },
   });
   assert.deepEqual(host.latestRender.view.overlay.pins, []);
 
@@ -264,6 +273,12 @@ test("browser shell mode switching hides and restores Align pins", async () => {
     kind: "overlay-editing",
     canEditOverlay: true,
     arePinsVisible: true,
+    pointerAffordances: {
+      default: "native-map-pan",
+      shift: "move-overlay",
+      ctrl: "scale-overlay",
+      alt: "rotate-overlay",
+    },
   });
   assert.deepEqual(host.latestRender.view.overlay.pins, [{
     ...firstPin(),

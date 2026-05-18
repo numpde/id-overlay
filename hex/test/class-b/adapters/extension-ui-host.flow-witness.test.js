@@ -1599,9 +1599,9 @@ test("extension UI host preserves active native-map pan across projected overlay
 
 // Class-b: rendered overlay input must not stop at DOM paint. The UI host has
 // to bind the overlay adapter input surface to the interaction boundary so a
-// real browser gesture can cross inward as a semantic interaction fact.
-test("extension UI host routes rendered overlay wheel gestures to interaction facts", () => {
-  const testName = "extension UI host routes rendered overlay wheel gestures to interaction facts";
+// real browser wheel transform can cross inward as a semantic interaction fact.
+test("extension UI host routes rendered overlay modifier wheel gestures to interaction facts", () => {
+  const testName = "extension UI host routes rendered overlay modifier wheel gestures to interaction facts";
   const trace = createExtensionUiHostTrace(testName);
   const caseId = "overlay-alt-wheel";
   const { window } = new JSDOM("<!doctype html><body></body>");
@@ -1628,6 +1628,12 @@ test("extension UI host routes rendered overlay wheel gestures to interaction fa
           kind: "overlay-editing",
           canEditOverlay: true,
           arePinsVisible: true,
+          pointerAffordances: {
+            default: "native-map-pan",
+            shift: "move-overlay",
+            ctrl: "scale-overlay",
+            alt: "rotate-overlay",
+          },
         },
         overlay: {
           visible: true,
@@ -1682,7 +1688,8 @@ test("extension UI host routes rendered overlay wheel gestures to interaction fa
   });
 
   assert.deepEqual(interactionFacts, [{
-    kind: "opacity-adjustment-requested",
+    kind: "placement-edit-requested",
+    editKind: "rotate",
     inputDelta: {
       y: -100,
     },
@@ -2299,6 +2306,9 @@ function createMinimalViewModel(overrides = {}) {
       kind: "native-map",
       canEditOverlay: false,
       arePinsVisible: false,
+      pointerAffordances: {
+        default: "native-map-pass-through",
+      },
     },
     ...overrides,
   };

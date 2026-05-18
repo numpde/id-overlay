@@ -451,6 +451,9 @@ function overlayInputForState(state, mode) {
       kind: "native-map",
       canEditOverlay: false,
       arePinsVisible: false,
+      pointerAffordances: {
+        default: "native-map-pass-through",
+      },
       reason: "temporary-native-map-access",
     };
   }
@@ -459,11 +462,20 @@ function overlayInputForState(state, mode) {
       kind: "native-map",
       canEditOverlay: false,
       arePinsVisible: false,
+      pointerAffordances: {
+        default: "native-map-pass-through",
+      },
     };
   }
   return {
     kind: "overlay-editing",
     canEditOverlay: true,
     arePinsVisible: true,
+    pointerAffordances: {
+      default: "native-map-pan",
+      shift: "move-overlay",
+      ctrl: "scale-overlay",
+      alt: "rotate-overlay",
+    },
   };
 }

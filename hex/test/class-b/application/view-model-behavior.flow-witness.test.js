@@ -415,6 +415,12 @@ test("view model exposes Align map-surface overlay source with pins", () => {
     kind: "overlay-editing",
     canEditOverlay: true,
     arePinsVisible: true,
+    pointerAffordances: {
+      default: "native-map-pan",
+      shift: "move-overlay",
+      ctrl: "scale-overlay",
+      alt: "rotate-overlay",
+    },
   });
   traceViewProjection(trace, "align-live-map-surface-source");
 });
@@ -547,6 +553,9 @@ test("view model exposes temporary native-map access as interaction posture", ()
     kind: "native-map",
     canEditOverlay: false,
     arePinsVisible: false,
+    pointerAffordances: {
+      default: "native-map-pass-through",
+    },
     reason: "temporary-native-map-access",
   });
   assert.deepEqual(view.overlay.pins, []);

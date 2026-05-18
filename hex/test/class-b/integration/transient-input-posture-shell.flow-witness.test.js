@@ -29,6 +29,12 @@ test("temporary native-map access changes visible interaction posture without du
     kind: "overlay-editing",
     canEditOverlay: true,
     arePinsVisible: true,
+    pointerAffordances: {
+      default: "native-map-pan",
+      shift: "move-overlay",
+      ctrl: "scale-overlay",
+      alt: "rotate-overlay",
+    },
   });
 
   await host.dispatchInteractionFact({
@@ -39,6 +45,9 @@ test("temporary native-map access changes visible interaction posture without du
     kind: "native-map",
     canEditOverlay: false,
     arePinsVisible: false,
+    pointerAffordances: {
+      default: "native-map-pass-through",
+    },
     reason: "temporary-native-map-access",
   });
 
@@ -50,6 +59,12 @@ test("temporary native-map access changes visible interaction posture without du
     kind: "overlay-editing",
     canEditOverlay: true,
     arePinsVisible: true,
+    pointerAffordances: {
+      default: "native-map-pan",
+      shift: "move-overlay",
+      ctrl: "scale-overlay",
+      alt: "rotate-overlay",
+    },
   });
   assert.deepEqual(storage.writes, []);
   traceInteractionFact(trace, "temporary-access-start", "set-temporary-input-posture", false);

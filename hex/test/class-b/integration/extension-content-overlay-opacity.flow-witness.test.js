@@ -6,6 +6,7 @@ import {
   createStartedContentHarness,
   durableImageState,
   flushMicrotasks,
+  legacyRotatedPlacement,
   placement,
   renderedOverlayImage,
   startContent,
@@ -15,12 +16,11 @@ import {
   flowEdge,
 } from "../../support/flow-trace.js";
 
-// Class-b: rendered overlay opacity gestures belong to Align, where the overlay
-// image is an input surface. Trace is a native-map posture; opacity remains a
-// product capability through semantic controls, but not by swallowing map wheel
-// input on the painted overlay.
-test("extension content commits rendered Align alt-wheel opacity", async () => {
-  const trace = createTrace("extension content commits rendered Align alt-wheel opacity");
+// Class-b: Alt-wheel belongs to overlay rotation now. Opacity remains a product
+// capability through the panel control, not through an overloaded overlay
+// modifier wheel gesture.
+test("extension content treats rendered Align alt-wheel as rotation, not opacity", async () => {
+  const trace = createTrace("extension content treats rendered Align alt-wheel as rotation, not opacity");
   const { window, chromeApi } = createStartedContentHarness({
     durableState: durableImageState({
       mode: "align",
@@ -35,8 +35,12 @@ test("extension content commits rendered Align alt-wheel opacity", async () => {
   await flushMicrotasks();
 
   assert.equal(wheel.defaultPrevented, true);
-  assert.equal(chromeApi.latestSet?.["id-overlay.durable-state"]?.session.opacity, 0.7);
-  traceContentOverlayEdit(trace, "alt-wheel-align", "command.set-opacity");
+  assert.equal(chromeApi.latestSet?.["id-overlay.durable-state"]?.session.opacity, 0.6);
+  assert.deepEqual(
+    chromeApi.latestSet?.["id-overlay.durable-state"]?.session.placement,
+    legacyRotatedPlacement(),
+  );
+  traceContentOverlayEdit(trace, "alt-wheel-align", "command.commit-placement-edit");
 });
 
 // Class-b: the panel opacity slider is a continuous browser-owned interaction.

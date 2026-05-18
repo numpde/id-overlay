@@ -103,14 +103,60 @@ test("extension content commits the full rendered Align shift-drag sequence", as
   traceContentOverlayEdit(trace, "shift-drag-full-sequence", "command.commit-placement-edit");
 });
 
-// Class-b: modifier wheel interactions are rendered overlay interactions, not
-// merely runtime mapper facts. Align ctrl/shift wheel must commit placement
-// edits through the same content entrypoint the user exercises.
-test("extension content commits rendered Align ctrl and shift wheel placement edits", async () => {
-  const trace = createTrace("extension content commits rendered Align ctrl and shift wheel placement edits");
+// Class-b: Ctrl/Alt transform affordances on the rendered Align overlay are
+// wheel-driven, not drag-driven. Dragging with either modifier must not commit
+// placement edits or forward native-map pan gestures through the content
+// entrypoint.
+test("extension content leaves rendered Align ctrl and alt drag transform gestures inert", async () => {
+  const trace = createTrace("extension content leaves rendered Align ctrl and alt drag transform gestures inert");
+  for (const [phase, modifiers] of [
+    ["ctrl-drag-scale-disabled", { ctrlKey: true }],
+    ["alt-drag-rotate-disabled", { altKey: true }],
+  ]) {
+    const initialState = durableImageState({
+      mode: "align",
+      placement: placement(),
+    });
+    const { window, chromeApi } = createStartedContentHarness({
+      durableState: initialState,
+    });
+
+    await startContent({ trace, window, chromeApi, phase });
+    const image = renderedOverlayImage(window.document);
+    dispatchPointer(window, image, "pointerdown", {
+      clientX: 500,
+      clientY: 300,
+      ...modifiers,
+    });
+    dispatchPointer(window, window, "pointermove", {
+      clientX: 560,
+      clientY: 280,
+      ...modifiers,
+    });
+    dispatchPointer(window, window, "pointerup", {
+      clientX: 560,
+      clientY: 280,
+      ...modifiers,
+    });
+    await flushMicrotasks();
+
+    assert.deepEqual(chromeApi.latestSet?.["id-overlay.durable-state"], undefined);
+    assert.deepEqual(chromeApi.records["id-overlay.durable-state"], initialState);
+    trace.edge(flowEdge("source.rendered-overlay.input", "inert.disabled-transform-drag", {
+      phase,
+      terminal: "intentionally-inert",
+    }));
+  }
+});
+
+// Class-b: Ctrl/Alt transform affordances are wheel-driven in Align. Their drag
+// gestures stay disabled, but wheel commits a projected placement edit through
+// the same content entrypoint the user exercises.
+test("extension content commits rendered Align ctrl and alt wheel transform gestures", async () => {
+  const trace = createTrace("extension content commits rendered Align ctrl and alt wheel transform gestures");
   for (const [phase, modifiers, expectedPlacement] of [
-    ["ctrl-wheel-rotate", { ctrlKey: true }, legacyRotatedPlacement()],
-    ["shift-wheel-scale", { shiftKey: true }, legacyScaledPlacement()],
+    ["ctrl-wheel-scale", { ctrlKey: true }, legacyScaledPlacement()],
+    ["alt-wheel-rotate", { altKey: true }, legacyRotatedPlacement()],
   ]) {
     const { window, chromeApi } = createStartedContentHarness({
       durableState: durableImageState({
@@ -120,9 +166,10 @@ test("extension content commits rendered Align ctrl and shift wheel placement ed
     });
 
     await startContent({ trace, window, chromeApi, phase });
-    dispatchWheel(window, renderedOverlayImage(window.document), modifiers);
+    const wheel = dispatchWheel(window, renderedOverlayImage(window.document), modifiers);
     await flushMicrotasks();
 
+    assert.equal(wheel.defaultPrevented, true);
     assert.deepEqual(
       chromeApi.latestSet?.["id-overlay.durable-state"]?.session.placement,
       expectedPlacement,

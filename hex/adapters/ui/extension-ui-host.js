@@ -13,11 +13,13 @@ export function createExtensionUiHost({
   displayImageResourcePort = null,
   eventDebugLogger = null,
   hotPathWatchdog = null,
+  readModifierKeyEventTargets = () => [],
 }) {
   const overlayRenderer = createExtensionOverlayRenderer({
     document,
     displayImageResourcePort,
     eventDebugLogger,
+    readModifierKeyEventTargets,
   });
   const panelRenderer = createExtensionPanelRenderer({
     document,

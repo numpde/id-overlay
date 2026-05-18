@@ -25,6 +25,9 @@ test("no-session view exposes Trace native-map posture and Paste primary action"
   assert.equal(view.overlayInput.kind, "native-map");
   assert.equal(view.overlayInput.canEditOverlay, false);
   assert.equal(view.overlayInput.arePinsVisible, false);
+  assert.deepEqual(view.overlayInput.pointerAffordances, {
+    default: "native-map-pass-through",
+  });
   assert.equal(view.modeSwitch.selected, "trace");
   assert.equal(view.modeSwitch.align.enabled, false);
   assert.equal(view.modeSwitch.trace.enabled, false);

@@ -21,18 +21,47 @@ import {
 } from "./ui-color-tokens.js";
 
 const DRAG_THRESHOLD_PX = 8;
+const SCALE_CURSOR = cursorSvgUrl([
+  "<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'>",
+  "<path d='M8 3H3v5M3 3l7 7M16 21h5v-5M21 21l-7-7' fill='none' stroke='white' stroke-width='5' stroke-linecap='round' stroke-linejoin='round'/>",
+  "<path d='M8 3H3v5M3 3l7 7M16 21h5v-5M21 21l-7-7' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/>",
+  "</svg>",
+].join(""));
+const ROTATE_CURSOR = cursorSvgUrl([
+  "<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'>",
+  "<path d='M17 5a7 7 0 1 0 2 6M17 5h4V1' fill='none' stroke='white' stroke-width='5' stroke-linecap='round' stroke-linejoin='round'/>",
+  "<path d='M17 5a7 7 0 1 0 2 6M17 5h4V1' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/>",
+  "</svg>",
+].join(""));
+const POINTER_CURSOR = Object.freeze({
+  "move-overlay": "move",
+  "native-map-pan": "grab",
+  "native-map-pan-active": "grabbing",
+  "native-map-pass-through": "",
+  "scale-overlay": `${SCALE_CURSOR} 12 12, nwse-resize`,
+  "rotate-overlay": `${ROTATE_CURSOR} 12 12, alias`,
+});
 
 export function createOverlayAdapter({
   document,
   emitInteractionFact = () => {},
   eventDebugLogger = null,
+  readModifierKeyEventTargets = () => [],
 }) {
   let activeSequence = null;
   let inputHost = null;
   let boundSurface = null;
   let renderedOverlay = null;
+  let renderedOverlayInput = null;
   let renderedRoot = null;
   let renderedVisualMode = "align";
+  let modifierState = {
+    altKey: false,
+    ctrlKey: false,
+    shiftKey: false,
+  };
+  let modifierInputTargets = [];
+  const modifierInputRemovers = [];
 
   const globalPointerHandlers = {
     handleGlobalPointerMove(event) {
@@ -48,6 +77,7 @@ export function createOverlayAdapter({
       overlayInput = requireOverlayInput(overlayInput);
       renderedVisualMode = visualModeFromChrome(visualChrome, overlayInput);
       renderedOverlay = overlay;
+      renderedOverlayInput = overlayInput;
       const root = document.createElement("div");
       renderedRoot = root;
       root.className = OVERLAY_DOM_CLASS.viewport;
@@ -113,7 +143,10 @@ export function createOverlayAdapter({
         return false;
       }
       renderedOverlay = overlay;
+      renderedOverlayInput = overlayInput;
       renderedVisualMode = visualMode;
+      syncModifierInput();
+      refreshPointerCursor();
       eventDebugLogger?.log("overlay.dom", "projection-patched", overlayDomDebugSummary({
         overlayRoot: renderedRoot,
         overlay,
@@ -152,6 +185,7 @@ export function createOverlayAdapter({
       inputHost?.destroy();
       inputHost = null;
       activeSequence = null;
+      renderedOverlayInput = null;
       renderedRoot = null;
     },
   };
@@ -170,7 +204,11 @@ export function createOverlayAdapter({
     surface.addEventListener("click", stopOwnedSequence);
     surface.addEventListener("dblclick", handleDoubleClick);
     surface.addEventListener("pointerdown", handlePointerDown);
+    surface.addEventListener("pointerenter", handlePointerModifierState);
+    surface.addEventListener("pointermove", handlePointerModifierState);
     surface.addEventListener("wheel", handleWheel);
+    syncModifierInput();
+    refreshPointerCursor();
   }
 
   function unbindSurfaceInput() {
@@ -180,8 +218,89 @@ export function createOverlayAdapter({
     boundSurface.removeEventListener("click", stopOwnedSequence);
     boundSurface.removeEventListener("dblclick", handleDoubleClick);
     boundSurface.removeEventListener("pointerdown", handlePointerDown);
+    boundSurface.removeEventListener("pointerenter", handlePointerModifierState);
+    boundSurface.removeEventListener("pointermove", handlePointerModifierState);
     boundSurface.removeEventListener("wheel", handleWheel);
+    unbindModifierInput();
+    modifierState = {
+      altKey: false,
+      ctrlKey: false,
+      shiftKey: false,
+    };
     boundSurface = null;
+  }
+
+  function syncModifierInput() {
+    const ownerDocument = boundSurface?.ownerDocument ?? document;
+    const ownerWindow = ownerDocument?.defaultView ?? document.defaultView;
+    const targets = uniqueEventTargets([
+      ownerDocument,
+      ownerWindow,
+      ...readModifierKeyEventTargets(),
+    ]);
+    if (sameEventTargets(targets, modifierInputTargets)) {
+      return;
+    }
+    unbindModifierInput();
+    modifierInputTargets = targets;
+    if (targets.length === 0) {
+      return;
+    }
+    const keydown = (event) => {
+      updateModifierStateFromEvent(event);
+    };
+    const keyup = (event) => {
+      updateModifierStateFromEvent(event);
+    };
+    const blur = () => {
+      modifierState = {
+        altKey: false,
+        ctrlKey: false,
+        shiftKey: false,
+      };
+      refreshPointerCursor();
+    };
+    for (const target of targets) {
+      target.addEventListener("keydown", keydown, true);
+      target.addEventListener("keyup", keyup, true);
+      target.addEventListener("blur", blur, true);
+      modifierInputRemovers.push(
+        () => target.removeEventListener("keydown", keydown, true),
+        () => target.removeEventListener("keyup", keyup, true),
+        () => target.removeEventListener("blur", blur, true),
+      );
+    }
+  }
+
+  function unbindModifierInput() {
+    for (const remove of modifierInputRemovers.splice(0)) {
+      remove();
+    }
+    modifierInputTargets = [];
+  }
+
+  function handlePointerModifierState(event) {
+    if (activeSequence) {
+      return;
+    }
+    updateModifierStateFromEvent(event);
+  }
+
+  function updateModifierStateFromEvent(event) {
+    const nextState = {
+      altKey: Boolean(event.altKey),
+      ctrlKey: Boolean(event.ctrlKey),
+      shiftKey: Boolean(event.shiftKey),
+    };
+    if (
+      nextState.altKey === modifierState.altKey
+        && nextState.ctrlKey === modifierState.ctrlKey
+        && nextState.shiftKey === modifierState.shiftKey
+    ) {
+      return;
+    }
+    modifierState = nextState;
+    refreshPointerCursor();
   }
 
   function handlePointerDown(event) {
@@ -201,9 +320,10 @@ export function createOverlayAdapter({
     activeSequence = {
       anchorScreenPx: screenPxFromEvent(event),
       basePlacement: placementFromOverlay(renderedOverlay),
-      mode: event.shiftKey ? "move" : "native-pan",
+      mode: disabledModifierGestureFromEvent(event) ? "disabled" : event.shiftKey ? "move" : "native-pan",
       started: false,
     };
+    refreshPointerCursor();
     eventDebugLogger?.log("overlay.sequence", "start", {
       mode: activeSequence.mode,
       anchorScreenPx: activeSequence.anchorScreenPx,
@@ -225,6 +345,12 @@ export function createOverlayAdapter({
     event.preventDefault();
     event.stopPropagation();
     const screenPx = screenPxFromEvent(event);
+    if (activeSequence.mode === "disabled") {
+      eventDebugLogger?.log("overlay.sequence", "disabled-modifier-move-ignored", {
+        screenPx,
+      });
+      return;
+    }
     if (activeSequence.mode === "native-pan") {
       if (!activeSequence.started) {
         activeSequence.started = true;
@@ -280,7 +406,11 @@ export function createOverlayAdapter({
     }
     event.preventDefault();
     event.stopPropagation();
-    if (activeSequence.mode === "native-pan" && activeSequence.started) {
+    if (activeSequence.mode === "disabled") {
+      eventDebugLogger?.log("overlay.sequence", "disabled-modifier-end", {
+        screenPx: screenPxFromEvent(event),
+      });
+    } else if (activeSequence.mode === "native-pan" && activeSequence.started) {
       emitInteractionFact({
         kind: "native-map-gesture-requested",
         gestureKind: "pan",
@@ -313,6 +443,8 @@ export function createOverlayAdapter({
       started: activeSequence.started,
     });
     activeSequence = null;
+    updateModifierStateFromEvent(event);
+    refreshPointerCursor();
     inputHost?.syncGlobalPointerListeners(false);
   }
 
@@ -363,6 +495,32 @@ export function createOverlayAdapter({
       pinLayer.style.transform = serializePlacement(previewPlacement);
     }
   }
+
+  function refreshPointerCursor() {
+    const image = renderedRoot?.querySelector(OVERLAY_DOM_SELECTOR.image);
+    const frame = renderedRoot?.querySelector(OVERLAY_DOM_SELECTOR.frame);
+    for (const element of [image, frame]) {
+      applyPointerCursor(element, renderedOverlayInput, activeSequence, modifierState);
+    }
+  }
+}
+
+function cursorSvgUrl(svg) {
+  return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+}
+
+function uniqueEventTargets(targets) {
+  return [...new Set(targets.filter(isEventTarget))];
+}
+
+function sameEventTargets(left, right) {
+  return left.length === right.length
+    && left.every((target, index) => target === right[index]);
+}
+
+function isEventTarget(target) {
+  return target && typeof target.addEventListener === "function"
+    && typeof target.removeEventListener === "function";
 }
 
 export function overlayStructuralRenderSignature({
@@ -496,6 +654,7 @@ function applyImageChrome(image) {
 function patchImage(image, overlay, overlayInput) {
   image.dataset.imageDataRef = overlay.imageDataRef;
   image.style.pointerEvents = overlayInput.kind === "native-map" ? "none" : "auto";
+  applyPointerCursor(image, overlayInput);
   if (overlay.displayImageUrl) {
     image.style.backgroundImage = cssUrl(overlay.displayImageUrl);
   } else {
@@ -510,11 +669,13 @@ function patchFrame(frame, overlay, overlayInput, visualMode) {
     applyPlacementBox(frame, overlay.frame);
     frame.style.display = "block";
     frame.style.pointerEvents = overlay.frame.ownsPointerHitTesting ? "auto" : "none";
+    applyPointerCursor(frame, overlayInput);
     return;
   }
   applyInlineFramePresentation(frame, overlay);
   frame.style.display = overlay.visible ? "block" : "none";
   frame.style.pointerEvents = overlayInput.kind === "native-map" ? "none" : "auto";
+  applyPointerCursor(frame, overlayInput);
 }
 
 function patchMapPinLayer({
@@ -600,20 +761,13 @@ function wheelFact(event) {
   const anchorScreenPx = screenPxFromEvent(event);
   if (event.altKey) {
     return {
-      kind: "opacity-adjustment-requested",
-      inputDelta,
-      anchorScreenPx,
-    };
-  }
-  if (event.ctrlKey) {
-    return {
       kind: "placement-edit-requested",
       editKind: "rotate",
       inputDelta,
       anchorScreenPx,
     };
   }
-  if (event.shiftKey) {
+  if (event.ctrlKey) {
     return {
       kind: "placement-edit-requested",
       editKind: "scale",
@@ -672,6 +826,62 @@ function visualModeFromChrome(visualChrome, overlayInput) {
 
 function frameBorderColor(visualMode) {
   return visualMode === "trace" ? UI_COLOR_TOKEN.trace : UI_COLOR_TOKEN.align;
+}
+
+function applyPointerCursor(
+  element,
+  overlayInput,
+  activeSequence = null,
+  modifierState = {
+    altKey: false,
+    ctrlKey: false,
+    shiftKey: false,
+  },
+) {
+  if (!element || !overlayInput) {
+    return;
+  }
+  element.style.cursor = pointerCursorForOverlayInput({
+    overlayInput,
+    activeSequence,
+    modifierState,
+  });
+}
+
+function pointerCursorForOverlayInput({
+  overlayInput,
+  activeSequence,
+  modifierState,
+}) {
+  if (overlayInput.kind === "native-map") {
+    return POINTER_CURSOR["native-map-pass-through"];
+  }
+  if (activeSequence?.mode === "native-pan") {
+    return POINTER_CURSOR["native-map-pan-active"];
+  }
+  if (activeSequence?.mode === "move") {
+    return POINTER_CURSOR["move-overlay"];
+  }
+  const affordances = overlayInput.pointerAffordances ?? {};
+  const affordance = pointerAffordanceForModifierState(affordances, modifierState);
+  return POINTER_CURSOR[affordance] ?? "";
+}
+
+function pointerAffordanceForModifierState(affordances, modifierState) {
+  if (modifierState.altKey) {
+    return affordances.alt ?? affordances.default;
+  }
+  if (modifierState.ctrlKey) {
+    return affordances.ctrl ?? affordances.default;
+  }
+  if (modifierState.shiftKey) {
+    return affordances.shift ?? affordances.default;
+  }
+  return affordances.default;
+}
+
+function disabledModifierGestureFromEvent(event) {
+  return Boolean(event.altKey || event.ctrlKey);
 }
 
 function applyInlineFramePresentation(frame, overlay) {

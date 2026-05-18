@@ -10,6 +10,7 @@ export function createExtensionOverlayRenderer({
   document,
   displayImageResourcePort = null,
   eventDebugLogger = null,
+  readModifierKeyEventTargets = () => [],
 }) {
   let activeOverlayAdapter = null;
   let latestDispatchInteractionFact = () => {};
@@ -50,6 +51,7 @@ export function createExtensionOverlayRenderer({
           latestDispatchInteractionFact(fact);
         },
         eventDebugLogger,
+        readModifierKeyEventTargets,
       });
       activeOverlayAdapter = overlayAdapter;
       const overlayRoot = overlayAdapter.render(overlayView, overlayInput, {

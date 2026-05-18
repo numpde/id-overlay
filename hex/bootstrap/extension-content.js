@@ -146,6 +146,19 @@ function createBrowserHost({
     document,
     eventDebugLogger,
     hotPathWatchdog,
+    readModifierKeyEventTargets() {
+      const context = activeMapContextAdapter.readActiveMapContext();
+      if (context.kind !== "supported-map-editor-page") {
+        return [];
+      }
+      if (context.surface.kind !== "embedded-editor-frame") {
+        return [];
+      }
+      return [
+        context.surface.mapWindow,
+        context.surface.viewportDocument,
+      ];
+    },
   });
   const activeMapContextAdapter = createActiveMapContextAdapter({
     readLocation: () => location ?? ownerWindow.location,

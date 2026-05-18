@@ -20,6 +20,20 @@ const OVERLAY_EDITING_INPUT = Object.freeze({
   kind: "overlay-editing",
   canEditOverlay: true,
   arePinsVisible: true,
+  pointerAffordances: {
+    default: "native-map-pan",
+    shift: "move-overlay",
+    ctrl: "scale-overlay",
+    alt: "rotate-overlay",
+  },
+});
+const NATIVE_MAP_INPUT = Object.freeze({
+  kind: "native-map",
+  canEditOverlay: false,
+  arePinsVisible: false,
+  pointerAffordances: {
+    default: "native-map-pass-through",
+  },
 });
 
 // Class-b: overlay input posture is a view fact, not an adapter default. The
@@ -112,6 +126,233 @@ test("overlay adapter renders from overlay view facts only", () => {
   trace.edge(flowEdge("view.overlay-render-facts", "sink.rendered-overlay", {
     phase: "overlay-view-facts",
     terminal: "render-result",
+  }));
+});
+
+// Class-b: the view model names semantic pointer affordances, and the DOM
+// adapter owns the concrete cursor mapping. Align plain hover advertises native
+// map pan, Shift hover advertises overlay movement, and an active plain pan
+// switches to the browser's grabbing cursor until the sequence ends.
+test("overlay adapter maps semantic pointer affordances to cursors", () => {
+  const trace = createFlowTrace({
+    file: import.meta.url,
+    test: "overlay adapter maps semantic pointer affordances to cursors",
+  });
+  const { window } = new JSDOM("<!doctype html><body></body>");
+  const overlay = createOverlayAdapter({
+    document: window.document,
+  });
+
+  const root = renderOverlay(overlay, visibleOverlay());
+  overlay.bindInput(root);
+  const image = root.querySelector("[data-overlay-image]");
+  const frame = root.querySelector(".id-overlay-frame");
+
+  assert.equal(image.style.cursor, "grab");
+  assert.equal(frame.style.cursor, "grab");
+
+  window.dispatchEvent(new window.KeyboardEvent("keydown", {
+    key: "Shift",
+    shiftKey: true,
+  }));
+  assert.equal(image.style.cursor, "move");
+  assert.equal(frame.style.cursor, "move");
+  assert.equal(overlay.update(visibleOverlay({
+    opacity: 0.6,
+  }), OVERLAY_EDITING_INPUT), true);
+  assert.equal(image.style.cursor, "move");
+  assert.equal(frame.style.cursor, "move");
+
+  window.dispatchEvent(new window.KeyboardEvent("keyup", {
+    key: "Shift",
+    shiftKey: false,
+  }));
+  assert.equal(image.style.cursor, "grab");
+  assert.equal(frame.style.cursor, "grab");
+
+  window.dispatchEvent(new window.KeyboardEvent("keydown", {
+    key: "Control",
+    ctrlKey: true,
+  }));
+  assert.match(image.style.cursor, /^url\("data:image\/svg\+xml,/u);
+  assert.match(image.style.cursor, /nwse-resize$/u);
+  assert.equal(frame.style.cursor, image.style.cursor);
+
+  window.dispatchEvent(new window.KeyboardEvent("keyup", {
+    key: "Control",
+    ctrlKey: false,
+  }));
+  assert.equal(image.style.cursor, "grab");
+  assert.equal(frame.style.cursor, "grab");
+
+  window.dispatchEvent(new window.KeyboardEvent("keydown", {
+    key: "Alt",
+    altKey: true,
+  }));
+  assert.match(image.style.cursor, /^url\("data:image\/svg\+xml,/u);
+  assert.match(image.style.cursor, /alias$/u);
+  assert.equal(frame.style.cursor, image.style.cursor);
+
+  window.dispatchEvent(new window.KeyboardEvent("keyup", {
+    key: "Alt",
+    altKey: false,
+  }));
+  assert.equal(image.style.cursor, "grab");
+  assert.equal(frame.style.cursor, "grab");
+
+  image.dispatchEvent(new window.MouseEvent("pointerdown", {
+    bubbles: true,
+    cancelable: true,
+    button: 0,
+    clientX: 10,
+    clientY: 20,
+  }));
+  assert.equal(image.style.cursor, "grabbing");
+  assert.equal(frame.style.cursor, "grabbing");
+  assert.equal(overlay.update(visibleOverlay({
+    opacity: 0.7,
+  }), OVERLAY_EDITING_INPUT), true);
+  assert.equal(image.style.cursor, "grabbing");
+  assert.equal(frame.style.cursor, "grabbing");
+
+  window.dispatchEvent(new window.MouseEvent("pointerup", {
+    bubbles: true,
+    cancelable: true,
+    button: 0,
+    clientX: 10,
+    clientY: 20,
+  }));
+  assert.equal(image.style.cursor, "grab");
+  assert.equal(frame.style.cursor, "grab");
+
+  window.dispatchEvent(new window.KeyboardEvent("keydown", {
+    key: "Shift",
+    shiftKey: true,
+  }));
+  window.dispatchEvent(new window.Event("blur"));
+  assert.equal(image.style.cursor, "grab");
+  assert.equal(frame.style.cursor, "grab");
+  trace.edge(flowEdge("view.overlay-pointer-affordances", "sink.rendered-overlay", {
+    phase: "cursor-mapping",
+    terminal: "render-result",
+  }));
+});
+
+// Class-b: the focused keyboard source may be outside the overlay host window,
+// for example OSM's embedded iD frame. Modifier affordances must update from
+// explicit host-supplied key event targets, not only after the next pointermove
+// happens to carry modifier state.
+test("overlay adapter updates modifier cursor from supplied keyboard targets", () => {
+  const trace = createFlowTrace({
+    file: import.meta.url,
+    test: "overlay adapter updates modifier cursor from supplied keyboard targets",
+  });
+  const { window } = new JSDOM("<!doctype html><body></body>");
+  const frameDom = new JSDOM("<!doctype html><body></body>");
+  const overlay = createOverlayAdapter({
+    document: window.document,
+    readModifierKeyEventTargets() {
+      return [
+        frameDom.window,
+        frameDom.window.document,
+      ];
+    },
+  });
+
+  const root = renderOverlay(overlay, visibleOverlay());
+  overlay.bindInput(root);
+  const image = root.querySelector("[data-overlay-image]");
+  const frame = root.querySelector(".id-overlay-frame");
+
+  assert.equal(image.style.cursor, "grab");
+  frameDom.window.document.dispatchEvent(new frameDom.window.KeyboardEvent("keydown", {
+    key: "Shift",
+    shiftKey: true,
+  }));
+  assert.equal(image.style.cursor, "move");
+  assert.equal(frame.style.cursor, "move");
+
+  frameDom.window.dispatchEvent(new frameDom.window.KeyboardEvent("keyup", {
+    key: "Shift",
+    shiftKey: false,
+  }));
+  assert.equal(image.style.cursor, "grab");
+  assert.equal(frame.style.cursor, "grab");
+
+  trace.edge(flowEdge("source.embedded-keyboard.shift", "sink.rendered-overlay.cursor", {
+    phase: "modifier-cursor",
+    terminal: "render-result",
+  }));
+});
+
+// Class-b: embedded editor frames are discovered opportunistically. If the
+// keyboard source appears after the overlay has already been bound, the next
+// overlay refresh must resubscribe modifier listeners without replacing the
+// overlay DOM or waiting for pointer movement.
+test("overlay adapter resubscribes modifier cursor targets on refresh", () => {
+  const trace = createFlowTrace({
+    file: import.meta.url,
+    test: "overlay adapter resubscribes modifier cursor targets on refresh",
+  });
+  const { window } = new JSDOM("<!doctype html><body></body>");
+  const frameDom = new JSDOM("<!doctype html><body></body>");
+  let modifierTargets = [];
+  const overlay = createOverlayAdapter({
+    document: window.document,
+    readModifierKeyEventTargets() {
+      return modifierTargets;
+    },
+  });
+
+  const root = renderOverlay(overlay, visibleOverlay());
+  overlay.bindInput(root);
+  const image = root.querySelector("[data-overlay-image]");
+
+  frameDom.window.dispatchEvent(new frameDom.window.KeyboardEvent("keydown", {
+    key: "Shift",
+    shiftKey: true,
+  }));
+  assert.equal(image.style.cursor, "grab");
+
+  modifierTargets = [frameDom.window];
+  assert.equal(overlay.update(visibleOverlay({
+    opacity: 0.8,
+  }), OVERLAY_EDITING_INPUT), true);
+  frameDom.window.dispatchEvent(new frameDom.window.KeyboardEvent("keydown", {
+    key: "Shift",
+    shiftKey: true,
+  }));
+  assert.equal(image.style.cursor, "move");
+
+  trace.edge(flowEdge("source.late-embedded-keyboard.shift", "sink.rendered-overlay.cursor", {
+    phase: "modifier-cursor-resubscribe",
+    terminal: "render-result",
+  }));
+});
+
+// Class-b: Trace/pass-through posture belongs to the native browser/map below
+// the overlay. The adapter should not supply an overlay cursor when the image
+// is not a hit-test target.
+test("overlay adapter leaves pass-through posture cursor to the native map", () => {
+  const trace = createFlowTrace({
+    file: import.meta.url,
+    test: "overlay adapter leaves pass-through posture cursor to the native map",
+  });
+  const { window } = new JSDOM("<!doctype html><body></body>");
+  const overlay = createOverlayAdapter({
+    document: window.document,
+  });
+
+  const root = overlay.render(visibleOverlay(), NATIVE_MAP_INPUT);
+  const image = root.querySelector("[data-overlay-image]");
+  const frame = root.querySelector(".id-overlay-frame");
+  assert.equal(image.style.pointerEvents, "none");
+  assert.equal(frame.style.pointerEvents, "none");
+  assert.equal(image.style.cursor, "");
+  assert.equal(frame.style.cursor, "");
+  trace.edge(flowEdge("view.overlay-pointer-affordances", "sink.native-browser-hit-testing", {
+    phase: "pass-through-cursor",
+    terminal: "pass-through",
   }));
 });
 
@@ -774,6 +1015,26 @@ function renderOverlay(overlay, overlayView) {
 
 function updateOverlay(overlay, overlayView) {
   return overlay.update(overlayView, OVERLAY_EDITING_INPUT);
+}
+
+function visibleOverlay(overrides = {}) {
+  return {
+    visible: true,
+    imageDataRef: "reference-image-data-1",
+    intrinsicSizePx: {
+      width: 640,
+      height: 480,
+    },
+    placement: {
+      x: 80,
+      y: 40,
+      scale: 1.25,
+      rotationRad: 0.1,
+    },
+    opacity: 0.5,
+    pins: [],
+    ...overrides,
+  };
 }
 
 function overlayWithMapPin({

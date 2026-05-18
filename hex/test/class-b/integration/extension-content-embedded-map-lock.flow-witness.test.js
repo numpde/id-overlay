@@ -5,6 +5,7 @@ import { JSDOM } from "jsdom";
 import {
   createContentOverlayTrace,
   createStartedContentHarness,
+  dispatchKeyboard,
   dispatchPointer,
   flushMicrotasks,
   renderedOverlayImage,
@@ -99,6 +100,64 @@ test("extension content keeps Align map-locked overlay moving with embedded map"
   trace.edge(flowEdge("callback.live-map-snapshot", "sink.render", {
     phase: "embedded-align-map-lock",
     terminal: "view-result",
+  }));
+});
+
+// Class-b: OpenStreetMap edit can keep keyboard focus inside the embedded iD
+// frame while the extension overlay is under the pointer in the host document.
+// Align cursor affordances must therefore hear modifier keys from the active
+// embedded map keyboard source immediately, not only after the next pointermove.
+test("extension content updates Align cursor from embedded iD modifier keys", async () => {
+  const trace = createTrace("extension content updates Align cursor from embedded iD modifier keys");
+  const { window, chromeApi } = createStartedContentHarness({
+    durableState: alignMapLockedState(),
+  });
+  const { frameWindow } = installEmbeddedEditorFrame(window, {
+    frameHash: "#map=0/0/0",
+    surfaceTransform: "none",
+  });
+
+  await startContent({ trace, window, chromeApi, phase: "embedded-align-modifier-cursor" });
+  const image = renderedOverlayImage(window.document);
+  assert.equal(image.style.cursor, "grab");
+
+  dispatchKeyboard(frameWindow, frameWindow.document, "keydown", {
+    key: "Shift",
+    shiftKey: true,
+  });
+  assert.equal(image.style.cursor, "move");
+
+  dispatchKeyboard(frameWindow, frameWindow.document, "keyup", {
+    key: "Shift",
+    shiftKey: false,
+  });
+  assert.equal(image.style.cursor, "grab");
+
+  dispatchKeyboard(frameWindow, frameWindow.document, "keydown", {
+    key: "Control",
+    ctrlKey: true,
+  });
+  assert.match(image.style.cursor, /nwse-resize$/u);
+  dispatchKeyboard(frameWindow, frameWindow.document, "keyup", {
+    key: "Control",
+    ctrlKey: false,
+  });
+  assert.equal(image.style.cursor, "grab");
+
+  dispatchKeyboard(frameWindow, frameWindow.document, "keydown", {
+    key: "Alt",
+    altKey: true,
+  });
+  assert.match(image.style.cursor, /alias$/u);
+  dispatchKeyboard(frameWindow, frameWindow.document, "keyup", {
+    key: "Alt",
+    altKey: false,
+  });
+  assert.equal(image.style.cursor, "grab");
+
+  trace.edge(flowEdge("source.embedded-id-frame-keyboard.modifier", "sink.rendered-overlay.cursor", {
+    phase: "embedded-align-modifier-cursor",
+    terminal: "render-result",
   }));
 });
 

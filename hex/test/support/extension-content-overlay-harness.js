@@ -105,7 +105,7 @@ export function dispatchMouse(window, target, type, options) {
 }
 
 export function dispatchWheel(window, target, modifiers = {}) {
-  target.dispatchEvent(new window.WheelEvent("wheel", {
+  const event = new window.WheelEvent("wheel", {
     bubbles: true,
     cancelable: true,
     composed: true,
@@ -113,7 +113,9 @@ export function dispatchWheel(window, target, modifiers = {}) {
     clientY: 320,
     deltaY: -100,
     ...modifiers,
-  }));
+  });
+  target.dispatchEvent(event);
+  return event;
 }
 
 export function dispatchKeyboard(window, target, type, options) {
