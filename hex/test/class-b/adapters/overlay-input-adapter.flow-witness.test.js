@@ -9,6 +9,9 @@ import {
   REGISTRATION_PIN_MARKER_TONE_PRESENTATION,
 } from "../../../adapters/ui/registration-pin-marker.js";
 import {
+  UI_COLOR_TOKEN,
+} from "../../../adapters/ui/ui-color-tokens.js";
+import {
   createFlowTrace,
   flowEdge,
 } from "../../support/flow-trace.js";
@@ -196,11 +199,13 @@ test("overlay adapter serializes display image URLs as CSS URL values", () => {
 
 // Class-b: legacy renders a separate thin frame around the reference image.
 // The frame is visible chrome, not input state: it must track the same rendered
-// box as the image whether or not the image is currently interactive.
-test("overlay adapter draws a thin legacy frame around the reference image", () => {
+// box as the image whether or not the image is currently interactive. Its color
+// follows the same mode token as the panel toggle so the overlay mode is visible
+// near the image, not only in the panel.
+test("overlay adapter draws a thin mode-colored frame around the reference image", () => {
   const trace = createFlowTrace({
     file: import.meta.url,
-    test: "overlay adapter draws a thin legacy frame around the reference image",
+    test: "overlay adapter draws a thin mode-colored frame around the reference image",
   });
   const { window } = new JSDOM("<!doctype html><body></body>");
   const overlay = createOverlayAdapter({
@@ -239,11 +244,64 @@ test("overlay adapter draws a thin legacy frame around the reference image", () 
   assert.equal(frame.style.height, image.style.height);
   assert.equal(frame.style.transform, image.style.transform);
   assert.equal(frame.style.transformOrigin, image.style.transformOrigin);
-  assert.equal(frame.style.border, "1px solid rgba(15, 23, 42, 0.42)");
+  assert.equal(frame.style.borderWidth, "1px");
+  assert.equal(frame.style.borderStyle, "solid");
+  assert.equal(frame.style.borderColor, UI_COLOR_TOKEN.align);
   assert.equal(frame.style.boxShadow, "inset 0 0 0 1px rgba(255, 255, 255, 0.36)");
   assert.equal(frame.style.boxSizing, "border-box");
   trace.edge(flowEdge("view.overlay-render-facts", "sink.rendered-overlay", {
-    phase: "legacy-reference-frame",
+    phase: "mode-colored-reference-frame",
+    terminal: "render-result",
+  }));
+});
+
+// Class-b: visual mode is separate from pointer posture. Align can temporarily
+// pass through to the native map, but the boundary should still match the Align
+// toggle color until the actual mode changes to Trace.
+test("overlay adapter frame color follows visual mode rather than hit-testing posture", () => {
+  const trace = createFlowTrace({
+    file: import.meta.url,
+    test: "overlay adapter frame color follows visual mode rather than hit-testing posture",
+  });
+  const { window } = new JSDOM("<!doctype html><body></body>");
+  const overlay = createOverlayAdapter({
+    document: window.document,
+  });
+  const overlayView = {
+    visible: true,
+    imageDataRef: "reference-image-data-1",
+    intrinsicSizePx: {
+      width: 640,
+      height: 480,
+    },
+    placement: {
+      x: 80,
+      y: 40,
+      scale: 1.25,
+      rotationRad: 0.1,
+    },
+    opacity: 0.5,
+    pins: [],
+  };
+  const nativeMapInput = {
+    kind: "native-map",
+    canEditOverlay: false,
+    arePinsVisible: false,
+    reason: "temporary-native-map-access",
+  };
+
+  const root = overlay.render(overlayView, nativeMapInput, {
+    mode: "align",
+  });
+  const frame = root.querySelector(".id-overlay-frame");
+  assert.equal(frame.style.borderColor, UI_COLOR_TOKEN.align);
+
+  assert.equal(overlay.update(overlayView, nativeMapInput, {
+    mode: "trace",
+  }), true);
+  assert.equal(frame.style.borderColor, UI_COLOR_TOKEN.trace);
+  trace.edge(flowEdge("view.overlay-visual-mode", "sink.rendered-overlay", {
+    phase: "toggle-color-boundary",
     terminal: "render-result",
   }));
 });

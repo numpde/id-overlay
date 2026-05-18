@@ -39,11 +39,11 @@ test("extension content commits rendered Align alt-wheel opacity", async () => {
   traceContentOverlayEdit(trace, "alt-wheel-align", "command.set-opacity");
 });
 
-// Class-b: the panel opacity slider is the visible semantic opacity control.
-// Dragging it must flow through the browser shell into durable application state,
-// not stop as a local DOM-only range value.
-test("extension content commits rendered panel opacity slider input", async () => {
-  const trace = createTrace("extension content commits rendered panel opacity slider input");
+// Class-b: the panel opacity slider is a continuous browser-owned interaction.
+// Dragging the thumb must not write durable state on every `input`; durability
+// starts only when the browser commits the value with `change`.
+test("extension content previews rendered panel opacity input and commits on change", async () => {
+  const trace = createTrace("extension content previews rendered panel opacity input and commits on change");
   const { window, chromeApi } = createStartedContentHarness({
     durableState: durableImageState({
       mode: "align",
@@ -64,22 +64,38 @@ test("extension content commits rendered panel opacity slider input", async () =
   });
   await flushMicrotasks();
 
+  assert.deepEqual(chromeApi.latestSet?.["id-overlay.durable-state"], undefined);
+  assert.deepEqual(chromeApi.records["id-overlay.durable-state"].session.opacity, 0.6);
+  assert.equal(renderedOverlayImage(window.document).style.opacity, "0.25");
+  trace.edge(flowEdge("source.rendered-panel.opacity.input", "sink.local-opacity-preview", {
+    phase: "panel-opacity-preview",
+    terminal: "render-result",
+  }));
+
+  trace.withSource("source.rendered-panel.opacity.change", () => {
+    opacity.dispatchEvent(new window.Event("change", {
+      bubbles: true,
+      composed: true,
+    }));
+  });
+  await flushMicrotasks();
+
   assert.equal(chromeApi.latestSet?.["id-overlay.durable-state"]?.session.opacity, 0.25);
   assert.equal(renderedOverlayImage(window.document).style.opacity, "0.25");
-  trace.edge(flowEdge("source.rendered-panel.opacity.input", "command.set-opacity", {
-    phase: "panel-opacity",
+  trace.edge(flowEdge("source.rendered-panel.opacity.change", "command.set-opacity", {
+    phase: "panel-opacity-commit",
     provider: "extension-ui-host",
   }));
   trace.edge(flowEdge("command.set-opacity", "effect.persist-durable-state", {
-    phase: "panel-opacity",
+    phase: "panel-opacity-commit",
     provider: "application-effect",
   }));
   trace.edge(flowEdge("effect.persist-durable-state", "port.durable-state.write", {
-    phase: "panel-opacity",
+    phase: "panel-opacity-commit",
     provider: "browser-shell",
   }));
   trace.edge(flowEdge("port.durable-state.write", "sink.durable-state.write", {
-    phase: "panel-opacity",
+    phase: "panel-opacity-commit",
     terminal: "storage-write",
   }));
 });

@@ -53,6 +53,9 @@ import {
   bootstrapBrowserExtension,
 } from "./index.js";
 import {
+  createHotPathWatchdog,
+} from "./hot-path-watchdog.js";
+import {
   createContentEventDebugLogger,
   installSurfaceMotionBridge,
 } from "./content-script-bridges.js";
@@ -121,6 +124,10 @@ function createBrowserHost({
     ownerWindow,
     chromeApi,
   });
+  const hotPathWatchdog = createHotPathWatchdog({
+    eventDebugLogger,
+    consoleObject: ownerWindow.console ?? globalThis.console,
+  });
   let pageWorldSurfaceMotion = null;
   let notifyPageSnapshotChange = () => {};
   const surfaceMotionBridge = installSurfaceMotionBridge({
@@ -138,6 +145,7 @@ function createBrowserHost({
   const uiHost = createExtensionUiHost({
     document,
     eventDebugLogger,
+    hotPathWatchdog,
   });
   const activeMapContextAdapter = createActiveMapContextAdapter({
     readLocation: () => location ?? ownerWindow.location,
@@ -202,6 +210,7 @@ function createBrowserHost({
     pageContext: activeMapContextAdapter.readActiveMapContext(),
     ownerWindow,
     eventDebugLogger,
+    hotPathWatchdog,
     durableStatePort: createStoragePortAdapter({
       storageArea: chromeApi?.storage?.local ?? memoryStorageArea(),
       storageKey: STORE_KEY,

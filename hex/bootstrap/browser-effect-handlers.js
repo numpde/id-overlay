@@ -19,6 +19,12 @@ export function createBrowserEffectHandlers({
   return {
     "persist-durable-state": async (effect) => {
       try {
+        host.hotPathWatchdog?.noteSink?.({
+          sink: "durable-state-write",
+          detail: {
+            effect: "persist-durable-state",
+          },
+        });
         await host.durableStatePort?.writeDurableState(effect.durableState);
       } catch (error) {
         reportHostError(host, error);

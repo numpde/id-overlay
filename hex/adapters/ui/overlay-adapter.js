@@ -16,6 +16,9 @@ import {
   REGISTRATION_OVERLAY_PIN_MARKER_PRESENTATION,
   registrationPinMarkerTonePresentation,
 } from "./registration-pin-marker.js";
+import {
+  UI_COLOR_TOKEN,
+} from "./ui-color-tokens.js";
 
 const DRAG_THRESHOLD_PX = 8;
 
@@ -29,6 +32,7 @@ export function createOverlayAdapter({
   let boundSurface = null;
   let renderedOverlay = null;
   let renderedRoot = null;
+  let renderedVisualMode = "align";
 
   const globalPointerHandlers = {
     handleGlobalPointerMove(event) {
@@ -40,8 +44,9 @@ export function createOverlayAdapter({
   };
 
   return {
-    render(overlay, overlayInput) {
+    render(overlay, overlayInput, visualChrome = {}) {
       overlayInput = requireOverlayInput(overlayInput);
+      renderedVisualMode = visualModeFromChrome(visualChrome, overlayInput);
       renderedOverlay = overlay;
       const root = document.createElement("div");
       renderedRoot = root;
@@ -71,7 +76,7 @@ export function createOverlayAdapter({
       const frame = document.createElement("div");
       frame.className = OVERLAY_DOM_CLASS.frame;
       applyFrameChrome(frame);
-      patchFrame(frame, overlay, overlayInput);
+      patchFrame(frame, overlay, overlayInput, renderedVisualMode);
       mapLayer.append(frame);
 
       const mapPinLayer = document.createElement("div");
@@ -96,22 +101,32 @@ export function createOverlayAdapter({
 
       return root;
     },
-    update(overlay, overlayInput) {
+    update(overlay, overlayInput, visualChrome = {}) {
       overlayInput = requireOverlayInput(overlayInput);
+      const visualMode = visualModeFromChrome(visualChrome, overlayInput);
       if (!patchRenderedOverlay({
         root: renderedRoot,
         overlay,
         overlayInput,
+        visualMode,
       })) {
         return false;
       }
       renderedOverlay = overlay;
+      renderedVisualMode = visualMode;
       eventDebugLogger?.log("overlay.dom", "projection-patched", overlayDomDebugSummary({
         overlayRoot: renderedRoot,
         overlay,
         overlayInput,
       }));
       return true;
+    },
+    previewOpacity(opacity) {
+      const image = renderedRoot?.querySelector(OVERLAY_DOM_SELECTOR.image);
+      if (!image) {
+        return;
+      }
+      image.style.opacity = String(opacity);
     },
     bindInput(surface) {
       unbindSurfaceInput();
@@ -384,6 +399,7 @@ function patchRenderedOverlay({
   root,
   overlay,
   overlayInput,
+  visualMode,
 }) {
   if (!root) {
     return false;
@@ -411,7 +427,7 @@ function patchRenderedOverlay({
   patchViewport(root, overlay.viewport);
   patchMapLayer(mapLayer, overlay);
   patchImage(image, overlay, overlayInput);
-  patchFrame(frame, overlay, overlayInput);
+  patchFrame(frame, overlay, overlayInput, visualMode);
   const mapPinsPatched = patchMapPinLayer({
     pinLayer: mapPinLayer,
     pins: overlay.mapPins ?? [],
@@ -488,7 +504,8 @@ function patchImage(image, overlay, overlayInput) {
   applyImagePresentation(image, overlay);
 }
 
-function patchFrame(frame, overlay, overlayInput) {
+function patchFrame(frame, overlay, overlayInput, visualMode) {
+  frame.style.borderColor = frameBorderColor(visualMode);
   if (overlay.frame) {
     applyPlacementBox(frame, overlay.frame);
     frame.style.display = "block";
@@ -639,10 +656,22 @@ function applyImagePresentation(image, overlay) {
 
 function applyFrameChrome(frame) {
   frame.style.position = "absolute";
-  frame.style.border = "1px solid rgba(15, 23, 42, 0.42)";
+  frame.style.borderWidth = "1px";
+  frame.style.borderStyle = "solid";
   frame.style.boxShadow = "inset 0 0 0 1px rgba(255, 255, 255, 0.36)";
   frame.style.boxSizing = "border-box";
   frame.style.userSelect = "none";
+}
+
+function visualModeFromChrome(visualChrome, overlayInput) {
+  if (visualChrome?.mode === "trace" || visualChrome?.mode === "align") {
+    return visualChrome.mode;
+  }
+  return overlayInput.kind === "native-map" ? "trace" : "align";
+}
+
+function frameBorderColor(visualMode) {
+  return visualMode === "trace" ? UI_COLOR_TOKEN.trace : UI_COLOR_TOKEN.align;
 }
 
 function applyInlineFramePresentation(frame, overlay) {

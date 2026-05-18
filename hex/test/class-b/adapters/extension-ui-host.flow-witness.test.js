@@ -384,6 +384,168 @@ test("extension UI host routes panel header drag to panel chrome", () => {
   ]);
 });
 
+// Class-b: page observation can re-render while a browser-owned panel drag is
+// still in progress. That render must not reapply stale persisted panel chrome
+// over the active local preview; otherwise the panel visibly snaps under the
+// pointer and the drag feels slow.
+test("extension UI host preserves active panel drag preview across ambient render", () => {
+  const trace = createExtensionUiHostTrace("extension UI host preserves active panel drag preview across ambient render");
+  const { window } = new JSDOM("<!doctype html><body></body>");
+  const panelChromeChanges = [];
+  const uiHost = createExtensionUiHost({
+    document: window.document,
+  });
+  const root = trace.withSource("source.extension-ui-host.mount", () => {
+    const mountedRoot = uiHost.mountOwnedRoot("id-overlay");
+    trace.edge(flowEdge("source.extension-ui-host.mount", "sink.extension-ui-root", {
+      terminal: "shell-resource",
+    }));
+    return mountedRoot;
+  });
+  const view = createMinimalViewModel();
+  const panelChrome = {
+    position: {
+      screenPx: {
+        x: 728,
+        y: 16,
+      },
+    },
+  };
+
+  trace.withSource("source.extension-ui-host.render", () => {
+    uiHost.renderApplicationView({
+      root,
+      panelChrome,
+      view,
+      dispatchCommand() {},
+      dispatchPanelChromeChange(change) {
+        panelChromeChanges.push(change);
+        trace.edge(flowEdge("source.panel.drag.commit", "sink.panel-chrome.change", {
+          terminal: "shell-preference",
+        }));
+      },
+    });
+    trace.edge(flowEdge("source.extension-ui-host.render", "sink.panel-dom", {
+      phase: "initial-panel-chrome",
+      terminal: "render-result",
+    }));
+  });
+
+  const innerPanel = root.panel.querySelector(".id-overlay-panel");
+  innerPanel.getBoundingClientRect = () => ({
+    left: 728,
+    top: 16,
+    width: 280,
+    height: 220,
+    right: 1008,
+    bottom: 236,
+    x: 728,
+    y: 16,
+    toJSON() {
+      return this;
+    },
+  });
+  const header = innerPanel.querySelector(".id-overlay-panel__header");
+  trace.withSource("source.panel.drag.preview", () => {
+    header.dispatchEvent(new window.MouseEvent("pointerdown", {
+      bubbles: true,
+      cancelable: true,
+      button: 0,
+      clientX: 760,
+      clientY: 40,
+    }));
+    window.dispatchEvent(new window.MouseEvent("pointermove", {
+      bubbles: true,
+      cancelable: true,
+      button: 0,
+      clientX: 620,
+      clientY: 110,
+    }));
+    trace.edge(flowEdge("source.panel.drag.preview", "sink.panel-dom", {
+      phase: "local-preview",
+      terminal: "render-result",
+    }));
+  });
+  assert.equal(root.panel.style.left, "588px");
+  assert.equal(root.panel.style.top, "86px");
+  assert.deepEqual(panelChromeChanges, []);
+
+  trace.withSource("source.page-observation.render", () => {
+    uiHost.renderApplicationView({
+      root,
+      panelChrome,
+      view: {
+        ...view,
+        overlay: visibleOverlay({
+          pageSurfaceMotion: {
+            transformCss: "matrix(1, 0, 0, 1, 12, 0)",
+            transformOriginCss: "0px 0px",
+          },
+        }),
+      },
+      dispatchCommand() {},
+      dispatchPanelChromeChange(change) {
+        panelChromeChanges.push(change);
+      },
+    });
+    trace.edge(flowEdge("source.page-observation.render", "sink.panel-dom", {
+      phase: "active-drag-preserved",
+      terminal: "render-result",
+    }));
+  });
+
+  assert.equal(root.panel.style.left, "588px");
+  assert.equal(root.panel.style.top, "86px");
+  assert.deepEqual(panelChromeChanges, []);
+
+  trace.withSource("source.panel.drag.commit", () => {
+    window.dispatchEvent(new window.MouseEvent("pointerup", {
+      bubbles: true,
+      cancelable: true,
+      button: 0,
+      clientX: 620,
+      clientY: 110,
+    }));
+  });
+
+  assert.deepEqual(panelChromeChanges, [{
+    position: {
+      requestedScreenPx: {
+        x: 588,
+        y: 86,
+      },
+      panelSizePx: {
+        width: 280,
+        height: 220,
+      },
+      viewportPx: {
+        width: 1024,
+        height: 768,
+      },
+    },
+  }]);
+  assert.deepEqual(trace.edges, [
+    flowEdge("source.extension-ui-host.mount", "sink.extension-ui-root", {
+      terminal: "shell-resource",
+    }),
+    flowEdge("source.extension-ui-host.render", "sink.panel-dom", {
+      phase: "initial-panel-chrome",
+      terminal: "render-result",
+    }),
+    flowEdge("source.panel.drag.preview", "sink.panel-dom", {
+      phase: "local-preview",
+      terminal: "render-result",
+    }),
+    flowEdge("source.page-observation.render", "sink.panel-dom", {
+      phase: "active-drag-preserved",
+      terminal: "render-result",
+    }),
+    flowEdge("source.panel.drag.commit", "sink.panel-chrome.change", {
+      terminal: "shell-preference",
+    }),
+  ]);
+});
+
 // Class-b: restored or dragged panel chrome is the user's preference; viewport
 // resize is environmental pressure. The host must keep the rendered panel
 // reachable without rewriting shell preference, and restore the preference when
@@ -1079,6 +1241,76 @@ test("extension UI host patches status copy without replacing panel controls", (
     }),
     flowEdge("source.panel.status-rerender", "sink.panel-dom", {
       phase: "status-text-patch",
+      terminal: "render-result",
+    }),
+  ]);
+});
+
+// Class-b: the title is user-facing state, not static panel chrome. Mode/image
+// changes should update the visible heading without rebuilding active controls.
+test("extension UI host patches panel title without replacing controls", () => {
+  const trace = createExtensionUiHostTrace("extension UI host patches panel title without replacing controls");
+  const { window } = new JSDOM("<!doctype html><body></body>");
+  const uiHost = createExtensionUiHost({
+    document: window.document,
+  });
+  const root = trace.withSource("source.extension-ui-host.mount", () => {
+    const mountedRoot = uiHost.mountOwnedRoot("id-overlay");
+    trace.edge(flowEdge("source.extension-ui-host.mount", "sink.extension-ui-root", {
+      terminal: "shell-resource",
+    }));
+    return mountedRoot;
+  });
+  const firstView = createMinimalViewModel({
+    panelTitle: "Overlay: no image",
+  });
+
+  trace.withSource("source.extension-ui-host.render", () => {
+    uiHost.renderApplicationView({
+      root,
+      view: firstView,
+      dispatchCommand() {},
+      dispatchInteractionFact() {},
+    });
+    trace.edge(flowEdge("source.extension-ui-host.render", "sink.panel-dom", {
+      phase: "initial-title",
+      terminal: "render-result",
+    }));
+  });
+  const title = root.panel.querySelector(".id-overlay-panel__title");
+  const primary = root.panel.querySelector("[data-control='primary']");
+  assert.ok(title, "panel title must render");
+  assert.ok(primary, "primary action must render");
+
+  trace.withSource("source.panel.title-rerender", () => {
+    uiHost.renderApplicationView({
+      root,
+      view: {
+        ...firstView,
+        panelTitle: "Overlay: align mode",
+      },
+      dispatchCommand() {},
+      dispatchInteractionFact() {},
+    });
+    trace.edge(flowEdge("source.panel.title-rerender", "sink.panel-dom", {
+      phase: "title-patch",
+      terminal: "render-result",
+    }));
+  });
+
+  assert.equal(root.panel.querySelector(".id-overlay-panel__title"), title);
+  assert.equal(root.panel.querySelector("[data-control='primary']"), primary);
+  assert.equal(title.textContent, "Overlay: align mode");
+  assert.deepEqual(trace.edges, [
+    flowEdge("source.extension-ui-host.mount", "sink.extension-ui-root", {
+      terminal: "shell-resource",
+    }),
+    flowEdge("source.extension-ui-host.render", "sink.panel-dom", {
+      phase: "initial-title",
+      terminal: "render-result",
+    }),
+    flowEdge("source.panel.title-rerender", "sink.panel-dom", {
+      phase: "title-patch",
       terminal: "render-result",
     }),
   ]);
@@ -2016,6 +2248,7 @@ function readCssBlock(css, selector) {
 
 function createMinimalViewModel(overrides = {}) {
   return {
+    panelTitle: "Overlay: no image",
     primaryAction: {
       label: "Paste",
       enabled: true,

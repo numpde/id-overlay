@@ -4,12 +4,18 @@ import {
 import {
   createPanelViewportPositioner,
 } from "./panel-viewport-positioner.js";
+import {
+  resolvePanelPosition,
+} from "./panel-position-adapter.js";
 
 export function createExtensionPanelRenderer({
   document,
   eventDebugLogger = null,
+  hotPathWatchdog = null,
 }) {
   let positioner = null;
+  let positionedPanel = null;
+  let isPanelPositionPreviewActive = false;
 
   return {
     renderPanel({
@@ -18,17 +24,20 @@ export function createExtensionPanelRenderer({
       view,
       dispatchCommand = () => {},
       dispatchPanelChromeChange = () => {},
+      previewOpacity = () => {},
     }) {
-      applyPanelChrome({
-        panel: root.panel,
-        panelChrome,
-      });
       bindPanelPositioner({
         ownerWindow: document.defaultView,
         panel: root.panel,
         eventDebugLogger,
       });
-      positioner?.setPreferredScreenPx(panelChrome?.position?.screenPx ?? null);
+      if (!isPanelPositionPreviewActive) {
+        applyPanelChrome({
+          panel: root.panel,
+          panelChrome,
+        });
+        positioner?.setPreferredScreenPx(panelChrome?.position?.screenPx ?? null);
+      }
       const panelSignature = panelRenderSignature(view);
       if (root.panelRenderSignature === panelSignature) {
         const patchResult = patchMutablePanelFacts({
@@ -51,7 +60,18 @@ export function createExtensionPanelRenderer({
             position,
           });
         },
+        previewPanelPosition(position) {
+          applyPreviewPanelPosition({
+            panel: root.panel,
+            position,
+          });
+        },
+        setPanelPositionPreviewActive(active) {
+          isPanelPositionPreviewActive = active;
+        },
+        previewOpacity,
         eventDebugLogger,
+        hotPathWatchdog,
       });
       root.panel.replaceChildren(panelAdapter.render(view));
       root.panelRenderSignature = panelSignature;
@@ -66,6 +86,8 @@ export function createExtensionPanelRenderer({
     destroy() {
       positioner?.destroy();
       positioner = null;
+      positionedPanel = null;
+      isPanelPositionPreviewActive = false;
     },
   };
 
@@ -83,9 +105,14 @@ export function createExtensionPanelRenderer({
         panel,
         eventDebugLogger,
       });
+      positionedPanel = panel;
+      return;
+    }
+    if (positionedPanel === panel) {
       return;
     }
     positioner.setPanel(panel);
+    positionedPanel = panel;
   }
 }
 
@@ -98,6 +125,18 @@ function applyPanelChrome({
   }
   panel.style.left = `${panelChrome.position.screenPx.x}px`;
   panel.style.top = `${panelChrome.position.screenPx.y}px`;
+  panel.style.right = "auto";
+  panel.style.bottom = "auto";
+}
+
+function applyPreviewPanelPosition({
+  panel,
+  position,
+}) {
+  const resolved = resolvePanelPosition(position);
+  panel.dataset.idOverlayPanelMotion = "direct";
+  panel.style.left = `${resolved.x}px`;
+  panel.style.top = `${resolved.y}px`;
   panel.style.right = "auto";
   panel.style.bottom = "auto";
 }
@@ -158,9 +197,24 @@ function patchMutablePanelFacts({
     panel,
     view,
   });
+  patchPanelTitle({
+    panel,
+    panelTitle: view.panelTitle,
+  });
   return {
     contentSizeMayChange: statusChanged,
   };
+}
+
+function patchPanelTitle({
+  panel,
+  panelTitle,
+}) {
+  const title = panel.querySelector(".id-overlay-panel__title");
+  if (!title) {
+    return;
+  }
+  title.textContent = String(panelTitle ?? "");
 }
 
 function patchActionControls({

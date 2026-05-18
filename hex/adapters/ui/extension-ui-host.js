@@ -12,6 +12,7 @@ export function createExtensionUiHost({
   document,
   displayImageResourcePort = null,
   eventDebugLogger = null,
+  hotPathWatchdog = null,
 }) {
   const overlayRenderer = createExtensionOverlayRenderer({
     document,
@@ -21,6 +22,7 @@ export function createExtensionUiHost({
   const panelRenderer = createExtensionPanelRenderer({
     document,
     eventDebugLogger,
+    hotPathWatchdog,
   });
 
   return {
@@ -55,6 +57,11 @@ export function createExtensionUiHost({
         view,
         dispatchCommand,
         dispatchPanelChromeChange,
+        previewOpacity(opacity) {
+          overlayRenderer.previewOpacity({
+            opacity,
+          });
+        },
       });
     },
   };

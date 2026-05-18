@@ -10,7 +10,11 @@ export function createPanelAdapter({
   document,
   emitCommand = () => {},
   writePanelPosition = () => {},
+  previewPanelPosition = () => {},
+  setPanelPositionPreviewActive = () => {},
+  previewOpacity = () => {},
   eventDebugLogger = null,
+  hotPathWatchdog = null,
 }) {
   return {
     render(view) {
@@ -18,7 +22,9 @@ export function createPanelAdapter({
       root.className = "id-overlay-panel";
       root.dataset.idOverlayOwned = "true";
 
-      const header = renderPanelHeader(document);
+      const header = renderPanelHeader(document, {
+        panelTitle: view.panelTitle,
+      });
       root.append(header);
 
       root.append(renderControlsRow({
@@ -31,7 +37,9 @@ export function createPanelAdapter({
         document,
         view,
         emitCommand,
+        previewOpacity,
         eventDebugLogger,
+        hotPathWatchdog,
       }));
       root.append(renderStatus({
         document,
@@ -42,7 +50,10 @@ export function createPanelAdapter({
         handle: header,
         ownerWindow: document.defaultView,
         writePanelPosition,
+        previewPanelPosition,
+        setPanelPositionPreviewActive,
         eventDebugLogger,
+        hotPathWatchdog,
       });
 
       return root;
@@ -50,7 +61,9 @@ export function createPanelAdapter({
   };
 }
 
-function renderPanelHeader(document) {
+function renderPanelHeader(document, {
+  panelTitle,
+}) {
   const header = document.createElement("div");
   header.className = "id-overlay-panel__header";
   header.title = "Drag to move";
@@ -58,7 +71,7 @@ function renderPanelHeader(document) {
   titleRow.className = "id-overlay-panel__title-row";
   const title = document.createElement("h1");
   title.className = "id-overlay-panel__title";
-  title.textContent = "Reference Overlay";
+  title.textContent = panelTitle;
   const repoLink = document.createElement("a");
   repoLink.className = "id-overlay-panel__repo-link";
   repoLink.href = "https://github.com/numpde/id-overlay";
@@ -282,7 +295,9 @@ function renderOpacityField({
   document,
   view,
   emitCommand,
+  previewOpacity,
   eventDebugLogger,
+  hotPathWatchdog,
 }) {
   const opacityControl = requireViewFact(view.opacityControl, "opacityControl");
   const opacityGroup = document.createElement("label");
@@ -314,12 +329,50 @@ function renderOpacityField({
       });
       return;
     }
+    hotPathWatchdog?.begin({
+      interaction: "opacity-slider",
+      source: "panel.opacity.input",
+    });
     opacity.value = String(nextOpacity);
+    previewOpacity(nextOpacity);
+    eventDebugLogger?.log("panel.handler", "opacity-input-preview", {
+      opacity: nextOpacity,
+    });
+  });
+  opacity.addEventListener("change", () => {
+    if (opacity.disabled) {
+      hotPathWatchdog?.end({
+        interaction: "opacity-slider",
+      });
+      eventDebugLogger?.log("panel.command", "opacity-change-ignored", {
+        reason: "disabled",
+      });
+      return;
+    }
+    const nextOpacity = clampedOpacityValue(opacity);
+    if (nextOpacity === null) {
+      hotPathWatchdog?.end({
+        interaction: "opacity-slider",
+      });
+      eventDebugLogger?.log("panel.command", "opacity-change-ignored", {
+        reason: "invalid-value",
+        value: opacity.value,
+      });
+      return;
+    }
+    opacity.value = String(nextOpacity);
+    previewOpacity(nextOpacity);
+    hotPathWatchdog?.commit({
+      interaction: "opacity-slider",
+    });
     emitCommand({
       kind: "set-opacity",
       opacity: nextOpacity,
     });
-    eventDebugLogger?.log("panel.command", "opacity-input-commit", {
+    hotPathWatchdog?.end({
+      interaction: "opacity-slider",
+    });
+    eventDebugLogger?.log("panel.command", "opacity-change-commit", {
       opacity: nextOpacity,
     });
   });
@@ -340,9 +393,15 @@ function renderOpacityField({
       Number(opacity.max),
     );
     opacity.value = String(nextOpacity);
+    hotPathWatchdog?.commit({
+      interaction: "opacity-slider-wheel",
+    });
     emitCommand({
       kind: "set-opacity",
       opacity: nextOpacity,
+    });
+    hotPathWatchdog?.end({
+      interaction: "opacity-slider-wheel",
     });
     eventDebugLogger?.log("panel.command", "opacity-wheel-commit", {
       opacity: nextOpacity,
@@ -390,7 +449,10 @@ function bindPanelDrag({
   handle,
   ownerWindow,
   writePanelPosition,
+  previewPanelPosition,
+  setPanelPositionPreviewActive,
   eventDebugLogger,
+  hotPathWatchdog,
 }) {
   const dragEvents = typeof ownerWindow?.PointerEvent === "function"
     ? {
@@ -421,7 +483,13 @@ function bindPanelDrag({
         width: rect.width,
         height: rect.height,
       },
+      latestPosition: null,
     };
+    hotPathWatchdog?.begin({
+      interaction: "panel-drag",
+      source: "panel.header.drag",
+    });
+    setPanelPositionPreviewActive(true);
     root.classList.add("id-overlay-panel--dragging");
     ownerWindow?.addEventListener(dragEvents.move, handleMove, true);
     ownerWindow?.addEventListener(dragEvents.end, handleEnd, true);
@@ -448,8 +516,9 @@ function bindPanelDrag({
         height: ownerWindow?.innerHeight ?? 0,
       },
     };
-    writePanelPosition(position);
-    eventDebugLogger?.log("panel.command", "drag-position", {
+    activeDrag.latestPosition = position;
+    previewPanelPosition(position);
+    eventDebugLogger?.log("panel.handler", "drag-position-preview", {
       requestedScreenPx: position.requestedScreenPx,
       panelSizePx: position.panelSizePx,
       viewportPx: position.viewportPx,
@@ -460,7 +529,24 @@ function bindPanelDrag({
     if (!activeDrag) {
       return;
     }
+    const isCanceled = event?.type === dragEvents.cancel;
+    const latestPosition = activeDrag.latestPosition;
+    if (latestPosition && !isCanceled) {
+      hotPathWatchdog?.commit({
+        interaction: "panel-drag",
+      });
+      writePanelPosition(latestPosition);
+      eventDebugLogger?.log("panel.command", "drag-position-commit", {
+        requestedScreenPx: latestPosition.requestedScreenPx,
+        panelSizePx: latestPosition.panelSizePx,
+        viewportPx: latestPosition.viewportPx,
+      });
+    }
     activeDrag = null;
+    setPanelPositionPreviewActive(false);
+    hotPathWatchdog?.end({
+      interaction: "panel-drag",
+    });
     root.classList.remove("id-overlay-panel--dragging");
     ownerWindow?.removeEventListener(dragEvents.move, handleMove, true);
     ownerWindow?.removeEventListener(dragEvents.end, handleEnd, true);

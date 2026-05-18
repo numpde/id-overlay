@@ -21,6 +21,7 @@ test("no-session view exposes Trace native-map posture and Paste primary action"
   }));
 
   assert.equal(view.mode, "trace");
+  assert.equal(view.panelTitle, "Overlay: no image");
   assert.equal(view.overlayInput.kind, "native-map");
   assert.equal(view.overlayInput.canEditOverlay, false);
   assert.equal(view.overlayInput.arePinsVisible, false);

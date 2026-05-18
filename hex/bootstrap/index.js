@@ -154,6 +154,12 @@ export async function bootstrapBrowserExtension(host) {
       });
       return;
     }
+    host.hotPathWatchdog?.noteSink?.({
+      sink: "map-view-write",
+      detail: {
+        command: "center-map-on-overlay",
+      },
+    });
     await host.mapViewPort?.setMapView?.(mapView);
     host.eventDebugLogger?.log?.("shell.command", "center-map-on-overlay", {
       mapView,
@@ -173,6 +179,9 @@ export async function bootstrapBrowserExtension(host) {
     });
     shell.panelChrome = nextChrome;
     try {
+      host.hotPathWatchdog?.noteSink?.({
+        sink: "panel-chrome-write",
+      });
       await host.panelChromePort?.writePanelChrome?.(nextChrome);
     } catch (error) {
       reportHostError(host, error);

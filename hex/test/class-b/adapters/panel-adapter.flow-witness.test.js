@@ -20,6 +20,7 @@ test("panel adapter renders from the view model only", () => {
   });
 
   const root = harness.render({
+    panelTitle: "Overlay: no image",
     primaryAction: {
       label: "Paste",
       enabled: true,
@@ -54,6 +55,7 @@ test("panel adapter renders from the view model only", () => {
     status: "Clipboard does not contain an image.",
   });
 
+  assert.equal(root.querySelector(".id-overlay-panel__title").textContent, "Overlay: no image");
   assert.equal(root.querySelector("[data-control='primary']").textContent, "Paste");
   assert.equal(root.querySelector("[data-control='center-overlay']").textContent, "");
   assert.equal(root.querySelector("[data-control='center-overlay']").getAttribute("aria-label"), "Move overlay into view");
@@ -92,7 +94,7 @@ test("panel adapter renders legacy panel chrome", () => {
   assert.equal(root.className, "id-overlay-panel");
   assert.equal(root.dataset.idOverlayOwned, "true");
   assert.equal(root.querySelector(".id-overlay-panel__header").title, "Drag to move");
-  assert.equal(root.querySelector(".id-overlay-panel__title").textContent, "Reference Overlay");
+  assert.equal(root.querySelector(".id-overlay-panel__title").textContent, "Overlay: trace mode");
   const repoLink = root.querySelector(".id-overlay-panel__repo-link");
   assert.equal(repoLink.getAttribute("aria-label"), "Open id-overlay on GitHub");
   assert.equal(repoLink.textContent, "");
@@ -135,6 +137,7 @@ test("panel adapter emits semantic commands only", () => {
   const centerOverlayCommandKind = "test-center-overlay-command";
   const centerMapCommandKind = "test-center-map-command";
   const root = harness.render({
+    panelTitle: "Overlay: trace mode",
     primaryAction: {
       label: "Paste",
       enabled: true,
@@ -333,12 +336,12 @@ test("panel opacity wheel emits a semantic opacity command", () => {
   ]);
 });
 
-// Class-b: the visible opacity control is a range input, not only a wheel
-// target. Dragging the slider must cross the same semantic command boundary as
-// wheel changes so the application owns durability and rerender state.
-test("panel opacity slider input emits a semantic opacity command", () => {
+// Class-b: range input is a continuous browser-owned interaction. While the
+// thumb is moving, the adapter may update local UI, but it must not emit a
+// semantic durable command until the browser commits the value with `change`.
+test("panel opacity slider input previews locally and commits on change", () => {
   const harness = createPanelHarness({
-    test: "panel opacity slider input emits a semantic opacity command",
+    test: "panel opacity slider input previews locally and commits on change",
   });
   const root = harness.render(panelView({
     opacity: 0.6,
@@ -354,12 +357,25 @@ test("panel opacity slider input emits a semantic opacity command", () => {
     }));
   });
 
+  assert.deepEqual(harness.commands, []);
+  assert.equal(opacityControl.value, "0.35");
+  harness.trace.edge(flowEdge("source.panel.opacity.input", "sink.panel-dom", {
+    phase: "local-preview",
+    terminal: "render-result",
+  }));
+
+  harness.trace.withSource("source.panel.opacity.change", () => {
+    opacityControl.dispatchEvent(new harness.window.Event("change", {
+      bubbles: true,
+    }));
+  });
+
   assert.deepEqual(harness.commands, [{
     kind: "set-opacity",
     opacity: 0.35,
   }]);
   assert.deepEqual(commandEdges(harness.trace), [
-    flowEdge("source.panel.opacity.input", "command.set-opacity", {
+    flowEdge("source.panel.opacity.change", "command.set-opacity", {
       provider: "panel-adapter",
     }),
   ]);
@@ -472,12 +488,12 @@ test("panel mode switch does not emit commands for disabled target modes", () =>
   ]);
 });
 
-// Class-b, deliberately not class-a: panel placement is runtime UI chrome, not
-// product state. The adapter may persist its local shell position, but dragging
-// the shell must not emit application commands.
-test("panel drag is adapter-local", () => {
+// Class-b: panel drag is a continuous browser-owned interaction. Pointer moves
+// must preview the panel position locally; shell preference persistence happens
+// once, when the pointer sequence commits.
+test("panel drag previews locally and commits one shell position on release", () => {
   const harness = createPanelHarness({
-    test: "panel drag is adapter-local",
+    test: "panel drag previews locally and commits one shell position on release",
   });
   const root = harness.render(panelView());
   root.getBoundingClientRect = () => ({
@@ -494,15 +510,86 @@ test("panel drag is adapter-local", () => {
     },
   });
 
-  harness.dragPanelHeader(root, {
-    fromScreenPx: {
-      x: 120,
-      y: 70,
+  const header = root.querySelector(".id-overlay-panel__header");
+  harness.trace.withSource("source.panel.drag.start", () => {
+    header.dispatchEvent(new harness.window.MouseEvent("pointerdown", {
+      bubbles: true,
+      cancelable: true,
+      button: 0,
+      clientX: 120,
+      clientY: 70,
+    }));
+  });
+  harness.trace.withSource("source.panel.drag.preview", () => {
+    harness.window.dispatchEvent(new harness.window.MouseEvent("pointermove", {
+      bubbles: true,
+      cancelable: true,
+      button: 0,
+      clientX: 150,
+      clientY: 100,
+    }));
+  });
+
+  assert.deepEqual(harness.positions, []);
+  assert.deepEqual(harness.previewActiveStates, [true]);
+  assert.deepEqual(harness.previewPositions, [{
+    requestedScreenPx: {
+      x: 130,
+      y: 80,
     },
-    toScreenPx: {
-      x: 180,
-      y: 140,
+    panelSizePx: {
+      width: 280,
+      height: 200,
     },
+    viewportPx: {
+      width: 1024,
+      height: 768,
+    },
+  }]);
+  assert.equal(root.classList.contains("id-overlay-panel--dragging"), true);
+  harness.trace.edge(flowEdge("source.panel.drag.preview", "sink.panel-dom", {
+    phase: "local-preview",
+    terminal: "render-result",
+  }));
+
+  harness.trace.withSource("source.panel.drag.preview", () => {
+    harness.window.dispatchEvent(new harness.window.MouseEvent("pointermove", {
+      bubbles: true,
+      cancelable: true,
+      button: 0,
+      clientX: 180,
+      clientY: 140,
+    }));
+  });
+
+  assert.deepEqual(harness.positions, []);
+  assert.deepEqual(harness.previewPositions.at(-1), {
+    requestedScreenPx: {
+      x: 160,
+      y: 120,
+    },
+    panelSizePx: {
+      width: 280,
+      height: 200,
+    },
+    viewportPx: {
+      width: 1024,
+      height: 768,
+    },
+  });
+  harness.trace.edge(flowEdge("source.panel.drag.preview", "sink.panel-dom", {
+    phase: "local-preview-2",
+    terminal: "render-result",
+  }));
+
+  harness.trace.withSource("source.panel.drag.commit", () => {
+    harness.window.dispatchEvent(new harness.window.MouseEvent("pointerup", {
+      bubbles: true,
+      cancelable: true,
+      button: 0,
+      clientX: 180,
+      clientY: 140,
+    }));
   });
 
   assert.deepEqual(harness.commands, []);
@@ -520,12 +607,21 @@ test("panel drag is adapter-local", () => {
       height: 768,
     },
   }]);
+  assert.deepEqual(harness.previewActiveStates, [true, false]);
   assert.equal(root.classList.contains("id-overlay-panel--dragging"), false);
   assert.deepEqual(harness.trace.edges, [
     flowEdge("view.panel", "sink.panel-dom", {
       terminal: "render-result",
     }),
-    flowEdge("source.panel.drag", "sink.panel-chrome.position", {
+    flowEdge("source.panel.drag.preview", "sink.panel-dom", {
+      phase: "local-preview",
+      terminal: "render-result",
+    }),
+    flowEdge("source.panel.drag.preview", "sink.panel-dom", {
+      phase: "local-preview-2",
+      terminal: "render-result",
+    }),
+    flowEdge("source.panel.drag.commit", "sink.panel-chrome.position", {
       terminal: "shell-preference",
     }),
   ]);
@@ -541,6 +637,7 @@ test("panel adapter exposes accessible control names and selected mode state", (
   });
 
   const root = harness.render({
+    panelTitle: "Overlay: align mode",
     primaryAction: {
       label: "Clear image",
       enabled: true,
@@ -592,6 +689,7 @@ test("panel adapter marks armed primary confirmation actions from view facts", (
   });
 
   const root = harness.render({
+    panelTitle: "Overlay: align mode",
     primaryAction: {
       label: "Clear image",
       enabled: true,
@@ -642,6 +740,8 @@ function createPanelHarness({ test }) {
   });
   const commands = [];
   const positions = [];
+  const previewPositions = [];
+  const previewActiveStates = [];
   let bubbledWheelCount = 0;
   const panel = createPanelAdapter({
     document: window.document,
@@ -658,6 +758,12 @@ function createPanelHarness({ test }) {
         terminal: "shell-preference",
       }));
     },
+    previewPanelPosition(position) {
+      previewPositions.push(position);
+    },
+    setPanelPositionPreviewActive(active) {
+      previewActiveStates.push(active);
+    },
   });
 
   return {
@@ -665,6 +771,8 @@ function createPanelHarness({ test }) {
     trace,
     commands,
     positions,
+    previewPositions,
+    previewActiveStates,
     get bubbledWheelCount() {
       return bubbledWheelCount;
     },
@@ -757,6 +865,7 @@ function panelView({
 } = {}) {
   return {
     mode,
+    panelTitle: hasImage ? `Overlay: ${mode} mode` : "Overlay: no image",
     primaryAction: {
       label: hasImage ? "Clear image" : "Paste",
       enabled: true,

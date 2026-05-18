@@ -36,7 +36,9 @@ export function createExtensionOverlayRenderer({
           && existingOverlayRoot
           && activeOverlayAdapter
       ) {
-        if (activeOverlayAdapter.update(overlayView, overlayInput)) {
+        if (activeOverlayAdapter.update(overlayView, overlayInput, {
+          mode: view.mode,
+        })) {
           return;
         }
       }
@@ -50,7 +52,9 @@ export function createExtensionOverlayRenderer({
         eventDebugLogger,
       });
       activeOverlayAdapter = overlayAdapter;
-      const overlayRoot = overlayAdapter.render(overlayView, overlayInput);
+      const overlayRoot = overlayAdapter.render(overlayView, overlayInput, {
+        mode: view.mode,
+      });
       root.overlay.replaceChildren(overlayRoot);
       root.overlayRenderSignature = overlaySignature;
       eventDebugLogger?.log("overlay.dom", "rendered", overlayDomDebugSummary({
@@ -61,6 +65,11 @@ export function createExtensionOverlayRenderer({
       if (view.overlay?.visible && overlayInput.kind !== "native-map") {
         overlayAdapter.bindInput(overlayRoot);
       }
+    },
+    previewOpacity({
+      opacity,
+    }) {
+      activeOverlayAdapter?.previewOpacity?.(opacity);
     },
     destroy() {
       activeOverlayAdapter?.destroy();

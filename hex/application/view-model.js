@@ -19,6 +19,7 @@ export function selectApplicationView(state, viewFeedback = null) {
   const overlay = overlayRenderFacts(state, mode);
   return {
     mode,
+    panelTitle: panelTitle(state, mode),
     overlay,
     overlayInput: overlayInputForState(state, mode),
     modeSwitch: {
@@ -36,6 +37,13 @@ export function selectApplicationView(state, viewFeedback = null) {
     centerOverlayInViewAction: centerOverlayInViewAction(state),
     status: statusText(state, viewFeedback),
   };
+}
+
+function panelTitle(state, mode) {
+  if (!state.session) {
+    return "Overlay: no image";
+  }
+  return `Overlay: ${mode} mode`;
 }
 
 function opacityControl(state) {

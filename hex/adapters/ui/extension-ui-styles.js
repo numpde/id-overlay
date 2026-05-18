@@ -1,3 +1,7 @@
+import {
+  UI_COLOR_TOKEN,
+} from "./ui-color-tokens.js";
+
 export const EXTENSION_UI_STYLES = `
 :host {
   --id-overlay-blue: #2563eb;
@@ -196,10 +200,10 @@ export const EXTENSION_UI_STYLES = `
   transition: background-color 120ms ease;
 }
 .id-overlay-mode-switch[data-mode="align"] .id-overlay-mode-switch__track {
-  background: var(--id-overlay-blue);
+  background: ${UI_COLOR_TOKEN.align};
 }
 .id-overlay-mode-switch[data-mode="trace"] .id-overlay-mode-switch__track {
-  background: var(--id-overlay-green);
+  background: ${UI_COLOR_TOKEN.trace};
 }
 .id-overlay-mode-switch__thumb {
   position: absolute;
